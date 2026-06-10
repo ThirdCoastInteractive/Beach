@@ -4,10 +4,11 @@
 
 No third-party engine. `ecs` is a standalone, zero-dependency archetype ECS with no
 knowledge of the-beach, hubs, or Postgres — importable by a game server, a simulation
-CLI, or any other project. [`sim`](08-sim.md) is the web-framework integration
-over it. The Go engines we surveyed (Ark, Arche, Donburi) are excellent but Go-bound;
-our core model is deliberately language-neutral so the same component definitions and
-data serve other contexts and, eventually, other runtimes.
+CLI, or any other Go project. [`sim`](08-sim.md) is the web-framework integration
+over it. We own the engine for two concrete reasons: tick-stamped change detection
+is the heart of the rendering pipeline and deserves to be native rather than bolted
+onto someone else's observer API, and a schema-first component model keeps the
+sqlc/templ "declare once, generate typed code" ethos.
 
 ## The portable core model
 
@@ -18,11 +19,10 @@ The container is an `ecs.Store` — entities and component columns, nothing more
 - **Entity**: a 64-bit handle — 32-bit index + 32-bit generation, so stale handles
   detect slot reuse. No pointers, no language-specific identity.
 - **Components**: plain data records declared once in a schema file
-  (`components.beach.yaml`). `beach ecs gen` generates the Go structs and typed
-  storage accessors — and the same schema emits the SQL component-mirror migrations
-  ([persistence](08-sim.md#persistence)) and JSON/TypeScript shapes when another
-  context needs them. One declaration, typed code everywhere: the sqlc/templ ethos
-  applied to app state.
+  (`components.beach.yaml`). `beach ecs gen` generates the Go structs, the typed
+  storage accessors, and the SQL component-mirror migrations
+  ([persistence](08-sim.md#persistence)). One declaration, typed code everywhere:
+  the sqlc/templ ethos applied to app state.
 - **Storage**: archetype tables with columnar (SoA) component arrays — the design that
   makes Ark/Arche fast for iteration-heavy, low-churn workloads like ours. Entities
   move between archetypes on component add/remove; queries iterate matching
@@ -36,8 +36,8 @@ The container is an `ecs.Store` — entities and component columns, nothing more
   bolt observers onto someone else's.
 - **Relationships**: entity-valued component fields (user→item, item→trade) with a
   storage-maintained reverse index for owner→items queries.
-- **Snapshots**: versioned CBOR with stable schema ids — portable across restarts,
-  binary-compatible across runtimes that share the schema.
+- **Snapshots**: versioned CBOR with stable schema ids — crash recovery and
+  restarts survive schema evolution.
 
 ## Non-features
 

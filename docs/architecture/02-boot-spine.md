@@ -1,4 +1,4 @@
-# Architecture 2 — Boot spine: `config`, `pg`, `pgnotify`
+# Architecture 2 — Boot spine: `config`, `pg`
 
 [← docs index](../README.md) · prev: [Layout](01-layout.md) · next: [HTTP layer](03-http.md)
 
@@ -21,10 +21,19 @@ type Core struct {
 
 ## pg
 
+One package for everything Postgres-connection-shaped: the pool, migrations,
+transactions, and LISTEN/NOTIFY. (Manifold kept the notify listener in its own
+package; at ~120 lines that only ever ride alongside the pool, it merged here in
+the grug pass.)
+
 ```go
 pool := pg.MustPool(ctx, cfg.DSN)              // pgxpool.New + Ping
 err  := pg.Migrate(ctx, pool, migrationsFS)    // goose + pg_advisory_lock serialization
 err  := pg.InTx(ctx, pool, func(tx pgx.Tx) error { ... })
+
+ch, err := pg.Listen(ctx, pool, "channel")     // dedicated conn, auto-reconnect,
+                                               // 1s→30s backoff, drop-on-slow-consumer
+err = pg.Notify(ctx, pool, "channel", payload)
 ```
 
 `Migrate` keeps manifold's exact pattern (`internal/db/database.go`): embedded
@@ -39,19 +48,10 @@ ships the sqlc.yaml template (pgtype purge → `time.Time`/pointers, domain-ID n
 overrides, `emit_result_struct_pointers`, pascal JSON tags) in the skeleton, not as a
 runtime dependency.
 
-## pgnotify
-
-Lifted verbatim from `manifold13.tv/internal/pgnotify/pgnotify.go` — it is already
-right:
-
-```go
-ch, err := pgnotify.Listen(ctx, pool, "channel")  // dedicated conn, auto-reconnect,
-                                                  // 1s→30s backoff, drop-on-slow-consumer
-err := pgnotify.Notify(ctx, pool, "channel", payload)
-```
-
-House rule, now framework doc: **payloads are ids, not data** (`{table, id, op}` JSON
-or a bare id). Listeners re-query. 8KB payload limit and commit-serialized NOTIFY at
-high write rates make this the only durable contract. Triggers follow manifold's
-migration patterns (`00062_notifications.sql`, `00029_camera_config_notify.sql`):
-`AFTER` triggers calling a `pg_notify` plpgsql function with `json_build_object`.
+`Listen`/`Notify` are lifted verbatim from `manifold13.tv/internal/pgnotify` — they
+were already right. House rule, now framework doctrine: **payloads are ids, not
+data** (`{table, id, op}` JSON or a bare id). Listeners re-query. The 8KB payload
+limit and commit-serialized NOTIFY at high write rates make this the only durable
+contract. Triggers follow manifold's migration patterns
+(`00062_notifications.sql`, `00029_camera_config_notify.sql`): `AFTER` triggers
+calling a `pg_notify` plpgsql function with `json_build_object`.

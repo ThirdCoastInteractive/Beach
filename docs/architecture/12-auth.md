@@ -1,11 +1,14 @@
-# Architecture 12 — `auth` + `passwords`: identity, argon2id, RBAC
+# Architecture 12 — `auth` + `passwords`: identity, argon2id, simple RBAC
 
 [← docs index](../README.md) · prev: [Decisions log](11-decisions.md) · next: [API codegen](13-apigen.md)
 
-Lifted from Atlas (`Y:\Atlas`), where this is already built and production-shaped.
-Two packages: `passwords` (argon2id hashing, zero deps) and `auth` (principal model,
-login flow, guards backing). Sessions stay Valkey
-([05-services.md](05-services.md#session)) but adopt Atlas's hardening.
+Lifted from Atlas (`Y:\Atlas`) and then deliberately slimmed (see the
+[decisions log](11-decisions.md)). Atlas's principal model carries machinery for
+OAuth2 and mTLS workload identity, attestation forensics, group bindings, scoped
+and conditional permissions, and field-level grants — multi-tenant DCIM needs that
+no beach app has. What remains here is the part that is already built, tested, and
+genuinely simple: the password hashing, the hardened login flow, and a
+three-table RBAC.
 
 ## `passwords` — argon2id, lifted verbatim
 
@@ -22,81 +25,86 @@ var params = &argon2id.Params{
     KeyLength:   64,                       // 512-bit key
 }
 
-func NewPassword(plaintext string) (Password, error)   // length-validated (8..512), hash
+func NewPassword(plaintext string) (Password, error)      // length-validated (8..512)
 func (p Password) Compare(plaintext string) (bool, error) // constant-time
-func IsArgonEncoded(input string) bool                 // "$argon2id$" prefix check
+func IsArgonEncoded(input string) bool                    // "$argon2id$" prefix check
 ```
 
-PHC string encoding (`$argon2id$v=19$m=...`), `sql.Scanner`/`driver.Valuer` +
-pgx text scanner/valuer interfaces, tests included. Parameters are deliberately
+PHC string encoding (`$argon2id$v=19$m=...`), `sql.Scanner`/`driver.Valuer` plus
+pgx text scanner/valuer interfaces, tests included. The parameters are deliberately
 heavy — login is infrequent. One addition over Atlas: **rehash-on-upgrade** —
-`Compare` reports when the stored hash used weaker params so the login handler can
-transparently re-hash (Atlas has `must_rotate_password` plumbing but no auto-rehash;
-the framework closes that).
+`Compare` reports when the stored hash used weaker parameters so the login handler
+can transparently re-hash.
 
 ## The login flow
 
 Framework-provided handler helpers encode Atlas's hardened flow; the app owns the
-templ form and routes:
+templ form and the routes:
 
 1. **Pretoken** — GET /login embeds a 10-minute HMAC-SHA256 pretoken
-   (purpose-gated, realm-coherent) as a hidden field; POST verifies it. Kills form
-   replays for free (`Y:\Atlas\internal\session\pretoken.go`, lifted).
-2. **Timing-safe lookup** — unknown username runs a dummy argon2id compare so user
-   enumeration can't be timed (lifted from `Y:\Atlas\api\auth.go`).
-3. **Lockout** — `failed_login_count` on the credentials row; threshold and duration
-   are config (Atlas hardcodes 5 attempts / 15 min). Local state, no distributed
-   coordination; this is account protection, not DDoS mitigation.
+   (purpose-gated) as a hidden field; POST verifies it. Kills form replays for
+   free (`Y:\Atlas\internal\session\pretoken.go`, lifted).
+2. **Timing-safe lookup** — an unknown username runs a dummy argon2id compare so
+   user enumeration can't be timed (lifted from `Y:\Atlas\api\auth.go`).
+3. **Lockout** — `failed_login_count` on the credentials row; threshold and
+   duration are config (Atlas hardcodes 5 attempts / 15 min). Local state, no
+   distributed coordination; this is account protection, not DDoS mitigation.
 4. **Session mint** — 32 bytes `crypto/rand`; the store keeps **SHA256(token)**,
    never the raw value; per-session CSRF secret; sliding idle TTL; `Rotate()` on
-   privilege change. (Atlas hardening grafted onto the Valkey store.)
+   privilege change. (Atlas hardening grafted onto the Valkey store —
+   [05-services.md](05-services.md#session).)
 5. **Open-redirect guard** — post-login `?return=` must be a relative `/` path.
 
-Logout clears cookies and deletes the session (idempotent, 204). Password-reset
-schema ships in the skeleton (`password_reset_tokens`: hashed single-use tokens,
-expiry, audit columns); the email/flow handlers are app-side.
+Logout clears cookies and deletes the session (idempotent, 204). The
+password-reset schema ships in the skeleton (`password_reset_tokens`: hashed
+single-use tokens, expiry, audit columns); the email and flow handlers are
+app-side.
 
-## `auth` — the principal model
-
-Every request resolves to a `Principal` (lifted from `Y:\Atlas\pkg\principal`):
+## `auth` — the principal, kept small
 
 ```go
 type Principal struct {
-    Kind        Kind          // user | workload | anonymous
-    ID          ID
-    Mechanism   Mechanism     // session_local | ... (extensible)
-    Permissions []string      // resolved: "devices:read", "racks:write:power_draw"
-    Roles       []ID          // audit trail
-    SessionID   *ID
-    Attestation Attestation   // who/issuer/issued_at — forensics without re-query
+    UserID      ID
+    Username    string
+    Roles       []string   // role slugs
+    Permissions []string   // "resource:action" strings
 }
 ```
 
-- **Resolver multiplexer**: an ordered chain of resolvers, each returning
-  `(principal, recognized, error)`. v1 ships the session resolver; OAuth2/mTLS slots
-  exist (Atlas has the stubs) but are not built — same posture as the NATS seam.
-- **RBAC schema** in the skeleton: `roles`, `permissions`
-  (`resource:action[:field]`), `role_permissions` (allow/deny + scope),
-  `principal_groups`, `principal_role_bindings`. Resolved permission strings are
-  cached on the session (60-min TTL, configurable) — no O(roles) walk per request.
-- **Guard integration**: alongside `beach.Authed()` / `beach.Role(...)`
-  ([03-http.md](03-http.md#errors-and-guards)) comes
-  **`beach.Can("devices:write")`** — a permission guard backed by the principal.
-  Inside handlers, `c.Principal()` exposes `HasPermission`/`HasAnyOf`/`HasAllOf`.
-- **Audit hook**: `AuditEmitter` interface called once per request after resolution;
-  ships as a slog no-op, apps swap in a real writer.
+- **Resolution is boring on purpose**: permissions are resolved once at login from
+  the role tables and stored in the session. Changing a user's roles rotates their
+  sessions. No per-request tree walks, no TTL cache machinery, no resolver
+  multiplexer — one session-backed resolver is the whole story.
+- **Anonymous is the absence of a principal**: `c.User()` returns nil. driftbottle
+  runs entirely on anonymous sessions; no `Kind` enum required.
+- **Guards**: `beach.Authed()`, `beach.Role("admin")`, and the permission guard
+  `beach.Can("pantry:write")` ([03-http.md](03-http.md#errors-and-guards)).
+  Inside handlers: `c.Principal()` with `HasPermission` / `HasAnyOf`.
+
+The RBAC schema is three tables:
+
+```sql
+roles            (id, slug)
+role_permissions (role_id, permission)       -- permission is a "resource:action" string
+user_roles       (user_id, role_id)
+```
+
+No groups, no deny effects, no scope types, no condition JSON, no field-path
+permissions. Each of those exists in Atlas and can be borrowed back the day an
+app demonstrates the need — adding a migration is cheap; carrying speculative
+schema is not.
 
 ## What stays app-side
 
-Login/logout/reset page templates and routes, OIDC/JIT user provisioning policy,
-role seeding, the email sender. The skeleton stamps the `users` +
-`user_credentials_local` + sessions-adjacent + RBAC migrations and a working
-login/logout pair so the whole flow is proven on first `make up`.
+Login/logout/reset page templates and routes, user provisioning, role seeding,
+the email sender. The skeleton stamps the `users` + `user_credentials_local` +
+RBAC migrations and a working login/logout pair so the whole flow is proven on
+first `make up`.
 
 ## Security rules (framework doctrine, from Atlas CLAUDE.md)
 
 Never return `password_hash` (or any secret column) in a `RETURNING` clause or
-SELECT * — explicit column lists only; the adapted authz analyzer
+`SELECT *` — explicit column lists only; the authz analyzer
 ([10-tooling.md](10-tooling.md)) greps for violations. Mutating queries carry
 `-- @requires <permission>` annotations and hand-written mutation handlers must
 call a principal check — both statically verified.

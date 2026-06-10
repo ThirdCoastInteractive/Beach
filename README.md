@@ -43,4 +43,4 @@ changelog entry, pushes `main` to the public remote, and pushes `master` to orig
 ## Status
 
 Pre-implementation. The RFC and architecture writeup are the current deliverables;
-project 1 (`config` + `pg` + `pgnotify`) is the first code.
+project 1 (`config` + `pg`) is the first code.

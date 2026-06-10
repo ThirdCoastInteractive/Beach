@@ -11,21 +11,16 @@ ECS is a module the framework offers for realtime features — not the framework
 spine. Routing, auth, forms, and CRUD pages stay handler → sqlc → templ. The research
 landed on:
 
-- **A custom, standalone engine (`ecs`).** No third-party ECS. The existing Go
-  engines (Ark, Arche, Donburi) are excellent but Go-bound; our core model is
-  designed to be language-neutral and reusable in any context — game server,
-  simulation, CLI tooling, another runtime entirely. `ecs` is a zero-dependency
-  package with no knowledge of the-beach, hubs, or Postgres; `sim` is just the web
-  integration on top. Storage follows the proven archetype/columnar design
+- **A custom, standalone engine (`ecs`).** No third-party ECS. `ecs` is a
+  zero-dependency package with no knowledge of the-beach, hubs, or Postgres —
+  reusable by any Go project (game server, simulation, CLI tooling); `sim` is just
+  the web integration on top. Storage follows the proven archetype/columnar design
   ([go-ecs-benchmarks](https://github.com/mlange-42/go-ecs-benchmarks) is the honest
   yardstick, Ark the perf reference to stay within range of).
 - **Schema-first components.** Components are declared once in a schema file;
-  `beach ecs gen` generates the Go structs and storage accessors — and the same
-  schema can emit SQL component-mirror migrations and JSON/TypeScript shapes. Write
-  once, generate typed code everywhere: the exact ethos that makes sqlc and templ
-  the house tools. The schema, the 64-bit index+generation entity handle, and the
-  versioned CBOR snapshot format are the portable artifacts that outlive any one
-  runtime.
+  `beach ecs gen` generates the Go structs, the storage accessors, and the SQL
+  component-mirror migrations. Write once, generate typed code everywhere: the
+  exact ethos that makes sqlc and templ the house tools.
 - **Change detection is first-class.** Tick-stamped component columns and
   `Changed[T]` queries are built into the engine, not bolted on via observers —
   it is the heart of the rendering pipeline and the single strongest argument for

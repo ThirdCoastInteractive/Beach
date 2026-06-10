@@ -7,32 +7,35 @@
 Each project is independently shippable and lands complete — code, tests, docs, and
 example usage. Order is dependency order, not priority tiers.
 
-1. **`config` + `pg` + `pgnotify`** — the boot spine. Env loader, pool wrapper,
-   advisory-lock migrations, `InTx`, LISTEN with backoff, NOTIFY helper.
+1. **`config` + `pg`** — the boot spine. Env loader, pool wrapper, advisory-lock
+   migrations, `InTx`, and `Listen`/`Notify` (LISTEN with backoff, NOTIFY helper —
+   absorbed into `pg` rather than a separate package).
 2. **`beach` (module root) + `datastar`** — App builder (middleware stack, healthz,
    static cache, merged FS, CSP presets, graceful shutdown), the typed handler shapes
    (`PageFunc`/`ActionFunc`/`StreamFunc`, `beach.Ctx`, guards, the error contract),
    `IsDatastar`/`NewSSE` underneath with flush-per-event SSE gzip, typed attribute
    builders, vet analyzers (`lint-datastar`, `lint-pgtype`, `lint-uuid`,
    naked-`echo.HandlerFunc`).
-3. **`hub` + `cache` + `session`** — topic registry with per-connection buffered
-   fan-out and drop-on-full, ticker producers, snapshot caches with NOTIFY
-   invalidation, Valkey sessions with auth middleware.
-4. **`passwords` + `auth`** — lifted from Atlas: argon2id hashing (verbatim +
-   rehash-on-upgrade), the principal/RBAC model with resolver multiplexer, the
-   hardened login flow (pretoken, timing-safe verify, lockout-as-config), session
-   hardening grafted onto the Valkey store, `beach.Can()` guard, skeleton
-   users/credentials/RBAC migrations, and the adapted authz analyzer.
+3. **`hub` + `cache` + `session` + `i18n`** — topic registry with per-connection
+   buffered fan-out and drop-on-full, ticker producers, snapshot caches with
+   NOTIFY invalidation, Valkey sessions with auth middleware, and the flat-key
+   i18n runtime with its extractor.
+4. **`passwords` + `auth`** — lifted from Atlas and slimmed: argon2id hashing
+   (verbatim + rehash-on-upgrade), the hardened login flow (pretoken, timing-safe
+   verify, lockout-as-config), session hardening grafted onto the Valkey store,
+   a three-table RBAC with `resource:action` permissions resolved at login,
+   `beach.Can()` guard, skeleton users/credentials/RBAC migrations, and the
+   adapted authz analyzer.
 5. **`ui`** — the toolkit: `Kit` interface, registry, context injection, icon API,
    semantic token contract, the performance laws (no pop-in, no blocking, the 14KB
    rule, `ui.Defer` lazy sections), and `driftwood`: a minimal reference kit proving
    the interface (RetroChrome stays in manifold; porting it is manifold's business).
 6. **`chart` + `ch`** — the analytics pair: Atlas's 22-type SSR SVG chart library
-   lifted near-verbatim (plus live-update wiring through hub/projections, empty and
-   error states, legend toggles), and the ClickHouse package built fresh to Atlas's
-   Telemetry RFC (client, goose migrations, generic `Batcher` ingest, query→chart
-   helpers, retention as config). Optional everywhere: no DSN, no ClickHouse, app
-   still boots.
+   lifted near-verbatim (geometry all at once; live-update wiring and empty/error
+   states land per type as the examples render them), and the ClickHouse package
+   built fresh to Atlas's Telemetry RFC (client, goose migrations, generic
+   `Batcher` ingest, query→chart helpers, retention as config). Optional
+   everywhere: no DSN, no ClickHouse, app still boots.
 7. **`ecs`** — the standalone engine: component schema + codegen, archetype/columnar
    `Store`, entity handles (index+generation), tick-stamped change detection,
    entity relationships, CBOR snapshots, and a benchmark suite running the

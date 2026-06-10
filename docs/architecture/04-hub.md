@@ -38,6 +38,6 @@ and the framework runs it. The loop is shown for what the framework does inside.
   5k-connection budget.
 - `hub.Ticker(topic, interval, produce)` replaces `sseTickLoop`: a producer that
   publishes on an interval; admin dashboards subscribe like everything else.
-- Producers: HTTP handlers (after a mutation), `pgnotify` listeners (external writers,
-  other processes), and [`sim` projections](08-sim.md). In-process mutations
-  publish directly — they never round-trip through Postgres NOTIFY.
+- Producers: HTTP handlers (after a mutation), `pg.Listen` listeners (external
+  writers, other processes), and [`sim` projections](08-sim.md). In-process
+  mutations publish directly — they never round-trip through Postgres NOTIFY.

@@ -7,7 +7,7 @@ LISTEN/NOTIFY · SSE · Valkey · custom `ecs` engine. The module root is the fr
 front door: `import beach "github.com/ThirdCoastInteractive/the-beach"`.
 
 **Status:** pre-implementation. The RFC and architecture docs below are the current
-deliverables; project 1 (`config` + `pg` + `pgnotify`) is the first code.
+deliverables; project 1 (`config` + `pg`) is the first code.
 
 ## The realtime spine
 
@@ -20,7 +20,7 @@ flowchart LR
         H["handlers<br/>(beach + sqlc + templ)"]
         SIM["sim (ECS)<br/>single goroutine, fixed ticks"]
         HUB["hub<br/>topic fan-out"]
-        PN["pgnotify listener"]
+        PN["NOTIFY listener<br/>(pg.Listen)"]
     end
     PG[("Postgres<br/>system of record")]
     EXT["other writers<br/>admin tools / cron / other nodes"]
@@ -46,12 +46,12 @@ what an app touches first:
 ```mermaid
 flowchart BT
     config["config"]
-    pg["pg"]
-    pgnotify["pgnotify"]
+    pg["pg<br/>pool, migrate, InTx,<br/>Listen/Notify"]
     datastar["datastar"]
     ui["ui + driftwood kit"]
-    chart["chart<br/>SSR SVG, 22 types"]
-    ch["ch<br/>ClickHouse client + batcher"]
+    chart["chart<br/>SSR SVG"]
+    ch["ch<br/>ClickHouse"]
+    i18n["i18n"]
     beach["beach (module root)<br/>App, Ctx, handler shapes"]
     hub["hub"]
     cache["cache"]
@@ -61,7 +61,7 @@ flowchart BT
     ecs["ecs<br/>standalone, zero deps"]
     sim["sim"]
     app(["your app<br/>handlers / tmpl / internal/db"])
-    other(["other contexts<br/>games / sims / tools"])
+    other(["other Go projects<br/>games / sims / tools"])
 
     ui --> datastar
     chart --> datastar
@@ -73,7 +73,7 @@ flowchart BT
     beach --> auth
     auth --> passwords
     auth --> session
-    cache --> pgnotify
+    cache --> pg
     sim --> ecs
     sim --> hub
     sim --> pg
@@ -85,8 +85,8 @@ flowchart BT
     app --> sim
     app --> chart
     app --> ch
+    app --> i18n
     app --> pg
-    app --> pgnotify
     app --> config
     other --> ecs
 ```
@@ -105,10 +105,10 @@ flowchart BT
 | Doc                                                       | Covers                                                                 |
 | --------------------------------------------------------- | ----------------------------------------------------------------------- |
 | [1 — Layout](architecture/01-layout.md)                   | Stack contract, module layout per go.dev/doc/modules/layout            |
-| [2 — Boot spine](architecture/02-boot-spine.md)           | `config`, `pg` (advisory-lock migrate, InTx), `pgnotify`               |
+| [2 — Boot spine](architecture/02-boot-spine.md)           | `config`, `pg` (pool, advisory-lock migrate, InTx, Listen/Notify)      |
 | [3 — HTTP layer](architecture/03-http.md)                 | Root `beach` package: App builder, handler shapes, guards, SSE gzip    |
 | [4 — Hub](architecture/04-hub.md)                         | Topic fan-out, render-once-per-topic, tickers                          |
-| [5 — Cache & session](architecture/05-services.md)        | Snapshot/keyed caches, NOTIFY invalidation, Valkey sessions            |
+| [5 — Cache, session, i18n](architecture/05-services.md)   | Snapshot/keyed caches, NOTIFY invalidation, Valkey sessions, i18n      |
 | [6 — UI toolkit](architecture/06-ui.md)                   | Kits, tokens, no pop-in, no blocking, the 14KB rule, deferred sections |
 | [7 — ECS engine](architecture/07-ecs.md)                  | The custom standalone engine: schema, Store, change ticks              |
 | [8 — Sim](architecture/08-sim.md)                         | The boundary, tick loop, projections, persistence lanes                |
@@ -116,7 +116,7 @@ flowchart BT
 | [10 — Tooling & testing](architecture/10-tooling.md)      | `beach new` / `beach vet` (+ Atlas lint family) / `beach ecs gen`      |
 | [11 — Decisions log](architecture/11-decisions.md)        | Every load-bearing choice and why                                      |
 | [12 — Auth](architecture/12-auth.md)                      | argon2id passwords, login flow, principal/RBAC, guards (from Atlas)    |
-| [13 — API codegen](architecture/13-apigen.md)             | `beach-apigen`: SQL annotations → routes, handlers, NOTIFY, OpenAPI    |
+| [13 — API codegen](architecture/13-apigen.md)             | `beach-apigen`: six SQL annotations → routes, handlers, NOTIFY (hypermedia-only) |
 | [14 — Analytics](architecture/14-analytics.md)            | `chart` (SSR SVG, lifted from Atlas) + `ch` (ClickHouse, built to Atlas's RFC) |
 | [15 — Example apps](architecture/15-examples.md)          | boardwalk (Monopoly/sim), driftbottle (stranger chat/hub), pantry (ERP/apigen+analytics) |
 

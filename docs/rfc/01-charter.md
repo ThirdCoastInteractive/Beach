@@ -57,11 +57,10 @@ than tribal knowledge.
   point of rudeness: Echo, templ, Datastar, Tailwind, pgx, sqlc, goose, Postgres,
   Valkey. No adapters, no `interface{} Driver` seams.
 - Not an ORM. sqlc stays. Plain SQL stays.
-- No SPA mode, no client-side state management. The UI is hypermedia or bust — JSON
-  is never how the frontend talks to the backend. Machine APIs (integrations, MCP
-  servers — the Atlas case) are in scope but only as **generated** surfaces: the
-  [apigen annotations](../architecture/13-apigen.md) emit OpenAPI + JSON handling
-  from the same SQL; nobody hand-writes a JSON layer.
+- No SPA mode, no client-side state management, no JSON API layer. The UI is
+  hypermedia or bust, and the-beach doesn't generate machine APIs either — Atlas's
+  OpenAPI emitter stays in Atlas. If a beach app ever genuinely needs one, that's
+  its own RFC.
 - No multi-node story in v1. LISTEN/NOTIFY is the cross-process bell; the seam where
   NATS would slot in later is identified but not built.
 - manifold13.tv is NOT migrated onto the framework as part of this work. It is the

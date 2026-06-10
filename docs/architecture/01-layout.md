@@ -31,8 +31,7 @@ the-beach/                module github.com/ThirdCoastInteractive/the-beach
 │                         View/Patches/Sub, NewSSE (per-event gzip), StaticCache,
 │                         MergedFS, CSP presets
 ├── config/               env-tag struct loader, MustLoad
-├── pg/                   pool wrapper, advisory-lock Migrate, InTx
-├── pgnotify/             LISTEN with reconnect/backoff, Notify helper
+├── pg/                   pool, advisory-lock Migrate, InTx, Listen/Notify
 ├── datastar/             typed data-* attribute builders (the only sanctioned way)
 ├── ui/                   UI toolkit: Kit interface, registry, tokens, icons,
 │   │                     Defer (lazy sections), the performance laws
@@ -44,6 +43,7 @@ the-beach/                module github.com/ThirdCoastInteractive/the-beach
 ├── hub/                  topic registry, per-connection fan-out, ticker producers
 ├── cache/                Snapshot[T] and Keyed[K,V] caches + NOTIFY invalidation
 ├── session/              Valkey-backed sessions (SHA256 tokens, rotation, CSRF)
+├── i18n/                 flat key catalog, locale files, T(ctx, key), middleware
 ├── passwords/            argon2id hashing, PHC strings — zero deps, lifted from Atlas
 ├── auth/                 principal model (RBAC), login helpers, pretoken, lockout
 ├── ecs/                  standalone engine: schema codegen, archetype Store,
@@ -56,7 +56,7 @@ the-beach/                module github.com/ThirdCoastInteractive/the-beach
 │   ├── beach/            CLI: beach new / vet / ecs gen
 │   │   └── skeleton/     embedded app template stamped by `beach new`
 │   └── beach-apigen/     sqlc process plugin: SQL annotations → routes, handler
-│                         stubs, NOTIFY plumbing, optional OpenAPI (from Atlas)
+│                         stubs, NOTIFY plumbing (adapted from Atlas, hypermedia-only)
 ├── examples/             the validation trio (15-examples.md), each shaped
 │   ├── boardwalk/        exactly like a consuming app:
 │   │                     Monopoly-style real-estate game — the sim/ecs showcase
@@ -79,7 +79,7 @@ import (
 
 The package dependency diagram lives in the
 [docs index](../README.md#package-dependencies). The shape in one sentence: the boot
-spine (`config`, `pg`, `pgnotify`) stands alone; `ecs` imports nothing and is
+spine (`config`, `pg`) stands alone; `ecs` imports nothing and is
 importable by anything, the-beach or not; `sim` is the only bridge between `ecs` and
 the web packages; the root `beach` package is what an app touches first.
 

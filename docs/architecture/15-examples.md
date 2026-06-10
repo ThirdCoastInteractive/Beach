@@ -12,6 +12,9 @@ of them.
 
 The **`sim`/`ecs` showcase**: a multiplayer, tick-driven board game.
 
+- The ruleset is the smallest playable slice — roll, move, buy, rent, trade. No
+  auctions, mortgages, or jail lawyering in v1; the point is the framework, not
+  tournament fidelity.
 - Game state lives in the sim: player positions, turn order, dice, property
   ownership, rent timers — components in the `ecs.Store`, mutated by systems,
   pushed to every player via projections. The board everyone watches is one hub
@@ -57,9 +60,9 @@ The **CRUD/`apigen`/`auth`/analytics showcase**: boring in the good way, on purp
   (stacked bar), price-history sparklines per item, expiry calendar heatmap,
   and a waste gauge — every widget a `ui.Defer` section feeding `chart`
   components from `ch` queries ([14-analytics.md](14-analytics.md)).
-- Validates: apigen end-to-end, auth/RBAC, `ch`, `chart`, deferred dashboard
-  sections, the OpenAPI emitter (a machine client — e.g. a pantry MCP server —
-  consumes the generated API).
+- Validates: apigen end-to-end, auth/RBAC, `ch`, `chart`, `i18n` (pantry is the
+  most text-heavy app, so it carries the translation catalog), deferred dashboard
+  sections.
 
 ## Coverage matrix
 
@@ -71,7 +74,8 @@ The **CRUD/`apigen`/`auth`/analytics showcase**: boring in the good way, on purp
 | auth / passwords | ● | ● (anonymous) | **●●** |
 | apigen | ○ | — | **●●** |
 | ch / chart | ○ | — | **●●** |
-| cache / session / pg / pgnotify / config | ● | ● | ● |
+| i18n | ○ | — | **●●** |
+| cache / session / pg / config | ● | ● | ● |
 
 ●● = the showcase, ● = exercised, ○ = incidental, — = unused (deliberately: not
 every app needs every package, and the examples should prove that too).

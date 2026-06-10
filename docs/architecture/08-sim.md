@@ -96,7 +96,7 @@ append-only journal table regardless of lane.
 ## Other writers
 
 Admin tools, cron, and other processes mutate Postgres directly. Triggers NOTIFY with
-ids; a `pgnotify` listener in the app turns those into sim commands
+ids; a `pg.Listen` listener in the app turns those into sim commands
 (`s.Send(cmd.ReloadEntity{Table: "items", ID: id})`). That's the whole multi-writer
-story in v1 — and the seam (`pgnotify` → commands, `hub` → fan-out) is exactly where
+story in v1 — and the seam (`pg.Listen` → commands, `hub` → fan-out) is exactly where
 NATS would replace Postgres NOTIFY if the app ever spans nodes.

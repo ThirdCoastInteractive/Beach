@@ -1,4 +1,4 @@
-# Architecture 5 — `cache` & `session`
+# Architecture 5 — `cache`, `session`, `i18n`
 
 [← docs index](../README.md) · prev: [Hub](04-hub.md) · next: [UI toolkit](06-ui.md)
 
@@ -12,8 +12,8 @@ Two shapes, both proven in manifold:
 - `cache.Keyed[K,V]` — RWMutex map with `LoadAll` + per-id `Invalidate` (emote cache
   pattern, `internal/chatemote/cache.go`).
 
-Plus the paved road: `cache.InvalidateOn(ctx, pool, "channel", c)` wires a pgnotify
-listener that parses an id payload and invalidates the entry — making
+Plus the paved road: `cache.InvalidateOn(ctx, pool, "channel", c)` wires a
+`pg.Listen` listener that parses an id payload and invalidates the entry — making
 NOTIFY-invalidation the default instead of one-off (fixes the plans-cache manual
 refresh inconsistency).
 
@@ -21,17 +21,45 @@ refresh inconsistency).
 
 Lifted from manifold's `pkg/session`: Valkey-backed, TTL, per-user session sets
 for RevokeAll, `OptionalAuth` / `RequireAuth` / `RequireRole` middleware factories,
-`session.UserFrom(ctx)`. The Data/AuthUser duplication collapses to one struct with an
-`AuthUser()` view. Role and tier become app-defined string types satisfying small
-interfaces, since `db.UserRole` belongs to the app's schema, not the framework.
+`session.UserFrom(ctx)`. The Data/AuthUser duplication collapses to one struct with
+an `AuthUser()` view.
 
-Hardening adopted from Atlas's session store (the store stays Valkey; the discipline
-transfers): the 32-byte `crypto/rand` token is stored as **SHA256(token)**, never
-raw; each session carries its own CSRF secret (hash-validated server-side); idle TTL
-slides on authenticated requests; `Rotate()` re-mints token + CSRF on privilege
-change. Realm/cookie scoping is config, not Atlas's hardcoded operator/portal pair.
+Hardening adopted from Atlas's session store (the store stays Valkey; the
+discipline transfers): the 32-byte `crypto/rand` token is stored as
+**SHA256(token)**, never raw; each session carries its own CSRF secret
+(hash-validated server-side); idle TTL slides on authenticated requests;
+`Rotate()` re-mints token + CSRF on privilege change. Cookie name, path, and
+lifetimes are plain config — Atlas's multi-realm scoping was not lifted; no beach
+app has two realms.
 
 The route-level surface is the guards in [03-http.md](03-http.md#errors-and-guards):
 `beach.Authed()` / `beach.Role(...)` / `beach.Can(...)` wrap this middleware and
 populate `c.User()` and `c.Principal()` — the full identity and RBAC story is
 [12-auth.md](12-auth.md).
+
+## i18n
+
+A real runtime, not just the lint. Adapted from Atlas's catalog/extractor design
+(`Y:\Atlas\cmd\atlas-i18n-extract`), kept deliberately flat:
+
+- **Catalog**: `internal/view/i18n/catalog.json` maps each key to a reference
+  label and a translator comment; `locales/<tag>.json` (e.g. `en-US.json`) maps
+  keys to translations. Both embedded via `go:embed`, loaded once at boot.
+- **Lookup**: `i18n.T(ctx, "pantry.items.title")` — **literal keys only**
+  (lowercase, digits, dot, underscore, hyphen), enforced by the extractor.
+  Locale comes from the request context. A key missing from the active locale
+  falls back to the default locale; dev mode logs the gap.
+- **Locale resolution**: cookie, then `Accept-Language`, then the configured
+  default — set once by middleware the App builder wires when
+  `beach.Config{Locales: ...}` is present. Apps that never configure it pay
+  nothing: `T` resolves against the default locale and the whole feature is
+  inert.
+- **Tooling**: `beach i18n` extracts every `i18n.T` call from templ source and
+  verifies (or `--write`s) the catalog; the `beach vet` analyzer
+  ([10-tooling.md](10-tooling.md)) fails the build on non-literal keys or a stale
+  catalog. One key set, mechanically verified — no orphaned translations, no
+  untranslated keys discovered in production.
+
+No pluralization DSL, no ICU MessageFormat, no nested namespaces in v1 — flat
+keys and `fmt`-style argument substitution cover the example apps. The fancier
+machinery can be borrowed when a real translation effort demands it.

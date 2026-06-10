@@ -104,7 +104,7 @@ func PurchaseCoins(pool *pgxpool.Pool, s *sim.Sim) beach.ActionFunc {
         })
         if err != nil { return nil, err }
         s.Send(cmd.ApplyCommitted{User: c.User().ID})
-        return beach.Patch(ui.WalletPanel(bal)).Target("wallet-panel"), nil
+        return beach.Patches{{Fragment: ui.WalletPanel(bal), Target: "wallet-panel"}}, nil
     }
 }
 ```

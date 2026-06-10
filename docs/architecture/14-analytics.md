@@ -47,13 +47,19 @@ What the framework version adds over Atlas (the audit's gap list):
   patch — re-layout on new data, publish, every subscriber's SVG morphs. Atlas's
   charts are static-at-render; the-beach's machinery makes them live for free.
 - Empty/error states and the skeleton loader as kit-styled components.
-- Legend series-toggling via Datastar signals (no localStorage hacks).
+
+All 22 geometry files lift on day one (proven code is free to carry), but the
+framework polish — live wiring, empty/error states — lands per type, as the
+example apps render them. No type gets polished before something eats it.
 
 ## `ch` — ClickHouse client, batcher, migrations
 
 Postgres remains the system of record, always. ClickHouse is the **observation
 store**: events, metrics, time-series — high-volume append-only data you chart and
-aggregate but never transact against. The Atlas Telemetry design, generalized:
+aggregate but never transact against. It's in the framework not because every app
+needs it but because it's the right tool when any app does — and bolting it on
+later is exactly the duplicate-per-repo dance this framework exists to end. The
+Atlas Telemetry design, generalized:
 
 ```go
 conn := ch.MustConn(ctx, cfg.ClickHouseDSN)          // native protocol
@@ -74,8 +80,7 @@ ing.Add(ev)                                           // non-blocking; drops are
   is fire-and-forget — ClickHouse being down degrades analytics, never the app.
 - **Query → chart**: thin typed query helpers (`ch.Rows[T]`) feed `chart.Layout*`
   directly; a `PageFunc` + `ui.Defer` per dashboard widget is the whole wiring.
-  Time-bucketing helpers (`ch.Buckets(from, to, step)`) cover the common
-  group-by-time case without inventing a query DSL.
+  Time bucketing is SQL (`toStartOfInterval`) — no helper, no query DSL.
 - **Optional everywhere**: no `CLICKHOUSE_DSN` → `ch` features off, app boots fine.
   docker-compose in the skeleton gains a commented-out clickhouse service.
 
