@@ -49,9 +49,10 @@ than tribal knowledge.
   point of rudeness: Echo, templ, Datastar, Tailwind, pgx, sqlc, goose, Postgres.
   No adapters, no `interface{} Driver` seams.
 - Not an ORM. sqlc stays. Plain SQL stays.
-- No SPA mode, no client-side state management, no JSON API layer. The UI is
-  hypermedia or bust, and the-beach doesn't generate machine APIs either. If a
-  beach app ever genuinely needs one, that's its own RFC.
+- The UI is hypermedia or bust: server-rendered HTML over the wire, Datastar for
+  interaction, state on the server. That rules out an SPA mode and a JSON/machine-API
+  layer — the-beach renders pages, not endpoints. An app that genuinely needs a machine
+  API writes its own RFC.
 - No multi-node story in v1. LISTEN/NOTIFY is the cross-process bell; the seam where
   NATS would slot in later is identified but not built.
 - No migration of existing production services onto the framework as part of this

@@ -4,8 +4,8 @@
 
 ## `chart` — server-rendered SVG charts
 
-Pure-Go geometry (no D3, no Plotly, no canvas, no client rendering) plus templ
-components emitting the SVG. **22 chart types**: line/area, sparkline, bar
+Pure-Go geometry computed on the server, plus templ components emitting the SVG — every
+chart is final HTML, drawn before it reaches the browser. **22 chart types**: line/area, sparkline, bar
 (horizontal/stacked/grouped/bullet), gauge (single/stacked), billboard KPI,
 scatter, box plot, calendar heatmap, heatmap, streamgraph, sankey, chord, bundle,
 bollinger, difference, horizon, timeline, ridgeline, bar race.
@@ -70,11 +70,10 @@ ing.Add(ev)                                           // non-blocking; drops are
   is fire-and-forget — ClickHouse being down degrades analytics, never the app.
 - **Query → chart**: thin typed query helpers (`ch.Rows[T]`) feed `chart.Layout*`
   directly; a `PageFunc` + `ui.Defer` per dashboard widget is the whole wiring.
-  Time bucketing is SQL (`toStartOfInterval`) — no helper, no query DSL.
+  Time bucketing is plain SQL (`toStartOfInterval`); the query is the API.
 - **Optional everywhere**: no `CLICKHOUSE_DSN` → `ch` features off, app boots fine.
   docker-compose in the skeleton carries a commented-out clickhouse service.
 
-What we are deliberately not building (grug): a query builder/DSL (write SQL),
-a metrics/observability product (this is app analytics, not APM), Kafka or any
-queue in front of ingest (the batcher is the buffer; revisit only if a real app
-outgrows it).
+SQL is the query language — the `Batcher` and `ch.Rows[T]` are the whole API. `ch` is
+app analytics: high-volume observations you aggregate and chart, with Postgres still the
+system of record.

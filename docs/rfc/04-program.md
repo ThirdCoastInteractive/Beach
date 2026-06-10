@@ -99,11 +99,10 @@ example usage. Order is dependency order, not priority tiers.
 ## Risks
 
 - **Building an engine.** A custom ECS is exactly the kind of project grug warns
-  about. Containment: the core is deliberately small (archetype tables + queries +
-  change ticks + snapshots), the non-features list in
-  [architecture/07-ecs.md](../architecture/07-ecs.md#non-features) is a contract
-  (no parallel scheduler, no scripting, no reflection queries, no internal event
-  bus), and the engine makes no competitive performance claim to defend — it only has
+  about. Containment: the core stays four things — archetype tables, queries, change
+  ticks, snapshots ([the core boundary](../architecture/07-ecs.md#the-core-boundary)
+  keeps scheduling, scripting, reflection queries, and events in `sim` or out
+  entirely), and the engine makes no competitive performance claim to defend — it only has
   to keep up with the live slice. If the custom engine stalls, the `sim` facade is
   narrow enough to swap a third-party engine back in.
 - **ECS overreach.** The siren call is to ECS-ify CRUD. The boundary rule in

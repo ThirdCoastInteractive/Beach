@@ -68,8 +68,8 @@ type Principal struct {
 
 - **Resolution is boring on purpose**: permissions are resolved once at login from
   the role tables and stored in the session. Changing a user's roles rotates their
-  sessions. No per-request tree walks, no TTL cache machinery, no resolver
-  abstraction — one session-backed resolver is the whole story.
+  sessions. Every later check is a slice lookup on a struct already in memory — one
+  session-backed resolver is the whole story.
 - **Anonymous is the absence of a principal**: `c.User()` returns nil. driftbottle
   runs entirely on anonymous sessions; no `Kind` enum required.
 - **Guards**: `beach.Authed()`, `beach.Role("admin")`, and the permission guard
@@ -84,9 +84,8 @@ role_permissions (role_id, permission)       -- permission is a "resource:action
 user_roles       (user_id, role_id)
 ```
 
-No groups, no deny effects, no scope types, no condition JSON, no field-path
-permissions. Any of those can be added the day an app demonstrates the need —
-adding a migration is cheap; carrying speculative schema is not.
+Permissions resolve to a flat `resource:action` list on the principal; the three tables
+above are the whole schema.
 
 ## What stays app-side
 

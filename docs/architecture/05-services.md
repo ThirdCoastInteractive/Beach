@@ -67,6 +67,5 @@ A real runtime with mechanical verification, kept deliberately flat:
   catalog. One key set, mechanically verified — no orphaned translations, no
   untranslated keys discovered in production.
 
-No pluralization DSL, no ICU MessageFormat, no nested namespaces in v1 — flat
-keys and `fmt`-style argument substitution cover the example apps. The fancier
-machinery can be added when a real translation effort demands it.
+Flat keys with `fmt`-style argument substitution. One key set, mechanically verified,
+resolved against the active locale.

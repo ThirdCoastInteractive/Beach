@@ -17,7 +17,7 @@ The container is an `ecs.Store` — entities and component columns, nothing more
 [`sim`](08-sim.md)'s job.)
 
 - **Entity**: a 64-bit handle — 32-bit index + 32-bit generation, so stale handles
-  detect slot reuse. No pointers, no language-specific identity.
+  detect slot reuse. A plain integer: portable to any language, with no pointer to dangle.
 - **Components**: plain data records declared once in a schema file
   (`components.beach.yaml`). `beach ecs gen` generates the Go structs, the typed
   storage accessors, and the SQL component-mirror migrations
@@ -40,8 +40,10 @@ The container is an `ecs.Store` — entities and component columns, nothing more
 - **Snapshots**: versioned CBOR with stable schema ids — crash recovery and
   restarts survive schema evolution.
 
-## Non-features
+## The core boundary
 
-As a contract (grug): no parallel system scheduler, no scripting, no
-reflection-based queries, no internal event bus. Systems are plain functions over
-queries; ticks, commands, and projections belong to [`sim`](08-sim.md).
+The engine is four things and stays four things: archetype tables, queries, change
+ticks, snapshots. Systems are plain functions over queries; ticks, commands, and
+projections live in [`sim`](08-sim.md). Anything richer — scheduling, scripting,
+reflection-based queries, an event bus — is `sim`'s job or the app's, which keeps the
+core small enough to hold in your head whole.
