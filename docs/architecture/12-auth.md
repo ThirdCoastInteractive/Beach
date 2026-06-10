@@ -2,17 +2,13 @@
 
 [← docs index](../README.md) · prev: [Decisions log](11-decisions.md) · next: [API codegen](13-apigen.md)
 
-Lifted from Atlas (`Y:\Atlas`) and then deliberately slimmed (see the
-[decisions log](11-decisions.md)). Atlas's principal model carries machinery for
-OAuth2 and mTLS workload identity, attestation forensics, group bindings, scoped
-and conditional permissions, and field-level grants — multi-tenant DCIM needs that
-no beach app has. What remains here is the part that is already built, tested, and
-genuinely simple: the password hashing, the hardened login flow, and a
-three-table RBAC.
+Two packages: `passwords` (argon2id hashing, zero dependencies) and `auth` (the
+principal, the login flow, and a deliberately small RBAC). Sessions are covered in
+[05-services.md](05-services.md#session); auth builds on them.
 
-## `passwords` — argon2id, lifted verbatim
+## `passwords` — argon2id
 
-From `Y:\Atlas\pkg\passwords\password.go`, via `github.com/alexedwards/argon2id`:
+Built on `github.com/alexedwards/argon2id`:
 
 ```go
 type Password string                       // stores the PHC-encoded hash
@@ -32,27 +28,26 @@ func IsArgonEncoded(input string) bool                    // "$argon2id$" prefix
 
 PHC string encoding (`$argon2id$v=19$m=...`), `sql.Scanner`/`driver.Valuer` plus
 pgx text scanner/valuer interfaces, tests included. The parameters are deliberately
-heavy — login is infrequent. One addition over Atlas: **rehash-on-upgrade** —
-`Compare` reports when the stored hash used weaker parameters so the login handler
-can transparently re-hash.
+heavy — login is infrequent. `Compare` also reports when the stored hash used
+weaker parameters, so the login handler can transparently **rehash on upgrade**:
+parameter bumps roll out organically, one successful login at a time.
 
 ## The login flow
 
-Framework-provided handler helpers encode Atlas's hardened flow; the app owns the
+Framework-provided handler helpers encode the hardened flow; the app owns the
 templ form and the routes:
 
 1. **Pretoken** — GET /login embeds a 10-minute HMAC-SHA256 pretoken
    (purpose-gated) as a hidden field; POST verifies it. Kills form replays for
-   free (`Y:\Atlas\internal\session\pretoken.go`, lifted).
+   free.
 2. **Timing-safe lookup** — an unknown username runs a dummy argon2id compare so
-   user enumeration can't be timed (lifted from `Y:\Atlas\api\auth.go`).
+   user enumeration can't be timed.
 3. **Lockout** — `failed_login_count` on the credentials row; threshold and
-   duration are config (Atlas hardcodes 5 attempts / 15 min). Local state, no
+   duration are config (default 5 attempts / 15 minutes). Local state, no
    distributed coordination; this is account protection, not DDoS mitigation.
 4. **Session mint** — 32 bytes `crypto/rand`; the store keeps **SHA256(token)**,
    never the raw value; per-session CSRF secret; sliding idle TTL; `Rotate()` on
-   privilege change. (Atlas hardening grafted onto the Valkey store —
-   [05-services.md](05-services.md#session).)
+   privilege change ([05-services.md](05-services.md#session)).
 5. **Open-redirect guard** — post-login `?return=` must be a relative `/` path.
 
 Logout clears cookies and deletes the session (idempotent, 204). The
@@ -74,7 +69,7 @@ type Principal struct {
 - **Resolution is boring on purpose**: permissions are resolved once at login from
   the role tables and stored in the session. Changing a user's roles rotates their
   sessions. No per-request tree walks, no TTL cache machinery, no resolver
-  multiplexer — one session-backed resolver is the whole story.
+  abstraction — one session-backed resolver is the whole story.
 - **Anonymous is the absence of a principal**: `c.User()` returns nil. driftbottle
   runs entirely on anonymous sessions; no `Kind` enum required.
 - **Guards**: `beach.Authed()`, `beach.Role("admin")`, and the permission guard
@@ -90,9 +85,8 @@ user_roles       (user_id, role_id)
 ```
 
 No groups, no deny effects, no scope types, no condition JSON, no field-path
-permissions. Each of those exists in Atlas and can be borrowed back the day an
-app demonstrates the need — adding a migration is cheap; carrying speculative
-schema is not.
+permissions. Any of those can be added the day an app demonstrates the need —
+adding a migration is cheap; carrying speculative schema is not.
 
 ## What stays app-side
 
@@ -101,7 +95,7 @@ the email sender. The skeleton stamps the `users` + `user_credentials_local` +
 RBAC migrations and a working login/logout pair so the whole flow is proven on
 first `make up`.
 
-## Security rules (framework doctrine, from Atlas CLAUDE.md)
+## Security rules (framework doctrine)
 
 Never return `password_hash` (or any secret column) in a `RETURNING` clause or
 `SELECT *` — explicit column lists only; the authz analyzer

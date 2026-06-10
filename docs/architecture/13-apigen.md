@@ -2,25 +2,20 @@
 
 [← docs index](../README.md) · prev: [Auth](12-auth.md) · next: [Analytics](14-analytics.md)
 
-Adapted from Atlas (`Y:\Atlas\cmd\atlas-apigen`): a **sqlc process plugin** that
-reads annotations on the SQL queries the app already writes and generates the
-wiring around them. SQL stays the single source of truth — the same ethos as sqlc,
-templ, and `beach ecs gen`.
+`beach-apigen` is a **sqlc process plugin** that reads annotations on the SQL
+queries the app already writes and generates the wiring around them. SQL stays the
+single source of truth — the same ethos as sqlc, templ, and `beach ecs gen`.
 
-One deliberate narrowing from Atlas (see the [decisions log](11-decisions.md)):
-Atlas's generator emits a JSON API with an OpenAPI 3.1 spec, because Atlas has
-machine clients. **the-beach generates hypermedia only.** There is no OpenAPI
-emitter, no JSON content negotiation, and no `@expand`/`@sortable`/`@readonly`/
-`@writeonly` annotations — those exist to shape JSON request/response bodies and
-ride with the machine-API surface. If a beach app ever genuinely needs a machine
-API, Atlas's generator is the reference implementation and that adoption is its
-own RFC.
+The generator emits **hypermedia only**. There is no OpenAPI emitter, no JSON
+content negotiation, and no body-shaping annotations — machine APIs are a charter
+[non-goal](../rfc/01-charter.md#non-goals). If a beach app ever genuinely needs
+one, that's its own RFC.
 
 ## The annotation grammar — six annotations
 
 Annotations are comments on named sqlc queries
-(`internal/db/sql/queries/<entity>/*.sql`, one directory per entity — the Atlas
-layout):
+(`internal/db/sql/queries/<entity>/*.sql`, one directory per entity, so each
+domain's queries and generated surface stay together):
 
 ```sql
 -- name: GetItem :one
@@ -62,9 +57,9 @@ Anything custom goes through `@handler skip` and a hand-written handler.
 
 ## Build wiring
 
-Same mechanism as Atlas: the generator is a standalone binary (`cmd/beach-apigen`)
-registered as a sqlc plugin, so `make gen`'s existing `sqlc generate` step runs it —
-no new pipeline stage:
+The generator is a standalone binary (`cmd/beach-apigen`) registered as a sqlc
+plugin, so `make gen`'s existing `sqlc generate` step runs it — no new pipeline
+stage:
 
 ```yaml
 # skeleton sqlc.yaml
@@ -78,9 +73,3 @@ sql:
       - plugin: beach-apigen
         out: api
 ```
-
-## What we're not taking
-
-The OpenAPI/JSON emitters (above), `atlas-seed` and `intel-dump` (Atlas-domain
-tools), and Atlas's Postgres-backed session store — the-beach keeps Valkey
-sessions with Atlas's hardening ([12-auth.md](12-auth.md)).

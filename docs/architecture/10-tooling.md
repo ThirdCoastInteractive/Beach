@@ -5,32 +5,33 @@
 ## `cmd/beach` and the skeleton
 
 `beach new <app>` stamps: Makefile (`help` default; `setup` with pinned tool versions
-— `@latest` drift is a documented sin; coupled `gen` = templ+tailwind+sqlc+esbuild;
-`vet` = gen + analyzers + `go vet`; `up`/`logs`/`down`; `start-db`/`stop-db` with the
-"never rm-db to fix migrations" warning), sqlc.yaml (pgtype purge + domain-ID
-override examples), input.css (token layer + `@source` globs), docker-compose
-(Postgres + Valkey), `.env` template, esbuild entries, and a `cmd/app` with one page,
-one Datastar action, one SSE fragment — proving the whole pipe on first `make up`.
+— `@latest` drift between machines is a documented sin; coupled `gen` =
+templ+tailwind+sqlc+esbuild; `vet` = gen + analyzers + `go vet`; `up`/`logs`/`down`;
+`start-db`/`stop-db` with the "never rm-db to fix migrations" warning), sqlc.yaml
+(pgtype purge + domain-ID override examples, apigen plugin registered), input.css
+(token layer + `@source` globs), docker-compose (Postgres + Valkey, ClickHouse
+commented out), `.env` template, auth migrations + a working login, and a `cmd/app`
+with one page, one Datastar action, one SSE fragment — proving the whole pipe on
+first `make up`.
 
-`beach vet` runs the analyzers — manifold's lint guards plus Atlas's lint family
-(`Y:\Atlas\cmd\atlas-lint-*`, adapted):
+`beach vet` runs the analyzers:
 
-- raw Datastar attribute strings (manifold `lint-datastar` + Atlas's
-  `templ.Attributes{}`-literal detection — Atlas's is the better implementation)
+- raw Datastar attribute strings and `templ.Attributes{}` literals — typed
+  builders are the only sanctioned way
 - pgtype imports outside `internal/db`; `google/uuid` outside the sanctioned package
-- hardcoded hex/OKLCH in templ class attributes; raw `<i class="fa-...">` icons
+- hardcoded hex/OKLCH in templ class attributes; raw icon-font `<i>` elements
 - naked `echo.HandlerFunc` registered outside `app.Raw`
-- **single-head rule** (Atlas `lint-head`): no `<head>`/`<script>`/`<style>`/
-  stylesheet `<link>` outside the base layout; in it, scripts/styles must be
-  `/static/` and `<meta name>` must match the allow-list — keeps CSP honest
-- **vendoring integrity** (Atlas `lint-stack`): no CDN or naked external URLs in
-  templ/CSS/JS — "no external CDNs" becomes a build failure, not a rule
-- **authz coverage** (Atlas `lint-authz`, adapted): mutating queries carry
-  `@requires`, hand-written mutation handlers call a principal check, no secret
-  columns in RETURNING/SELECT ([12-auth.md](12-auth.md)); per-line
-  `authz-lint: allow (reason)` markers for the genuine exceptions
-- **i18n catalog freshness** (Atlas `i18n-extract`): literal-only `i18n.T("key")`
-  calls, catalog regenerated or the build fails
+- **single-head rule**: no `<head>`/`<script>`/`<style>`/stylesheet `<link>`
+  outside the base layout; in it, scripts/styles must be `/static/` and
+  `<meta name>` must match the allow-list — keeps CSP honest
+- **vendoring integrity**: no CDN or naked external URLs in templ/CSS/JS —
+  "no external CDNs" is a build failure, not a guideline
+- **authz coverage**: mutating queries carry `@requires`, hand-written mutation
+  handlers call a principal check, no secret columns in RETURNING
+  ([12-auth.md](12-auth.md)); per-line `authz-lint: allow (reason)` markers for
+  the genuine exceptions
+- **i18n catalog freshness**: literal-only `i18n.T("key")` calls, catalog
+  regenerated or the build fails
 
 The [14KB rule](06-ui.md#the-14kb-rule) is enforced at runtime instead (dev-mode
 over-budget warnings + the example apps' perf gate) — response size isn't knowable
@@ -49,12 +50,13 @@ visible, no 404s). A task is not complete until every step passes.
 
 ## Testing & performance doctrine
 
-- Integration tests over unit tests (grug sweet spot); regression test before fixing
-  any bug; minimal mocking — sim tests use a real store, db tests a real Postgres.
+- Integration tests over unit tests (the grug sweet spot); regression test before
+  fixing any bug; minimal mocking — sim tests use a real store, db tests a real
+  Postgres.
 - Sim tests: construct → send → tick → assert. Determinism is the feature.
 - Playwright e2e smoke per app, `workers=1` (SSE handshakes don't tolerate parallel
   handshakes against one container).
-- driftbottle ships the fan-out benchmark (ssesim/chatperf lineage): 5k SSE
-  connections on one container is the budget the hub must meet; boardwalk's
-  kill-and-recover test covers the sim persistence lanes.
+- driftbottle ships the fan-out benchmark: 5k SSE connections on one container is
+  the budget the hub must meet; boardwalk's kill-and-recover test covers the sim
+  persistence lanes.
 - Perf history as JSONL tracked in git so trends show up in diffs.

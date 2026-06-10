@@ -1,7 +1,7 @@
 # the-beach — documentation index
 
-A reusable, hypermedia-first, SSR web framework for Go. Extracted from manifold13.tv,
-hardened, and extended with a custom entity component system for realtime app state.
+A reusable, hypermedia-first, SSR web framework for Go, with a custom entity
+component system for realtime app state.
 Stack: Echo · templ · Datastar · Tailwind · pgx · sqlc · goose · Postgres
 LISTEN/NOTIFY · SSE · Valkey · custom `ecs` engine. The module root is the framework's
 front door: `import beach "github.com/ThirdCoastInteractive/the-beach"`.
@@ -96,7 +96,7 @@ flowchart BT
 | Doc                                          | Covers                                                                |
 | -------------------------------------------- | --------------------------------------------------------------------- |
 | [1 — Charter](rfc/01-charter.md)             | Problem, goal, non-goals, philosophy                                  |
-| [2 — Extraction](rfc/02-extraction.md)       | What gets lifted from manifold13.tv, what warts get fixed             |
+| [2 — Scope](rfc/02-scope.md)                 | Every package and its responsibility; the framework laws              |
 | [3 — The ECS pitch](rfc/03-ecs.md)           | Why a custom engine, the design pillars, the hybrid boundary          |
 | [4 — Program & risks](rfc/04-program.md)     | The 10 shippable projects, validation criteria, risks                 |
 
@@ -113,11 +113,11 @@ flowchart BT
 | [7 — ECS engine](architecture/07-ecs.md)                  | The custom standalone engine: schema, Store, change ticks              |
 | [8 — Sim](architecture/08-sim.md)                         | The boundary, tick loop, projections, persistence lanes                |
 | [9 — Lifecycles](architecture/09-lifecycles.md)           | Page / action / stream / external write, end to end                    |
-| [10 — Tooling & testing](architecture/10-tooling.md)      | `beach new` / `beach vet` (+ Atlas lint family) / `beach ecs gen`      |
+| [10 — Tooling & testing](architecture/10-tooling.md)      | `beach new` / `beach vet` / `beach ecs gen` / `beach i18n`, test doctrine |
 | [11 — Decisions log](architecture/11-decisions.md)        | Every load-bearing choice and why                                      |
-| [12 — Auth](architecture/12-auth.md)                      | argon2id passwords, login flow, principal/RBAC, guards (from Atlas)    |
+| [12 — Auth](architecture/12-auth.md)                      | argon2id passwords, login flow, principal/RBAC, guards                 |
 | [13 — API codegen](architecture/13-apigen.md)             | `beach-apigen`: six SQL annotations → routes, handlers, NOTIFY (hypermedia-only) |
-| [14 — Analytics](architecture/14-analytics.md)            | `chart` (SSR SVG, lifted from Atlas) + `ch` (ClickHouse, built to Atlas's RFC) |
+| [14 — Analytics](architecture/14-analytics.md)            | `chart` (SSR SVG, 22 types) + `ch` (ClickHouse client, batcher, migrations) |
 | [15 — Example apps](architecture/15-examples.md)          | boardwalk (Monopoly/sim), driftbottle (stranger chat/hub), pantry (ERP/apigen+analytics) |
 
 ## Reading paths
@@ -125,5 +125,5 @@ flowchart BT
 - **Auditing the plan?** RFC 1 → 2 → 3 → 4, then the decisions log.
 - **Auditing the ECS?** RFC 3 → Architecture 7 → 8 → 9.
 - **Auditing the frontend story?** Architecture 3 → 6 → 9.
-- **Auditing auth & codegen (the Atlas adoptions)?** Architecture 12 → 13 → 10.
+- **Auditing auth & codegen?** Architecture 12 → 13 → 10.
 - **Building project 1?** Architecture 1 → 2, RFC 4 for scope.

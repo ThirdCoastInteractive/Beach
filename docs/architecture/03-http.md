@@ -7,8 +7,9 @@ The HTTP layer is the module root (`package beach`) per the
 
 ## App builder
 
-The five manifold `cmd/*/main.go` files are the same 150 lines with different CSP
-strings. The builder collapses them:
+Without a builder, every service's `main.go` becomes the same 150 lines of
+middleware and bootstrap with slightly different CSP strings. The builder
+collapses them:
 
 ```go
 app := beach.New(beach.Config{
@@ -36,23 +37,25 @@ Echo remains underneath (`app.Raw` and `app.Echo()` exist for webhooks and the
 genuinely weird), but the paved road is three typed handler shapes that encode the
 house rules by construction.
 
-Middleware stack (fixed order, lifted from `cmd/admin/main.go:181-204`): request
-logger (skips /healthz, /static), recover, gzip (skips SSE — see below; SSE gets its
-own compressor), rate limiter, secure headers + CSP, CSRF origin check, kit
-injection. The builder **refuses to start** if no UI kit is registered (fixing the
-nullability wart).
+Middleware stack, in fixed order: request logger (skips /healthz, /static),
+recover, gzip (skips SSE — see below; SSE gets its own compressor), rate limiter,
+secure headers + CSP, CSRF origin check, kit injection. The builder **refuses to
+start** if no UI kit is registered — component lookup can never silently fall
+through.
 
-`beach.StaticCache` is lifted as-is: boot-time SHA256 ETags, `immutable`
-Cache-Control, 304s. Asset versioning keeps the `?v=<shortCommit>-<bootTime>` scheme
-from `internal/view/tmpl/layout/page.templ`.
+`beach.StaticCache` computes SHA256 ETags for every static file at boot and serves
+with `immutable` Cache-Control and 304s. Asset URLs carry
+`?v=<shortCommit>-<bootTime>`: released binaries get stable commit-based
+versioning, dev rebuilds get unique timestamps, and every deploy busts caches
+without a manifest.
 
 ## Handlers: three typed shapes
 
-In manifold, the load-bearing rules — dual-purpose handlers branch on `IsDatastar`,
+The load-bearing rules — dual-purpose handlers branch on `IsDatastar`,
 `db.New(pool)` per request, never duplicate page + fragment routes, SSE loops follow
-the registry/catch-up shape — live in instruction docs and lint guards. In the-beach
-they are the handler types themselves: holding one wrong is a compile error or a
-shape you cannot express, not a review comment.
+the subscribe/catch-up shape — are the handler types themselves, not documentation:
+holding one wrong is a compile error or a shape you cannot express, never a review
+comment.
 
 Handlers stay standalone factory functions taking only the deps they need — never
 methods on a server struct. But they return beach types instead of raw
@@ -79,8 +82,9 @@ func Wallet(pool *pgxpool.Pool) beach.PageFunc {
 }
 ```
 
-Tabs, filters, pagination, sort reuse the page URL with query params — same rule as
-manifold, now structural: a `View` always knows how to render both ways.
+Tabs, filters, pagination, sort reuse the page URL with query params — they never
+get their own routes. The rule is structural: a `View` always knows how to render
+both ways, so there is nothing for a separate fragment route to do.
 
 `View.Page` is subject to [the 14KB rule](06-ui.md#the-14kb-rule): the compressed
 first response targets the initial TCP congestion window, and anything heavier
@@ -111,8 +115,9 @@ func PurchaseCoins(pool *pgxpool.Pool, s *sim.Sim) beach.ActionFunc {
 
 ### `beach.StreamFunc` — SSE subscriptions
 
-Manifold's hand-written 200-line SSE loops (subscribe, since-cursor catch-up, select
-loop, session row, cleanup) become a declaration; the framework owns the loop:
+Hand-written SSE loops run 200 lines once you handle everything correctly —
+subscribe, since-cursor catch-up, select loop, session row, cleanup. Here they
+become a declaration; the framework owns the loop:
 
 ```go
 func LiveStream(h *hub.Hub, pool *pgxpool.Pool) beach.StreamFunc {
@@ -138,16 +143,16 @@ error HTML.
 **Guards** (`beach.Authed()`, `beach.Role(...)`, and the permission guard
 `beach.Can("devices:write")` backed by the [principal model](12-auth.md)) wrap
 session middleware and populate `c.User()` / `c.Principal()`; a `PageFunc` behind a
-guard can assume the user exists. `app.Raw` is the documented escape hatch (Stripe
-webhooks must mount outside auth — the manifold pattern), and `beach vet` flags
-`echo.HandlerFunc` registered anywhere else.
+guard can assume the user exists. `app.Raw` is the documented escape hatch —
+payment webhooks must mount outside auth so they execute reliably — and `beach vet`
+flags `echo.HandlerFunc` registered anywhere else.
 
 ## SSE compression
 
-Manifold skips gzip for SSE because Echo's middleware buffers — events would sit in
-the compressor's 32KB buffer instead of arriving. That's a middleware artifact, not a
-protocol limit, so the-beach moves compression into the SSE path itself instead of
-giving it up:
+The conventional wisdom says skip gzip for SSE, because gzip middleware buffers —
+events would sit in the compressor's 32KB buffer instead of arriving. That's a
+middleware artifact, not a protocol limit, so the-beach moves compression into the
+SSE path itself instead of giving it up:
 
 - The stream writer (inside `beach.NewSSE`, under every `StreamFunc` and `ActionFunc`
   response) negotiates `Content-Encoding: gzip` via `Accept-Encoding` and
@@ -171,7 +176,6 @@ giving it up:
 
 ## datastar (typed builders)
 
-Lifted from `manifold13.tv/pkg/datastar`. Raw `data-*` strings in templ are a build
-failure via the `beach vet` analyzer (manifold's `lint-datastar`, promoted from a grep
-in a Makefile to a `go/analysis` pass). Colon event syntax (`data-on:click`) is what
-the builders emit; nobody types it.
+Raw `data-*` strings in templ are a build failure via the `beach vet` analyzer;
+the typed builders are the only sanctioned way to emit Datastar attributes. Colon
+event syntax (`data-on:click`) is what the builders emit; nobody types it.

@@ -35,7 +35,7 @@ sequenceDiagram
 **SSE stream:** `@get('/stream')` on load → guards → `StreamFunc` returns a `Sub`
 (topics + catch-up) → framework runs the loop: `?since=` catch-up render, subscribe,
 block on the topic channels, write patches until disconnect → device/session row
-closed, reaper sweeps stale rows (manifold's 30s reaper pattern).
+closed, a 30-second reaper sweeps stale rows.
 
 **Deferred section:** below-the-fold `ui.Defer` placeholder (exact reserved
 dimensions, shipped in the ≤14KB first response) → `@get` on viewport intersection →

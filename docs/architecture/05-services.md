@@ -4,33 +4,32 @@
 
 ## cache
 
-Two shapes, both proven in manifold:
+Two shapes:
 
-- `cache.Snapshot[T]` — atomic-pointer immutable snapshot, lock-free reads,
-  `Refresh(ctx, load)` swaps wholesale (plans cache pattern,
-  `internal/db/plans_cache.go`).
-- `cache.Keyed[K,V]` — RWMutex map with `LoadAll` + per-id `Invalidate` (emote cache
-  pattern, `internal/chatemote/cache.go`).
+- `cache.Snapshot[T]` — an atomic-pointer immutable snapshot with lock-free reads;
+  `Refresh(ctx, load)` builds a new snapshot and swaps it wholesale. For small,
+  hot, read-everywhere data (plans, palettes, feature tables).
+- `cache.Keyed[K,V]` — an RWMutex map with `LoadAll` at boot and per-id
+  `Invalidate`. For collections where entries change one at a time (emotes,
+  uploaded assets).
 
 Plus the paved road: `cache.InvalidateOn(ctx, pool, "channel", c)` wires a
-`pg.Listen` listener that parses an id payload and invalidates the entry — making
-NOTIFY-invalidation the default instead of one-off (fixes the plans-cache manual
-refresh inconsistency).
+`pg.Listen` listener that parses an id payload and invalidates the entry —
+NOTIFY-driven invalidation is the default, not a per-cache afterthought.
 
 ## session
 
-Lifted from manifold's `pkg/session`: Valkey-backed, TTL, per-user session sets
-for RevokeAll, `OptionalAuth` / `RequireAuth` / `RequireRole` middleware factories,
-`session.UserFrom(ctx)`. The Data/AuthUser duplication collapses to one struct with
-an `AuthUser()` view.
+Valkey-backed sessions with auth middleware: per-user session sets make RevokeAll
+one operation; `OptionalAuth` / `RequireAuth` / `RequireRole` middleware factories;
+`session.UserFrom(ctx)`. One identity struct with derived views — never parallel
+copies of user data.
 
-Hardening adopted from Atlas's session store (the store stays Valkey; the
-discipline transfers): the 32-byte `crypto/rand` token is stored as
+The hardening discipline: the 32-byte `crypto/rand` token is stored as
 **SHA256(token)**, never raw; each session carries its own CSRF secret
 (hash-validated server-side); idle TTL slides on authenticated requests;
 `Rotate()` re-mints token + CSRF on privilege change. Cookie name, path, and
-lifetimes are plain config — Atlas's multi-realm scoping was not lifted; no beach
-app has two realms.
+lifetimes are plain config — there is no multi-realm machinery; no beach app has
+two realms.
 
 The route-level surface is the guards in [03-http.md](03-http.md#errors-and-guards):
 `beach.Authed()` / `beach.Role(...)` / `beach.Can(...)` wrap this middleware and
@@ -39,8 +38,7 @@ populate `c.User()` and `c.Principal()` — the full identity and RBAC story is
 
 ## i18n
 
-A real runtime, not just the lint. Adapted from Atlas's catalog/extractor design
-(`Y:\Atlas\cmd\atlas-i18n-extract`), kept deliberately flat:
+A real runtime with mechanical verification, kept deliberately flat:
 
 - **Catalog**: `internal/view/i18n/catalog.json` maps each key to a reference
   label and a translator comment; `locales/<tag>.json` (e.g. `en-US.json`) maps
@@ -62,4 +60,4 @@ A real runtime, not just the lint. Adapted from Atlas's catalog/extractor design
 
 No pluralization DSL, no ICU MessageFormat, no nested namespaces in v1 — flat
 keys and `fmt`-style argument substitution cover the example apps. The fancier
-machinery can be borrowed when a real translation effort demands it.
+machinery can be added when a real translation effort demands it.

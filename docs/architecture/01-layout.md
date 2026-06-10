@@ -2,9 +2,6 @@
 
 [← docs index](../README.md) · next: [Boot spine](02-boot-spine.md)
 
-File references like `manifold13.tv/internal/web/sse.go` throughout the architecture
-docs point at the reference implementation in `X:\manifold-13\manifold13.tv`.
-
 ## Stack contract
 
 Echo v4 · templ · Datastar (Go SDK `starfederation/datastar-go`) · Tailwind v4 ·
@@ -37,14 +34,14 @@ the-beach/                module github.com/ThirdCoastInteractive/the-beach
 │   │                     Defer (lazy sections), the performance laws
 │   └── driftwood/        minimal reference kit
 ├── chart/                SSR SVG charts: 22 types, pure-Go geometry + templ
-│                         components, token-themed (lifted from Atlas)
+│                         components, token-themed
 ├── ch/                   ClickHouse: client, goose migrations, generic Batcher
-│                         ingest, query→chart helpers (built to Atlas's RFC)
+│                         ingest, query→chart helpers
 ├── hub/                  topic registry, per-connection fan-out, ticker producers
 ├── cache/                Snapshot[T] and Keyed[K,V] caches + NOTIFY invalidation
 ├── session/              Valkey-backed sessions (SHA256 tokens, rotation, CSRF)
 ├── i18n/                 flat key catalog, locale files, T(ctx, key), middleware
-├── passwords/            argon2id hashing, PHC strings — zero deps, lifted from Atlas
+├── passwords/            argon2id hashing, PHC strings — zero deps
 ├── auth/                 principal model (RBAC), login helpers, pretoken, lockout
 ├── ecs/                  standalone engine: schema codegen, archetype Store,
 │                         change ticks, snapshots — zero deps, zero beach imports
@@ -56,7 +53,7 @@ the-beach/                module github.com/ThirdCoastInteractive/the-beach
 │   ├── beach/            CLI: beach new / vet / ecs gen
 │   │   └── skeleton/     embedded app template stamped by `beach new`
 │   └── beach-apigen/     sqlc process plugin: SQL annotations → routes, handler
-│                         stubs, NOTIFY plumbing (adapted from Atlas, hypermedia-only)
+│                         stubs, NOTIFY plumbing (hypermedia-only)
 ├── examples/             the validation trio (15-examples.md), each shaped
 │   ├── boardwalk/        exactly like a consuming app:
 │   │                     Monopoly-style real-estate game — the sim/ecs showcase
@@ -85,8 +82,7 @@ the web packages; the root `beach` package is what an app touches first.
 
 ## What a consuming app looks like
 
-Manifold's shape, minus everything the framework now owns. Each app in `examples/`
-is this exact shape:
+Each app in `examples/` is this exact shape:
 
 ```
 myapp/

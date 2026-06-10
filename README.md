@@ -1,7 +1,7 @@
 # the-beach
 
-A hypermedia-first, server-rendered web framework for Go. Extracted from
-manifold13.tv, extended with an entity component system for realtime app state.
+A hypermedia-first, server-rendered web framework for Go, with an entity component
+system for realtime app state.
 
 **Stack (non-negotiable):** Echo · templ · Datastar · Tailwind · pgx · sqlc · goose ·
 Postgres LISTEN/NOTIFY · SSE · Valkey · custom `ecs` engine.
@@ -14,15 +14,14 @@ good way.
 Start at the [docs index](docs/README.md) — it holds the overall diagrams (realtime
 spine, package dependencies) and links every sub-document:
 
-- [RFC](docs/rfc/01-charter.md) (4 docs) — charter, extraction from manifold13.tv,
-  the ECS pitch, program of projects + risks.
+- [RFC](docs/rfc/01-charter.md) (4 docs) — charter, scope (packages + framework
+  laws), the ECS pitch, program of projects + risks.
 - [Architecture](docs/architecture/01-layout.md) (15 docs) — module layout (per
   [go.dev/doc/modules/layout](https://go.dev/doc/modules/layout)), boot spine, the
-  root `beach` package + handler shapes, hub, cache/session, the `ui` toolkit
+  root `beach` package + handler shapes, hub, cache/session/i18n, the `ui` toolkit
   (14KB rule, deferred sections), the `ecs` engine, the `sim`, lifecycles, tooling,
-  decisions log, auth (argon2id + RBAC, from Atlas), API codegen (from Atlas),
-  analytics (`chart` SSR SVG + `ch` ClickHouse), and the example trio
-  (boardwalk / driftbottle / pantry).
+  decisions log, auth (argon2id + RBAC), API codegen, analytics (`chart` SSR SVG +
+  `ch` ClickHouse), and the example trio (boardwalk / driftbottle / pantry).
 
 ## Branching & releases
 

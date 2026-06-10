@@ -2,11 +2,11 @@
 
 [← docs index](../README.md) · prev: [HTTP layer](03-http.md) · next: [Cache & session](05-services.md)
 
-Unifies manifold's two SSE models (live's event hub, admin's `sseTickLoop`) under one
-concept: **topics**.
+Every realtime surface — event-driven chat, periodic dashboard refresh, per-user
+notifications — runs on one concept: **topics**. There is no second mental model.
 
 ```go
-type Hub struct{ ... }                                // generalization of notify.Registry
+type Hub struct{ ... }
 
 sub := hub.Subscribe("chat:room1", "presence", "user:"+id.String())
 defer sub.Close()
@@ -22,9 +22,9 @@ for !sse.IsClosed() {
 [03-http.md](03-http.md#beachstreamfunc--sse-subscriptions) declares the subscription
 and the framework runs it. The loop is shown for what the framework does inside.)
 
-- Per-subscription buffered channel (64), **drop on full** — slow clients reconcile via
-  a `?since=` catch-up cursor on reconnect, exactly manifold's notification pattern
-  (`cmd/live/handler/handler.go:670-701`).
+- Per-subscription buffered channel (64), **drop on full** — slow clients reconcile
+  via a `?since=` catch-up cursor on reconnect. Liveness beats completeness on the
+  push path; the catch-up query is the completeness path.
 - **Render once per topic, write per connection.** A publisher renders the templ
   fragment to bytes once; the hub fans the bytes out. Per-user personalization
   (your own XP bar) publishes to the `user:<id>` topic instead. This is interest
@@ -36,7 +36,7 @@ and the framework runs it. The loop is shown for what the framework does inside.
   subscriber's compressor. That per-connection CPU/memory is the price of stream
   compression; the level knob and the driftbottle benchmark keep it inside the
   5k-connection budget.
-- `hub.Ticker(topic, interval, produce)` replaces `sseTickLoop`: a producer that
+- `hub.Ticker(topic, interval, produce)` covers periodic refresh: a producer that
   publishes on an interval; admin dashboards subscribe like everything else.
 - Producers: HTTP handlers (after a mutation), `pg.Listen` listeners (external
   writers, other processes), and [`sim` projections](08-sim.md). In-process

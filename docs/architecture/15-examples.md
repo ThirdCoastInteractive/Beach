@@ -37,9 +37,9 @@ The **`hub`/SSE showcase**, and the host of the fan-out benchmark.
 - Everything is ephemeral: no chat persistence, sessions are the only state —
   which makes it the purest possible test of the hub, SSE compression, presence,
   and reconnect/`?since=` behavior with nothing else in the way.
-- **Hosts the 5k-connection benchmark** (the manifold chat budget, with SSE gzip
-  on and per-connection memory reported) and the moderation hooks demo
-  (rate-limit per session, word filters).
+- **Hosts the 5k-connection benchmark** (single container, SSE gzip on,
+  per-connection memory reported) and the moderation hooks demo (rate-limit per
+  session, word filters).
 - Validates: hub at scale, `StreamFunc`, SSE compression budget, matchmaking on
   the command channel, anonymous principals, the 14KB rule (the whole app should
   land well under it).
