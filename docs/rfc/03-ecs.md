@@ -14,9 +14,10 @@ landed on:
 - **A custom, standalone engine (`ecs`).** No third-party ECS. `ecs` is a
   zero-dependency package with no knowledge of the-beach, hubs, or Postgres —
   reusable by any Go project (game server, simulation, CLI tooling); `sim` is just
-  the web integration on top. Storage follows the proven archetype/columnar design
-  ([go-ecs-benchmarks](https://github.com/mlange-42/go-ecs-benchmarks) is the honest
-  yardstick, Ark the perf reference to stay within range of).
+  the web integration on top. Storage follows the proven archetype/columnar design —
+  fast enough for the live slice (connected users + their hot components), which is the
+  only thing the sim ever holds. The engine isn't competing with Ark or Arche on raw
+  throughput; it earns its keep by bringing ECS into web apps.
 - **Schema-first components.** Components are declared once in a schema file;
   `beach ecs gen` generates the Go structs, the storage accessors, and the SQL
   component-mirror migrations. Write once, generate typed code everywhere: the

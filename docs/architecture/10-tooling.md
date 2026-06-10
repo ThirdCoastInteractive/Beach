@@ -9,7 +9,7 @@
 templ+tailwind+sqlc+esbuild; `vet` = gen + analyzers + `go vet`; `up`/`logs`/`down`;
 `start-db`/`stop-db` with the "never rm-db to fix migrations" warning), sqlc.yaml
 (pgtype purge + domain-ID override examples, apigen plugin registered), input.css
-(token layer + `@source` globs), docker-compose (Postgres + Valkey, ClickHouse
+(token layer + `@source` globs), docker-compose (Postgres, ClickHouse
 commented out), `.env` template, auth migrations + a working login, and a `cmd/app`
 with one page, one Datastar action, one SSE fragment — proving the whole pipe on
 first `make up`.

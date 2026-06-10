@@ -3,7 +3,7 @@
 A reusable, hypermedia-first, SSR web framework for Go, with a custom entity
 component system for realtime app state.
 Stack: Echo · templ · Datastar · Tailwind · pgx · sqlc · goose · Postgres
-LISTEN/NOTIFY · SSE · Valkey · custom `ecs` engine. The module root is the framework's
+LISTEN/NOTIFY · SSE · custom `ecs` engine. The module root is the framework's
 front door: `import beach "github.com/ThirdCoastInteractive/the-beach"`.
 
 **Status:** pre-implementation. The RFC and architecture docs below are the current
@@ -108,7 +108,7 @@ flowchart BT
 | [2 — Boot spine](architecture/02-boot-spine.md)           | `config`, `pg` (pool, advisory-lock migrate, InTx, Listen/Notify)      |
 | [3 — HTTP layer](architecture/03-http.md)                 | Root `beach` package: App builder, handler shapes, guards, SSE gzip    |
 | [4 — Hub](architecture/04-hub.md)                         | Topic fan-out, render-once-per-topic, tickers                          |
-| [5 — Cache, session, i18n](architecture/05-services.md)   | Snapshot/keyed caches, NOTIFY invalidation, Valkey sessions, i18n      |
+| [5 — Cache, session, i18n](architecture/05-services.md)   | Snapshot/keyed caches, NOTIFY invalidation, Postgres sessions, i18n    |
 | [6 — UI toolkit](architecture/06-ui.md)                   | Kits, tokens, no pop-in, no blocking, the 14KB rule, deferred sections |
 | [7 — ECS engine](architecture/07-ecs.md)                  | The custom standalone engine: schema, Store, change ticks              |
 | [8 — Sim](architecture/08-sim.md)                         | The boundary, tick loop, projections, persistence lanes                |

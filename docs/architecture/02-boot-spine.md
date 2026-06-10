@@ -14,7 +14,6 @@ type Core struct {
     AppEnv     string `env:"APP_ENV,lower"`      // "production" enables release behavior
     Port       string `env:"PORT"`
     DSN        string `env:"POSTGRES_DSN|DATABASE_URL"`
-    ValkeyAddr string `env:"VALKEY_ADDR"`
     BaseURL    string `env:"BASE_URL,trimslash,url"`
 }
 ```

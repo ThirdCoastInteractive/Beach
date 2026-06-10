@@ -18,13 +18,13 @@ example usage. Order is dependency order, not priority tiers.
    naked-`echo.HandlerFunc`).
 3. **`hub` + `cache` + `session` + `i18n`** — topic registry with per-connection
    buffered fan-out and drop-on-full, ticker producers, snapshot caches with
-   NOTIFY invalidation, Valkey sessions with auth middleware, and the flat-key
+   NOTIFY invalidation, Postgres sessions with auth middleware, and the flat-key
    i18n runtime with its extractor.
 4. **`passwords` + `auth`** — argon2id hashing with rehash-on-upgrade, the hardened
    login flow (pretoken, timing-safe verify, lockout-as-config), session hardening
-   on the Valkey store, a three-table RBAC with `resource:action` permissions
-   resolved at login, `beach.Can()` guard, skeleton users/credentials/RBAC
-   migrations, and the authz analyzer.
+   on the Postgres `sessions` table, a three-table RBAC with `resource:action`
+   permissions resolved at login, `beach.Can()` guard, skeleton
+   users/credentials/sessions/RBAC migrations, and the authz analyzer.
 5. **`ui`** — the toolkit: `Kit` interface, registry, context injection, icon API,
    semantic token contract, the performance laws (no pop-in, no blocking, the 14KB
    rule, `ui.Defer` lazy sections), and `driftwood`: a minimal reference kit
@@ -36,20 +36,20 @@ example usage. Order is dependency order, not priority tiers.
    config). Optional everywhere: no DSN, no ClickHouse, app still boots.
 7. **`ecs`** — the standalone engine: component schema + codegen, archetype/columnar
    `Store`, entity handles (index+generation), tick-stamped change detection,
-   entity relationships, CBOR snapshots, and a benchmark suite running the
-   go-ecs-benchmarks scenarios against Ark as the yardstick. Zero framework imports.
-7. **`sim`** — the web integration over `ecs`: command channel, tick loop,
+   entity relationships, CBOR snapshots, and a small benchmark guarding against
+   iteration regressions. Zero framework imports.
+8. **`sim`** — the web integration over `ecs`: command channel, tick loop,
    projections (dirty components → topics + views), write-behind persistence
    helpers, store snapshot/restore.
-8. **`cmd/beach` + `cmd/beach-apigen`** — scaffold CLI and the API generator.
+9. **`cmd/beach` + `cmd/beach-apigen`** — scaffold CLI and the API generator.
    `beach new <app>` stamps the skeleton: Makefile, sqlc.yaml (with the apigen
    plugin registered), Tailwind input.css with token layer, docker-compose
-   (Postgres + Valkey, ClickHouse commented out), .env template, auth migrations +
+   (Postgres, ClickHouse commented out), .env template, auth migrations +
    a working login, a working page with one SSE fragment. `beach vet` runs the
    analyzers; `beach ecs gen` runs the component codegen; `beach-apigen` turns the
    six SQL annotations into beach handler shapes
    ([architecture/13-apigen.md](../architecture/13-apigen.md)).
-9. **The example trio** ([architecture/15-examples.md](../architecture/15-examples.md))
+10. **The example trio** ([architecture/15-examples.md](../architecture/15-examples.md))
    — three apps, each shaped exactly like a consuming app, together the falsifiable
    claim that the framework works:
    - `examples/boardwalk` — Monopoly-style real-estate game: the `sim`/`ecs`
@@ -78,9 +78,9 @@ example usage. Order is dependency order, not priority tiers.
 - An existing production service on this stack could adopt the framework with a
   net-negative diff (assessed on paper as a writeup; actual migration is its own
   project).
-- `ecs` imports nothing from the rest of the-beach, and its benchmark suite stays
-  within small-integer factors of Ark on the go-ecs-benchmarks scenarios that matter
-  here (query iteration, batch create/destroy).
+- `ecs` imports nothing from the rest of the-beach — it compiles and benchmarks with
+  zero framework imports, which is the modularity claim that matters. Its benchmark
+  exists to catch iteration regressions, not to chase a competitor's numbers.
 - pantry's login is argon2id end to end with two real roles; the authz analyzer
   passes in fatal mode (every mutation carries `@requires`, every hand-written
   mutation handler checks the principal, no secret columns in RETURNING).
@@ -97,9 +97,9 @@ example usage. Order is dependency order, not priority tiers.
   change ticks + snapshots), the non-features list in
   [architecture/07-ecs.md](../architecture/07-ecs.md#non-features) is a contract
   (no parallel scheduler, no scripting, no reflection queries, no internal event
-  bus), and the benchmark suite against Ark keeps performance claims honest. If the
-  custom engine stalls, the `sim` facade is narrow enough to swap a third-party
-  engine back in.
+  bus), and the engine makes no competitive performance claim to defend — it only has
+  to keep up with the live slice. If the custom engine stalls, the `sim` facade is
+  narrow enough to swap a third-party engine back in.
 - **ECS overreach.** The siren call is to ECS-ify CRUD. The boundary rule in
   [architecture/08-sim.md](../architecture/08-sim.md#the-boundary) is written to
   be quoted back at whoever tries.

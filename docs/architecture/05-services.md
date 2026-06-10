@@ -19,17 +19,26 @@ NOTIFY-driven invalidation is the default, not a per-cache afterthought.
 
 ## session
 
-Valkey-backed sessions with auth middleware: per-user session sets make RevokeAll
-one operation; `OptionalAuth` / `RequireAuth` / `RequireRole` middleware factories;
+Postgres-backed sessions with auth middleware: one `sessions` table, queried through
+sqlc like everything else — no second datastore to run, back up, or reason about.
+`RevokeAll` is a single `DELETE ... WHERE user_id = $1` (an index on `user_id` makes
+it cheap); `OptionalAuth` / `RequireAuth` / `RequireRole` middleware factories;
 `session.UserFrom(ctx)`. One identity struct with derived views — never parallel
 copies of user data.
 
 The hardening discipline: the 32-byte `crypto/rand` token is stored as
-**SHA256(token)**, never raw; each session carries its own CSRF secret
-(hash-validated server-side); idle TTL slides on authenticated requests;
-`Rotate()` re-mints token + CSRF on privilege change. Cookie name, path, and
-lifetimes are plain config — there is no multi-realm machinery; no beach app has
-two realms.
+**SHA256(token)** — the row's primary key — never raw; each session carries its own
+CSRF secret (hash-validated server-side); idle TTL slides on authenticated requests
+(`expires_at = now() + ttl`); `Rotate()` re-mints token + CSRF on privilege change
+(delete the old row, insert the new one in one `InTx`). Reads filter
+`expires_at > now()`; a periodic sweep (`DELETE ... WHERE expires_at < now()`) reaps
+the dead rows. Cookie name, path, and lifetimes are plain config — there is no
+multi-realm machinery; no beach app has two realms.
+
+The sliding write is throttled — a session past, say, half its TTL takes one
+`UPDATE`, not one per request — so authenticated traffic doesn't turn every GET into
+a write. The `sessions` migration ships in the auth skeleton alongside the
+users/credentials/RBAC tables.
 
 The route-level surface is the guards in [03-http.md](03-http.md#errors-and-guards):
 `beach.Authed()` / `beach.Role(...)` / `beach.Can(...)` wrap this middleware and

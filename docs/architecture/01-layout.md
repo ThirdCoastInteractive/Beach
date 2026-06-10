@@ -5,7 +5,7 @@
 ## Stack contract
 
 Echo v4 · templ · Datastar (Go SDK `starfederation/datastar-go`) · Tailwind v4 ·
-pgx/v5 + pgxpool · sqlc · goose · Postgres (LISTEN/NOTIFY) · Valkey · esbuild ·
+pgx/v5 + pgxpool · sqlc · goose · Postgres (LISTEN/NOTIFY) · esbuild ·
 custom `ecs` engine (no third-party ECS). Go 1.26+.
 
 These are not pluggable. The framework's value is that every layer knows exactly what
@@ -39,7 +39,7 @@ the-beach/                module github.com/ThirdCoastInteractive/the-beach
 │                         ingest, query→chart helpers
 ├── hub/                  topic registry, per-connection fan-out, ticker producers
 ├── cache/                Snapshot[T] and Keyed[K,V] caches + NOTIFY invalidation
-├── session/              Valkey-backed sessions (SHA256 tokens, rotation, CSRF)
+├── session/              Postgres-backed sessions (SHA256 tokens, rotation, CSRF)
 ├── i18n/                 flat key catalog, locale files, T(ctx, key), middleware
 ├── passwords/            argon2id hashing, PHC strings — zero deps
 ├── auth/                 principal model (RBAC), login helpers, pretoken, lockout
@@ -91,5 +91,5 @@ myapp/
 ├── internal/view/css/     input.css (tokens + @source globs)
 ├── components.beach.yaml  ECS component schema (if the app uses sim)
 ├── Makefile               gen / vet / up / logs / down (stamped by beach new)
-└── docker-compose.yml     postgres + valkey + services
+└── docker-compose.yml     postgres + services
 ```

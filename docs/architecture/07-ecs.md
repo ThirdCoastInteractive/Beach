@@ -23,12 +23,13 @@ The container is an `ecs.Store` — entities and component columns, nothing more
   storage accessors, and the SQL component-mirror migrations
   ([persistence](08-sim.md#persistence)). One declaration, typed code everywhere:
   the sqlc/templ ethos applied to app state.
-- **Storage**: archetype tables with columnar (SoA) component arrays — the design that
-  makes Ark/Arche fast for iteration-heavy, low-churn workloads like ours. Entities
-  move between archetypes on component add/remove; queries iterate matching
-  archetypes' columns directly. [go-ecs-benchmarks](https://github.com/mlange-42/go-ecs-benchmarks)
-  scenarios run in CI against Ark as the yardstick; staying within small-integer
-  factors on query iteration and batch ops is a release gate.
+- **Storage**: archetype tables with columnar (SoA) component arrays — the proven
+  design for iteration-heavy, low-churn workloads like ours. The live slice is small
+  (connected users + their hot components), so the bar is "fast enough for that," not
+  parity with engines built for million-entity scenes. Entities move between archetypes
+  on component add/remove; queries iterate matching archetypes' columns directly. A
+  small benchmark runs in CI as a regression tripwire — it catches a pathological O(n²),
+  it is not a competitive target.
 - **Change detection, first-class**: every component column stores its last-write
   tick; mutation goes through generated accessors that stamp it. Queries filter
   `ecs.Changed[T](sinceTick)` — Bevy's model, native. This is the heart of the SSE

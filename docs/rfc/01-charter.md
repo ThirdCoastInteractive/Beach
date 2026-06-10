@@ -46,8 +46,8 @@ than tribal knowledge.
 ## Non-goals
 
 - Not a general-purpose framework for other people's stacks. It is opinionated to the
-  point of rudeness: Echo, templ, Datastar, Tailwind, pgx, sqlc, goose, Postgres,
-  Valkey. No adapters, no `interface{} Driver` seams.
+  point of rudeness: Echo, templ, Datastar, Tailwind, pgx, sqlc, goose, Postgres.
+  No adapters, no `interface{} Driver` seams.
 - Not an ORM. sqlc stays. Plain SQL stays.
 - No SPA mode, no client-side state management, no JSON API layer. The UI is
   hypermedia or bust, and the-beach doesn't generate machine APIs either. If a
