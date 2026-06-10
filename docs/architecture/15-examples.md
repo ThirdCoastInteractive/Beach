@@ -1,6 +1,6 @@
 # Architecture 15 — Example apps: the validation trio
 
-[← docs index](../README.md) · prev: [Analytics](14-analytics.md)
+[← docs index](../README.md) · prev: [Analytics](14-analytics.md) · next: [Component catalog](16-components.md)
 
 Three example apps under `examples/`, each shaped exactly like a consuming app
 (`beach new` output + features), each chosen to stress a different slice of the
@@ -48,8 +48,11 @@ The **`hub`/SSE showcase**, and the host of the fan-out benchmark.
 
 The **CRUD/`apigen`/`auth`/analytics showcase**: boring in the good way, on purpose.
 
-- Household inventory: items, storage locations, quantities, expiry dates,
-  shopping lists, purchase history. Almost every route is **generated** — the
+- Household inventory: items (each with a photo — the `ui` image/aspect-ratio
+  components in their natural habitat: responsive thumbnails in the item grid, a
+  larger `photo`-ratio image on the detail page, no layout shift on either), storage
+  locations, quantities, expiry dates, shopping lists, purchase history. Almost every
+  route is **generated** — the
   `@api`/`@page`/`@fragment`/`@requires` annotations on sqlc queries
   ([13-apigen.md](13-apigen.md)) produce the CRUD surface; hand-written handlers
   should be the rare exception, and that ratio is the measure of apigen's worth.
@@ -62,20 +65,21 @@ The **CRUD/`apigen`/`auth`/analytics showcase**: boring in the good way, on purp
   components from `ch` queries ([14-analytics.md](14-analytics.md)).
 - Validates: apigen end-to-end, auth/RBAC, `ch`, `chart`, `i18n` (pantry is the
   most text-heavy app, so it carries the translation catalog), deferred dashboard
-  sections.
+  sections, and the `ui` media components (responsive item images, fixed aspect ratio,
+  no pop-in).
 
 ## Coverage matrix
 
-| Package | boardwalk | driftbottle | pantry |
-| --- | :-: | :-: | :-: |
-| beach (root) / datastar / ui | ● | ● | ● |
-| hub | ● | **●●** | ○ |
-| ecs / sim | **●●** | ○ | — |
-| auth / passwords | ● | ● (anonymous) | **●●** |
-| apigen | ○ | — | **●●** |
-| ch / chart | ○ | — | **●●** |
-| i18n | ○ | — | **●●** |
-| cache / session / pg / config | ● | ● | ● |
+| Package                       | boardwalk |  driftbottle  | pantry |
+| ----------------------------- | :-------: | :-----------: | :----: |
+| beach (root) / datastar / ui  |     ●     |       ●       |   ●    |
+| hub                           |     ●     |    **●●**     |   ○    |
+| ecs / sim                     |  **●●**   |       ○       |   —    |
+| auth / passwords              |     ●     | ● (anonymous) | **●●** |
+| apigen                        |     ○     |       —       | **●●** |
+| ch / chart                    |     ○     |       —       | **●●** |
+| i18n                          |     ○     |       —       | **●●** |
+| cache / session / pg / config |     ●     |       ●       |   ●    |
 
 ●● = the showcase, ● = exercised, ○ = incidental, — = unused (deliberately: not
 every app needs every package, and the examples should prove that too).

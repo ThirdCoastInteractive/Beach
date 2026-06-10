@@ -25,10 +25,13 @@ example usage. Order is dependency order, not priority tiers.
    on the Postgres `sessions` table, a three-table RBAC with `resource:action`
    permissions resolved at login, `beach.Can()` guard, skeleton
    users/credentials/sessions/RBAC migrations, and the authz analyzer.
-5. **`ui`** — the toolkit: `Kit` interface, registry, context injection, icon API,
-   semantic token contract, the performance laws (no pop-in, no blocking, the 14KB
-   rule, `ui.Defer` lazy sections), and `driftwood`: a minimal reference kit
-   proving the interface.
+5. **`ui`** — the toolkit: `Kit` interface and its sub-interfaces, registry, context
+   injection, icon API, semantic token contract, the performance laws (no pop-in, no
+   blocking, the 14KB rule, `ui.Defer` lazy sections), the component catalog — app UI,
+   marketing, and commerce, Core (trio-proven) shipping first
+   ([architecture/16-components.md](../architecture/16-components.md)) — and `driftwood`:
+   a minimal reference kit implementing the Core catalog, with a specimen page that
+   renders it.
 6. **`chart` + `ch`** — the analytics pair: the 22-type SSR SVG chart library
    (geometry all at once; live-update wiring and empty/error states land per type
    as the examples render them), and the ClickHouse package (client, goose
@@ -71,6 +74,9 @@ example usage. Order is dependency order, not priority tiers.
 - A grep of all three example apps shows zero raw `data-*` Datastar strings, zero
   pgtype imports outside generated code, zero hardcoded colors — all enforced by
   `beach vet`.
+- `driftwood` implements the full Core component catalog
+  ([architecture/16-components.md](../architecture/16-components.md)), and its specimen
+  page renders every one — the at-a-glance proof the kit is complete.
 - Every example app's page responses stay ≤14KB compressed (the
   [14KB rule](../architecture/06-ui.md#the-14kb-rule)), tracked in the perf-history
   gate; pantry's dashboards demonstrably lazy-load via `ui.Defer` with zero layout

@@ -16,7 +16,7 @@
 | `i18n`                | Flat-key translation catalog, per-locale JSON, literal-only `T(ctx, key)`, locale-resolution middleware                                                                                                                  |
 | `hub`                 | Topic registry with per-connection buffered fan-out, drop-on-full, ticker producers                                                                                                                                      |
 | `cache`               | `Snapshot[T]` and `Keyed[K,V]` in-process caches with NOTIFY-driven invalidation                                                                                                                                         |
-| `session`             | Postgres-backed sessions: SHA256 token as PK, per-session CSRF, sliding TTL, rotation, RevokeAll — one datastore, sqlc-queried                                                                                            |
+| `session`             | Postgres-backed sessions: SHA256 token as PK, per-session CSRF, sliding TTL, rotation, RevokeAll — one datastore, sqlc-queried                                                                                           |
 | `passwords`           | argon2id hashing (m=128MB, t=4, p=4; PHC strings; constant-time compare; rehash-on-upgrade) — zero dependencies                                                                                                          |
 | `auth`                | The principal: three-table RBAC, `resource:action` permissions resolved at login, hardened login flow, `beach.Can()` guard                                                                                               |
 | `ecs`                 | Standalone archetype ECS: schema-first codegen, columnar storage, tick-stamped change detection, snapshots — zero framework imports                                                                                      |
@@ -41,6 +41,11 @@ These are framework law, enforced by the type system, the App builder, or
   boilerplate in handlers.
 - **NOTIFY-invalidation is the default** for in-process caches, not a per-cache
   afterthought.
+- **HTML and CSS first.** Interactions the platform provides in markup and CSS —
+  `<details>`, `<dialog>`, the `popover` attribute, `:target`/`:checked`/`:focus-within`,
+  native form controls — ship with zero JavaScript. The one script dependency, Datastar,
+  is reserved for server round-trips, shared signals, and SSE; local presentational state
+  is never script ([architecture/06-ui.md](../architecture/06-ui.md#html-and-css-first)).
 - **One Datastar detection signal.** The `Datastar-Request` header is the only
   sanctioned check, and `IsDatastar` is the only code that reads it.
 - **SSE responses are compressed.** Gzip lives in the SSE writer with a per-event

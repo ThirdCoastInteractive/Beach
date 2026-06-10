@@ -33,14 +33,14 @@ FROM items WHERE id = @id AND deleted_at IS NULL;
 INSERT INTO items (...) VALUES (...) RETURNING id, name, quantity, location_id;
 ```
 
-| Annotation | Effect |
-| --- | --- |
-| `@api METHOD /path` | Route registration + handler stub |
-| `@page pkg.Component` | GET renders this templ page — generates a `PageFunc` |
-| `@fragment pkg.Component` | The Datastar fragment for refresh/mutation patches |
-| `@notify channel` | Mutation publishes `{table,id,op}` to Postgres NOTIFY + hub topic |
-| `@requires permission` | Generated handler calls the principal check ([auth](12-auth.md)); the authz analyzer verifies coverage |
-| `@handler skip` | Stub suppressed; hand-write the handler (analyzer still checks it) |
+| Annotation                | Effect                                                                                                 |
+| ------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `@api METHOD /path`       | Route registration + handler stub                                                                      |
+| `@page pkg.Component`     | GET renders this templ page — generates a `PageFunc`                                                   |
+| `@fragment pkg.Component` | The Datastar fragment for refresh/mutation patches                                                     |
+| `@notify channel`         | Mutation publishes `{table,id,op}` to Postgres NOTIFY + hub topic                                      |
+| `@requires permission`    | Generated handler calls the principal check ([auth](12-auth.md)); the authz analyzer verifies coverage |
+| `@handler skip`           | Stub suppressed; hand-write the handler (analyzer still checks it)                                     |
 
 ## What gets generated
 

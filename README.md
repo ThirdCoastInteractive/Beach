@@ -25,10 +25,10 @@ spine, package dependencies) and links every sub-document:
 
 ## Branching & releases
 
-| Branch   | Remote   | Discipline                                                        |
-| -------- | -------- | ------------------------------------------------------------------ |
-| `master` | `origin` | Dev. Messy WIP commits welcome — commit early, commit often.      |
-| `main`   | `public` | Release. ONLY squashed summary commits of finished work.          |
+| Branch   | Remote   | Discipline                                                   |
+| -------- | -------- | ------------------------------------------------------------ |
+| `master` | `origin` | Dev. Messy WIP commits welcome — commit early, commit often. |
+| `main`   | `public` | Release. ONLY squashed summary commits of finished work.     |
 
 Never commit directly to `main`. When a unit of work is finished on `master`:
 

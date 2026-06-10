@@ -62,5 +62,8 @@ than tribal knowledge.
 
 Grug-brained throughout: complexity very bad. The framework exists to trap already-won
 complexity behind narrow interfaces, not to invent new complexity. Hypermedia-first,
-server-driven, boring in the good way. The first paint is the final paint. No external
-CDNs. Make targets only. A task is not complete until every verification step passes.
+server-driven, boring in the good way. The first paint is the final paint. HTML and CSS
+first — the only JavaScript is Datastar, reserved for talking to the server; local
+interactivity (disclosure, dialogs, tabs, toggles) is markup and CSS, never script. No
+external CDNs. Make targets only. A task is not complete until every verification step
+passes.
