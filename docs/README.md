@@ -117,7 +117,7 @@ flowchart BT
 | [11 — Decisions log](architecture/11-decisions.md)      | Every load-bearing choice and why                                                        |
 | [12 — Auth](architecture/12-auth.md)                    | argon2id passwords, login flow, principal/RBAC, guards                                   |
 | [13 — API codegen](architecture/13-apigen.md)           | `beach-apigen`: six SQL annotations → routes, handlers, NOTIFY (hypermedia-only)         |
-| [14 — Analytics](architecture/14-analytics.md)          | `chart` (SSR SVG, 22 types) + `ch` (ClickHouse client, batcher, migrations)              |
+| [14 — Analytics](architecture/14-analytics.md)          | `chart` (SSR SVG, 18 types) + `ch` (ClickHouse client, batcher, migrations)              |
 | [15 — Example apps](architecture/15-examples.md)        | boardwalk (Monopoly/sim), driftbottle (stranger chat/hub), pantry (ERP/apigen+analytics) |
 | [16 — Component catalog](architecture/16-components.md) | The concrete component/layout inventory by Kit sub-interface, and the specimen page      |
 

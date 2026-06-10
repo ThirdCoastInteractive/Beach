@@ -5,10 +5,10 @@
 ## `chart` — server-rendered SVG charts
 
 Pure-Go geometry computed on the server, plus templ components emitting the SVG — every
-chart is final HTML, drawn before it reaches the browser. **22 chart types**: line/area, sparkline, bar
+chart is final HTML, drawn before it reaches the browser. **18 chart types**: line/area, sparkline, bar
 (horizontal/stacked/grouped/bullet), gauge (single/stacked), billboard KPI,
-scatter, box plot, calendar heatmap, heatmap, streamgraph, sankey, chord, bundle,
-bollinger, difference, horizon, timeline, ridgeline, bar race.
+scatter, box plot, calendar heatmap, heatmap, streamgraph, sankey, chord,
+bollinger, timeline, bar race.
 
 The shape of the API — a `Layout*` function computes geometry, a templ component
 renders it:
@@ -35,11 +35,16 @@ The library obeys the framework's laws by construction:
 - **Defer-native**: dashboard widgets are [`ui.Defer`](06-ui.md#deferred-sections)
   sections — kit-styled skeleton, exact reserved dimensions, `@get` on viewport
   intersection.
-- **Live when wired**: a chart fragment is just templ, so it works as a
-  [`sim` projection](08-sim.md#projections-change-detection--patches) or hub-topic
-  patch — re-layout on new data, publish, every subscriber's SVG morphs.
+- **Live, and animated, with no client script**: a chart fragment is just templ, so it
+  works as a [`sim` projection](08-sim.md#projections-change-detection--patches) or
+  hub-topic patch. SVG elements are DOM elements, so Datastar patches *inside* the SVG —
+  a `<rect>`, `<path>`, or `<g>` by id — and CSS transitions (duration + easing from the
+  design tokens) tween geometry between states. Animation is the server pushing new
+  numbers, not a script playing a timeline. **bar race** is the showcase: each tick the
+  server re-layouts the ranked bars and patches them; the bars slide and reorder over
+  SSE, no animation code on the client.
 
-All 22 geometry types ship from day one; the integration polish — live wiring,
+All 18 geometry types ship from day one; the integration polish — live wiring,
 empty/error states — lands per type, as the example apps render them. No type gets
 polished before something eats it.
 

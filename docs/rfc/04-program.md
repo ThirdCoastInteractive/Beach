@@ -32,7 +32,7 @@ example usage. Order is dependency order, not priority tiers.
    ([architecture/16-components.md](../architecture/16-components.md)) — and `driftwood`:
    a minimal reference kit implementing the Core catalog, with a specimen page that
    renders it.
-6. **`chart` + `ch`** — the analytics pair: the 22-type SSR SVG chart library
+6. **`chart` + `ch`** — the analytics pair: the 18-type SSR SVG chart library
    (geometry all at once; live-update wiring and empty/error states land per type
    as the examples render them), and the ClickHouse package (client, goose
    migrations, generic `Batcher` ingest, query→chart helpers, retention as
