@@ -23,9 +23,10 @@ layout := chart.LayoutHBar(chart.HBarSeries{Series: rows, Max: max, Unit: " kW"}
 
 The library obeys the framework's laws by construction:
 
-- **Token-themed**: series colors cycle through `--color-series-a..o`; semantic
-  color (`good/warn/bad/info`) names meaning, not hue; no hardcoded colors in
-  chart code ([ui token contract](06-ui.md)).
+- **Token-themed**: series colors cycle Stellar's `--chart-qualitative-1..12`;
+  diverging scales use `--chart-diverging-*`; emphasis names meaning through palette
+  roles (`--error-*` for bad, etc.), never hue alone; no hardcoded colors in chart code
+  ([ui token contract](06-ui.md)).
 - **Accessible**: `<title>` elements on interactive regions, `role="img"` on
   roots, color never the only encoding (trend arrows accompany trend colors).
 - **Responsive without scripts**: percentage coordinates for axes and text

@@ -160,7 +160,7 @@ SSE path itself instead of giving it up:
   overhead) then the HTTP flusher. Delivery latency is unchanged; browsers — and
   Datastar's fetch-based SSE — decompress streaming responses transparently.
 - The win is outsized for our payloads: a stream of templ fragment patches repeats
-  the same tags, Tailwind classes, and selectors endlessly, and the compressor
+  the same tags, classes, and selectors endlessly, and the compressor
   window persists across the whole stream, so every event compresses against
   everything before it. Keepalives compress to almost nothing.
 - Gzip, not `deflate`: `Content-Encoding: deflate` carries the ancient

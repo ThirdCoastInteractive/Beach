@@ -6,10 +6,11 @@
 
 `beach new <app>` stamps: Makefile (`help` default; `setup` with pinned tool versions
 — `@latest` drift between machines is a documented sin; coupled `gen` =
-templ+tailwind+sqlc+esbuild; `vet` = gen + analyzers + `go vet`; `up`/`logs`/`down`;
-`start-db`/`stop-db` with the "never rm-db to fix migrations" warning), sqlc.yaml
-(pgtype purge + domain-ID override examples, apigen plugin registered), input.css
-(token layer + `@source` globs), docker-compose (Postgres, ClickHouse
+templ+sqlc+`stellar build` (CSS + scripts); `vet` = gen + analyzers + `go vet`;
+`up`/`logs`/`down`; `start-db`/`stop-db` with the "never rm-db to fix migrations"
+warning), sqlc.yaml (pgtype purge + domain-ID override examples, apigen plugin
+registered), `stellar.config.json` (design tokens → vendored `stellar.css`),
+docker-compose (Postgres, ClickHouse
 commented out), `.env` template, auth migrations + a working login, and a `cmd/app`
 with one page, one Datastar action, one SSE fragment — proving the whole pipe on
 first `make up`.
@@ -19,7 +20,7 @@ first `make up`.
 - raw Datastar attribute strings and `templ.Attributes{}` literals — typed
   builders are the only sanctioned way
 - pgtype imports outside `internal/db`; `google/uuid` outside the sanctioned package
-- hardcoded hex/OKLCH in templ class attributes; raw icon-font `<i>` elements
+- hardcoded hex/OKLCH in templ or kit CSS (use Stellar tokens); raw icon-font `<i>` elements
 - naked `echo.HandlerFunc` registered outside `app.Raw`
 - **single-head rule**: no `<head>`/`<script>`/`<style>`/stylesheet `<link>`
   outside the base layout; in it, scripts/styles must be `/static/` and

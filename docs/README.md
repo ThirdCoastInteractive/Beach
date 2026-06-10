@@ -2,7 +2,7 @@
 
 A reusable, hypermedia-first, SSR web framework for Go, with a custom entity
 component system for realtime app state.
-Stack: Echo · templ · Datastar · Tailwind · pgx · sqlc · goose · Postgres
+Stack: Echo · templ · Datastar · Stellar · pgx · sqlc · goose · Postgres
 LISTEN/NOTIFY · SSE · custom `ecs` engine. The module root is the framework's
 front door: `import beach "github.com/ThirdCoastInteractive/the-beach"`.
 

@@ -16,7 +16,7 @@
       "baseMax": 1.1,
       "scaleMin": "Minor Second",
       "scaleMax": "Minor Third",
-      "negativeSteps": 2,
+      "negativeSteps": 0,
       "positiveSteps": 12,
       "pairs": []
     },
@@ -124,8 +124,8 @@
     "named": {
       "disabled": false,
       "prefix": "named",
-      "negativeSteps": 2,
-      "positiveSteps": 2,
+      "negativeSteps": 4,
+      "positiveSteps": 12,
       "hueStep": 6,
       "chromaStep": 1.5,
       "toneStep": 4,
@@ -134,22 +134,6 @@
         "dimTargetLc": 30
       },
       "colors": [
-        {
-          "name": "adobe",
-          "color": "#fa0f00"
-        },
-        {
-          "name": "android",
-          "color": "#34a853"
-        },
-        {
-          "name": "aws",
-          "color": "#ff9900"
-        },
-        {
-          "name": "bluesky",
-          "color": "#0a7aff"
-        },
         {
           "name": "c",
           "color": "#a8b9cc"
@@ -175,16 +159,8 @@
           "color": "#0175c2"
         },
         {
-          "name": "docker",
-          "color": "#1d63ed"
-        },
-        {
           "name": "elixir",
           "color": "#4b275f"
-        },
-        {
-          "name": "firefox",
-          "color": "#ff7139"
         },
         {
           "name": "go",
@@ -207,10 +183,6 @@
           "color": "#7f52ff"
         },
         {
-          "name": "microsoft",
-          "color": "#00a4ef"
-        },
-        {
           "name": "odin",
           "color": "#3882d2"
         },
@@ -231,18 +203,6 @@
           "color": "#dea584"
         },
         {
-          "name": "safari",
-          "color": "#006cfc"
-        },
-        {
-          "name": "slack",
-          "color": "#4a154b"
-        },
-        {
-          "name": "stripe",
-          "color": "#635bff"
-        },
-        {
           "name": "swift",
           "color": "#fa7343"
         },
@@ -251,20 +211,28 @@
           "color": "#3178c6"
         },
         {
-          "name": "ubuntu",
-          "color": "#e95420"
-        },
-        {
           "name": "zig",
           "color": "#f7a41d"
+        },
+        {
+          "name": "success",
+          "color": "#22c55e"
+        },
+        {
+          "name": "warning",
+          "color": "#f59e0b"
+        },
+        {
+          "name": "info",
+          "color": "#3b82f6"
         }
       ]
     },
     "charts": {
       "disabled": false,
-      "qualitativeCount": 12,
+      "qualitativeCount": 25,
       "qualitativeExport": true,
-      "divergingCount": 6,
+      "divergingCount": 4,
       "divergingExport": [
         true,
         true,
@@ -279,7 +247,7 @@
         true,
         true
       ],
-      "toneSteps": 12,
+      "toneSteps": 25,
       "apca": {
         "onTargetLc": 90,
         "dimTargetLc": 30
@@ -957,7 +925,7 @@
       "pairs": []
     },
     "radii": {
-      "disabled": false,
+      "disabled": true,
       "baseMin": 0.125,
       "baseMax": 0.5,
       "scaleMin": "Major Third",
@@ -988,7 +956,7 @@
       ]
     },
     "generators": {
-      "disabled": false,
+      "disabled": true,
       "drawn": {
         "count": 6,
         "seed": 42,
@@ -1265,14 +1233,14 @@
   },
   "settings": {
     "general": {
-      "input": "",
+      "input": "Y:\\the-beach\\stellar.config.json",
       "force": false,
       "verbose": false,
       "cpuProfile": "",
       "watchMs": 10
     },
     "export": {
-      "output": "css/stellar.css",
+      "output": "internal/view/static/css/stellar.css",
       "namespace": ":root",
       "overwrite": true,
       "includeColorFallback": true,
@@ -1281,7 +1249,7 @@
       "fontDir": "./fonts",
       "fontFormat": "both",
       "bundle": {
-        "minifyWhitespace": false,
+        "minifyWhitespace": true,
         "sourcemap": "none",
         "sourcesContent": "include",
         "sourceRoot": "",

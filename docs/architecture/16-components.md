@@ -164,7 +164,8 @@ tree / nested list, comparison table, kanban column.
 Open/close is **native** — `<dialog>` for modals, the `popover` attribute + CSS anchor
 positioning for popovers/flyouts/tooltips, `<details>` for disclosure — so an overlay
 works with zero JavaScript. Datastar enters only to **load** a heavy modal or drawer body
-via `@get` (keeping first paint under budget), never to toggle visibility.
+via `@get` (keeping first paint under budget), never to toggle visibility. Stacking uses
+Stellar's `--zindex-{drawer,dialog,dropdown,toast,tooltip}`.
 
 | Component           | Variants / states                                      | Proven by |
 | ------------------- | ------------------------------------------------------ | --------- |
@@ -183,7 +184,7 @@ use one, so it's proven in the specimen.
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
 | Avatar           | image, initials fallback, status dot, stacked group                                                                                                                      | B, D, P   |
 | Icon             | the `ui.I("gear", ui.Spin)` API + build-time font subsetting                                                                                                             | all       |
-| Aspect-ratio box | reserves a fixed ratio (named: `square`/`video` 16:9/`photo` 4:3/portrait, or arbitrary); the wrapper images and video sit in                                            | P         |
+| Aspect-ratio box | reserves a fixed ratio from Stellar's `--aspect-ratio-*` (square, widescreen 16:9, landscape 4:3, portrait, …) or arbitrary; the wrapper images and video sit in        | P         |
 | Image            | responsive (`srcset`/`sizes`, `<picture>` for format + art-direction); `cover`/`contain` fit; lazy below-fold, eager+`fetchpriority` above; skeleton/blur-up placeholder | P         |
 | Figure           | image + caption (`<figure>`/`<figcaption>`)                                                                                                                              | P         |
 | Video            | poster frame; `controls` or muted-loop background; `<track>` captions; `preload="none"` + click/intersection load; responsive                                            | Catalog   |

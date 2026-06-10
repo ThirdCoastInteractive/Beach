@@ -4,8 +4,8 @@
 
 ## Stack contract
 
-Echo v4 · templ · Datastar (Go SDK `starfederation/datastar-go`) · Tailwind v4 ·
-pgx/v5 + pgxpool · sqlc · goose · Postgres (LISTEN/NOTIFY) · esbuild ·
+Echo v4 · templ · Datastar (Go SDK `starfederation/datastar-go`) · Stellar (CSS vars + esbuild) ·
+pgx/v5 + pgxpool · sqlc · goose · Postgres (LISTEN/NOTIFY) ·
 custom `ecs` engine (no third-party ECS). Go 1.26+.
 
 These are not pluggable. The framework's value is that every layer knows exactly what
@@ -88,7 +88,7 @@ Each app in `examples/` is this exact shape:
 myapp/
 ├── cmd/<service>/         main.go (≈40 lines), handler/, tmpl/{layout,page,ui}/, static/, js/
 ├── internal/db/           sqlc-generated + sql/{migrations,queries}/ + sqlc.yaml
-├── internal/view/css/     input.css (tokens + @source globs)
+├── stellar.config.json    design tokens → internal/view/static/css/stellar.css (vendored, served)
 ├── components.beach.yaml  ECS component schema (if the app uses sim)
 ├── Makefile               gen / vet / up / logs / down (stamped by beach new)
 └── docker-compose.yml     postgres + services

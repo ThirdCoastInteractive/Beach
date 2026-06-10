@@ -26,7 +26,7 @@ example usage. Order is dependency order, not priority tiers.
    permissions resolved at login, `beach.Can()` guard, skeleton
    users/credentials/sessions/RBAC migrations, and the authz analyzer.
 5. **`ui`** — the toolkit: `Kit` interface and its sub-interfaces, registry, context
-   injection, icon API, semantic token contract, the performance laws (no pop-in, no
+   injection, icon API, the Stellar token system, the performance laws (no pop-in, no
    blocking, the 14KB rule, `ui.Defer` lazy sections), the component catalog — app UI,
    marketing, and commerce, Core (trio-proven) shipping first
    ([architecture/16-components.md](../architecture/16-components.md)) — and `driftwood`:
@@ -46,7 +46,7 @@ example usage. Order is dependency order, not priority tiers.
    helpers, store snapshot/restore.
 9. **`cmd/beach` + `cmd/beach-apigen`** — scaffold CLI and the API generator.
    `beach new <app>` stamps the skeleton: Makefile, sqlc.yaml (with the apigen
-   plugin registered), Tailwind input.css with token layer, docker-compose
+   plugin registered), `stellar.config.json` design tokens, docker-compose
    (Postgres, ClickHouse commented out), .env template, auth migrations +
    a working login, a working page with one SSE fragment. `beach vet` runs the
    analyzers; `beach ecs gen` runs the component codegen; `beach-apigen` turns the
