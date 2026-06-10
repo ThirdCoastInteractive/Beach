@@ -6,8 +6,9 @@ Stack: Echo · templ · Datastar · Stellar · pgx · sqlc · goose · Postgres
 LISTEN/NOTIFY · SSE · custom `ecs` engine. The module root is the framework's
 front door: `import beach "github.com/ThirdCoastInteractive/the-beach"`.
 
-**Status:** pre-implementation. The RFC and architecture docs below are the current
-deliverables; project 1 (`config` + `pg`) is the first code.
+**Status:** implementation started. `config` has landed (tested); the parallel
+execution plan is [ROADMAP.md](ROADMAP.md). The RFC and architecture docs below are the
+design of record.
 
 ## The realtime spine
 
