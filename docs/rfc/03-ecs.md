@@ -1,10 +1,10 @@
-# RFC 3 — What's new: the ECS world
+# RFC 3 — What's new: the ECS
 
 [← docs index](../README.md) · prev: [What gets extracted](02-extraction.md) · next: [Program & risks](04-program.md)
 
 This is the RFC-level pitch. The full designs live in
 [architecture/07-ecs.md](../architecture/07-ecs.md) (the engine) and
-[architecture/08-world.md](../architecture/08-world.md) (the web integration);
+[architecture/08-sim.md](../architecture/08-sim.md) (the web integration);
 the overall spine diagram is in the [docs index](../README.md#the-realtime-spine).
 
 ECS is a module the framework offers for realtime features — not the framework's
@@ -15,7 +15,7 @@ landed on:
   engines (Ark, Arche, Donburi) are excellent but Go-bound; our core model is
   designed to be language-neutral and reusable in any context — game server,
   simulation, CLI tooling, another runtime entirely. `ecs` is a zero-dependency
-  package with no knowledge of the-beach, hubs, or Postgres; `world` is just the web
+  package with no knowledge of the-beach, hubs, or Postgres; `sim` is just the web
   integration on top. Storage follows the proven archetype/columnar design
   ([go-ecs-benchmarks](https://github.com/mlange-42/go-ecs-benchmarks) is the honest
   yardstick, Ark the perf reference to stay within range of).
@@ -30,21 +30,22 @@ landed on:
   `Changed[T]` queries are built into the engine, not bolted on via observers —
   it is the heart of the rendering pipeline and the single strongest argument for
   owning the engine.
-- **Single-writer world.** One goroutine owns the world; handlers send typed commands
-  over a channel. No locks, deterministic ticks, trivially testable.
-- **Change detection drives rendering.** Per-tick dirty set → fragment-topic mapping →
-  render each affected templ fragment once per topic → fan out via `hub` to every
-  subscribed SSE connection. This is Bevy's `Changed<T>` reborn as "only re-render
-  subscribed fragments", and it composes with the no-pop-in rule: the server always
-  renders final state.
+- **Single-writer sim.** One goroutine owns the `ecs.Store`; handlers send typed
+  commands over a channel. No locks, deterministic ticks, trivially testable.
+- **Change detection drives projections.** Per-tick dirty set → projections (the
+  app's mapping from changed components to hub topics + templ views) → render each
+  dirty projection once per topic → fan out via `hub` to every subscribed SSE
+  connection. This is Bevy's `Changed<T>` reborn as "only re-render subscribed
+  fragments", and it composes with the no-pop-in rule: the server always renders
+  final state.
 - **Postgres stays the system of record.** Component-mirror tables via sqlc.
-  Money/items/trades: synchronous transactions (the world is a cache of the committed
+  Money/items/trades: synchronous transactions (the sim is a cache of the committed
   result). XP/presence/cooldowns: write-behind batches each tick. Token ledger:
   append-only journal. Snapshots only as crash recovery for ephemera.
 - **LISTEN/NOTIFY is the wake-up bell, not the data bus.** Payloads are
   `{table, id, op}`; listeners re-query. In-process mutations feed the topic router
   directly and never round-trip through Postgres.
-- **The hybrid boundary is explicit.** ECS hosts the live slice (connected users +
-  active show + their hot components), loaded on connect, evicted on disconnect.
-  CRUD, auth, payments, and ad-hoc relational queries never enter the world. The
+- **The hybrid boundary is explicit.** The sim hosts the live slice (connected users
+  + active show + their hot components), loaded on connect, evicted on disconnect.
+  CRUD, auth, payments, and ad-hoc relational queries never enter the sim. The
   database already is an ECS for cold data; we don't build a worse Postgres in RAM.

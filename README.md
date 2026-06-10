@@ -16,9 +16,29 @@ spine, package dependencies) and links every sub-document:
 
 - [RFC](docs/rfc/01-charter.md) (4 docs) — charter, extraction from manifold13.tv,
   the ECS pitch, program of projects + risks.
-- [Architecture](docs/architecture/01-layout.md) (11 docs) — layout, boot spine,
-  HTTP layer + handler shapes, hub, cache/session, chrome, the `ecs` engine, the
-  world, lifecycles, tooling, decisions log.
+- [Architecture](docs/architecture/01-layout.md) (15 docs) — module layout (per
+  [go.dev/doc/modules/layout](https://go.dev/doc/modules/layout)), boot spine, the
+  root `beach` package + handler shapes, hub, cache/session, the `ui` toolkit
+  (14KB rule, deferred sections), the `ecs` engine, the `sim`, lifecycles, tooling,
+  decisions log, auth (argon2id + RBAC, from Atlas), API codegen (from Atlas),
+  analytics (`chart` SSR SVG + `ch` ClickHouse), and the example trio
+  (boardwalk / driftbottle / pantry).
+
+## Branching & releases
+
+| Branch   | Remote   | Discipline                                                        |
+| -------- | -------- | ------------------------------------------------------------------ |
+| `master` | `origin` | Dev. Messy WIP commits welcome — commit early, commit often.      |
+| `main`   | `public` | Release. ONLY squashed summary commits of finished work.          |
+
+Never commit directly to `main`. When a unit of work is finished on `master`:
+
+```bash
+scripts/release.sh "summary of the finished work"
+```
+
+That squash-merges `master` into `main` as one commit whose message reads like a
+changelog entry, pushes `main` to the public remote, and pushes `master` to origin.
 
 ## Status
 

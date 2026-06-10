@@ -1,22 +1,26 @@
 # Architecture 7 — The custom `ecs` engine
 
-[← docs index](../README.md) · prev: [Chrome](06-chrome.md) · next: [World](08-world.md)
+[← docs index](../README.md) · prev: [UI toolkit](06-ui.md) · next: [Sim](08-sim.md)
 
 No third-party engine. `ecs` is a standalone, zero-dependency archetype ECS with no
 knowledge of the-beach, hubs, or Postgres — importable by a game server, a simulation
-CLI, or any other project. [`world`](08-world.md) is the web-framework integration
+CLI, or any other project. [`sim`](08-sim.md) is the web-framework integration
 over it. The Go engines we surveyed (Ark, Arche, Donburi) are excellent but Go-bound;
 our core model is deliberately language-neutral so the same component definitions and
 data serve other contexts and, eventually, other runtimes.
 
 ## The portable core model
 
+The container is an `ecs.Store` — entities and component columns, nothing more.
+(Not "world": the store doesn't tick, schedule, or know about time; that's
+[`sim`](08-sim.md)'s job.)
+
 - **Entity**: a 64-bit handle — 32-bit index + 32-bit generation, so stale handles
   detect slot reuse. No pointers, no language-specific identity.
 - **Components**: plain data records declared once in a schema file
   (`components.beach.yaml`). `beach ecs gen` generates the Go structs and typed
   storage accessors — and the same schema emits the SQL component-mirror migrations
-  ([persistence](08-world.md#persistence)) and JSON/TypeScript shapes when another
+  ([persistence](08-sim.md#persistence)) and JSON/TypeScript shapes when another
   context needs them. One declaration, typed code everywhere: the sqlc/templ ethos
   applied to app state.
 - **Storage**: archetype tables with columnar (SoA) component arrays — the design that
@@ -39,4 +43,4 @@ data serve other contexts and, eventually, other runtimes.
 
 As a contract (grug): no parallel system scheduler, no scripting, no
 reflection-based queries, no internal event bus. Systems are plain functions over
-queries; ticks, commands, and fan-out belong to [`world`](08-world.md).
+queries; ticks, commands, and projections belong to [`sim`](08-sim.md).

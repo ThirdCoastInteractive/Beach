@@ -1,16 +1,25 @@
 # Architecture 11 — Decisions log
 
-[← docs index](../README.md) · prev: [Tooling & testing](10-tooling.md)
+[← docs index](../README.md) · prev: [Tooling & testing](10-tooling.md) · next: [Auth](12-auth.md)
 
 | Decision           | Choice                                          | Why                                                                                                                                                |
 | ------------------ | ----------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Module layout      | Root `beach` package + flat sub-packages + `internal/` + `cmd/`, no `pkg/` | Per [go.dev/doc/modules/layout](https://go.dev/doc/modules/layout): the module root is the primary entry point                          |
 | HTTP framework     | Echo v4 underneath, typed handler shapes on top | Echo proven across five manifold services; `PageFunc`/`ActionFunc`/`StreamFunc` make the house rules structural; `app.Raw` is the escape hatch    |
+| UI naming & budget | `ui` toolkit, implementations are kits; first response ≤14KB compressed, `ui.Defer` lazy-loads the rest over Datastar | Fits the initial TCP congestion window — first paint in one round trip; deferred sections reserve exact space so no-pop-in holds |
 | ECS engine         | Custom standalone `ecs` package                 | Language-neutral core (schema, entity handle, CBOR snapshots) reusable beyond Go/the-beach; change ticks first-class; Ark stays the perf yardstick |
-| World concurrency  | Single writer goroutine + command channel       | No locks, deterministic, testable                                                                                                                  |
-| System of record   | Postgres, component-mirror tables               | Legible SQL, sqlc-friendly, no world blob                                                                                                          |
+| ECS vocabulary     | `ecs.Store` + `sim` + `sim.Projection`, not "world"/"render" | Store = what it is (tables + columns); sim = ticks over a store; projection = the event-sourcing word for deriving views from state changes |
+| Sim concurrency    | Single writer goroutine + command channel       | No locks, deterministic, testable                                                                                                                  |
+| System of record   | Postgres, component-mirror tables               | Legible SQL, sqlc-friendly, no opaque store blob                                                                                                   |
 | Cross-process bus  | LISTEN/NOTIFY, ids only                         | Single-node honest; NATS seam identified at hub/pgnotify                                                                                           |
 | SSE model          | Topics (hub), render-once-per-topic             | Unifies manifold's two models; interest management built in                                                                                        |
 | SSE compression    | Gzip in the SSE writer, sync-flush per event    | Middleware buffering was the only real blocker; fragment streams compress 80%+; not `deflate` (raw-vs-zlib ambiguity); per-conn memory is the measured cost |
-| Sessions           | Valkey                                          | Lifted, production-proven, RevokeAll cheap                                                                                                         |
+| Sessions           | Valkey store + Atlas hardening                  | Lifted, production-proven, RevokeAll cheap; SHA256(token) at rest, per-session CSRF, Rotate() on privilege change (from Atlas)                     |
+| Passwords          | argon2id via Atlas `passwords` pkg, lifted verbatim | m=128MB t=4 p=4, PHC strings, constant-time; already built and tested; framework adds rehash-on-upgrade                                        |
+| Authorization      | Atlas principal model: RBAC, `resource:action[:field]` permissions, resolver multiplexer | Proven shape; `beach.Can()` guard + statically verified `@requires` coverage; OAuth2/mTLS are seams, not v1                  |
+| API codegen        | Atlas apigen adapted as `beach-apigen` sqlc plugin | SQL annotations are the source of truth; generates beach handler shapes + NOTIFY plumbing; OpenAPI/JSON only as the optional machine-client emitter |
+| Charts             | Atlas `pkg/chart` lifted near-verbatim as `chart` | 22 SSR SVG types, pure-Go geometry, token-themed, accessible, zero client rendering — already obeys the ui laws; framework adds live updates via hub |
+| Analytics store    | ClickHouse via `ch`, built fresh to Atlas's Telemetry RFC | Atlas shipped design only (no code to lift); Postgres stays system of record, CH is append-only observations; ingest is fire-and-forget, optional everywhere |
+| Validation apps    | Trio: boardwalk (game/sim), driftbottle (chat/hub), pantry (ERP/apigen+analytics) | One app can't honestly exercise every package; each showcases a different slice, and the unused cells in the coverage matrix prove modularity |
 | Scaffold           | `beach new` stamps files into the app           | Apps own their Makefile/sqlc.yaml; no runtime magic, no hidden codegen                                                                             |
 | manifold migration | Out of scope                                    | Framework proves itself greenfield first                                                                                                           |

@@ -18,8 +18,8 @@ for !sse.IsClosed() {
 }
 ```
 
-(Apps don't write this loop — `web.StreamFunc` in
-[03-http.md](03-http.md#webstreamfunc--sse-subscriptions) declares the subscription
+(Apps don't write this loop — `beach.StreamFunc` in
+[03-http.md](03-http.md#beachstreamfunc--sse-subscriptions) declares the subscription
 and the framework runs it. The loop is shown for what the framework does inside.)
 
 - Per-subscription buffered channel (64), **drop on full** — slow clients reconcile via
@@ -34,10 +34,10 @@ and the framework runs it. The loop is shown for what the framework does inside.
   ([SSE compression](03-http.md#sse-compression)) whose window spans its whole
   stream history — so the fan-out write feeds the shared bytes through each
   subscriber's compressor. That per-connection CPU/memory is the price of stream
-  compression; the level knob and the boardwalk benchmark keep it inside the
+  compression; the level knob and the driftbottle benchmark keep it inside the
   5k-connection budget.
 - `hub.Ticker(topic, interval, produce)` replaces `sseTickLoop`: a producer that
   publishes on an interval; admin dashboards subscribe like everything else.
 - Producers: HTTP handlers (after a mutation), `pgnotify` listeners (external writers,
-  other processes), and the [`world` tick loop](08-world.md). In-process mutations
+  other processes), and [`sim` projections](08-sim.md). In-process mutations
   publish directly — they never round-trip through Postgres NOTIFY.

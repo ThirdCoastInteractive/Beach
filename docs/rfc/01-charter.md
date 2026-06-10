@@ -9,7 +9,7 @@ Module: `github.com/ThirdCoastInteractive/the-beach`
 
 ## Problem
 
-Three repos now carry the same stack — Go + Echo + templ + Datastar + Tailwind + sqlc +
+Four repos now carry the same stack — Go + Echo + templ + Datastar + Tailwind + sqlc +
 pgx + goose + Postgres LISTEN/NOTIFY + SSE — and the same conventions (typed Datastar
 builders, chrome component registry, semantic-token theming, `make gen/vet/up`,
 no-pop-in rendering, advisory-lock migrations, snapshot caches with NOTIFY
@@ -20,6 +20,10 @@ invalidation):
 - `thirdcoast.systems` — deliberately duplicated the patterns ("Lifted in spirit, not
   in code"): the retrochrome token layer, the Makefile shape, the Datastar typed-builder
   pattern, the Postgres + Valkey + per-service Dockerfile pattern.
+- `Atlas` — rebuilt the stack a third time and evolved it: annotation-driven API
+  codegen from SQL (`atlas-apigen`), a custom lint family (datastar, head/CSP,
+  vendoring, authz coverage), and argon2id auth with a full principal/RBAC model.
+  Each rebuild improves the patterns — and strands the improvements in one repo.
 - Every future Third Coast property starts this dance again.
 
 Duplicate-and-trim was the right call for repo number two. For repo number three and
@@ -37,14 +41,15 @@ out for free.
 One Go module that provides:
 
 1. The proven web/data/realtime skeleton from manifold13.tv as importable packages.
-2. An ECS world module for hot realtime state, wired into the same SSE/Datastar
+2. An ECS sim module for hot realtime state, wired into the same SSE/Datastar
    rendering pipeline.
 3. A scaffold (`beach new`) that stamps out a new app with the Makefile, sqlc.yaml,
    Tailwind input, lint guards, and docker-compose shape already correct.
 
 A new property should go from `git init` to a styled, SSE-live, DB-backed page in under
-an hour, and inherit every house rule (no pop-in, typed builders only, no pgtype
-leakage, vendored assets) as enforced tooling rather than tribal knowledge.
+an hour, and inherit every house rule (no pop-in, no blocking, ≤14KB first responses,
+typed builders only, no pgtype leakage, vendored assets) as enforced tooling rather
+than tribal knowledge.
 
 ## Non-goals
 
@@ -52,7 +57,11 @@ leakage, vendored assets) as enforced tooling rather than tribal knowledge.
   point of rudeness: Echo, templ, Datastar, Tailwind, pgx, sqlc, goose, Postgres,
   Valkey. No adapters, no `interface{} Driver` seams.
 - Not an ORM. sqlc stays. Plain SQL stays.
-- No SPA mode, no client-side state management, no JSON API layer. Hypermedia or bust.
+- No SPA mode, no client-side state management. The UI is hypermedia or bust — JSON
+  is never how the frontend talks to the backend. Machine APIs (integrations, MCP
+  servers — the Atlas case) are in scope but only as **generated** surfaces: the
+  [apigen annotations](../architecture/13-apigen.md) emit OpenAPI + JSON handling
+  from the same SQL; nobody hand-writes a JSON layer.
 - No multi-node story in v1. LISTEN/NOTIFY is the cross-process bell; the seam where
   NATS would slot in later is identified but not built.
 - manifold13.tv is NOT migrated onto the framework as part of this work. It is the
