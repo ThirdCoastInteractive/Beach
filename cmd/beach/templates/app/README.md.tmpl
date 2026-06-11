@@ -1,0 +1,34 @@
+# {{.App}}
+
+A [the-beach](https://github.com/ThirdCoastInteractive/the-beach) skeleton app:
+SSR + Datastar over SSE, rendered through the `driftwood` UI kit. It boots with
+no database — one page, one Datastar action, one live SSE fragment.
+
+## Run
+
+    make up            # build + run on :8080 (or PORT=xxxx make up)
+
+Then open http://localhost:8080/. The Tick card advances over SSE; the
+Increment button mutates server state and patches the same fragment.
+
+## The verification pipeline (framework doctrine)
+
+    make gen           # stellar build + sqlc + beach ecs gen
+    make vet           # gen, then go vet ./...
+    make up            # build + run
+
+Then a browser check: no console errors, the change is visible, no 404s. A task
+is not complete until every step passes.
+
+## Layout
+
+- `main.go` — the App: page, action, SSE stream.
+- `static/` — vendored `stellar.css` and `datastar.js` (no external CDNs).
+- `stellar.config.json` — design tokens; `stellar build` regenerates the CSS.
+- `sqlc.yaml` — DB codegen with the `beach-apigen` plugin registered.
+- `docker-compose.yml` — Postgres (ClickHouse commented out).
+- `components.beach.yaml` — optional ECS component schema for `beach ecs gen`.
+- `locales/` + `catalog.json` — i18n runtime + extracted catalog (`beach i18n`).
+
+This app builds against a local the-beach checkout via the `replace` directive
+in `go.mod`. Point it at a published module version before shipping.

@@ -1,0 +1,14 @@
+module {{.Module}}
+
+go 1.26.1
+
+require github.com/ThirdCoastInteractive/the-beach v0.0.0
+
+// Local development against this the-beach checkout. The stamped app builds and
+// runs against the framework sources in the repo, no network fetch required.
+replace github.com/ThirdCoastInteractive/the-beach => {{.ReplacePath}}
+
+// The framework's transitive dependency graph, mirrored from its go.mod so the
+// stamped app's module graph is complete and builds offline without `go mod
+// tidy`. Regenerate by re-stamping against an updated checkout.
+{{.Requires}}

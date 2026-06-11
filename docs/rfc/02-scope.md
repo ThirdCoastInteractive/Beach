@@ -58,5 +58,5 @@ These are framework law, enforced by the type system, the App builder, or
   query objects, the SSE loop shape — all encoded in
   `PageFunc`/`ActionFunc`/`StreamFunc` with guards at route registration
   ([architecture/03-http.md](../architecture/03-http.md#handlers-three-typed-shapes)).
-  Raw `echo.HandlerFunc` survives only behind `app.Raw`, and `beach vet` enforces
+  Raw `http.HandlerFunc` survives only behind `app.Raw`, and `beach vet` enforces
   that.

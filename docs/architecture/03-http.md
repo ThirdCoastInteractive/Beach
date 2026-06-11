@@ -28,12 +28,12 @@ app.Page("/wallet",              handler.Wallet(pool),        beach.Authed())
 app.Action("/coins/purchase/:id", handler.PurchaseCoins(pool, s), beach.Authed())
 app.Stream("/stream",            handler.LiveStream(hubRef, pool), beach.Authed())
 app.Page("/admin/orders",        handler.Orders(pool),        beach.Role("admin"))
-app.Raw(http.MethodPost, "/webhooks/stripe", billing.Webhook())  // escape hatch: plain echo
+app.Raw(http.MethodPost, "/webhooks/stripe", billing.Webhook())  // escape hatch: plain net/http
 
 app.Start(":" + cfg.Port)                                // graceful shutdown inside
 ```
 
-Echo remains underneath (`app.Raw` and `app.Echo()` exist for webhooks and the
+Stdlib `net/http` is underneath (`app.Raw` and `app.Mux()` exist for webhooks and the
 genuinely weird), but the paved road is three typed handler shapes that encode the
 house rules by construction.
 
@@ -59,7 +59,7 @@ comment.
 
 Handlers stay standalone factory functions taking only the deps they need — never
 methods on a server struct. But they return beach types instead of raw
-`echo.HandlerFunc`, and take a `*beach.Ctx` that carries the request-scoped kit:
+`http.HandlerFunc`, and take a `*beach.Ctx` that carries the request-scoped kit:
 `c.Kit()`, `c.User()` (set by guards), `c.InTx(fn)`, `beach.Bind[T](c)` for
 validated input binding.
 
@@ -145,7 +145,7 @@ error HTML.
 session middleware and populate `c.User()` / `c.Principal()`; a `PageFunc` behind a
 guard can assume the user exists. `app.Raw` is the documented escape hatch —
 payment webhooks must mount outside auth so they execute reliably — and `beach vet`
-flags `echo.HandlerFunc` registered anywhere else.
+flags `http.HandlerFunc` registered anywhere else.
 
 ## SSE compression
 

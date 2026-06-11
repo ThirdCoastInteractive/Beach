@@ -9,7 +9,7 @@ Module: `github.com/ThirdCoastInteractive/the-beach`
 
 ## Problem
 
-The stack — Go + Echo + templ + Datastar + Stellar + sqlc + pgx + goose + Postgres
+The stack — Go + net/http + templ + Datastar + Stellar + sqlc + pgx + goose + Postgres
 LISTEN/NOTIFY + SSE — is proven in production at real scale: live platforms
 sustaining thousands of concurrent SSE connections, full design-system theming,
 annotation-driven code generation, hardened authentication. But until now it has
@@ -46,7 +46,7 @@ than tribal knowledge.
 ## Non-goals
 
 - Not a general-purpose framework for other people's stacks. It is opinionated to the
-  point of rudeness: Echo, templ, Datastar, Stellar, pgx, sqlc, goose, Postgres.
+  point of rudeness: net/http, templ, Datastar, Stellar, pgx, sqlc, goose, Postgres.
   No adapters, no `interface{} Driver` seams.
 - Not an ORM. sqlc stays. Plain SQL stays.
 - The UI is hypermedia or bust: server-rendered HTML over the wire, Datastar for

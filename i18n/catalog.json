@@ -1,0 +1,10 @@
+{
+  "framework.error.not_found": {
+    "label": "Not found",
+    "comment": "Generic 404 message."
+  },
+  "framework.error.internal": {
+    "label": "Something went wrong",
+    "comment": "Generic 500 message."
+  }
+}

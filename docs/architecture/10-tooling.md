@@ -21,7 +21,7 @@ first `make up`.
   builders are the only sanctioned way
 - pgtype imports outside `internal/db`; `google/uuid` outside the sanctioned package
 - hardcoded hex/OKLCH in templ or kit CSS (use Stellar tokens); raw icon-font `<i>` elements
-- naked `echo.HandlerFunc` registered outside `app.Raw`
+- naked `http.HandlerFunc` registered outside `app.Raw`
 - **single-head rule**: no `<head>`/`<script>`/`<style>`/stylesheet `<link>`
   outside the base layout; in it, scripts/styles must be `/static/` and
   `<meta name>` must match the allow-list — keeps CSP honest

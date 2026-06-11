@@ -2,13 +2,15 @@
 
 A reusable, hypermedia-first, SSR web framework for Go, with a custom entity
 component system for realtime app state.
-Stack: Echo · templ · Datastar · Stellar · pgx · sqlc · goose · Postgres
+Stack: net/http · templ · Datastar · Stellar · pgx · sqlc · goose · Postgres
 LISTEN/NOTIFY · SSE · custom `ecs` engine. The module root is the framework's
 front door: `import beach "github.com/ThirdCoastInteractive/the-beach"`.
 
-**Status:** implementation started. `config` has landed (tested); the parallel
-execution plan is [ROADMAP.md](ROADMAP.md). The RFC and architecture docs below are the
-design of record.
+**Status:** all six [roadmap](ROADMAP.md) blocks built. 27 packages, ~24.7k LOC, `go
+build/vet/test ./...` green; the root `beach` package, the `driftwood` kit, `sim`,
+`chart`, `apigen`, the scaffold/lint/perf tooling, and all three example apps compile,
+test, and serve. Known rough edges are tracked in [17-gaps.md](architecture/17-gaps.md).
+The RFC and architecture docs are the design of record.
 
 ## The realtime spine
 
@@ -121,6 +123,7 @@ flowchart BT
 | [14 — Analytics](architecture/14-analytics.md)          | `chart` (SSR SVG, 18 types) + `ch` (ClickHouse client, batcher, migrations)              |
 | [15 — Example apps](architecture/15-examples.md)        | boardwalk (Monopoly/sim), driftbottle (stranger chat/hub), pantry (ERP/apigen+analytics) |
 | [16 — Component catalog](architecture/16-components.md) | The concrete component/layout inventory by Kit sub-interface, and the specimen page      |
+| [17 — Gaps](architecture/17-gaps.md)                    | Framework rough edges the example apps surfaced, with proposed fixes                     |
 
 ## Reading paths
 

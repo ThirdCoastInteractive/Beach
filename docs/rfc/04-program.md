@@ -15,7 +15,7 @@ example usage. Order is dependency order, not priority tiers.
    (`PageFunc`/`ActionFunc`/`StreamFunc`, `beach.Ctx`, guards, the error contract),
    `IsDatastar`/`NewSSE` underneath with flush-per-event SSE gzip, typed attribute
    builders, vet analyzers (`lint-datastar`, `lint-pgtype`, `lint-uuid`,
-   naked-`echo.HandlerFunc`).
+   naked-`http.HandlerFunc`).
 3. **`hub` + `cache` + `session` + `i18n`** — topic registry with per-connection
    buffered fan-out and drop-on-full, ticker producers, snapshot caches with
    NOTIFY invalidation, Postgres sessions with auth middleware, and the flat-key

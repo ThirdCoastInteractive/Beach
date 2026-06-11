@@ -4,7 +4,7 @@
 
 ## Stack contract
 
-Echo v4 · templ · Datastar (Go SDK `starfederation/datastar-go`) · Stellar (CSS vars + esbuild) ·
+net/http (Go 1.22 ServeMux) · templ · Datastar (Go SDK `starfederation/datastar-go`) · Stellar (CSS vars + esbuild) ·
 pgx/v5 + pgxpool · sqlc · goose · Postgres (LISTEN/NOTIFY) ·
 custom `ecs` engine (no third-party ECS). Go 1.26+.
 
