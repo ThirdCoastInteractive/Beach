@@ -1,0 +1,61 @@
+package driftwood
+
+// --- Media -------------------------------------------------------------------
+
+// Avatar is a user thumbnail: an image, or an initials fallback, with an
+// optional status dot.
+templ Avatar(p AvatarProps) {
+	<span class={ "dw-avatar", sizeClass("dw-avatar", p.Size) } { p.Attrs.Templ()... }>
+		if p.Src != "" {
+			<img class="dw-avatar-img" src={ p.Src } alt={ p.Alt } loading="lazy" decoding="async"/>
+		} else {
+			<span class="dw-avatar-initials" aria-hidden="true">{ p.Initials }</span>
+		}
+		if p.Status != "" {
+			<span class={ "dw-avatar-status", "dw-status-" + p.Status } role="img" aria-label={ p.Status }></span>
+		}
+	</span>
+}
+
+// Image is the kit image. Every image sits in an aspect box so late bytes fill
+// reserved pixels (the no-pop-in law applied to media); below-fold images
+// lazy-load and decode async, above-fold heroes opt into eager + fetchpriority.
+templ Image(p ImageProps) {
+	@AspectRatio(AspectBoxProps{Ratio: p.Ratio, Attrs: p.Attrs}) {
+		<img
+			class={ "dw-img", fitClass(p.Fit) }
+			src={ p.Src }
+			alt={ p.Alt }
+			if p.Set != "" {
+				srcset={ p.Set }
+			}
+			if p.Sizes != "" {
+				sizes={ p.Sizes }
+			}
+			if p.Eager {
+				fetchpriority="high"
+			}
+			loading={ imgLoading(p.Eager) }
+			decoding="async"
+		/>
+	}
+}
+
+// Figure is an image with a caption (<figure>/<figcaption>). The embedded image
+// keeps the media perf laws (aspect box, lazy/eager, async decode).
+templ Figure(p FigureProps) {
+	<figure class="dw-figure" { p.Attrs.Templ()... }>
+		@Image(p.Image)
+		if p.Caption != "" {
+			<figcaption class="dw-figcaption">{ p.Caption }</figcaption>
+		}
+	</figure>
+}
+
+// AspectRatio reserves a fixed media box from the aspect tokens; the children
+// fill it.
+templ AspectRatio(p AspectBoxProps) {
+	<div class={ "dw-aspect", aspectClass(p.Ratio) } { p.Attrs.Templ()... }>
+		{ children... }
+	</div>
+}

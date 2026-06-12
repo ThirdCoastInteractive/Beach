@@ -1,0 +1,26 @@
+package driftwood
+
+// Page renders a complete, server-rendered HTML document around its children:
+// the <html> shell with theme-correct surfaces, the render-blocking stylesheet
+// link, and the deferred Datastar + chart modules (no-blocking law). Theme
+// classes sit on <html> before paint (no pop-in); the page targets the 14KB
+// budget — heavier content becomes a ui.Defer section.
+templ Page(p PageProps) {
+	<!DOCTYPE html>
+	<html lang={ pageLang(p.Lang) } class="dw-root">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ p.Title }</title>
+			if p.Description != "" {
+				<meta name="description" content={ p.Description }/>
+			}
+			<link rel="stylesheet" href={ pageStylesheet(p.Stylesheet) }/>
+			<script type="module" src="/static/js/datastar.js" defer></script>
+			<script type="module" src="/static/js/chart.js" defer></script>
+		</head>
+		<body class={ "dw-body", maybeClass(p.BodyClass) }>
+			{ children... }
+		</body>
+	</html>
+}
