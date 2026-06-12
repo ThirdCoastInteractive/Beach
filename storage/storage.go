@@ -10,14 +10,15 @@ package storage
 
 import (
 	"context"
-	"errors"
+	"fmt"
 	"io"
+	"io/fs"
 	"time"
 )
 
 // ErrNotExist is returned by Open/Stat/Delete when the key has no object. It
 // wraps fs.ErrNotExist so errors.Is(err, fs.ErrNotExist) also holds.
-var ErrNotExist = errors.New("storage: object does not exist")
+var ErrNotExist = fmt.Errorf("storage: object does not exist: %w", fs.ErrNotExist)
 
 // File is an object's metadata.
 type File struct {
