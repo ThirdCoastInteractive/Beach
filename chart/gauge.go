@@ -69,9 +69,13 @@ func arcPath(cx, cy, r, a0, a1 float64) string {
 	if math.Abs(a1-a0) > math.Pi {
 		large = 1
 	}
-	sweep := 0 // a0 -> a1 decreasing angle draws clockwise in SVG space
+	// Points are placed with y = cy - r·sin(a), so increasing the math angle a
+	// traces counter-clockwise on screen (SVG's y grows downward) — sweep-flag 0.
+	// Decreasing a therefore needs sweep-flag 1 to bow the arc the intended way;
+	// a gauge sweeps a0=π → a1=0, which must dome upward (∩), not smile (∪).
+	sweep := 1
 	if a1 > a0 {
-		sweep = 1
+		sweep = 0
 	}
 	return "M" + fnum(x0) + "," + fnum(y0) +
 		" A" + fnum(r) + "," + fnum(r) + " 0 " +
