@@ -25,9 +25,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
-	"embed"
 	"encoding/hex"
-	"io/fs"
 	"log"
 	"log/slog"
 	"net/http"
@@ -43,13 +41,6 @@ import (
 	"github.com/ThirdCoastInteractive/the-beach/ui/driftwood"
 	"github.com/a-h/templ"
 )
-
-// staticFS holds the two assets the page needs: the generated Stellar stylesheet
-// (served at /static/css/stellar.css per framework convention) and the Datastar
-// client the driftwood shell loads from /static/js/datastar.js.
-//
-//go:embed static
-var staticFS embed.FS
 
 const (
 	// cookieName carries the anonymous session id. It is the only identity in the
@@ -86,16 +77,10 @@ func main() {
 		addr = ":" + p
 	}
 
-	sub, err := fs.Sub(staticFS, "static")
-	if err != nil {
-		log.Fatalf("driftbottle: static sub-fs: %v", err)
-	}
-
 	h := hub.New()
 
 	app := beach.New(beach.Config{
 		Service: "driftbottle",
-		Static:  sub,
 		Kit:     beach.KitStatic("driftwood"),
 		Hub:     h,
 		Logger:  logger,
@@ -457,7 +442,15 @@ func (s *server) sayAction(c *beach.Ctx) (beach.Patches, error) {
 		return beach.Patches{{Fragment: s.currentRoom(id), Target: roomTarget}}, nil
 	}
 
-	body := clean(c.FormValue("msg"))
+	// The composer binds the textarea to the `msg` signal, so Datastar posts it as
+	// JSON — read it from the signals, not the form.
+	in, err := beach.Bind[struct {
+		Msg string `json:"msg"`
+	}](c)
+	if err != nil {
+		return clearComposer(), nil
+	}
+	body := clean(in.Msg)
 	if body == "" {
 		return clearComposer(), nil
 	}

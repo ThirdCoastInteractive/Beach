@@ -145,7 +145,11 @@ func handFragment(snap boardSnapshot, seat int) templ.Component {
 		var sb bytes.Buffer
 		sb.WriteString(`<div id="` + handTarget + `" class="bw-hand">`)
 		if seat < 0 || seat >= len(snap.players) {
-			sb.WriteString(`<p>Spectating. Join to get a hand.</p></div>`)
+			// Spectator: the seat-claim control lives in the hand panel so the SSE
+			// stream can swap it for the Roll control the instant you're seated.
+			sb.WriteString(`<p>Spectating. Join to get a hand.</p>`)
+			sb.WriteString(`<button class="dw-btn dw-btn-accent" data-on:click="@post('/join')">Take a seat</button>`)
+			sb.WriteString(`</div>`)
 			_, err := io.WriteString(w, sb.String())
 			return err
 		}
@@ -165,7 +169,16 @@ func handFragment(snap boardSnapshot, seat int) templ.Component {
 		if !any {
 			sb.WriteString(`<li class="bw-muted">none yet</li>`)
 		}
-		sb.WriteString(`</ul></div>`)
+		sb.WriteString(`</ul>`)
+		// Roll on your turn, otherwise wait. Folding the control into the
+		// stream-pushed hand fragment means a turn change updates the button with
+		// no page reload (and no inline script — the CSP forbids it).
+		if snap.board.Turn == seat {
+			sb.WriteString(`<button class="dw-btn dw-btn-accent" data-on:click="@post('/roll')">Roll dice</button>`)
+		} else {
+			sb.WriteString(`<p class="bw-muted">Waiting for your turn…</p>`)
+		}
+		sb.WriteString(`</div>`)
 		_, err := io.WriteString(w, sb.String())
 		return err
 	})

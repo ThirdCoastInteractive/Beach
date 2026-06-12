@@ -23,10 +23,13 @@ layout := chart.LayoutHBar(chart.HBarSeries{Series: rows, Max: max, Unit: " kW"}
 
 The library obeys the framework's laws by construction:
 
-- **Token-themed**: series colors cycle Stellar's `--chart-qualitative-1..12`;
-  diverging scales use `--chart-diverging-*`; emphasis names meaning through palette
-  roles (`--error-*` for bad, etc.), never hue alone; no hardcoded colors in chart code
-  ([ui token contract](06-ui.md)).
+- **Token-themed**: series colors cycle the design system's `--chart-qualitative-1..12`
+  (generated from a [rybitten gamut](19-rybitten.md)); diverging scales use
+  `--chart-diverging-*`; emphasis names meaning through palette roles (`--error-*` for
+  bad, etc.), never hue alone; no hardcoded colors in chart code
+  ([ui token contract](06-ui.md)). SVG text is themed too (`.chart-axis`,
+  `.chart-label`, `.chart-gauge-value`, `.chart-kpi-*`) so labels read on the dark
+  surface — the SVGs carry no color of their own.
 - **Accessible**: `<title>` elements on interactive regions, `role="img"` on
   roots, color never the only encoding (trend arrows accompany trend colors).
 - **Responsive without scripts**: percentage coordinates for axes and text

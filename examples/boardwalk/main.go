@@ -22,9 +22,7 @@ package main
 
 import (
 	"context"
-	"embed"
 	"io"
-	"io/fs"
 	"log"
 	"log/slog"
 	"net/http"
@@ -40,9 +38,6 @@ import (
 	"github.com/a-h/templ"
 )
 
-//go:embed static
-var staticFS embed.FS
-
 // seatCookie names the cookie that ties a browser to its claimed seat. With no
 // database, this is the whole "session" — a small integer seat index. A browser
 // without it is a spectator.
@@ -54,11 +49,6 @@ func main() {
 	addr := ":8080"
 	if p := os.Getenv("PORT"); p != "" {
 		addr = ":" + p
-	}
-
-	sub, err := fs.Sub(staticFS, "static")
-	if err != nil {
-		log.Fatalf("boardwalk: static sub-fs: %v", err)
 	}
 
 	h := hub.New()
@@ -75,7 +65,6 @@ func main() {
 
 	app := beach.New(beach.Config{
 		Service: "boardwalk",
-		Static:  sub,
 		Kit:     beach.KitStatic("driftwood"),
 		Hub:     h,
 		Logger:  logger,
@@ -136,24 +125,6 @@ func (s *server) indexPage(c *beach.Ctx) (beach.View, error) {
 		Subtitle: "A sim/ecs real-estate game. Roll, move, buy, pay rent — live over SSE.",
 	})
 
-	// Controls: join (spectator) or roll (seated).
-	var controls templ.Component
-	if seat < 0 {
-		controls = kit.Buttons().Button(ui.ButtonProps{
-			Label:    "Take a seat",
-			Role:     ui.RoleAccent,
-			LeadIcon: "plus",
-			Attrs:    datastar.Attrs{datastar.OnClick("@post('/join')")},
-		})
-	} else {
-		controls = kit.Buttons().Button(ui.ButtonProps{
-			Label:    "Roll dice",
-			Role:     ui.RoleAccent,
-			LeadIcon: "play",
-			Attrs:    datastar.Attrs{datastar.OnClick("@post('/roll')")},
-		})
-	}
-
 	boardCard := kit.Layout().Card(ui.CardProps{
 		Surface: ui.SurfacePanel,
 		Heading: "Board",
@@ -162,7 +133,7 @@ func (s *server) indexPage(c *beach.Ctx) (beach.View, error) {
 	handCard := kit.Layout().Card(ui.CardProps{
 		Surface: ui.SurfaceWell,
 		Heading: "Your hand",
-	}, handFragment(snap, seat), controls)
+	}, handFragment(snap, seat))
 
 	// Open the streams on load: board always; hand always (it self-resolves the
 	// spectator case server-side from the cookie).
@@ -213,32 +184,34 @@ func (s *server) joinAction(c *beach.Ctx) (beach.Patches, error) {
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 	})
-	// Reload so the page handler re-renders with the new seat: the controls
-	// switch to "Roll" and the hand stream resubscribes to user:<seat>. We patch
-	// a one-shot <script> into the body; Datastar executes scripts in patched
-	// elements, and reload re-runs everything against the freshly set cookie.
+	// Re-open the hand stream so it resubscribes to user:<seat> with the cookie we
+	// just set: the new stream's catch-up immediately renders the seated hand and
+	// the Roll control. Patching a data-init element fires @get('/hand') again —
+	// no page reload, no inline script (the CSP forbids it).
 	return beach.Patches{{
-		Fragment: reloadScript(),
-		Target:   "bw-reload",
+		Fragment: reopenHand(),
+		Target:   "bw-reopen",
 		Mode:     beach.PatchInner,
 	}}, nil
 }
 
-// sinks renders the two always-present morph targets: a toast region for
-// action feedback and a script sink for the post-join reload. Keeping them in
-// the initial document means action patches always have a stable target.
+// sinks renders the two always-present morph targets: a toast region for action
+// feedback and the #bw-reopen sink the join action patches a data-init element
+// into to re-open the hand stream. Keeping them in the initial document means
+// action patches always have a stable target.
 func sinks() templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
-		_, err := io.WriteString(w, `<div id="bw-toast" class="bw-toast-region" aria-live="polite"></div><div id="bw-reload" hidden></div>`)
+		_, err := io.WriteString(w, `<div id="bw-toast" class="bw-toast-region" aria-live="polite"></div><div id="bw-reopen" hidden></div>`)
 		return err
 	})
 }
 
-// reloadScript renders a tiny script that reloads the page. It lands in the
-// always-present #bw-reload sink so the morph has a stable target.
-func reloadScript() templ.Component {
+// reopenHand renders a data-init element that re-fires @get('/hand'). Patched
+// into #bw-reopen after a seat claim, it makes Datastar open a fresh hand stream
+// that resubscribes to user:<seat> with the just-set cookie.
+func reopenHand() templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
-		_, err := io.WriteString(w, `<script>window.location.reload()</script>`)
+		_, err := io.WriteString(w, `<div data-init="@get('/hand')"></div>`)
 		return err
 	})
 }

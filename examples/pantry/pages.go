@@ -117,7 +117,9 @@ func (a *app) itemsPage(c *beach.Ctx) (beach.View, error) {
 		body = a.itemGrid(c, items)
 	}
 
-	canWrite := a.principalCan(c, "pantry:write")
+	// Database-free there is no principal, so the single local user can manage
+	// their own pantry; with auth on, the pantry:write permission gates the form.
+	canWrite := a.authn == nil || a.principalCan(c, "pantry:write")
 	var form templ.Component = templ.NopComponent
 	if canWrite {
 		form = a.addItemForm(c)

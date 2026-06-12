@@ -1,85 +1,405 @@
-# Architecture 15 — Example apps: the validation trio
+# Architecture 15 — Example apps: the validation set
 
 [← docs index](../README.md) · prev: [Analytics](14-analytics.md) · next: [Component catalog](16-components.md)
 
-Three example apps under `examples/`, each shaped exactly like a consuming app
+Four example apps under `examples/`, each shaped exactly like a consuming app
 (`beach new` output + features), each chosen to stress a different slice of the
-framework. Together they are the falsifiable claim that the framework works — every
-package is exercised by at least one of them, and every perf gate runs against one
-of them.
+framework. Together they are the falsifiable claim that the framework works —
+every package is exercised by at least one of them.
+
+This doc is the **full architecture of each app**: how it boots, where state
+lives, how a request becomes an SSE patch, and — just as important — what each
+app deliberately does *not* do. The first three are built and runnable; the
+fourth, **hush**, has its own full plan in [18-hush.md](18-hush.md) and is
+summarized here.
+
+| App | Showcase | State home | Persistence |
+| --- | --- | --- | --- |
+| boardwalk | `sim`/`ecs` realtime | `ecs.Store` in a sim loop | none (in-memory) |
+| driftbottle | `hub`/SSE fan-out | in-process maps | none (ephemeral) |
+| pantry | `apigen`/`auth`/analytics | Postgres (or in-memory) | Postgres |
+| hush | custom layout + client JS | Postgres + `storage` | Postgres + object store |
+
+A rule every app obeys, learned the hard way: **a rendered page is not a working
+feature.** Each is verified in a real browser (chrome-devtools/playwright)
+clicking the actual flows, not just compiling and serving a 200.
+
+---
 
 ## `examples/boardwalk` — real-estate game (Monopoly-like)
 
-The **`sim`/`ecs` showcase**: a multiplayer, tick-driven board game.
+The **`sim`/`ecs` showcase**: a multiplayer, tick-driven board game where the
+entire live slice lives in an `ecs.Store` owned by a single-writer `sim` loop and
+is fanned to every watcher over SSE. **No database** — persistence lanes are
+documented in [08-sim.md](08-sim.md), but the runnable demo is pure in-memory, on
+purpose: it isolates the sim/hub story with nothing else in the way.
 
-- The ruleset is the smallest playable slice — roll, move, buy, rent, trade. No
-  auctions, mortgages, or jail lawyering in v1; the point is the framework, not
-  tournament fidelity.
-- Game state lives in the sim: player positions, turn order, dice, property
-  ownership, rent timers — components in the `ecs.Store`, mutated by systems,
-  pushed to every player via projections. The board everyone watches is one hub
-  topic; your hand/cash is your `user:<id>` topic.
-- **The persistence lanes get their canonical demo**: buying a property or trading
-  is a synchronous `pg.InTx` commit (money — the [boundary rule](08-sim.md#the-boundary))
-  reflected into the sim via `ApplyCommitted`; positions and turn state are
-  write-behind; the cash ledger is the append-only journal.
-- Game lobby/accounts via `auth`; spectator mode is an unauthenticated stream.
-- Validates: `ecs`, `sim`, hub topics, command channel + `Ask` (roll dice →
-  result), projections, all three persistence lanes.
+### Boot & wiring (`main.go`)
+
+```go
+h := hub.New()
+s := sim.New(sim.Config{TickRate: 20, ProjectRate: 20, Hub: h})
+game := NewGame(s)
+app := beach.New(beach.Config{Service: "boardwalk", Kit: beach.KitStatic("driftwood"), Hub: h})
+go game.Run(ctx)
+```
+
+| Method | Path | Shape | Role |
+| --- | --- | --- | --- |
+| GET | `/` | PageFunc | full board page + `data-init` to open both streams |
+| POST | `/join` | ActionFunc | claim a seat, set `bw_seat` cookie, re-open the hand stream |
+| POST | `/roll` | ActionFunc | roll command → toast feedback |
+| GET | `/board` | StreamFunc | subscribe every connection to topic `board` |
+| GET | `/hand` | StreamFunc | subscribe a seated player to `user:<seat>`; spectators to nothing |
+
+The whole "session" is one cookie, `bw_seat`, holding a seat index 0–3. No cookie
+= spectator (`seatFrom` returns −1). No auth package, no login — the demo is
+deliberately public.
+
+### State model — everything is an entity
+
+The live game is components in the `ecs.Store`, never plain Go fields:
+
+```go
+type Player    struct { Name, Token string; Spec bool }   // Spec = seat still open
+type Position  struct { Square int }
+type Cash      struct { Amount int }
+type TurnOrder struct { Seat int }
+type Ownership struct { Tile int; Owner ecs.Entity }       // zero Owner = bank
+type Board     struct { Turn, LastN, LastD1, LastD2 int; Log []string; Joined int; Over bool }
+```
+
+At boot `NewGame` creates one singleton `Board` entity, four seat entities
+(`Spec: true`), and one `Ownership` entity per buyable tile. The board itself
+(`board.go`) is **static data** — a 20-square ring of `tile{Name, Kind, Price,
+Rent, Group}` with kinds GO / property / tax / chance / jail (just visiting) /
+free parking. Live ownership is the `Ownership` components keyed by tile index;
+the ring is read-only.
+
+### Commands & the single-writer boundary
+
+Mutation happens in exactly one place: inside a command's `Apply(w *sim.World)`,
+run on the loop goroutine. Handlers never touch the store directly — they `Ask`:
+
+```go
+// handler side
+res := game.Roll(ctx, seat)        // wraps a rollCmd in sim.Ask, waits for the reply
+
+// loop side, inside rollCmd.Apply(w):
+//   validate it's this seat's turn → roll 2× w.Intn(6)+1 → move (from+steps)%20
+//   → resolve tile (buy if affordable & unowned / pay rent / tax / chance) → next seat
+```
+
+`joinCmd` and `rollCmd` are the only two commands. Dice come from the **sim's
+deterministic PRNG** (`w.Intn`), so a game is reproducible from its seed. Reads
+that must be consistent (catch-up renders) go through `game.Snapshot(ctx)`, which
+uses `sim.AskFunc` to run a read-only closure on the loop.
+
+### Hub topics & projections
+
+Two projections turn store mutations into pushed HTML:
+
+| Projection | Fires on | Topic | Fragment |
+| --- | --- | --- | --- |
+| Board | `Changed[Board]` | `board` (everyone) | `boardFragment` → `#bw-board` |
+| Cash | `Changed[Cash]` | `user:<seat>` (one player) | `handFragment` → `#bw-hand` |
+
+The shared board (turn banner, 20 tiles with owners/occupants, standings, a
+14-line log) fans to all subscribers; your private hand (cash, your tile, your
+deeds, the Roll button when it's your turn) goes only to your `user:<seat>` topic.
+New posts on page load come from each stream's `CatchUp`, which renders the
+current snapshot off-loop before the first projection arrives. Joining patches a
+tiny `#bw-reopen` div whose `data-init` re-fires `@get('/hand')`, swapping the
+spectator control for a real hand with no page reload (the CSP-safe pattern — no
+inline script).
+
+### Rendering
+
+`render.go` builds the two fragments as **hand-written HTML** (`bytes.Buffer`,
+`html.EscapeString` on every name/token), not the templ DSL — templ is used only
+for the page skeleton and the driftwood kit chrome. One `snapshotBoard` read
+feeds both fragments.
+
+### Deliberately not there
+
+No trade, no auction, no mortgage, no jail rules, no doubles/extra-turn, no
+bankruptcy or win condition (`Board.Over` exists but is never set). Buying is
+automatic on landing if you can afford it. The point is the framework, not
+tournament fidelity.
+
+**Validates:** `ecs`, `sim`, the command channel + `Ask`/`AskFunc`, projections,
+hub topics (shared vs per-user), SSE catch-up and re-open.
+
+---
 
 ## `examples/driftbottle` — stranger chat (Omegle-style, text only)
 
-The **`hub`/SSE showcase**, and the host of the fan-out benchmark.
+The **`hub`/SSE showcase**: anonymous, ephemeral, no database, no accounts — the
+purest possible test of the hub, matchmaking, and reconnect with nothing else in
+the way. It is the designated host for the fan-out benchmark.
 
-- Anonymous by design: no accounts — the `auth` principal's `anonymous` kind does
-  real work for once. A matchmaking queue pairs two strangers onto a private
-  ephemeral topic (`pair:<id>`); disconnect or "next" tears it down and re-queues.
-- Everything is ephemeral: no chat persistence, sessions are the only state —
-  which makes it the purest possible test of the hub, SSE compression, presence,
-  and reconnect/`?since=` behavior with nothing else in the way.
-- **Hosts the 5k-connection benchmark** (single container, SSE gzip on,
-  per-connection memory reported) and the moderation hooks demo (rate-limit per
-  session, word filters).
-- Validates: hub at scale, `StreamFunc`, SSE compression budget, matchmaking on
-  the command channel, anonymous principals, the 14KB rule (the whole app should
-  land well under it).
+### Boot & wiring (`main.go`)
+
+```go
+type server struct {
+    hub      *hub.Hub
+    mu       sync.Mutex
+    waiting  string                       // the one session parked in the lobby, or ""
+    sessions map[string]*sessionState     // every session seen
+    feeds    map[string][]chatMessage     // pair topic → rolling message buffer
+}
+```
+
+| Method | Path | Shape | Role |
+| --- | --- | --- | --- |
+| GET | `/` | PageFunc | lobby page; mints the `db_sid` cookie on first render |
+| GET | `/events` | StreamFunc (`beach.Sub`) | subscribe to exactly `me:<sid>` |
+| POST | `/start` | ActionFunc | enter the matchmaking queue |
+| POST | `/say` | ActionFunc | send a message to your partner |
+| POST | `/next` | ActionFunc | leave this partner and re-queue |
+
+Identity is one cookie, `db_sid`, a random 128-bit hex id. There is no account,
+no `session.Store`, no login — `sid()` reads the cookie or mints a new id. This is
+the `auth` story's `anonymous` case doing real work.
+
+### Matchmaking
+
+Two topic shapes: `me:<sid>` (per-session, the only thing a connection subscribes
+to) and `pairTopic(a,b)` = `pair:` + the two ids sorted, used only to key the
+rolling feed buffer.
+
+```
+enqueue(id):
+  already paired/waiting → re-render current state (idempotent)
+  s.waiting == ""        → park id in s.waiting, render "waiting"
+  else if waiting != id and neither is the other's `last`:
+      pair them, clear waiting, set mutual partner, drop the old feed buffer,
+      publish chatFragment to both me:<a> and me:<b>
+```
+
+`teardown(id)` clears both `partner` fields, sets both `last` (so an immediate
+Next can't rematch the same pair), drops the feed buffer, and publishes
+`endedFragment` to the ex-partner — it does **not** re-queue. `/next` is just
+`teardown(id)` then `enqueue(id)`.
+
+### Hub/SSE story
+
+One connection per session, one topic (`me:<sid>`). A message fans to exactly two
+topics, never N:
+
+```
+broadcast(sender, partner, body):
+  append to feeds[pairTopic] (capped at feedCap = 100)
+  publish forViewer(snapshot, sender)  → me:<sender>   // sender sees "me"
+  publish forViewer(snapshot, partner) → me:<partner>  // partner sees "them"
+```
+
+`forViewer` rewrites each message's `From` to "me"/"them" per viewer; fragments
+are rendered to bytes **once** per publish and fanned as bytes. Reconnect is
+handled by the stream's `CatchUp`, which calls `currentRoom(id)` and renders
+whichever state — lobby / waiting / active chat — the session is in right now.
+This single-topic, two-publish, pre-rendered-bytes shape is what makes it the
+fan-out benchmark host: no session affinity, no per-message N-fan, no DB on the
+hot path.
+
+### Moderation (actually implemented)
+
+- **Rate limit:** a sliding window per session, `msgRateBurst = 8` per
+  `msgRateWindow = 10s` (`rateOK`); over the limit publishes a notice to `#notice`
+  and clears the composer.
+- **Word filter:** `clean()` → `filterWords()` masks a hardcoded blocklist
+  (case-insensitive substring) with asterisks, and truncates at `maxMsgLen =
+  1000`.
+
+### Chat action & Datastar signals
+
+The composer binds its textarea to the `msg` signal, so `/say` reads it with
+`beach.Bind[struct{ Msg string }]` (JSON signal, **not** form value). On success
+the handler returns a `Signals` patch `{"msg": ""}` to clear the input — no DOM
+surgery, just a signal reset.
+
+### Tests (`driftbottle_test.go`)
+
+Covers the load-bearing behavior directly against the `server`: pairing two
+strangers, message fan-out with correct me/them framing, next-tears-down-and-
+re-queues, the rate limiter (exactly 8 succeed), the word filter, and
+catch-up defaulting an unknown session to the lobby.
+
+### Deliberately not there
+
+No persistence of any message, no presence list beyond the pairing, no group
+chat, and the 5k-connection benchmark harness itself is not checked into the tree
+yet — the app is *built for* it (the architecture above is the proof), but the
+runnable artifact is the chat plus its unit tests.
+
+**Validates:** hub fan-out, `StreamFunc`/`beach.Sub`, catch-up/reconnect,
+matchmaking, anonymous identity, the moderation hooks, signal-clearing patches.
+
+---
 
 ## `examples/pantry` — at-home grocery ERP
 
-The **CRUD/`apigen`/`auth`/analytics showcase**: boring in the good way, on purpose.
+The **CRUD/`apigen`/`auth`/analytics showcase**: boring in the good way. It is
+the one app that runs **with or without** a database — set `DATABASE_URL` and it
+boots auth + Postgres; unset, it degrades to an in-memory store so the UI is
+always explorable.
 
-- Household inventory: items (each with a photo — the `ui` image/aspect-ratio
-  components in their natural habitat: responsive thumbnails in the item grid, a
-  larger `photo`-ratio image on the detail page, no layout shift on either), storage
-  locations, quantities, expiry dates, shopping lists, purchase history. Almost every
-  route is **generated** — the
-  `@api`/`@page`/`@fragment`/`@requires` annotations on sqlc queries
-  ([13-apigen.md](13-apigen.md)) produce the CRUD surface; hand-written handlers
-  should be the rare exception, and that ratio is the measure of apigen's worth.
-- `auth` with real roles (household admin vs member), the full login flow,
-  the authz analyzer in fatal mode.
-- **The `ch` + `chart` showcase**: purchases and consumption events batch into
-  ClickHouse; dashboards render spend-over-time (line), category breakdown
-  (stacked bar), price-history sparklines per item, expiry calendar heatmap,
-  and a waste gauge — every widget a `ui.Defer` section feeding `chart`
-  components from `ch` queries ([14-analytics.md](14-analytics.md)).
-- Validates: apigen end-to-end, auth/RBAC, `ch`, `chart`, `i18n` (pantry is the
-  most text-heavy app, so it carries the translation catalog), deferred dashboard
-  sections, and the `ui` media components (responsive item images, fixed aspect ratio,
-  no pop-in).
+### Boot & wiring (`main.go`)
+
+```go
+type app struct {
+    store    *memStore           // in-memory fallback, always present
+    cat      *i18n.Catalog
+    authn    *auth.Authenticator // nil without a DB
+    sessions *session.Store      // nil without a DB
+    pool     *pgxpool.Pool       // nil without a DB
+    release  bool
+}
+```
+
+Boot: parse env → `i18n.Load(localesFS, "en-US")` → if `DATABASE_URL` is set,
+`openPool` then `migrate` (three sources: `session.Migrations`, `auth.Migrations`,
+the app's `migrationsFS` — each gets its own goose version table, see
+[02-boot-spine.md](02-boot-spine.md)), build the `session.Store` + `auth.Authenticator`,
+and `seedAdmin` (`admin` / a password, role `household-admin` with
+`pantry:read|write|admin`). Any failure degrades cleanly to in-memory mode. The
+finished `beach.Handler()` is wrapped in `cat.Middleware` so every request
+resolves a locale into context.
+
+| Method | Path | Shape | Guard |
+| --- | --- | --- | --- |
+| GET | `/`, `/items`, `/locations`, `/lists`, `/login` | PageFunc | — |
+| GET | `/widgets/{spend,category,expiry,waste}` | PageFunc | — (deferred) |
+| POST | `/items`, `/locations` | ActionFunc | `app.Can("pantry:write")` when auth is on |
+| POST | `/login` | Raw | — (plain form → 303) |
+| GET | `/logout` | Raw | — |
+
+### apigen: the annotation surface vs the running handlers
+
+The SQL files under `internal/db/sql/queries/` carry the **full apigen spec** —
+the six annotations that would generate the whole CRUD surface:
+
+```sql
+-- name: CreateItem :one
+-- @api POST /items
+-- @requires pantry:write
+-- @notify items
+-- @fragment page.ItemCard
+INSERT INTO pantry_items (...) VALUES (...) RETURNING ...;
+```
+
+`@api METHOD /path` (shape from the verb), `@page`/`@fragment` (full page vs
+patched partial), `@requires perm` (guard), `@notify resource` (NOTIFY topic).
+Items, locations, and lists each carry the full list/get/create/update/delete/
+toggle set. In the *running* binary the write paths are **hand-written
+equivalents** in `handlers.go` (its own comment says so) — they are the
+falsifiable reference for what apigen emits: bind the signals, run the write,
+patch the `@fragment`. The ratio of generated-to-hand-written is apigen's measure;
+pantry keeps both visible side by side.
+
+### Data model
+
+`model.go` defines `Item`, `Location`, `ShoppingList`, `ListItem` and the
+thread-safe `memStore` (seeded with 6 items, 3 locations, 1 list). The migration
+creates soft-deleting (`deleted_at`) tables `pantry_items`, `pantry_locations`,
+`pantry_lists`, `pantry_list_items` plus the framework's auth/session tables, and
+seeds the `household-admin` / `household-member` roles.
+
+### Request lifecycle (create item)
+
+1. The add-item form binds each field to a same-named Datastar signal.
+2. `POST /items` → `createItem` reads them with `beach.Bind[…]` — quantity is a
+   `float64` because a number input posts a JSON number; the rest are strings.
+3. `a.store.addItem(...)`, then return
+   `beach.Patches{{Fragment: a.itemGrid(...), Target: "item-grid"}}` — the grid
+   re-renders and morphs in place.
+
+Login is the deliberate exception: a **plain HTML form POST** that 303-redirects,
+not a Datastar action. The session cookie must be set on the response *and* the
+browser must navigate — and the strict CSP forbids the SDK's script-based
+redirect — so a real form post is the right tool ([12-auth.md](12-auth.md)).
+
+### Rendering & the Kit
+
+`pages.go` renders through the driftwood `Kit`: `shell` (topbar + 4-section
+sidebar, login/logout reflecting `c.User()`), `kit.Layout()` (PageHeading, Card,
+Grid), `kit.Media().Image` (responsive item photos at a fixed `RatioPhoto`, no
+layout shift), `kit.Forms()`, `kit.Data().StackedList`, `kit.Feedback().Alert`.
+Write forms only render when `principalCan(c, "pantry:write")`, so the in-memory
+single-user mode and the authed multi-role mode share one template.
+
+### Analytics — deferred dashboard
+
+`dashboardPage` lays out four cards, each an `ui.Defer{ID, Get: "/widgets/<id>",
+Height}` placeholder. Datastar fetches each widget on intersection and morphs it
+in by id, so the dashboard paints instantly and the charts stream in. The widgets
+render SSR-SVG via the `chart` package: `LayoutLine` (spend, area), `LayoutStackedBar`
+(spend by category), `LayoutCalendarHeatmap` (expiry calendar), `LayoutGauge`
+(waste). In the demo the series are sample data; in a `ch`-backed deployment the
+same `chart.*` calls consume ClickHouse aggregates unchanged
+([14-analytics.md](14-analytics.md)).
+
+### i18n
+
+`a.t(ctx, key, args…)` resolves against the catalog using the locale the
+middleware put in context. `catalog.json` is the key dictionary (with
+descriptions); `locales/` carries `en-US` and `es-ES`. pantry is the most
+text-heavy app, so it carries the translation story.
+
+### Deliberately not there
+
+The apigen *generator* output is not wired into the running routes (the
+hand-written equivalents stand in as the reference); ClickHouse is not required to
+run (charts use sample data without it).
+
+**Validates:** apigen annotation surface, `auth`/RBAC + the login flow, `session`,
+`pg.Migrate` multi-source, `chart`, `ui` Kit + media components, deferred
+sections, `i18n`, and the DB-optional degrade path.
+
+---
+
+## `examples/hush` — gated anonymous board
+
+The **custom-layout + client-JS showcase**, and the only consumer of `storage`
+and Repute. A curated, anonymous wall of square posts — *hush-hush* by design.
+Full architecture in [18-hush.md](18-hush.md); in brief:
+
+- A **gapless grid of square tiles** (pure CSS, container-query text scaling) is
+  the proof that a custom layout sits cleanly on the SSR core.
+- A **WebGPU camera** is the proof that client-side JS can be an isolated island —
+  a WGSL filter pipeline that hands a blob to a normal action; everything else
+  stays SSR.
+- **`storage.Store`** holds post images and application photos (Local↔R2, one-line
+  swap); **Repute** scores posts and the score gates DMs and profile editing via
+  `app.Can`.
+- Gated signup: apply with a photo + pitch, an admin approves, and reputation
+  tiers unlock features.
+
+Built across five gated blocks (A–E in 18-hush.md), each verified in a real
+browser: the gapless wall + 512-char markdown, `storage` image uploads, the WebGPU
+camera island, the Postgres signup gate, and Repute scoring with tier-gated
+profiles. Each example also ships a self-contained `docker-compose.yml` +
+`.env.example`.
+
+**Validates:** `storage`, Repute, custom layout, a client-JS island, `auth`
+tiers, `beach.Bind`/Patches/hub.
+
+---
 
 ## Coverage matrix
 
-| Package                       | boardwalk |  driftbottle  | pantry |
-| ----------------------------- | :-------: | :-----------: | :----: |
-| beach (root) / datastar / ui  |     ●     |       ●       |   ●    |
-| hub                           |     ●     |    **●●**     |   ○    |
-| ecs / sim                     |  **●●**   |       ○       |   —    |
-| auth / passwords              |     ●     | ● (anonymous) | **●●** |
-| apigen                        |     ○     |       —       | **●●** |
-| ch / chart                    |     ○     |       —       | **●●** |
-| i18n                          |     ○     |       —       | **●●** |
-| cache / session / pg / config |     ●     |       ●       |   ●    |
+| Package                       | boardwalk |  driftbottle  | pantry |  hush  |
+| ----------------------------- | :-------: | :-----------: | :----: | :----: |
+| beach (root) / datastar / ui  |     ●     |       ●       |   ●    |   ●    |
+| hub                           |     ●     |    **●●**     |   ○    |   ●    |
+| ecs / sim                     |  **●●**   |       ○       |   —    |   —    |
+| auth / passwords              |     —     | ● (anonymous) | **●●** | **●●** |
+| apigen                        |     —     |       —       | **●●** |   ○    |
+| ch / chart                    |     ○     |       —       | **●●** |   —    |
+| i18n                          |     —     |       —       | **●●** |   ○    |
+| storage                       |     —     |       —       |   —    | **●●** |
+| Repute                        |     —     |       —       |   —    | **●●** |
+| cache / session / pg / config |     ○     |       ○       |   ●    |   ●    |
 
 ●● = the showcase, ● = exercised, ○ = incidental, — = unused (deliberately: not
 every app needs every package, and the examples should prove that too).

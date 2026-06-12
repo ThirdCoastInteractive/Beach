@@ -3,11 +3,11 @@ package main
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	beach "github.com/ThirdCoastInteractive/the-beach"
 	"github.com/ThirdCoastInteractive/the-beach/auth"
-	"github.com/ThirdCoastInteractive/the-beach/datastar"
 	"github.com/ThirdCoastInteractive/the-beach/ui"
 	"github.com/a-h/templ"
 )
@@ -20,22 +20,41 @@ import (
 
 // createItem handles POST /items: it appends a row and re-renders the item grid.
 func (a *app) createItem(c *beach.Ctx) (beach.Patches, error) {
-	qty, _ := strconv.ParseFloat(c.FormValue("quantity"), 64)
+	// The form binds each field to a same-named signal, so Datastar posts them as
+	// JSON — read them from the signals, not the form.
+	// A number input binds to a numeric signal, so quantity arrives as a JSON
+	// number; the text/select fields arrive as strings.
+	in, err := beach.Bind[struct {
+		Name       string  `json:"name"`
+		Quantity   float64 `json:"quantity"`
+		Unit       string  `json:"unit"`
+		Category   string  `json:"category"`
+		LocationID string  `json:"location_id"`
+		ExpiresAt  string  `json:"expires_at"`
+	}](c)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(in.Name) == "" {
+		// Nothing to add — just re-render the current grid and clear the form.
+		return beach.Patches{{Fragment: a.itemGrid(c, a.store.listItems()), Target: "item-grid"}}, nil
+	}
+	qty := in.Quantity
 	if qty == 0 {
 		qty = 1
 	}
-	locID, _ := strconv.ParseInt(c.FormValue("location_id"), 10, 64)
+	locID, _ := strconv.ParseInt(in.LocationID, 10, 64)
 	var exp *time.Time
-	if v := c.FormValue("expires_at"); v != "" {
-		if t, err := time.Parse("2006-01-02", v); err == nil {
+	if in.ExpiresAt != "" {
+		if t, err := time.Parse("2006-01-02", in.ExpiresAt); err == nil {
 			exp = &t
 		}
 	}
 	a.store.addItem(Item{
-		Name:       c.FormValue("name"),
+		Name:       in.Name,
 		Quantity:   qty,
-		Unit:       firstNonEmpty(c.FormValue("unit"), "ea"),
-		Category:   firstNonEmpty(c.FormValue("category"), "other"),
+		Unit:       firstNonEmpty(in.Unit, "ea"),
+		Category:   firstNonEmpty(in.Category, "other"),
 		LocationID: locID,
 		ExpiresAt:  exp,
 	})
@@ -45,7 +64,16 @@ func (a *app) createItem(c *beach.Ctx) (beach.Patches, error) {
 
 // createLocation handles POST /locations.
 func (a *app) createLocation(c *beach.Ctx) (beach.Patches, error) {
-	a.store.addLocation(c.FormValue("name"), firstNonEmpty(c.FormValue("kind"), "other"))
+	in, err := beach.Bind[struct {
+		Name string `json:"name"`
+		Kind string `json:"kind"`
+	}](c)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(in.Name) != "" {
+		a.store.addLocation(in.Name, firstNonEmpty(in.Kind, "other"))
+	}
 	kit := c.Kit()
 	locs := a.store.listLocations()
 	rows := make([]ui.ListRow, 0, len(locs))
@@ -70,14 +98,23 @@ func (a *app) loginPage(c *beach.Ctx) (beach.View, error) {
 	if a.authn == nil {
 		body = append(body, kit.Feedback().Alert(ui.AlertProps{Role: ui.RoleWarn, Title: a.t(ctx, "login.dboff")}))
 	} else {
-		form := kit.Forms().Form(ui.FormProps{Post: "/login"},
-			kit.Forms().Field(ui.FieldProps{Label: a.t(ctx, "login.username"), For: "username"},
-				kit.Forms().TextInput(ui.TextInputProps{ID: "username", Name: "username"})),
-			kit.Forms().Field(ui.FieldProps{Label: a.t(ctx, "login.password"), For: "password"},
-				kit.Forms().TextInput(ui.TextInputProps{ID: "password", Name: "password", Type: "password"})),
-			kit.Buttons().Button(ui.ButtonProps{Label: a.t(ctx, "login.submit"), Role: ui.RoleAccent, Type: "submit"}),
-		)
-		body = append(body, kit.Layout().Card(ui.CardProps{Surface: ui.SurfacePanel}, form), wrapID("login-err", templ.NopComponent))
+		// A plain HTML form: a normal POST the browser submits and follows the 303
+		// redirect for — no JS, no Datastar, no CSP concerns.
+		errBanner := ""
+		switch c.Query("err") {
+		case "1":
+			errBanner = `<div class="dw-alert dw-alert-danger" role="alert" style="margin-block-end:1rem">Invalid username or password.</div>`
+		case "locked":
+			errBanner = `<div class="dw-alert dw-alert-danger" role="alert" style="margin-block-end:1rem">Account locked. Try again later.</div>`
+		}
+		formHTML := errBanner +
+			`<form method="post" action="/login" class="dw-form">` +
+			`<div class="dw-field"><label class="dw-label" for="username">` + templ.EscapeString(a.t(ctx, "login.username")) + `</label>` +
+			`<input class="dw-input" type="text" id="username" name="username" autocomplete="username" required></div>` +
+			`<div class="dw-field"><label class="dw-label" for="password">` + templ.EscapeString(a.t(ctx, "login.password")) + `</label>` +
+			`<input class="dw-input" type="password" id="password" name="password" autocomplete="current-password" required></div>` +
+			`<button class="dw-btn dw-btn-accent" type="submit">` + templ.EscapeString(a.t(ctx, "login.submit")) + `</button></form>`
+		body = append(body, kit.Layout().Card(ui.CardProps{Surface: ui.SurfacePanel}, templ.Raw(formHTML)))
 	}
 
 	container := kit.Layout().Container(ui.ContainerProps{}, body...)
@@ -94,19 +131,19 @@ func (a *app) doLogin(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	username, password := r.FormValue("username"), r.FormValue("password")
-	token, _, _, err := a.authn.Login(r.Context(), username, password)
-	sse := datastar.NewSSE(w, r)
+	// Login is a plain form POST (progressive enhancement): read the form fields,
+	// then redirect with a 303. No SSE, no inline script — the strict CSP forbids
+	// the SDK's script-based redirect, and a real navigation is what login wants.
+	_ = r.ParseForm()
+	token, _, _, err := a.authn.Login(r.Context(), r.FormValue("username"), r.FormValue("password"))
 	if err != nil {
-		msg := "Invalid username or password."
+		dest := "/login?err=1"
 		if err == auth.ErrAccountLocked {
-			msg = "Account locked. Try again later."
+			dest = "/login?err=locked"
 		}
-		// Render the error alert into the #login-err slot.
-		_ = sse.PatchElements(`<div id="login-err"><div class="dw-alert dw-alert-danger" role="alert">` +
-			templ.EscapeString(msg) + `</div></div>`)
+		http.Redirect(w, r, dest, http.StatusSeeOther)
 		return
 	}
 	a.setSessionCookieW(w, token)
-	_ = sse.Redirect("/")
+	http.Redirect(w, r, "/items", http.StatusSeeOther)
 }

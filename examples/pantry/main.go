@@ -33,6 +33,7 @@ import (
 	beach "github.com/ThirdCoastInteractive/the-beach"
 	"github.com/ThirdCoastInteractive/the-beach/auth"
 	"github.com/ThirdCoastInteractive/the-beach/i18n"
+	"github.com/ThirdCoastInteractive/the-beach/passwords"
 	"github.com/ThirdCoastInteractive/the-beach/pg"
 	"github.com/ThirdCoastInteractive/the-beach/session"
 	_ "github.com/ThirdCoastInteractive/the-beach/ui/driftwood" // registers the "driftwood" kit
@@ -120,7 +121,10 @@ func main() {
 				a.authn = auth.NewAuthenticator(pool, a.sessions, auth.LockoutConfig{})
 				cfg.Sessions = a.sessions
 				cfg.Principals = a.principalResolver
-				logger.Info("pantry: database mode (auth enabled)")
+				if err := a.seedAdmin(ctx); err != nil {
+					logger.Error("pantry: seed admin failed", "err", err)
+				}
+				logger.Info("pantry: database mode (auth enabled)", "login", "admin / password")
 			}
 		}
 	}
@@ -168,6 +172,47 @@ func (a *app) migrate(ctx context.Context) error {
 	return pg.Migrate(ctx, a.pool, migrationsFS)
 }
 
+// seedAdmin idempotently creates a single household-admin user (admin / password)
+// with the pantry permissions, so the database-backed app is usable out of the
+// box: sign in and you can manage the pantry. Safe to run on every boot.
+func (a *app) seedAdmin(ctx context.Context) error {
+	var uid int64
+	if err := a.pool.QueryRow(ctx,
+		`INSERT INTO users (username) VALUES ('admin')
+		 ON CONFLICT (username) DO UPDATE SET username = EXCLUDED.username
+		 RETURNING id`).Scan(&uid); err != nil {
+		return err
+	}
+	var hasCred bool
+	_ = a.pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM user_credentials_local WHERE user_id = $1)`, uid).Scan(&hasCred)
+	if !hasCred {
+		hash, err := passwords.Hash("password")
+		if err != nil {
+			return err
+		}
+		if _, err := a.pool.Exec(ctx,
+			`INSERT INTO user_credentials_local (user_id, password_hash) VALUES ($1, $2)`, uid, hash); err != nil {
+			return err
+		}
+	}
+	var rid int64
+	if err := a.pool.QueryRow(ctx,
+		`INSERT INTO roles (slug) VALUES ('household-admin')
+		 ON CONFLICT (slug) DO UPDATE SET slug = EXCLUDED.slug RETURNING id`).Scan(&rid); err != nil {
+		return err
+	}
+	for _, perm := range []string{"pantry:read", "pantry:write", "pantry:admin"} {
+		if _, err := a.pool.Exec(ctx,
+			`INSERT INTO role_permissions (role_id, permission) VALUES ($1, $2) ON CONFLICT DO NOTHING`, rid, perm); err != nil {
+			return err
+		}
+	}
+	_, err := a.pool.Exec(ctx,
+		`INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, uid, rid)
+	return err
+}
+
 // routes registers every page, widget, action, and the login flow, plus the
 // i18n middleware. Writes are guarded by Can("pantry:write"); location deletes
 // would be Can("pantry:admin") — the auth story is visible right here.
@@ -185,11 +230,15 @@ func (a *app) routes(app *beach.App) {
 	app.Page("/widgets/expiry", widgetPage("w-expiry", func(c *beach.Ctx) string { return expirySVG(a.store.listItems()) }))
 	app.Page("/widgets/waste", widgetPage("w-waste", func(*beach.Ctx) string { return wasteSVG() }))
 
-	// Write actions — guarded by the pantry:write permission. Without a
-	// PrincipalResolver (no DB) the guard denies everyone, which is the safe
-	// read-only degradation.
-	app.Action("/items", a.createItem, app.Can("pantry:write"))
-	app.Action("/locations", a.createLocation, app.Can("pantry:write"))
+	// Write actions. With auth on (DB mode) they require pantry:write — the auth
+	// story stays visible in the route table. Database-free there is no principal,
+	// so the single local user just manages their own pantry (a home app of one).
+	var write []beach.Guard
+	if a.authn != nil {
+		write = append(write, app.Can("pantry:write"))
+	}
+	app.Action("/items", a.createItem, write...)
+	app.Action("/locations", a.createLocation, write...)
 
 	// Login: Raw POST so it can set the cookie and issue a Datastar redirect.
 	app.Raw(http.MethodPost, "/login", a.doLogin)

@@ -59,7 +59,7 @@ const salary = 200
 // startingCash is each player's opening balance.
 const startingCash = 1500
 
-// groupColor maps a property's group label to a Stellar token used for the
+// groupColor maps a property's group label to a design token used for the
 // board legend swatch (color via token only).
 func groupColor(group string) string {
 	switch group {
