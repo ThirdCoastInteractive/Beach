@@ -3,20 +3,52 @@
 // here.
 package main
 
-import "strconv"
+import (
+	"strconv"
 
-// tileBG is the per-tile inline background — the one genuinely per-instance
-// style in hush. colorFor's output is a fixed-format oklch() string derived
-// from a content hash (no user input reaches it), so bypassing templ's CSS
-// property sanitizer — which predates oklch() — is safe.
+	"github.com/ThirdCoastInteractive/the-beach/ui"
+)
+
+// The style helpers below are the only inline styles in hush, and all of them
+// are safe to exempt from templ's CSS property sanitizer (which predates
+// oklch()): colorFor's output is a fixed-format oklch() string derived from a
+// content hash, and the view-transition-name is "hush-post-" plus a decimal
+// id — no user input reaches either.
+
+// tileBG paints a text post's computed color (tiles, and the card hero in the
+// feed).
 func tileBG(p Post) templ.SafeCSS {
 	return templ.SafeCSS("background: " + colorFor(p))
 }
 
-// openSheet is a tile's click expression: clear any stale reply, then stream
-// the sheet in (the View Transition does the slide; see the /p/{id} handler).
-func openSheet(id int64) string {
-	return "$reply = ''; @get('/p/" + strconv.FormatInt(id, 10) + "')"
+// vtName is a post's view-transition-name. On the grid only the clicked tile
+// holds it (data-vt, lifted into a real name by the :focus rule in hush.css),
+// so leaving the wall morphs one hero square — not seventeen. On feed pages
+// every card is named inline (vtStyle): consecutive posts share most of their
+// neighbors, so a feed→feed navigation morphs the overlap to its new
+// positions and the column reads as sliding.
+func vtName(p Post) string {
+	return "hush-post-" + strconv.FormatInt(p.ID, 10)
+}
+
+// vtStyle is a feed card's inline style: the post's view-transition-name,
+// unconditional.
+func vtStyle(p Post) templ.SafeCSS {
+	return templ.SafeCSS("view-transition-name: " + vtName(p))
+}
+
+// postHref is the real link to a post's feed page. The fragment lands the
+// browser on the focused card even when newer neighbors render above it —
+// native scroll-to-fragment, no script.
+func postHref(id int64) string {
+	s := strconv.FormatInt(id, 10)
+	return "/p/" + s + "#p" + s
+}
+
+// moreGet is a sentinel's intersect expression: fetch the next batch of feed
+// neighbors past cursor in the given direction.
+func moreGet(dir string, cursor int64) string {
+	return "@get('/feed/" + dir + "?cursor=" + strconv.FormatInt(cursor, 10) + "')"
 }
 
 // shell is the full hush document. hush is the custom-layout example, so it
@@ -46,40 +78,39 @@ templ backToWall() {
 	<p class="hush-back"><a class="hush-link" href="/">← back to the wall</a></p>
 }
 
-// homePage is the wall: a centered header + composer, the full-bleed gapless
-// grid, and the slide-in detail sheet. The whole page shares the `reply`
-// Datastar signal backing every card's comment box; clicking a tile resets it
-// and fetches the card into the sheet over SSE.
-templ homePage(posts []Post, handle string, canPost bool, admin bool, score float64, tier int) {
+// homePage is the wall: the centered header + composer, then the full-bleed
+// gapless grid. Tiles are real links — opening a post is a navigation (the
+// browser owns push/pop state), and the cross-document View Transition morphs
+// the clicked square into its feed card.
+templ homePage(posts []Post, handle string, canPost bool, admin bool, tier int, openLeft int) {
 	@shell("hush") {
-		<div data-signals="{reply: ''}">
-			@accountStrip(handle, admin, score, tier)
-			<div class="hush-top">
-				<header class="hush-head">
-					<h1 class="hush-title">hush</h1>
-					<p class="hush-sub">a quiet wall — post into it.</p>
-				</header>
-				if canPost {
-					@composer()
-				} else {
-					<p class="hush-sub hush-gateline">posting is invite-only — <a class="hush-link" href="/apply">apply</a> or <a class="hush-link" href="/login">sign in</a>.</p>
-				}
-			</div>
-			@grid(posts)
-			@sheetHost()
+		@accountStrip(handle, admin, tier)
+		<div class="hush-top">
+			<header class="hush-head">
+				<h1 class="hush-title"><a class="hush-home" href="/">hush</a></h1>
+				<p class="hush-sub">a quiet wall — post into it.</p>
+			</header>
+			if canPost {
+				@composer()
+			} else if openLeft > 0 {
+				<p class="hush-sub hush-gateline">{ strconv.Itoa(openLeft) + " seats open — " }<a class="hush-link" href="/apply">claim one</a> or <a class="hush-link" href="/login">sign in</a>.</p>
+			} else {
+				<p class="hush-sub hush-gateline">posting is invite-only — <a class="hush-link" href="/apply">apply</a> or <a class="hush-link" href="/login">sign in</a>.</p>
+			}
 		</div>
+		@grid(posts)
 	}
 }
 
 // accountStrip is the top-right account line: who you are, the admin queue
-// link, and log out. Empty when signed out (the gate line carries the call to
-// action) or in database-less open mode.
-templ accountStrip(handle string, admin bool, score float64, tier int) {
+// link, and log out. No score, no tier — standing is never printed; the
+// profile link simply appearing IS how you learn you've reached tier 1.
+// Empty when signed out (the gate line carries the call to action) or in
+// database-less open mode.
+templ accountStrip(handle string, admin bool, tier int) {
 	if handle != "" {
 		<div class="hush-acct">
 			you are <strong>{ handle }</strong>
-			{ " · " }
-			<span class="hush-score">{ "score " + strconv.Itoa(int(score+0.5)) + " · tier " + strconv.Itoa(tier) }</span>
 			if tier >= 1 {
 				{ " · " }
 				<a class="hush-link" href={ "/u/" + handle }>profile</a>
@@ -126,78 +157,181 @@ templ grid(posts []Post) {
 	</div>
 }
 
-// tile is one square. Clicking it opens the sheet and streams the post's
-// detail card in. A text tile's BodyHTML is already sanitized by renderPost;
-// an image tile renders the stored object's URL.
+// tile is one square — a real link to the post's feed page. Its data-vt only
+// becomes a live view-transition-name while the tile holds focus (i.e. it was
+// just clicked), so navigating morphs exactly this square into the focused
+// card. A text tile's BodyHTML is already sanitized by renderPost; an image
+// tile renders the stored object's URL.
 templ tile(p Post) {
 	if p.Kind == "image" {
-		<div class="hush-tile hush-tile--image" style={ tileBG(p) } data-on:click={ openSheet(p.ID) } role="button" tabindex="0">
+		<a class="hush-tile hush-tile--image" style={ tileBG(p) } data-vt={ vtName(p) } href={ postHref(p.ID) }>
 			<img src={ p.ImageURL } alt="" loading="lazy"/>
-		</div>
+		</a>
 	} else {
-		<div class="hush-tile hush-tile--text" style={ tileBG(p) } data-on:click={ openSheet(p.ID) } role="button" tabindex="0">
+		<a class="hush-tile hush-tile--text" style={ tileBG(p) } data-vt={ vtName(p) } href={ postHref(p.ID) }>
 			<div class="hush-tile-body">
 				@templ.Raw(p.BodyHTML)
+			</div>
+		</a>
+	}
+}
+
+// reactions is the thumbs control in a focused card. No counts, no ratio —
+// scores are hidden everywhere; the only readable state is your own mark
+// (your thumb inverts once you've reacted, and the pair goes quiet). The
+// fragment IS #vote-<id>, so the vote handler morphs it by id (PatchOuter —
+// inner mode would nest #vote-<id> inside itself).
+templ reactions(p Post, canPost bool, myVote int8) {
+	{{ idStr := strconv.FormatInt(p.ID, 10) }}
+	<div id={ "vote-" + idStr } class="hush-react">
+		if myVote > 0 {
+			<span class="hush-react-btn hush-react-btn--mine">
+				@ui.Icon("thumb-up", ui.IconLabel("you liked this"))
+			</span>
+			<span class="hush-react-btn hush-react-btn--off">
+				@ui.Icon("thumb-down")
+			</span>
+		} else if myVote < 0 {
+			<span class="hush-react-btn hush-react-btn--off">
+				@ui.Icon("thumb-up")
+			</span>
+			<span class="hush-react-btn hush-react-btn--mine">
+				@ui.Icon("thumb-down", ui.IconLabel("you disliked this"))
+			</span>
+		} else if canPost {
+			<button class="hush-react-btn" data-on:click={ "@post('/p/" + idStr + "/vote?dir=up')" } aria-label="like">
+				@ui.Icon("thumb-up")
+			</button>
+			<button class="hush-react-btn" data-on:click={ "@post('/p/" + idStr + "/vote?dir=down')" } aria-label="dislike">
+				@ui.Icon("thumb-down")
+			</button>
+		} else {
+			<span class="hush-react-btn hush-react-btn--off">
+				@ui.Icon("thumb-up")
+			</span>
+			<span class="hush-react-btn hush-react-btn--off">
+				@ui.Icon("thumb-down")
+			</span>
+		}
+	</div>
+}
+
+// feedPage is a post's page: the focused post expanded (votes, comments, the
+// reply box) with its time-ordered neighbors around it — newer above, older
+// below, newest-first all the way down. Up to feedSpan neighbors render each
+// way; an intersect sentinel past each end pulls the next batch as you scroll,
+// so the whole timeline is reachable from any post without a single control.
+// The only other affordance is the title, which is the way back to the wall —
+// that and the browser's own back button.
+templ feedPage(newer []Post, focused Post, comments []Comment, older []Post, moreNewer bool, moreOlder bool, canPost bool, myVote int8, handle string, admin bool, tier int) {
+	@shell("hush — post #" + strconv.FormatInt(focused.ID, 10)) {
+		<div data-signals="{reply: ''}">
+			@accountStrip(handle, admin, tier)
+			<header class="hush-head hush-head--feed">
+				<h1 class="hush-title"><a class="hush-home" href="/">hush</a></h1>
+			</header>
+			<div class="hush-feed">
+				if moreNewer {
+					@moreSentinel("newer", newer[0].ID)
+				}
+				for _, p := range newer {
+					@feedCard(p)
+				}
+				@focusedCard(focused, comments, canPost, myVote)
+				for _, p := range older {
+					@feedCard(p)
+				}
+				if moreOlder {
+					@moreSentinel("older", older[len(older)-1].ID)
+				}
 			</div>
 		</div>
 	}
 }
 
-// sheetHost is the empty sheet mount on the wall. Clicking a tile streams a
-// sheet into it inside a View Transition, so it slides in from the edge over
-// the (undimmed) wall; closing patches this empty host back (PatchOuter),
-// sliding the sheet out. SSE both ways — open and close.
-templ sheetHost() {
-	<div id="hush-sheet"></div>
+// focusedCard is the expanded post at the center of its feed page: media,
+// meta, the vote control, the comment thread, and the reply box. Its id is
+// the link fragment that lands the browser here.
+templ focusedCard(p Post, comments []Comment, canPost bool, myVote int8) {
+	{{ id := strconv.FormatInt(p.ID, 10) }}
+	<article id={ "p" + id } class="hush-fcard hush-fcard--focused" style={ vtStyle(p) }>
+		@cardMedia(p)
+		<div class="hush-card-meta">
+			{ "#" + id + " · " + p.CreatedAt.Format("Jan 2 · 15:04") }
+		</div>
+		@reactions(p, canPost, myVote)
+		<section class="hush-comments" id={ "comments-" + id }>
+			for _, cm := range comments {
+				@comment(cm)
+			}
+		</section>
+		if canPost {
+			@commentComposer(id)
+		} else {
+			<p class="hush-sub"><a class="hush-link" href="/login">sign in</a> to reply.</p>
+		}
+	</article>
 }
 
-// voteControl is the upvote affordance in a post card. With canPost the arrow
-// is a live @post button; otherwise it's a read-only count. The fragment IS
-// #vote-<id>, so the vote handler morphs it by id (PatchOuter — inner mode
-// would nest #vote-<id> inside itself).
-templ voteControl(id int64, count int, canPost bool) {
-	{{ idStr := strconv.FormatInt(id, 10) }}
-	<div id={ "vote-" + idStr } class="hush-vote">
-		if canPost {
-			<button class="hush-vote-btn" data-on:click={ "@post('/p/" + idStr + "/vote')" }>▲</button>
+// feedCard is a neighbor in the feed — the post's media and meta, and one rail
+// out: the whole card is a link to its own page, where it renders focused.
+// Unlike grid tiles, feed cards are named unconditionally: most of them exist
+// on the next post's page too, so a feed→feed navigation morphs them to their
+// new positions — the feed reads as sliding, not reloading.
+templ feedCard(p Post) {
+	{{ id := strconv.FormatInt(p.ID, 10) }}
+	<a id={ "p" + id } class="hush-fcard" style={ vtStyle(p) } href={ postHref(p.ID) }>
+		@cardMedia(p)
+		<div class="hush-card-meta">
+			{ "#" + id + " · " + p.CreatedAt.Format("Jan 2 · 15:04") }
+		</div>
+	</a>
+}
+
+// moreSentinel is an invisible strip past the feed's last rendered card in
+// each direction. When it scrolls into view it fetches the next batch once;
+// the batch fragment replaces it (cards plus a fresh sentinel while more
+// remain), so the feed extends itself as long as there is timeline left.
+templ moreSentinel(dir string, cursor int64) {
+	<div id={ "feed-" + dir } class="hush-more" data-on-intersect__once={ moreGet(dir, cursor) }></div>
+}
+
+// feedBatch is what a sentinel becomes: the next cards in display order with
+// the follow-up sentinel on the outward side, under a display:contents wrapper
+// (the patch needs one root; layout never sees it).
+templ feedBatch(dir string, posts []Post, more bool) {
+	<div class="hush-batch">
+		if dir == "newer" {
+			if more {
+				@moreSentinel("newer", posts[0].ID)
+			}
+			for _, p := range posts {
+				@feedCard(p)
+			}
 		} else {
-			<span class="hush-vote-btn hush-vote-btn--off">▲</span>
+			for _, p := range posts {
+				@feedCard(p)
+			}
+			if more {
+				@moreSentinel("older", posts[len(posts)-1].ID)
+			}
 		}
-		<span class="hush-vote-count">{ strconv.Itoa(count) }</span>
 	</div>
 }
 
-// cardInner is the shared body of a post's detail view — the media, meta, the
-// comment thread, and the reply box. Both the slide-in sheet and the permalink
-// page wrap this.
-templ cardInner(p Post, comments []Comment, canPost bool) {
-	{{ id := strconv.FormatInt(p.ID, 10) }}
+// cardMedia is a post's hero in the feed: the image, or the text on the
+// post's own computed color.
+templ cardMedia(p Post) {
 	if p.Kind == "image" {
 		<div class="hush-card-media hush-card-media--image">
 			<img src={ p.ImageURL } alt=""/>
 		</div>
 	} else {
-		// The card's hero uses the post's own computed color.
 		<div class="hush-card-media hush-card-media--text" style={ tileBG(p) }>
 			<div class="hush-card-text">
 				@templ.Raw(p.BodyHTML)
 			</div>
 		</div>
-	}
-	<div class="hush-card-meta">
-		<a class="hush-link" href={ "/p/" + id }>{ "#" + id }</a>
-		{ " · " + p.CreatedAt.Format("Jan 2 · 15:04") }
-	</div>
-	@voteControl(p.ID, p.Votes, canPost)
-	<section class="hush-comments" id={ "comments-" + id }>
-		for _, cm := range comments {
-			@comment(cm)
-		}
-	</section>
-	if canPost {
-		@commentComposer(id)
-	} else {
-		<p class="hush-sub"><a class="hush-link" href="/login">sign in</a> to reply.</p>
 	}
 }
 
@@ -223,34 +357,6 @@ templ commentComposer(id string) {
 	</div>
 }
 
-// sheetCard is the fragment streamed into #hush-sheet when a tile is clicked.
-// The outer .hush-sheet carries the view-transition-name, so patching it in
-// (or out, on close) slides it from the edge. Close is an SSE round-trip that
-// empties the host.
-templ sheetCard(p Post, comments []Comment, canPost bool) {
-	<div class="hush-sheet">
-		<article class="hush-card hush-card--sheet">
-			<button class="hush-card-close" data-on:click="@get('/sheet/close')" aria-label="close">×</button>
-			@cardInner(p, comments, canPost)
-		</article>
-	</div>
-}
-
-// postPage is the permalink: the same card centered on its own page, reachable
-// by navigating straight to /p/{id} (or the #id link in the card meta).
-templ postPage(p Post, comments []Comment, canPost bool) {
-	@shell("hush — post #" + strconv.FormatInt(p.ID, 10)) {
-		<div data-signals="{reply: ''}">
-			<div class="hush-top">
-				@backToWall()
-				<article class="hush-card hush-card--page">
-					@cardInner(p, comments, canPost)
-				</article>
-			</div>
-		</div>
-	}
-}
-
 // notFoundPage is shown when a permalink points at a post that doesn't exist.
 templ notFoundPage() {
 	@shell("hush — not found") {
@@ -264,27 +370,93 @@ templ notFoundPage() {
 	}
 }
 
-// profilePage is the tier-1 reward: a member's standing and post count. The
-// wall stays anonymous, so this is the one place a handle and score are shown
-// together.
-templ profilePage(handle string, score float64, tier int, posts int) {
+// profilePage is the tier-1 reward: having one at all. Scores are hidden —
+// no number anywhere ever says how you're doing; what you see is what has
+// unlocked (the page itself, the DM line, the invite allowance). The wall
+// stays anonymous, so this is the one place a handle is shown with anything.
+templ profilePage(handle string, tier int, posts int, panel invitePanel) {
 	@shell("hush — " + handle) {
 		<div class="hush-top">
 			<header class="hush-head">
 				<h1 class="hush-title">{ handle }</h1>
-				<p class="hush-sub">{ "tier " + strconv.Itoa(tier) }</p>
 			</header>
 			<div class="hush-profile">
-				<div class="hush-stat"><span class="hush-stat-n">{ strconv.Itoa(int(score + 0.5)) }</span> score</div>
 				<div class="hush-stat"><span class="hush-stat-n">{ strconv.Itoa(posts) }</span> posts</div>
 			</div>
 			if tier < 2 {
-				<p class="hush-sub">{ "reach tier 2 (score " + strconv.Itoa(int(tier2Score)) + ") to unlock DMs." }</p>
+				<p class="hush-sub">DMs unlock as your standing rises.</p>
 			} else {
 				<p class="hush-sub">DMs unlocked.</p>
 			}
+			if panel.Show {
+				@invitesSection(panel)
+			}
 			@backToWall()
 		</div>
+	}
+}
+
+// invitesSection is the invite panel on your own profile: the throttle math
+// (chain standing sets the allowance), every minted code as a shareable link,
+// and the mint button while the allowance has room.
+templ invitesSection(panel invitePanel) {
+	<section class="hush-invites">
+		<h2 class="hush-invites-title">invites</h2>
+		<p class="hush-sub">{ strconv.Itoa(len(panel.Invites)) + " of " + strconv.Itoa(panel.Allowance) + " minted — your chain's standing sets the allowance." }</p>
+		for _, inv := range panel.Invites {
+			<div class="hush-invite-row">
+				<span class="hush-invite-code">{ "/invite/" + inv.Code }</span>
+				if inv.UsedBy != "" {
+					<span class="hush-invite-used">{ "→ " + inv.UsedBy }</span>
+				} else {
+					<span class="hush-invite-open">unclaimed</span>
+				}
+			</div>
+		}
+		if panel.Remaining > 0 {
+			<form method="post" action="/invites" class="hush-invite-mint">
+				<button class="hush-post hush-post--ghost" type="submit">mint an invite</button>
+			</form>
+		} else {
+			<p class="hush-hint">no invites available — your chain has to earn them.</p>
+		}
+	</section>
+}
+
+// registerFormPage is the open-seats door: while HUSH_OPEN_SLOTS has seats
+// left, signing up is a handle and a password — no pitch, no queue.
+templ registerFormPage(left int, errMsg string) {
+	@formPage("claim a seat") {
+		<p class="hush-sub">{ "first-come registration is open — " + strconv.Itoa(left) + " seats left." }</p>
+		if errMsg != "" {
+			<p class="hush-note">{ errMsg }</p>
+		}
+		<form method="post" action="/register" class="hush-form">
+			<input class="hush-input" type="text" name="handle" placeholder="handle" autocomplete="username" required/>
+			<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="new-password" required/>
+			<div class="hush-form-row">
+				<a class="hush-link" href="/login">already in? sign in →</a>
+				<button class="hush-post" type="submit">claim</button>
+			</div>
+		</form>
+	}
+}
+
+// inviteFormPage redeems a live invite code: a handle and a password, and the
+// account exists — the inviter's chain answers for you from here on.
+templ inviteFormPage(code string, errMsg string) {
+	@formPage("you're invited") {
+		if errMsg != "" {
+			<p class="hush-note">{ errMsg }</p>
+		}
+		<form method="post" action={ "/invite/" + code } class="hush-form">
+			<input class="hush-input" type="text" name="handle" placeholder="handle" autocomplete="username" required/>
+			<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="new-password" required/>
+			<div class="hush-form-row">
+				<a class="hush-link" href="/login">already in? sign in →</a>
+				<button class="hush-post" type="submit">join</button>
+			</div>
+		</form>
 	}
 }
 

@@ -22,9 +22,16 @@ the one other script (`static/js/camera.js`, an external module — CSP-clean).
 ## What it is
 
 - The front page is one **gapless grid of square tiles** — every recent post, no
-  gaps anywhere, text and image posts both filling perfect squares.
-- Posting is **anonymous**. Accounts are gated: you apply with a handle, a photo,
-  and 3–5 lines about what you want to post; an admin approves or rejects.
+  gaps anywhere, text and image posts both filling perfect squares. Every tile is
+  a real link: opening a post **morphs the square into a single-column feed**
+  anchored on it, and the post's time-ordered neighbors stream in as you scroll
+  either way. The user is on rails — the browser's own back button pops you out.
+- Posting is **anonymous**. Accounts are gated, with three doors: you apply with
+  a handle, a photo, and 3–5 lines about what you want to post (an admin approves
+  or rejects); you claim one of **N open seats** while `HUSH_OPEN_SLOTS` has any
+  left (the switch-on-later mode — once spent, the queue resumes); or you redeem
+  a member's **invite link**, which makes your inviter's reputation answer for
+  yours.
 - A new account can **only post**. DMs and profile customization unlock as your
   **Repute** score rises. Reputation does real work: it's the gate.
 - Text posts are **512 plain characters**, with a deliberately tiny markdown
@@ -92,6 +99,15 @@ post_votes (
 -- DMs. Unlocked at tier 2.
 conversations ( id uuid primary key, a_id uuid, b_id uuid, created_at timestamptz );
 messages      ( id uuid primary key, conversation_id uuid, sender_id uuid, body text, created_at timestamptz );
+
+-- Invites (built, 00002): one row per minted code. The inviter→used_by edge is
+-- the chain-reputation graph; counting a member's rows enforces the allowance.
+hush_invites ( code text primary key, inviter text, created_at timestamptz,
+               used_by text, used_at timestamptz );
+
+-- Signups ledger (built, 00002): accounts created outside the admin queue, so
+-- the open-registration cap can count what it has spent.
+hush_signups ( id bigserial primary key, handle text, via text, created_at timestamptz );
 ```
 
 `post_votes` is hush's domain table — it owns the "one vote per user per post"
@@ -115,11 +131,13 @@ eng := repute.New(
 )
 ```
 
-Two event kinds, both on track `author`:
+Three event kinds, all on track `author`:
 
 - `"post"` — emitted on create. Feeds Participation: you reach tier 1 just by
   contributing.
-- `"vote"` — emitted on each `post_votes` insert, `weight` from the vote.
+- `"like"` / `"dislike"` — emitted on each `post_votes` insert by `weight`
+  (+1 → like, −1 → dislike). A 👎 scores negative, so standing tracks the
+  author's like/dislike ratio, not raw volume.
 
 Score for gating comes from `eng.Leaderboard("author", asOf)` → the author's
 reputation vector. Tiers:
@@ -133,6 +151,24 @@ reputation vector. Tiers:
 Gating is a `func (a *app) tier(ctx, userID) int` helper backing
 `app.Can("profile:edit")` and `app.Can("dm")` guards — the same `app.Can` seam
 the pantry uses, so the capability story stays visible in the route table.
+
+### Chain reputation — invites answer for their invitees
+
+A second track, `chain`, scores the company you bring. Every invite redemption
+records an edge (inviter → invitee); from then on, each 👍 on an invitee's
+post also emits a half-weight `chain-like` (+1) to the inviter, each 👎 a
+`chain-dislike` (−1). The chain score then **throttles the invite allowance**:
+
+```go
+allowance = clamp(inviteBase + chain/2, 0, inviteMax)   // base 3, max 6
+```
+
+Invite shitheads and your allowance dries up; invite people whose posts land
+and it grows. The math lives in `inviteAllowance` (invites.go), the echo in
+`votePost`, and the edges in `hush_invites` — Postgres-persistent, hydrated
+into memory at boot, so chains survive restarts even while scores (in-memory,
+like the wall) reset. One hop for now; propagating a decayed echo further up
+the chain is the obvious extension.
 
 `T1`, `T2`, and the decay half-life are config. Repute's go.mod is local and
 unpublished like the-beach, so hush's go.mod carries
@@ -220,49 +256,80 @@ Pure CSS, no JS. The showcase layout.
 
 `auto-fill` + `gap:0` + `aspect-ratio:1/1` gives the seamless wall; container
 queries scale text bodies to fill their square instead of leaving dead space.
-Ordering is `score_cached DESC, created_at DESC`. New posts arrive as a prepended
-tile fragment over a hub topic (the boardwalk SSE pattern).
+The wall is **chronological** — newest first, text and image posts alike;
+reactions score people (tiers, invite chains), never placement, so a fresh
+post always lands on top. New posts arrive as a prepended tile fragment over
+a hub topic (the boardwalk SSE pattern).
 
-## The detail sheet + comments (✅ built)
+## The feed + comments (✅ built)
 
-Clicking any tile streams a **sheet** in from the right edge — a fresh page over
-the (undimmed) wall, on top, no backdrop. The slide is a **CSS View Transition**,
-not a transform/opacity tween: `.hush-sheet` carries `view-transition-name:
-hush-sheet`, and the SSE patch that adds it runs inside `startViewTransition`, so
-`::view-transition-old/new(hush-sheet)` keyframes do the animation.
+Opening a post is a **real navigation**: every tile links to `/p/{id}#p{id}`,
+so the browser owns push/pop state — back pops you to the grid, forward
+replays, and permalinks are just URLs. The post's page is a single centered
+**feed**: the focused post expanded into its detail card (votes, the comment
+thread, the reply box) with its **time-ordered neighbors** around it — newer
+above, older below, newest-first all the way down. The link's `#p{id}`
+fragment lands the viewport on the focused card even with newer neighbors
+rendered above it (native scroll-to-fragment, no script). The user is on
+rails: neighbor cards are links to their own pages, the title is the way back
+to the wall, and that's every control there is.
 
-The wiring is a small framework feature: `beach.View`/`beach.Patch` gained a
-`ViewTransition bool`, which maps to the Datastar SDK's `WithViewTransitions()`
-and emits the `useViewTransition true` SSE dataline; the client then applies the
-patch inside the View Transitions API. The tile click is just `$reply = '';
-@get('/p/{id}')` — no `open` signal, no backdrop. Close is a second SSE round-trip
-(`@get('/sheet/close')`) that empties the host inside a View Transition, sliding
-the sheet back out. (Both Datastar view-transition paths gate on element-scoped
-`startViewTransition` support; in browsers without it the patch applies instantly
-— graceful degradation, no error.)
+The feed is **infinite both ways**. The page pre-renders `feedSpan` neighbors
+per direction; past each end sits an invisible sentinel
+(`data-on-intersect__once`, the Defer pattern) whose `@get` hits
+`/feed/newer|older?cursor={id}` — post IDs are monotonic, so the ID is the
+timestamp cursor (a `kind=` filter would ride the same query string). The
+Datastar-only handler replaces the sentinel (`PatchReplace`) with the next
+`feedChunk` cards under a `display: contents` wrapper, plus a fresh sentinel
+while timeline remains — the feed extends itself until both ends run dry, and
+the sentinels remove themselves.
 
-`GET /p/{id}` is the dual View: a Datastar request patches the sheet in; a direct
-navigation renders the same card as a **permalink page** (`/p/5`), so every post
-is linkable (the `#id` in the card meta). One handler, both surfaces.
+Navigations are **cross-document View Transitions with no crossfade and no
+pop-in** — no script, just names. `@view-transition { navigation: auto }` opts
+both documents in, and the naming strategy differs by page. On the **grid**
+only the clicked tile is named (`data-vt="hush-post-<id>"`, lifted into a real
+`view-transition-name` by a `:focus` rule with typed `attr()` — a clicked link
+holds focus while the navigation snapshots), so leaving the wall morphs one
+hero square, not seventeen. On **feed pages** every card is named inline:
+consecutive posts share most of their neighbors, so a feed→feed step pairs the
+overlap and the column **slides** to its new positions instead of reloading.
+The chrome (`.hush-head`, `.hush-acct`) is named too, so it holds still across
+pages. Everything else moves as two coherent planes: the old page — root plus
+any old-only named pieces, all riding the same animation — paints on top
+(`z-index`) and is shoved outward past the edges (`scale(1.1)`) as the hero
+expands into place, while the next page stands ready beneath with **no
+entrance animation** (`::view-transition-new(*):only-child { animation: none }`
+— nothing fades in, it is revealed). On a back-pop the old page contracts away
+instead (`:active-view-transition-type(backwards)`), so going back feels like
+coming back. `prefers-reduced-motion` drops it all to an instant swap, and
+browsers without cross-document transitions or typed `attr()` just navigate —
+graceful degradation, no error.
 
-Comments live under the card. `POST /p/{id}/comments` binds the shared `reply`
-signal, runs it through the same `renderPost` text path (512-char limited
-markdown), appends the rendered comment to `#comments-{id}` (`PatchAppend`, each
-new comment eases in via a keyframe), and clears the box with a `Signals` patch.
-In-memory for now; it moves to Postgres with the gate in Block D.
+Comments live under the focused card. `POST /p/{id}/comments` binds the
+`reply` signal, runs it through the same `renderPost` text path (512-char
+limited markdown), appends the rendered comment to `#comments-{id}`
+(`PatchAppend`, each new comment eases in via a keyframe), and clears the box
+with a `Signals` patch. In-memory for now; it moves to Postgres with the gate
+in Block D.
 
 ## Routes
 
 ```
 GET  /                 grid    -- gapless square grid, scored + recent
-GET  /apply            page    -- handle, pitch, photo (camera or upload)
+GET  /apply            page    -- claim-a-seat form while open seats remain; else the application form
 POST /apply            action  -- write applications row (status=pending)
+POST /register         action  -- claim one open seat (HUSH_OPEN_SLOTS), create account, sign in
+GET  /invite/{code}    page    -- redemption form for a live code; notice for spent/unknown
+POST /invite/{code}    action  -- redeem: claim code, create account, record chain edge, sign in
+POST /invites          action  -- mint one code (member, inside the chain-throttled allowance)
 GET  /admin/queue      page    -- pending applications            [admin]
 POST /admin/decide     action  -- approve → create user; or reject [admin]
 GET  /compose          page    -- markdown box OR camera/upload
-GET  /p/{id}           page    -- post detail: drawer card (Datastar) OR permalink page (nav)
+GET  /p/{id}           page    -- the feed, focused on one post (neighbors both ways)
+GET  /feed/newer       frag    -- next feed batch above cursor (intersect sentinel only)
+GET  /feed/older       frag    -- next feed batch below cursor (intersect sentinel only)
 POST /p/{id}/comments  action  -- bind reply, render+count, append to thread, clear box
-POST /p/{id}/vote      action  -- record upvote, emit Repute "vote", outer-morph the count
+POST /p/{id}/vote      action  -- record a 👍/👎 (?dir=up|down), emit Repute "like"/"dislike", outer-morph your mark
 POST /posts            action  -- bind, render+count, store, emit Repute "post"
 GET  /u/{handle}       page    -- profile, tier-1 gated
 GET  /dm               page    -- conversations                   [tier 2]
@@ -320,18 +387,40 @@ as `moth` → sign in as `admin`, approve in the queue → sign out, sign in as 
 
 **Block E — Repute + tiers. ✅ built (verified against Postgres).** Repute is a
 normal dependency (`github.com/ThirdCoastInteractive/Repute`, private). A
-mutex-wrapped engine with two `Participation` scorers folds `post` (+1) and
-`vote` (+2) events onto an `author` track; a post credits its author, an upvote
-credits the post's author. `reputation.score(handle)` reads standing;
-`tierOf(score)` maps it to tiers (T1=3, T2=8). The drawer card carries an upvote
-control (members only, one vote per user, outer-morph the count); the wall orders
-by votes then recency. The account strip shows live `score · tier`, and the
-tier-1 profile (`/u/{handle}`) is gated — below tier 1 it shows a locked notice,
-at tier 1+ it shows score + post count + the tier-2 (DMs) teaser. The engine is
-in-memory (matching the in-memory wall); the `eventsource/pg` adapter is the
-persistent path once posts move to Postgres. ◆ Gate (verified in-browser): sign
-in as `moth`, post (score 1), open it and upvote (score 3) → tier 1 → the profile
-link unlocks and `/u/moth` renders the stats.
+mutex-wrapped engine with three `Participation` scorers folds `post` (+1),
+`like` (+2), and `dislike` (−2) events onto an `author` track — a post credits
+its author, a 👍 credits the post's author, a 👎 dings them, so standing tracks
+the like/dislike ratio rather than raw volume. `reputation.score(handle)` reads
+standing; `tierOf(score)` maps it to tiers (T1=3, T2=8). **Every score is
+hidden.** The focused feed card carries the thumbs control (`ui.Icon`
+`thumb-up`/`thumb-down` glyphs — the framework icon system, no emoji) but no
+counts and no ratio, ever; the only readable state is your own mark, which
+inverts once you've reacted (one reaction per user, the first is final;
+outer-morph). The wall is chronological. Standing surfaces only as **what has
+unlocked**: the profile link appearing in the account strip is tier 1
+announcing itself, the tier-1 profile (`/u/{handle}`) shows a post count and
+the DM line, and the invite allowance quietly grows or shrinks with the chain.
+The engine is in-memory (matching the in-memory wall); the `eventsource/pg`
+adapter is the persistent path once posts move to Postgres. ◆ Gate (verified
+in-browser): sign in as `moth`, post (score 1), get 👍'd (score 3) → tier 1 →
+the profile link appears and `/u/moth` renders.
+
+**Block F — the other doors: open seats, invites, chain reputation. ✅ built
+(verified against Postgres).** `HUSH_OPEN_SLOTS=N` opens the first N
+registrations with no review — the wall's gate line advertises the seats, the
+`/apply` page becomes a claim form (handle + password → account + session in
+one POST, the seat claimed by a cap-guarded ledger insert), and when the seats
+are spent the application queue resumes by itself. Tier-1+ members mint invite
+codes from their profile (allowance = `inviteBase + chain/2`, clamped 0–6);
+`/invite/{code}` redeems one atomically into an account and records the chain
+edge. From then on the invitee's 👍/👎 echo half-weight onto the inviter's
+`chain` track — the throttle. ◆ Gate (verified in-browser): with 2 seats, claim
+one as `moth` → post, get 👍'd to tier 1 → mint `/invite/…` → redeem as `crow`
+→ crow posts twice, both 👎'd → moth's chain drops to −2 and the invite panel
+reads "1 of 2 minted" where it read "1 of 3" (the chain score itself is never
+shown — the shrinking allowance is how you find out); `gull` claims the last
+seat, `/apply` falls back to the application form, and the spent invite link
+reports itself used.
 
 Each block is verified in a real browser before the next — the lesson from the
 trio: a rendered page is not a working feature.

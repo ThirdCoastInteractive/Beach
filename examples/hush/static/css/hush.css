@@ -137,10 +137,12 @@
   width: 100%;
 }
 .hush-tile {
+  display: block;
   position: relative;
   aspect-ratio: 1 / 1;
   overflow: hidden;
   cursor: pointer;
+  text-decoration: none; /* tiles are links now */
   /* background is set inline per-post (colorFor) */
 }
 .hush-tile img {
@@ -261,64 +263,110 @@
 }
 .hush-appcard .hush-form-row { justify-content: flex-end; }
 
-/* ── the detail sheet — a fresh page that slides in from the edge, on top of
-   the (undimmed) wall. No backdrop. The slide is a CSS View Transition: the
-   sheet carries view-transition-name, and the patch that adds/removes it runs
-   inside document.startViewTransition (beach View.ViewTransition). ─────────── */
-.hush-sheet {
-  position: fixed;
-  top: 0;
-  right: 0;
-  z-index: 50;
-  height: 100%;
-  width: min(640px, 100%);
-  overflow-y: auto;
-  background: #000;
-  border-left: 1px solid rgba(255, 255, 255, 0.18);
-  view-transition-name: hush-sheet;
+/* ── the feed — a post's page. The focused post expanded, its time-ordered
+   neighbors above (newer) and below (older), and an invisible intersect
+   sentinel past each end that pulls the next batch as you scroll. Opening a
+   post is a real navigation; @view-transition opts both documents in, and
+   exactly one pair morphs: the element you clicked (its data-vt lifted into a
+   real view-transition-name by the :focus rule below) and the focused card on
+   the next page (named inline — the server knows). Everything unnamed rides
+   the root's gentle crossfade instead of flying. No keyframes, no script —
+   just names. ─────────────────────────────────────────────────────────────── */
+@view-transition { navigation: auto; }
+
+/* the click hero on the grid: a clicked link holds focus while the navigation
+   snapshots, so only that tile gets named — not all of them. Typed attr()
+   (Chrome 133+); browsers without it — which also lack cross-document
+   transitions — just navigate. Feed cards are named inline instead: most of
+   them exist on the next post's page too, so they pair and slide. */
+.hush-tile:focus {
+  view-transition-name: attr(data-vt type(<custom-ident>));
 }
 
-/* the wall underneath is unchanged between states — don't animate root */
-::view-transition-old(root),
-::view-transition-new(root) { animation: none; }
+/* the chrome persists across pages — pair it so it holds still (or glides)
+   instead of riding the push */
+.hush-head { view-transition-name: hush-head; }
+.hush-acct { view-transition-name: hush-acct; }
 
-::view-transition-old(hush-sheet),
-::view-transition-new(hush-sheet) {
-  animation-duration: 0.38s;
-  animation-timing-function: cubic-bezier(0.16, 0.84, 0.34, 1);
-}
-@keyframes hush-sheet-in { from { transform: translateX(100%); } }
-@keyframes hush-sheet-out { to { transform: translateX(100%); } }
-::view-transition-new(hush-sheet) { animation-name: hush-sheet-in; }
-::view-transition-old(hush-sheet) { animation-name: hush-sheet-out; }
-
-/* ── post detail card (shared by drawer + permalink page) ─────────────────── */
-.hush-card {
-  position: relative;
-  padding: 1.25rem;
-}
-.hush-card--page {
-  max-width: 560px;
+.hush-feed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 640px;
   margin: 0 auto;
+  padding: 0 1rem 3rem;
+}
+.hush-fcard {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 1.25rem;
+  color: inherit;
+  text-decoration: none;
   background: #000;
   border: 1px solid rgba(255, 255, 255, 0.18);
+  /* fragment scroll: keep a breath of black above the focused card */
+  scroll-margin-top: 1rem;
 }
-.hush-card-close {
-  position: absolute;
-  top: 0.6rem;
-  right: 0.6rem;
-  width: 2rem;
-  height: 2rem;
-  font-size: 1.3rem;
-  line-height: 1;
-  color: #fff;
-  background: transparent;
-  border: none;
-  border-radius: 0;
-  cursor: pointer;
-}
-.hush-card-close:hover { background: rgba(255, 255, 255, 0.12); }
+a.hush-fcard:hover { border-color: rgba(255, 255, 255, 0.5); }
+a.hush-fcard:focus-visible { outline: none; border-color: #fff; }
+.hush-fcard .hush-card-meta:last-child { margin-bottom: 0; }
+.hush-head--feed { margin: 1.5rem 0; }
+.hush-home { color: inherit; text-decoration: none; }
 
+/* batch wrappers never reach layout; sentinels are invisible fetch triggers.
+   Batch cards arrive still — any entrance motion fights scroll anchoring when
+   the newer side prepends above the viewport. */
+.hush-batch { display: contents; }
+.hush-more { width: 100%; height: 1px; }
+
+/* the push: no crossfade, no pop-in. The old page leaves as ONE thing — the
+   root and any old-only named pieces (cards that don't exist on the next
+   page) all ride the same push, shoved outward past the edges as the hero
+   expands into place. The next page stands ready beneath: its root and any
+   new-only pieces have no entrance animation, so nothing fades in — it is
+   simply revealed. Paired pieces (the hero, the chrome, the feed cards both
+   pages share) morph between their positions instead, which is what makes a
+   feed→feed step read as the column sliding. On a back-pop (when the browser
+   exposes automatic navigation types) the old page contracts away instead,
+   so going back feels like coming back. */
+::view-transition-old(root),
+::view-transition-old(*):only-child {
+  z-index: 1;
+  animation: hush-push-out 0.3s cubic-bezier(0.16, 0.84, 0.34, 1) both;
+}
+::view-transition-new(root),
+::view-transition-new(*):only-child { animation: none; }
+@keyframes hush-push-out {
+  to { transform: scale(1.1); opacity: 0; }
+}
+html:active-view-transition-type(backwards)::view-transition-old(root),
+html:active-view-transition-type(backwards)::view-transition-old(*):only-child {
+  animation-name: hush-pull-back;
+}
+@keyframes hush-pull-back {
+  to { transform: scale(0.92); opacity: 0; }
+}
+
+/* the morphs — hero, chrome, shared feed cards; snappy, hush's easing */
+::view-transition-group(*) {
+  animation-duration: 0.35s;
+  animation-timing-function: cubic-bezier(0.16, 0.84, 0.34, 1);
+}
+
+/* respect reduced motion: no flying, no pushing — just the swap */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-old(root),
+  ::view-transition-new(root) { animation: none; }
+}
+
+/* ── post card pieces (feed cards, focused + not) ─────────────────────────── */
 .hush-card-media {
   margin-bottom: 0.9rem;
   overflow: hidden;
@@ -349,32 +397,34 @@
   font-size: 0.8rem;
 }
 
-/* upvote control */
-.hush-vote {
-  display: inline-flex;
+/* thumb reactions — icon glyphs, no counts anywhere (scores are hidden).
+   The only readable state is your own mark: --mine inverts. */
+.hush-react {
+  display: flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: 0.5rem;
   margin-bottom: 1rem;
 }
-.hush-vote-btn {
+.hush-react-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  font-size: 0.9rem;
-  color: #000;
-  background: #fff;
-  border: 1px solid #fff;
+  padding: 0.4rem 0.9rem;
+  font: inherit;
+  font-size: 1rem;
+  color: #fff;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.4);
   border-radius: 0;
   cursor: pointer;
 }
-.hush-vote-btn:hover { background: #d6d6d6; }
-.hush-vote-btn--off { color: rgba(255, 255, 255, 0.6); background: transparent; border-color: rgba(255, 255, 255, 0.3); cursor: default; }
-.hush-vote-count { font-size: 1rem; font-weight: 600; }
+.hush-react-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.hush-react-btn--mine { color: #000; background: #fff; border-color: #fff; cursor: default; }
+.hush-react-btn--mine:hover { background: #fff; }
+.hush-react-btn--off { color: rgba(255, 255, 255, 0.45); border-color: rgba(255, 255, 255, 0.2); cursor: default; }
+.hush-react-btn--off:hover { background: transparent; }
 
-/* account score chip + profile */
-.hush-score { color: rgba(255, 255, 255, 0.85); }
+/* profile */
 .hush-profile {
   display: flex;
   justify-content: center;
@@ -383,6 +433,39 @@
 }
 .hush-stat { text-align: center; color: rgba(255, 255, 255, 0.6); font-size: 0.85rem; }
 .hush-stat-n { display: block; font-size: 2rem; font-weight: 600; color: #fff; }
+
+/* the invite panel (your own profile, tier 1+) */
+.hush-invites {
+  max-width: 420px;
+  margin: 2rem auto 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  text-align: center;
+}
+.hush-invites-title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: lowercase;
+}
+.hush-invite-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.6rem;
+  font-size: 0.85rem;
+}
+.hush-invite-code {
+  font-family: ui-monospace, monospace;
+  color: #fff;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.hush-invite-used { color: rgba(255, 255, 255, 0.6); white-space: nowrap; }
+.hush-invite-open { color: rgba(255, 255, 255, 0.4); white-space: nowrap; }
+.hush-invite-mint { margin-top: 1rem; }
 
 /* comments thread */
 .hush-comments {

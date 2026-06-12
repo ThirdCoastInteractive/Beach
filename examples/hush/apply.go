@@ -17,15 +17,23 @@ type application struct {
 	PhotoKey string
 }
 
-// applyPage routes to the application form (applyFormPage in pages.templ): a
-// notice without a DB, the submitted notice after a successful POST, the form
-// otherwise.
+// applyPage is the door. While open seats remain (HUSH_OPEN_SLOTS) it renders
+// the claim-a-seat form; once they're spent — or the mode is off — it falls
+// back to the application queue. A notice without a DB, the submitted notice
+// after a successful application POST.
 func (a *app) applyPage(c *beach.Ctx) (beach.View, error) {
 	if a.authn == nil {
 		return beach.View{Page: noticePage("applications need the database.", "set DATABASE_URL to enable the gate.")}, nil
 	}
 	if c.Query("ok") == "1" {
 		return beach.View{Page: noticePage("application submitted.", "an admin will review it. you'll be able to sign in once approved.")}, nil
+	}
+	errMsg := ""
+	if c.Query("err") == "taken" {
+		errMsg = "that handle is taken — try another."
+	}
+	if left := a.openLeft(c.Context()); left > 0 {
+		return beach.View{Page: registerFormPage(left, errMsg)}, nil
 	}
 	return beach.View{Page: applyFormPage()}, nil
 }

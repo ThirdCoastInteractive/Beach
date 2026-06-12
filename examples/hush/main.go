@@ -27,6 +27,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	beach "github.com/ThirdCoastInteractive/the-beach"
 	"github.com/ThirdCoastInteractive/the-beach/auth"
@@ -55,6 +56,13 @@ type app struct {
 	sessions *session.Store
 	pool     *pgxpool.Pool
 	release  bool
+
+	// The signup modes beyond the queue (see invites.go). openSlots is
+	// HUSH_OPEN_SLOTS; chains is the in-memory invite graph (invitee → inviter),
+	// hydrated from hush_invites at boot.
+	openSlots int
+	chainMu   sync.Mutex
+	chains    map[string]string
 }
 
 func main() {
@@ -82,6 +90,10 @@ func main() {
 	}
 
 	a := &app{store: newStore(), files: files, rep: newReputation(), release: os.Getenv("RELEASE") != ""}
+	// HUSH_OPEN_SLOTS=N opens the first N registrations with no review — the
+	// switch-on-later mode. Unset/0 keeps the application queue as the only door
+	// (besides invites).
+	a.openSlots, _ = strconv.Atoi(os.Getenv("HUSH_OPEN_SLOTS"))
 
 	cfg := beach.Config{
 		Service: "hush",
@@ -111,7 +123,10 @@ func main() {
 				if err := a.seedAdmin(ctx); err != nil {
 					logger.Error("hush: seed admin failed", "err", err)
 				}
-				logger.Info("hush: database mode (gate enabled)", "login", "admin / password")
+				if err := a.hydrateChains(ctx); err != nil {
+					logger.Error("hush: hydrate invite chains failed", "err", err)
+				}
+				logger.Info("hush: database mode (gate enabled)", "login", "admin / password", "openSlots", a.openSlots)
 			}
 		}
 	}
@@ -131,7 +146,10 @@ func (a *app) routes(app *beach.App) {
 	app.Page("/", a.home)
 	app.Page("/compose", a.compose)
 	app.Page("/p/{id}", a.postView)
-	app.Page("/sheet/close", a.closeSheet)
+	// Datastar-only feed batches, fetched by the intersect sentinels; a direct
+	// navigation 404s (no Page on the View).
+	app.Page("/feed/newer", a.feedMore(true))
+	app.Page("/feed/older", a.feedMore(false))
 	app.Page("/apply", a.applyPage)
 	app.Page("/login", a.loginPage)
 	app.Page("/u/{handle}", a.profileView)
@@ -167,6 +185,13 @@ func (a *app) routes(app *beach.App) {
 	app.Raw(http.MethodPost, "/login", a.doLogin)
 	app.Raw(http.MethodGet, "/logout", a.logout)
 
+	// The other doors (invites.go): capped open registration and invite
+	// redemption — both create accounts directly; minting is member-gated.
+	app.Raw(http.MethodPost, "/register", a.doRegister)
+	app.Page("/invite/{code}", a.invitePage)
+	app.Raw(http.MethodPost, "/invite/{code}", a.doRedeem)
+	app.Raw(http.MethodPost, "/invites", a.doMint, postGuard...)
+
 	app.Raw(http.MethodGet, "/files/", http.StripPrefix("/files/", a.files).ServeHTTP)
 }
 
@@ -176,7 +201,8 @@ func (a *app) compose(c *beach.Ctx) (beach.View, error) {
 }
 
 // profileView is the tier-gated profile. Your own profile unlocks at tier 1;
-// below that it shows a locked notice (the Repute tier doing real gating work).
+// below that it shows a locked notice (the Repute tier doing real gating
+// work). Your own unlocked profile also carries the invite panel.
 func (a *app) profileView(c *beach.Ctx) (beach.View, error) {
 	handle := c.Param("handle")
 	me, _, _ := a.acct(c)
@@ -184,40 +210,70 @@ func (a *app) profileView(c *beach.Ctx) (beach.View, error) {
 	tier := tierOf(score)
 	if handle == me && tier < 1 {
 		return beach.View{Page: noticePage("your profile is locked.",
-			"reach tier 1 — post and collect upvotes.")}, nil
+			"post things people like.")}, nil
 	}
-	return beach.View{Page: profilePage(handle, score, tier, a.store.countByAuthor(handle))}, nil
+	var panel invitePanel
+	if handle == me {
+		panel = a.invitesFor(c.Context(), handle, tier)
+	}
+	return beach.View{Page: profilePage(handle, tier, a.store.countByAuthor(handle), panel)}, nil
 }
 
-// postView is the post's detail. On a Datastar request (a tile click) it patches
-// the card into the slide-in drawer; on a direct navigation it renders the
-// permalink page. One handler, both surfaces — the dual View pattern.
+// The feed renders feedSpan neighbors each way up front — enough that the top
+// sentinel starts offscreen — and each sentinel pulls feedChunk more.
+const (
+	feedSpan  = 2
+	feedChunk = 4
+)
+
+// postView is a post's page: the focused post expanded, its nearest neighbors
+// around it, and intersect sentinels where the timeline continues. Opening a
+// post is a real navigation — the browser owns the history stack, and the
+// cross-document View Transition morphs the clicked tile into the focused
+// card. The link's #p{id} fragment lands the viewport on the post even with
+// newer neighbors rendered above it.
 func (a *app) postView(c *beach.Ctx) (beach.View, error) {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
 	p, ok := a.store.get(id)
 	if !ok {
 		return beach.View{Page: notFoundPage(), Status: http.StatusNotFound}, nil
 	}
+	newer, moreNewer := a.store.neighbors(id, true, feedSpan)
+	older, moreOlder := a.store.neighbors(id, false, feedSpan)
 	comments := a.store.listComments(id)
-	_, canPost, _ := a.acct(c)
+	handle, canPost, admin := a.acct(c)
+	myVote := a.store.voteOf(id, voterKey(handle))
 	return beach.View{
-		Page:           postPage(p, comments, canPost),
-		Fragment:       sheetCard(p, comments, canPost),
-		Target:         "hush-sheet",
-		Mode:           beach.PatchInner,
-		ViewTransition: true, // slide the sheet in from the edge
+		Page: feedPage(newer, p, comments, older, moreNewer, moreOlder, canPost, myVote, handle, admin, tierOf(a.rep.score(handle))),
 	}, nil
 }
 
-// closeSheet empties the sheet host inside a View Transition, sliding the sheet
-// back out. SSE both ways — open and close.
-func (a *app) closeSheet(c *beach.Ctx) (beach.View, error) {
-	return beach.View{
-		Fragment:       sheetHost(),
-		Target:         "hush-sheet",
-		Mode:           beach.PatchOuter,
-		ViewTransition: true,
-	}, nil
+// voterKey is the one-reaction-per-person key: the handle, or "anon" in
+// database-less open mode (a single-user wall).
+func voterKey(handle string) string {
+	if handle == "" {
+		return "anon"
+	}
+	return handle
+}
+
+// feedMore returns the sentinel handler for one feed direction: read the
+// cursor, fetch the next chunk past it, and replace the sentinel with the
+// batch (which carries a fresh sentinel while more remain).
+func (a *app) feedMore(newer bool) beach.PageFunc {
+	dir := "older"
+	if newer {
+		dir = "newer"
+	}
+	return func(c *beach.Ctx) (beach.View, error) {
+		cursor, _ := strconv.ParseInt(c.R.URL.Query().Get("cursor"), 10, 64)
+		posts, more := a.store.neighbors(cursor, newer, feedChunk)
+		return beach.View{
+			Fragment: feedBatch(dir, posts, more),
+			Target:   "feed-" + dir,
+			Mode:     beach.PatchReplace,
+		}, nil
+	}
 }
 
 // addComment binds the `reply` signal, renders it through the text path, appends
@@ -253,9 +309,8 @@ func (a *app) addComment(c *beach.Ctx) (beach.Patches, error) {
 func (a *app) home(c *beach.Ctx) (beach.View, error) {
 	posts := a.store.list()
 	handle, canPost, admin := a.acct(c)
-	score := a.rep.score(handle)
 	return beach.View{
-		Page:     homePage(posts, handle, canPost, admin, score, tierOf(score)),
+		Page:     homePage(posts, handle, canPost, admin, tierOf(a.rep.score(handle)), a.openLeft(c.Context())),
 		Fragment: grid(posts),
 		Target:   "hush-grid",
 	}, nil
@@ -290,21 +345,31 @@ func (a *app) createPost(c *beach.Ctx) (beach.Patches, error) {
 	}, nil
 }
 
-// votePost records an upvote and credits the post's author with a Repute "vote"
-// event, then patches the vote control with the new count. One vote per user.
+// votePost records a like or dislike (?dir=up|down) and credits — or dings —
+// the post's author with a Repute "like"/"dislike" event, then patches the
+// reaction control: no counts come back, just your own mark inverted. One
+// reaction per user, final.
 func (a *app) votePost(c *beach.Ctx) (beach.Patches, error) {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	voter, _, _ := a.acct(c)
-	if voter == "" {
-		voter = "anon"
-	}
-	count, author, ok := a.store.vote(id, voter)
+	handle, _, _ := a.acct(c)
+	voter := voterKey(handle)
+	up := c.R.URL.Query().Get("dir") != "down"
+	p, ok := a.store.vote(id, voter, up)
 	if ok {
-		a.rep.emit("vote", author)
+		kind, chainKind := "like", "chain-like"
+		if !up {
+			kind, chainKind = "dislike", "chain-dislike"
+		}
+		a.rep.emit(kind, p.Author)
+		// The chain echo: the author's inviter answers for them, at half weight.
+		if inviter := a.inviterOf(p.Author); inviter != "" {
+			a.rep.emit(chainKind, inviter)
+		}
 	}
 	// Outer morph: the fragment IS #vote-<id>, so replace the element by its id
-	// (inner mode would nest #vote-<id> inside itself).
-	return beach.Patches{{Fragment: voteControl(id, count, true), Target: "vote-" + c.Param("id"), Mode: beach.PatchOuter}}, nil
+	// (inner mode would nest #vote-<id> inside itself). voteOf (not the ok flag)
+	// styles the control, so a repeat click still shows the original mark.
+	return beach.Patches{{Fragment: reactions(p, true, a.store.voteOf(id, voter)), Target: "vote-" + c.Param("id"), Mode: beach.PatchOuter}}, nil
 }
 
 // uploadImage handles the plain multipart upload form: validate it's an image,
