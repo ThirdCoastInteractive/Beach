@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "gamuts",
+      "runtimeExecutable": "go",
+      "runtimeArgs": ["run", "./cmd/gamuts", "-addr", ":7777"],
+      "port": 7777
+    }
+  ]
+}
