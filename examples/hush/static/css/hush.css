@@ -265,14 +265,7 @@
 
 /* ── the feed — a post's page. The focused post expanded, its time-ordered
    neighbors above (newer) and below (older), and an invisible intersect
-   sentinel past each end that pulls the next batch as you scroll. Opening a
-   post is a real navigation; @view-transition opts both documents in, and
-   exactly one pair morphs: the element you clicked (its data-vt lifted into a
-   real view-transition-name by the :focus rule below) and the focused card on
-   the next page (named inline — the server knows). Everything unnamed rides
-   the root's gentle crossfade instead of flying. No keyframes, no script —
-   just names. ─────────────────────────────────────────────────────────────── */
-@view-transition { navigation: auto; }
+   sentinel past each end that pulls the next batch as you scroll. ─────────── */
 
 /* the click hero on the grid: a clicked link holds focus while the navigation
    snapshots, so only that tile gets named — not all of them. Typed attr()
@@ -285,8 +278,8 @@
 
 /* the chrome persists across pages — pair it so it holds still (or glides)
    instead of riding the push */
-.hush-head { view-transition-name: hush-head; }
-.hush-acct { view-transition-name: hush-acct; }
+.hush-head { view-transition-name: hush-head; view-transition-class: hush-chrome; }
+.hush-acct { view-transition-name: hush-acct; view-transition-class: hush-chrome; }
 
 .hush-feed {
   display: flex;
@@ -323,47 +316,67 @@ a.hush-fcard:focus-visible { outline: none; border-color: #fff; }
 .hush-batch { display: contents; }
 .hush-more { width: 100%; height: 1px; }
 
-/* the push: no crossfade, no pop-in. The old page leaves as ONE thing — the
-   root and any old-only named pieces (cards that don't exist on the next
-   page) all ride the same push, shoved outward past the edges as the hero
-   expands into place. The next page stands ready beneath: its root and any
-   new-only pieces have no entrance animation, so nothing fades in — it is
-   simply revealed. Paired pieces (the hero, the chrome, the feed cards both
-   pages share) morph between their positions instead, which is what makes a
-   feed→feed step read as the column sliding. On a back-pop (when the browser
-   exposes automatic navigation types) the old page contracts away instead,
-   so going back feels like coming back. */
-::view-transition-old(root),
-::view-transition-old(*):only-child {
+/* ── motion. Real navigations are cross-document View Transitions
+   (@view-transition opts both documents in), and the law is: NOTHING FADES
+   IN PLACE — things move, or they're simply there.
+
+   The browser's default for every paired element is a crossfade of its old
+   and new snapshots while the box morphs — that crossfade is the mush this
+   block exists to kill. Paired elements here show only their NEW face from
+   the first frame, riding the group's box morph: the clicked square visibly
+   GROWS into the focused card, shared feed cards slide to their new spots,
+   the chrome holds still. Unpaired cards move along their own side of the
+   feed (in from the edge they live on, out the same way). The old wall is
+   blasted outward past the viewport edges with opacity HELD until it is
+   already gone — displacement, not dissolve. The next page never animates
+   in: it is revealed. */
+@view-transition { navigation: auto; }
+
+/* paired snapshots never crossfade: drop the old face, show the new one */
+::view-transition-old(*) { animation: none; opacity: 0; }
+::view-transition-new(*) { animation: none; }
+
+/* the old page exits as one plane: blasted outward (forward) or pulled back
+   (back-pop), opacity held to 70% so it's past the edges before it goes */
+::view-transition-old(root) {
   z-index: 1;
+  opacity: 1;
   animation: hush-push-out 0.3s cubic-bezier(0.16, 0.84, 0.34, 1) both;
 }
-::view-transition-new(root),
-::view-transition-new(*):only-child { animation: none; }
 @keyframes hush-push-out {
-  to { transform: scale(1.1); opacity: 0; }
+  70% { opacity: 1; }
+  to { transform: scale(2.4); opacity: 0; }
 }
-html:active-view-transition-type(backwards)::view-transition-old(root),
-html:active-view-transition-type(backwards)::view-transition-old(*):only-child {
+html:active-view-transition-type(backwards)::view-transition-old(root) {
   animation-name: hush-pull-back;
 }
 @keyframes hush-pull-back {
-  to { transform: scale(0.92); opacity: 0; }
+  70% { opacity: 1; }
+  to { transform: scale(0.7); opacity: 0; }
 }
 
-/* the morphs — hero, chrome, shared feed cards; snappy, hush's easing */
+/* unpaired feed cards travel their own side of the timeline — pure motion */
+::view-transition-new(.hush-above):only-child { animation: hush-drop-in 0.35s cubic-bezier(0.16, 0.84, 0.34, 1) both; }
+::view-transition-new(.hush-below):only-child { animation: hush-rise-in 0.35s cubic-bezier(0.16, 0.84, 0.34, 1) both; }
+::view-transition-old(.hush-above):only-child { opacity: 1; animation: hush-lift-out 0.35s cubic-bezier(0.16, 0.84, 0.34, 1) both; }
+::view-transition-old(.hush-below):only-child { opacity: 1; animation: hush-sink-out 0.35s cubic-bezier(0.16, 0.84, 0.34, 1) both; }
+@keyframes hush-drop-in { from { transform: translateY(-100vh); } }
+@keyframes hush-rise-in { from { transform: translateY(100vh); } }
+@keyframes hush-lift-out { to { transform: translateY(-100vh); } }
+@keyframes hush-sink-out { to { transform: translateY(100vh); } }
+
+/* the box morphs — hero, chrome, shared feed cards; snappy, hush's easing */
 ::view-transition-group(*) {
   animation-duration: 0.35s;
   animation-timing-function: cubic-bezier(0.16, 0.84, 0.34, 1);
 }
 
-/* respect reduced motion: no flying, no pushing — just the swap */
+/* respect reduced motion: everything lands instantly — still no fades */
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-group(*),
   ::view-transition-old(*),
   ::view-transition-new(*),
-  ::view-transition-old(root),
-  ::view-transition-new(root) { animation: none; }
+  ::view-transition-old(root) { animation: none; }
 }
 
 /* ── post card pieces (feed cards, focused + not) ─────────────────────────── */
@@ -466,3 +479,4 @@ html:active-view-transition-type(backwards)::view-transition-old(*):only-child {
 .hush-invite-used { color: rgba(255, 255, 255, 0.6); white-space: nowrap; }
 .hush-invite-open { color: rgba(255, 255, 255, 0.4); white-space: nowrap; }
 .hush-invite-mint { margin-top: 1rem; }
+

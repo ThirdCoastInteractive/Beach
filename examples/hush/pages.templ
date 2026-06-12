@@ -15,26 +15,35 @@ import (
 // content hash, and the view-transition-name is "hush-post-" plus a decimal
 // id — no user input reaches either.
 
-// tileBG paints a text post's computed color (tiles, and the card hero in the
-// feed).
+// tileBG paints a text post's computed color (the card hero in the feed).
 func tileBG(p Post) templ.SafeCSS {
 	return templ.SafeCSS("background: " + colorFor(p))
 }
 
-// vtName is a post's view-transition-name. On the grid only the clicked tile
-// holds it (data-vt, lifted into a real name by the :focus rule in hush.css),
-// so leaving the wall morphs one hero square — not seventeen. On feed pages
-// every card is named inline (vtStyle): consecutive posts share most of their
-// neighbors, so a feed→feed navigation morphs the overlap to its new
-// positions and the column reads as sliding.
+// postStyle is a tile's inline style: its computed color plus the post
+// transition class. The name itself arrives only on focus (the :focus rule in
+// hush.css), so leaving the wall morphs one hero square — not seventeen.
+func postStyle(p Post) templ.SafeCSS {
+	return templ.SafeCSS("background: " + colorFor(p) + "; view-transition-class: hush-post")
+}
+
+// vtName is a post's view-transition-name.
 func vtName(p Post) string {
 	return "hush-post-" + strconv.FormatInt(p.ID, 10)
 }
 
-// vtStyle is a feed card's inline style: the post's view-transition-name,
-// unconditional.
-func vtStyle(p Post) templ.SafeCSS {
-	return templ.SafeCSS("view-transition-name: " + vtName(p))
+// vtStyle names a feed card for the morph, unconditionally — consecutive
+// posts share most of their neighbors, so a feed→feed navigation pairs the
+// overlap and the column slides. side ("hush-above"/"hush-below"/"" for the
+// focused card) classes the card by its end of the feed, so a card with no
+// pair on the other page enters or exits along its own side instead of
+// popping or fading.
+func vtStyle(p Post, side string) templ.SafeCSS {
+	s := "view-transition-name: " + vtName(p) + "; view-transition-class: hush-post"
+	if side != "" {
+		s += " " + side
+	}
+	return templ.SafeCSS(s)
 }
 
 // postHref is the real link to a post's feed page. The fragment lands the
@@ -164,11 +173,11 @@ templ grid(posts []Post) {
 // tile renders the stored object's URL.
 templ tile(p Post) {
 	if p.Kind == "image" {
-		<a class="hush-tile hush-tile--image" style={ tileBG(p) } data-vt={ vtName(p) } href={ postHref(p.ID) }>
+		<a class="hush-tile hush-tile--image" style={ postStyle(p) } data-vt={ vtName(p) } href={ postHref(p.ID) }>
 			<img src={ p.ImageURL } alt="" loading="lazy"/>
 		</a>
 	} else {
-		<a class="hush-tile hush-tile--text" style={ tileBG(p) } data-vt={ vtName(p) } href={ postHref(p.ID) }>
+		<a class="hush-tile hush-tile--text" style={ postStyle(p) } data-vt={ vtName(p) } href={ postHref(p.ID) }>
 			<div class="hush-tile-body">
 				@templ.Raw(p.BodyHTML)
 			</div>
@@ -235,11 +244,11 @@ templ feedPage(newer []Post, focused Post, older []Post, moreNewer bool, moreOld
 				@moreSentinel("newer", newer[0].ID)
 			}
 			for _, p := range newer {
-				@feedCard(p)
+				@feedCard(p, "hush-above")
 			}
 			@focusedCard(focused, canPost, myVote)
 			for _, p := range older {
-				@feedCard(p)
+				@feedCard(p, "hush-below")
 			}
 			if moreOlder {
 				@moreSentinel("older", older[len(older)-1].ID)
@@ -253,7 +262,7 @@ templ feedPage(newer []Post, focused Post, older []Post, moreNewer bool, moreOld
 // talk back. Its id is the link fragment that lands the browser here.
 templ focusedCard(p Post, canPost bool, myVote int8) {
 	{{ id := strconv.FormatInt(p.ID, 10) }}
-	<article id={ "p" + id } class="hush-fcard hush-fcard--focused" style={ vtStyle(p) }>
+	<article id={ "p" + id } class="hush-fcard hush-fcard--focused" style={ vtStyle(p, "") }>
 		@cardMedia(p)
 		<div class="hush-card-meta">
 			{ "#" + id + " · " + p.CreatedAt.Format("Jan 2 · 15:04") }
@@ -267,9 +276,9 @@ templ focusedCard(p Post, canPost bool, myVote int8) {
 // Unlike grid tiles, feed cards are named unconditionally: most of them exist
 // on the next post's page too, so a feed→feed navigation morphs them to their
 // new positions — the feed reads as sliding, not reloading.
-templ feedCard(p Post) {
+templ feedCard(p Post, side string) {
 	{{ id := strconv.FormatInt(p.ID, 10) }}
-	<a id={ "p" + id } class="hush-fcard" style={ vtStyle(p) } href={ postHref(p.ID) }>
+	<a id={ "p" + id } class="hush-fcard" style={ vtStyle(p, side) } href={ postHref(p.ID) }>
 		@cardMedia(p)
 		<div class="hush-card-meta">
 			{ "#" + id + " · " + p.CreatedAt.Format("Jan 2 · 15:04") }
@@ -295,11 +304,11 @@ templ feedBatch(dir string, posts []Post, more bool) {
 				@moreSentinel("newer", posts[0].ID)
 			}
 			for _, p := range posts {
-				@feedCard(p)
+				@feedCard(p, "hush-above")
 			}
 		} else {
 			for _, p := range posts {
-				@feedCard(p)
+				@feedCard(p, "hush-below")
 			}
 			if more {
 				@moreSentinel("older", posts[len(posts)-1].ID)

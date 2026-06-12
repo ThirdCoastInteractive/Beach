@@ -26,26 +26,35 @@ import (
 // content hash, and the view-transition-name is "hush-post-" plus a decimal
 // id — no user input reaches either.
 
-// tileBG paints a text post's computed color (tiles, and the card hero in the
-// feed).
+// tileBG paints a text post's computed color (the card hero in the feed).
 func tileBG(p Post) templ.SafeCSS {
 	return templ.SafeCSS("background: " + colorFor(p))
 }
 
-// vtName is a post's view-transition-name. On the grid only the clicked tile
-// holds it (data-vt, lifted into a real name by the :focus rule in hush.css),
-// so leaving the wall morphs one hero square — not seventeen. On feed pages
-// every card is named inline (vtStyle): consecutive posts share most of their
-// neighbors, so a feed→feed navigation morphs the overlap to its new
-// positions and the column reads as sliding.
+// postStyle is a tile's inline style: its computed color plus the post
+// transition class. The name itself arrives only on focus (the :focus rule in
+// hush.css), so leaving the wall morphs one hero square — not seventeen.
+func postStyle(p Post) templ.SafeCSS {
+	return templ.SafeCSS("background: " + colorFor(p) + "; view-transition-class: hush-post")
+}
+
+// vtName is a post's view-transition-name.
 func vtName(p Post) string {
 	return "hush-post-" + strconv.FormatInt(p.ID, 10)
 }
 
-// vtStyle is a feed card's inline style: the post's view-transition-name,
-// unconditional.
-func vtStyle(p Post) templ.SafeCSS {
-	return templ.SafeCSS("view-transition-name: " + vtName(p))
+// vtStyle names a feed card for the morph, unconditionally — consecutive
+// posts share most of their neighbors, so a feed→feed navigation pairs the
+// overlap and the column slides. side ("hush-above"/"hush-below"/"" for the
+// focused card) classes the card by its end of the feed, so a card with no
+// pair on the other page enters or exits along its own side instead of
+// popping or fading.
+func vtStyle(p Post, side string) templ.SafeCSS {
+	s := "view-transition-name: " + vtName(p) + "; view-transition-class: hush-post"
+	if side != "" {
+		s += " " + side
+	}
+	return templ.SafeCSS(s)
 }
 
 // postHref is the real link to a post's feed page. The fragment lands the
@@ -95,7 +104,7 @@ func shell(title string) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 65, Col: 17}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 74, Col: 17}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
 		if templ_7745c5c3_Err != nil {
@@ -205,7 +214,7 @@ func homePage(posts []Post, handle string, canPost bool, admin bool, tier int, o
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(openLeft) + " seats open — ")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 96, Col: 83}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 105, Col: 83}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -273,7 +282,7 @@ func accountStrip(handle string, admin bool, tier int) templ.Component {
 			var templ_7745c5c3_Var8 string
 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(handle)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 113, Col: 27}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 122, Col: 27}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 			if templ_7745c5c3_Err != nil {
@@ -287,7 +296,7 @@ func accountStrip(handle string, admin bool, tier int) templ.Component {
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 115, Col: 12}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 124, Col: 12}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 				if templ_7745c5c3_Err != nil {
@@ -300,7 +309,7 @@ func accountStrip(handle string, admin bool, tier int) templ.Component {
 				var templ_7745c5c3_Var10 templ.SafeURL
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinURLErrs("/u/" + handle)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 116, Col: 46}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 125, Col: 46}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 				if templ_7745c5c3_Err != nil {
@@ -315,7 +324,7 @@ func accountStrip(handle string, admin bool, tier int) templ.Component {
 				var templ_7745c5c3_Var11 string
 				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 119, Col: 12}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 128, Col: 12}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 				if templ_7745c5c3_Err != nil {
@@ -329,7 +338,7 @@ func accountStrip(handle string, admin bool, tier int) templ.Component {
 			var templ_7745c5c3_Var12 string
 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 122, Col: 11}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 131, Col: 11}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 			if templ_7745c5c3_Err != nil {
@@ -452,9 +461,9 @@ func tile(p Post) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var16 string
-			templ_7745c5c3_Var16, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(tileBG(p))
+			templ_7745c5c3_Var16, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(postStyle(p))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 167, Col: 57}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 176, Col: 60}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 			if templ_7745c5c3_Err != nil {
@@ -467,7 +476,7 @@ func tile(p Post) templ.Component {
 			var templ_7745c5c3_Var17 string
 			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(vtName(p))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 167, Col: 79}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 176, Col: 82}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
 			if templ_7745c5c3_Err != nil {
@@ -480,7 +489,7 @@ func tile(p Post) templ.Component {
 			var templ_7745c5c3_Var18 templ.SafeURL
 			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinURLErrs(postHref(p.ID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 167, Col: 103}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 176, Col: 106}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 			if templ_7745c5c3_Err != nil {
@@ -493,7 +502,7 @@ func tile(p Post) templ.Component {
 			var templ_7745c5c3_Var19 string
 			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ImageURL)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 168, Col: 24}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 177, Col: 24}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var19)
 			if templ_7745c5c3_Err != nil {
@@ -509,9 +518,9 @@ func tile(p Post) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var20 string
-			templ_7745c5c3_Var20, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(tileBG(p))
+			templ_7745c5c3_Var20, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(postStyle(p))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 171, Col: 56}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 180, Col: 59}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 			if templ_7745c5c3_Err != nil {
@@ -524,7 +533,7 @@ func tile(p Post) templ.Component {
 			var templ_7745c5c3_Var21 string
 			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.ResolveAttributeValue(vtName(p))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 171, Col: 78}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 180, Col: 81}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var21)
 			if templ_7745c5c3_Err != nil {
@@ -537,7 +546,7 @@ func tile(p Post) templ.Component {
 			var templ_7745c5c3_Var22 templ.SafeURL
 			templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinURLErrs(postHref(p.ID))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 171, Col: 102}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 180, Col: 105}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 			if templ_7745c5c3_Err != nil {
@@ -594,7 +603,7 @@ func reactions(p Post, canPost bool, myVote int8) templ.Component {
 		var templ_7745c5c3_Var24 string
 		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.ResolveAttributeValue("vote-" + idStr)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 186, Col: 26}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 195, Col: 26}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var24)
 		if templ_7745c5c3_Err != nil {
@@ -654,7 +663,7 @@ func reactions(p Post, canPost bool, myVote int8) templ.Component {
 			var templ_7745c5c3_Var25 string
 			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.ResolveAttributeValue("@post('/p/" + idStr + "/vote?dir=up')")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 202, Col: 89}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 211, Col: 89}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var25)
 			if templ_7745c5c3_Err != nil {
@@ -675,7 +684,7 @@ func reactions(p Post, canPost bool, myVote int8) templ.Component {
 			var templ_7745c5c3_Var26 string
 			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.ResolveAttributeValue("@post('/p/" + idStr + "/vote?dir=down')")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 205, Col: 91}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 214, Col: 91}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var26)
 			if templ_7745c5c3_Err != nil {
@@ -779,7 +788,7 @@ func feedPage(newer []Post, focused Post, older []Post, moreNewer bool, moreOlde
 				}
 			}
 			for _, p := range newer {
-				templ_7745c5c3_Err = feedCard(p).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = feedCard(p, "hush-above").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -789,7 +798,7 @@ func feedPage(newer []Post, focused Post, older []Post, moreNewer bool, moreOlde
 				return templ_7745c5c3_Err
 			}
 			for _, p := range older {
-				templ_7745c5c3_Err = feedCard(p).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = feedCard(p, "hush-below").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -846,7 +855,7 @@ func focusedCard(p Post, canPost bool, myVote int8) templ.Component {
 		var templ_7745c5c3_Var30 string
 		templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.ResolveAttributeValue("p" + id)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 256, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 265, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var30)
 		if templ_7745c5c3_Err != nil {
@@ -857,9 +866,9 @@ func focusedCard(p Post, canPost bool, myVote int8) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var31 string
-		templ_7745c5c3_Var31, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(vtStyle(p))
+		templ_7745c5c3_Var31, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(vtStyle(p, ""))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 256, Col: 83}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 265, Col: 87}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
 		if templ_7745c5c3_Err != nil {
@@ -880,7 +889,7 @@ func focusedCard(p Post, canPost bool, myVote int8) templ.Component {
 		var templ_7745c5c3_Var32 string
 		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs("#" + id + " · " + p.CreatedAt.Format("Jan 2 · 15:04"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 259, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 268, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
 		if templ_7745c5c3_Err != nil {
@@ -907,7 +916,7 @@ func focusedCard(p Post, canPost bool, myVote int8) templ.Component {
 // Unlike grid tiles, feed cards are named unconditionally: most of them exist
 // on the next post's page too, so a feed→feed navigation morphs them to their
 // new positions — the feed reads as sliding, not reloading.
-func feedCard(p Post) templ.Component {
+func feedCard(p Post, side string) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -936,7 +945,7 @@ func feedCard(p Post) templ.Component {
 		var templ_7745c5c3_Var34 string
 		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.ResolveAttributeValue("p" + id)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 272, Col: 17}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 281, Col: 17}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var34)
 		if templ_7745c5c3_Err != nil {
@@ -947,9 +956,9 @@ func feedCard(p Post) templ.Component {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var35 string
-		templ_7745c5c3_Var35, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(vtStyle(p))
+		templ_7745c5c3_Var35, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(vtStyle(p, side))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 272, Col: 57}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 281, Col: 63}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
 		if templ_7745c5c3_Err != nil {
@@ -962,7 +971,7 @@ func feedCard(p Post) templ.Component {
 		var templ_7745c5c3_Var36 templ.SafeURL
 		templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinURLErrs(postHref(p.ID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 272, Col: 81}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 281, Col: 87}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
 		if templ_7745c5c3_Err != nil {
@@ -983,7 +992,7 @@ func feedCard(p Post) templ.Component {
 		var templ_7745c5c3_Var37 string
 		templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs("#" + id + " · " + p.CreatedAt.Format("Jan 2 · 15:04"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 275, Col: 61}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 284, Col: 61}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 		if templ_7745c5c3_Err != nil {
@@ -1029,7 +1038,7 @@ func moreSentinel(dir string, cursor int64) templ.Component {
 		var templ_7745c5c3_Var39 string
 		templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.ResolveAttributeValue("feed-" + dir)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 285, Col: 24}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 294, Col: 24}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var39)
 		if templ_7745c5c3_Err != nil {
@@ -1042,7 +1051,7 @@ func moreSentinel(dir string, cursor int64) templ.Component {
 		var templ_7745c5c3_Var40 string
 		templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.ResolveAttributeValue(moreGet(dir, cursor))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 285, Col: 91}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 294, Col: 91}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var40)
 		if templ_7745c5c3_Err != nil {
@@ -1092,14 +1101,14 @@ func feedBatch(dir string, posts []Post, more bool) templ.Component {
 				}
 			}
 			for _, p := range posts {
-				templ_7745c5c3_Err = feedCard(p).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = feedCard(p, "hush-above").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 			}
 		} else {
 			for _, p := range posts {
-				templ_7745c5c3_Err = feedCard(p).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = feedCard(p, "hush-below").Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1154,7 +1163,7 @@ func cardMedia(p Post) templ.Component {
 			var templ_7745c5c3_Var43 string
 			templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ImageURL)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 316, Col: 24}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 325, Col: 24}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var43)
 			if templ_7745c5c3_Err != nil {
@@ -1172,7 +1181,7 @@ func cardMedia(p Post) templ.Component {
 			var templ_7745c5c3_Var44 string
 			templ_7745c5c3_Var44, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(tileBG(p))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 319, Col: 70}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 328, Col: 70}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
 			if templ_7745c5c3_Err != nil {
@@ -1295,7 +1304,7 @@ func profilePage(handle string, tier int, posts int, panel invitePanel) templ.Co
 			var templ_7745c5c3_Var49 string
 			templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(handle)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 348, Col: 35}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 357, Col: 35}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
 			if templ_7745c5c3_Err != nil {
@@ -1308,7 +1317,7 @@ func profilePage(handle string, tier int, posts int, panel invitePanel) templ.Co
 			var templ_7745c5c3_Var50 string
 			templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(posts))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 351, Col: 74}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 360, Col: 74}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
 			if templ_7745c5c3_Err != nil {
@@ -1384,7 +1393,7 @@ func invitesSection(panel invitePanel) templ.Component {
 		var templ_7745c5c3_Var52 string
 		templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(len(panel.Invites)) + " of " + strconv.Itoa(panel.Allowance) + " minted — your chain's standing sets the allowance.")
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 372, Col: 155}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 381, Col: 155}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
 		if templ_7745c5c3_Err != nil {
@@ -1402,7 +1411,7 @@ func invitesSection(panel invitePanel) templ.Component {
 			var templ_7745c5c3_Var53 string
 			templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs("/invite/" + inv.Code)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 375, Col: 58}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 384, Col: 58}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
 			if templ_7745c5c3_Err != nil {
@@ -1420,7 +1429,7 @@ func invitesSection(panel invitePanel) templ.Component {
 				var templ_7745c5c3_Var54 string
 				templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs("→ " + inv.UsedBy)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 377, Col: 57}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 386, Col: 57}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
 				if templ_7745c5c3_Err != nil {
@@ -1502,7 +1511,7 @@ func registerFormPage(left int, errMsg string) templ.Component {
 			var templ_7745c5c3_Var57 string
 			templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs("first-come registration is open — " + strconv.Itoa(left) + " seats left.")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 397, Col: 100}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 406, Col: 100}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
 			if templ_7745c5c3_Err != nil {
@@ -1520,7 +1529,7 @@ func registerFormPage(left int, errMsg string) templ.Component {
 				var templ_7745c5c3_Var58 string
 				templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(errMsg)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 399, Col: 32}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 408, Col: 32}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 				if templ_7745c5c3_Err != nil {
@@ -1588,7 +1597,7 @@ func inviteFormPage(code string, errMsg string) templ.Component {
 				var templ_7745c5c3_Var61 string
 				templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.JoinStringErrs(errMsg)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 417, Col: 32}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 426, Col: 32}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var61))
 				if templ_7745c5c3_Err != nil {
@@ -1606,7 +1615,7 @@ func inviteFormPage(code string, errMsg string) templ.Component {
 			var templ_7745c5c3_Var62 templ.SafeURL
 			templ_7745c5c3_Var62, templ_7745c5c3_Err = templ.JoinURLErrs("/invite/" + code)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 419, Col: 48}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 428, Col: 48}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var62))
 			if templ_7745c5c3_Err != nil {
@@ -1667,7 +1676,7 @@ func noticePage(title string, sub string) templ.Component {
 			var templ_7745c5c3_Var65 string
 			templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 436, Col: 31}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 445, Col: 31}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var65))
 			if templ_7745c5c3_Err != nil {
@@ -1685,7 +1694,7 @@ func noticePage(title string, sub string) templ.Component {
 				var templ_7745c5c3_Var66 string
 				templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(sub)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 438, Col: 30}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 447, Col: 30}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
 				if templ_7745c5c3_Err != nil {
@@ -1759,7 +1768,7 @@ func formPage(title string) templ.Component {
 			var templ_7745c5c3_Var69 string
 			templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 452, Col: 31}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 461, Col: 31}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var69))
 			if templ_7745c5c3_Err != nil {
@@ -1948,7 +1957,7 @@ func loginFormPage(errMsg string) templ.Component {
 				var templ_7745c5c3_Var76 string
 				templ_7745c5c3_Var76, templ_7745c5c3_Err = templ.JoinStringErrs(errMsg)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 517, Col: 32}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 526, Col: 32}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var76))
 				if templ_7745c5c3_Err != nil {
@@ -2078,7 +2087,7 @@ func appCard(ap application) templ.Component {
 			var templ_7745c5c3_Var80 string
 			templ_7745c5c3_Var80, templ_7745c5c3_Err = templ.ResolveAttributeValue("/files/" + ap.PhotoKey)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 556, Col: 59}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 565, Col: 59}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var80)
 			if templ_7745c5c3_Err != nil {
@@ -2096,7 +2105,7 @@ func appCard(ap application) templ.Component {
 		var templ_7745c5c3_Var81 string
 		templ_7745c5c3_Var81, templ_7745c5c3_Err = templ.JoinStringErrs(ap.Handle)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 558, Col: 41}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 567, Col: 41}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var81))
 		if templ_7745c5c3_Err != nil {
@@ -2109,7 +2118,7 @@ func appCard(ap application) templ.Component {
 		var templ_7745c5c3_Var82 string
 		templ_7745c5c3_Var82, templ_7745c5c3_Err = templ.JoinStringErrs(ap.Pitch)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 559, Col: 39}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 568, Col: 39}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var82))
 		if templ_7745c5c3_Err != nil {
@@ -2164,7 +2173,7 @@ func decideForm(id string, action string) templ.Component {
 		var templ_7745c5c3_Var84 string
 		templ_7745c5c3_Var84, templ_7745c5c3_Err = templ.ResolveAttributeValue(id)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 570, Col: 43}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 579, Col: 43}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var84)
 		if templ_7745c5c3_Err != nil {
@@ -2177,7 +2186,7 @@ func decideForm(id string, action string) templ.Component {
 		var templ_7745c5c3_Var85 string
 		templ_7745c5c3_Var85, templ_7745c5c3_Err = templ.ResolveAttributeValue(action)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 571, Col: 51}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 580, Col: 51}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var85)
 		if templ_7745c5c3_Err != nil {
@@ -2231,7 +2240,7 @@ func note(msg string) templ.Component {
 		var templ_7745c5c3_Var87 string
 		templ_7745c5c3_Var87, templ_7745c5c3_Err = templ.JoinStringErrs(msg)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 582, Col: 6}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 591, Col: 6}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var87))
 		if templ_7745c5c3_Err != nil {
