@@ -35,10 +35,8 @@ import (
 	"time"
 
 	beach "github.com/ThirdCoastInteractive/the-beach"
-	"github.com/ThirdCoastInteractive/the-beach/datastar"
 	"github.com/ThirdCoastInteractive/the-beach/hub"
-	"github.com/ThirdCoastInteractive/the-beach/ui"
-	"github.com/ThirdCoastInteractive/the-beach/ui/driftwood"
+	"github.com/ThirdCoastInteractive/the-beach/ui/specimen"
 	"github.com/a-h/templ"
 )
 
@@ -81,7 +79,6 @@ func main() {
 
 	app := beach.New(beach.Config{
 		Service: "driftbottle",
-		Kit:     beach.KitStatic("driftwood"),
 		Hub:     h,
 		Logger:  logger,
 	})
@@ -98,9 +95,13 @@ func main() {
 	app.Action("/start", srv.startAction)
 	app.Action("/say", srv.sayAction)
 	app.Action("/next", srv.nextAction)
+	// The living component/chart showcase, mounted on every example.
+	app.Page("/specimen", func(c *beach.Ctx) (beach.View, error) {
+		return beach.View{Page: specimen.Page()}, nil
+	})
 
 	logger.Info("driftbottle: starting", "addr", addr,
-		"routes", "GET / , GET /events , POST /start , POST /say , POST /next , GET /static/...")
+		"routes", "GET / , GET /events , POST /start , POST /say , POST /next , GET /specimen , GET /static/...")
 	if err := app.Start(addr); err != nil {
 		log.Fatalf("driftbottle: %v", err)
 	}
@@ -357,32 +358,11 @@ func (s *server) indexPage(c *beach.Ctx) (beach.View, error) {
 		setSIDCookie(c, id)
 	}
 
-	body := s.kitContainer(c, lobbyFragment())
-	page := driftwood.Page(driftwood.PageProps{
-		Title:       "driftbottle — talk to a stranger",
-		Description: "Anonymous, ephemeral stranger chat. No accounts, no history.",
-	}, body)
-
 	return beach.View{
-		Page:     page,
+		Page:     indexDocument(),
 		Fragment: lobbyFragment(),
 		Target:   roomTarget,
 	}, nil
-}
-
-// kitContainer wraps a room fragment in the page heading + container that opens
-// the SSE stream on load. Shared by the navigation render.
-func (s *server) kitContainer(c *beach.Ctx, room templ.Component) templ.Component {
-	kit := c.Kit()
-	heading := kit.Layout().PageHeading(ui.PageHeadingProps{
-		Title:    "driftbottle",
-		Subtitle: "You're about to talk to a complete stranger. Be kind.",
-	})
-	// data-on-load opens the per-session SSE stream the instant the page is
-	// interactive, so server-driven transitions land without any user action.
-	return kit.Layout().Container(ui.ContainerProps{
-		Attrs: datastar.Attrs{datastar.Init("@get('/events')")},
-	}, heading, room)
 }
 
 // eventsStream is the per-session SSE subscription: subscribe to exactly the
