@@ -2,8 +2,9 @@
 // at-home grocery ERP. Household inventory (items with photos, quantities,
 // expiry), storage locations, and shopping lists, behind two roles
 // (household-admin vs household-member); a dashboard of deferred chart widgets
-// (spend line, category stacked bar, expiry calendar heatmap, waste gauge); and
-// a full i18n catalog (en-US, es-ES).
+// (spend line, category stacked bar, expiry calendar heatmap, waste gauge); a
+// full i18n catalog (en-US, es-ES); and the framework's living component
+// showcase mounted at /specimen.
 //
 // Run it:
 //
@@ -36,7 +37,8 @@ import (
 	"github.com/ThirdCoastInteractive/the-beach/passwords"
 	"github.com/ThirdCoastInteractive/the-beach/pg"
 	"github.com/ThirdCoastInteractive/the-beach/session"
-	_ "github.com/ThirdCoastInteractive/the-beach/ui/driftwood" // registers the "driftwood" kit
+	"github.com/ThirdCoastInteractive/the-beach/ui/specimen"
+	"github.com/a-h/templ"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -99,7 +101,6 @@ func main() {
 		Service: "pantry",
 		Release: a.release,
 		Static:  sub,
-		Kit:     beach.KitStatic("driftwood"),
 		Logger:  logger,
 	}
 
@@ -224,11 +225,16 @@ func (a *app) routes(app *beach.App) {
 	app.Page("/lists", a.listsPage)
 	app.Page("/login", a.loginPage)
 
+	// The living driftwood + chart showcase, handy while restyling the app.
+	app.Page("/specimen", func(c *beach.Ctx) (beach.View, error) {
+		return beach.View{Page: specimen.Page()}, nil
+	})
+
 	// Deferred dashboard widgets (fed by sample analytics data).
-	app.Page("/widgets/spend", widgetPage("w-spend", func(*beach.Ctx) string { return spendSVG() }))
-	app.Page("/widgets/category", widgetPage("w-category", func(*beach.Ctx) string { return categorySVG() }))
-	app.Page("/widgets/expiry", widgetPage("w-expiry", func(c *beach.Ctx) string { return expirySVG(a.store.listItems()) }))
-	app.Page("/widgets/waste", widgetPage("w-waste", func(*beach.Ctx) string { return wasteSVG() }))
+	app.Page("/widgets/spend", widgetPage("w-spend", spendWidget))
+	app.Page("/widgets/category", widgetPage("w-category", categoryWidget))
+	app.Page("/widgets/expiry", widgetPage("w-expiry", func() templ.Component { return expiryWidget(a.store.listItems()) }))
+	app.Page("/widgets/waste", widgetPage("w-waste", wasteWidget))
 
 	// Write actions. With auth on (DB mode) they require pantry:write — the auth
 	// story stays visible in the route table. Database-free there is no principal,
