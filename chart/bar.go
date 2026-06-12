@@ -1,340 +1,405 @@
 package chart
 
-import (
-	"io"
-	"math"
-)
+import "fmt"
 
-// Datum is one labeled value, the unit of bar/gauge/billboard input.
-type Datum struct {
-	Label string
-	Value float64
+// --- Input data types -------------------------------------------------------
+
+type HBarSeries struct {
+	Series []HBarEntry `json:"series"`
+	Unit   string      `json:"unit,omitempty"`
+	Max    int         `json:"max,omitempty"`
 }
 
-// HBarInput configures a horizontal bar chart.
-type HBarInput struct {
-	Series []Datum
-	Title  string
-	Unit   string  // appended to value labels, e.g. " kW"
-	Max    float64 // 0 = auto from data
-	Width  float64 // defaults to 480
-	RowH   float64 // per-row height; defaults to 28
+type HBarEntry struct {
+	Label string `json:"label"`
+	Value int    `json:"value"`
+	Max   int    `json:"max,omitempty"`
 }
 
-// HBarLayout is the computed geometry for a horizontal bar chart.
-type HBarLayout struct {
-	W, H  float64
-	Title string
-	Bars  []hbar
+type StackedBarSeries struct {
+	Series []StackedBarRow `json:"series"`
+	Unit   string          `json:"unit,omitempty"`
+	Max    int             `json:"max,omitempty"`
 }
 
-type hbar struct {
-	Box   Box
-	Color string
-	Label string
-	Value string // formatted value+unit
-	ValX  float64
+type StackedBarRow struct {
+	Label    string              `json:"label"`
+	Segments []StackedBarSegment `json:"segments"`
 }
 
-// LayoutHBar computes geometry for a horizontal bar chart.
-func LayoutHBar(in HBarInput) HBarLayout {
-	w := in.Width
-	if w == 0 {
-		w = 480
+type StackedBarSegment struct {
+	Label string `json:"label"`
+	Value int    `json:"value"`
+	Color string `json:"color,omitempty"`
+}
+
+type BulletSeries struct {
+	Series []BulletRow `json:"series"`
+	Unit   string      `json:"unit,omitempty"`
+	Max    int         `json:"max,omitempty"`
+}
+
+type BulletRow struct {
+	Label    string          `json:"label"`
+	Measures []BulletMeasure `json:"measures"`
+}
+
+type BulletMeasure struct {
+	Label string `json:"label"`
+	Value int    `json:"value"`
+}
+
+type GroupedBarData struct {
+	Rows     []GroupedBarRow
+	Measures []string
+	Unit     string
+	Max      int
+}
+
+type GroupedBarRow struct {
+	Label  string
+	Values []int
+}
+
+// --- Output geometry types ---------------------------------------------------
+
+type Bar struct {
+	Label, ValueText, Title, Tip, Color string
+	BarY, BarH, FillW, CenterY          string
+}
+
+type BarChart struct {
+	LabelX, PlotX, TrackW string
+	Bars                  []Bar
+}
+
+type StackedBar struct {
+	LabelX, PlotX, TrackW string
+	Rows                  []StackedRow
+	Legend                []LegendItem
+}
+
+type StackedRow struct {
+	Label, Total, Tip   string
+	BarY, BarH, CenterY string
+	Segs                []StackedSeg
+}
+
+type StackedSeg struct {
+	X, W, Color string
+}
+
+type BulletBar struct {
+	LabelX, PlotX, TrackW string
+	Rows                  []BulletBarRow
+	Legend                []LegendItem
+}
+
+type BulletBarRow struct {
+	Label, Total, Tip   string
+	BarY, BarH, CenterY string
+	Bars                []BulletSeg
+}
+
+type BulletSeg struct {
+	X, W, Color string
+}
+
+type GroupedBar struct {
+	LabelX, PlotX, TrackW string
+	Rows                  []GroupedRow
+	Legend                []LegendItem
+}
+
+type GroupedRow struct {
+	Label, Tip          string
+	BarY, BarH, CenterY string
+	Bars                []GroupedSeg
+}
+
+type GroupedSeg struct {
+	X, Y, W, H, Color string
+}
+
+// --- Layout functions -------------------------------------------------------
+
+func LayoutHBar(data HBarSeries) BarChart {
+	out := BarChart{
+		LabelX: Pct(HBarLabelGutter - 2),
+		PlotX:  Pct(HBarPlotX),
+		TrackW: Pct(HBarTrackW),
 	}
-	rowH := in.RowH
-	if rowH == 0 {
-		rowH = 28
+	n := len(data.Series)
+	if n == 0 {
+		return out
 	}
-	max := in.Max
-	if max <= 0 {
-		for _, d := range in.Series {
-			max = math.Max(max, d.Value)
+	gmax := float64(data.Max)
+	if gmax == 0 {
+		for _, e := range data.Series {
+			m := float64(e.Max)
+			if m == 0 {
+				m = float64(e.Value)
+			}
+			gmax = MaxF(gmax, m)
 		}
 	}
-	if max <= 0 {
-		max = 1
+	if gmax == 0 {
+		gmax = 1
 	}
-	labelW := 120.0
-	trackX := labelW
-	trackW := w - labelW - 56 // room for value text on the right
-	h := rowH*float64(len(in.Series)) + 8
+	band := 100.0 / float64(n)
+	barTopOff := band * HBarBarInset
+	barH := band * (1 - 2*HBarBarInset)
 
-	lay := HBarLayout{W: w, H: h, Title: in.Title}
-	for i, d := range in.Series {
-		y := 4 + float64(i)*rowH
-		bw := d.Value / max * trackW
-		if bw < 0 {
-			bw = 0
+	for i, e := range data.Series {
+		bandTop := float64(i) * band
+		v := float64(e.Value)
+		bmax := float64(e.Max)
+		if bmax == 0 {
+			bmax = gmax
 		}
-		lay.Bars = append(lay.Bars, hbar{
-			Box:   Box{X: trackX, Y: y + 4, W: bw, H: rowH - 12},
-			Color: QualitativeVar(i),
-			Label: d.Label,
-			Value: fnum(d.Value) + in.Unit,
-			ValX:  trackX + bw + 6,
+		p := 0.0
+		if bmax > 0 {
+			p = v / bmax
+		}
+		frac := v / gmax
+		if frac > 1 {
+			frac = 1
+		}
+		color := ColorVar(i)
+		if p > 0.85 {
+			color = "var(--color-warn)"
+		}
+		valueText := CommaInt(e.Value) + data.Unit
+		title := e.Label + ": " + valueText
+		if e.Max > 0 {
+			title = fmt.Sprintf("%s: %s of %s (%d%%)", e.Label, valueText, CommaInt(e.Max)+data.Unit, int(p*100+0.5))
+		}
+		tipRows := []TipRow{{Label: "count", Value: valueText}}
+		if e.Max > 0 && e.Max != e.Value {
+			tipRows = append(tipRows,
+				TipRow{Label: "capacity", Value: CommaInt(e.Max) + data.Unit},
+				TipRow{Label: "utilization", Value: fmt.Sprintf("%d%%", int(p*100+0.5))},
+			)
+		}
+		displayLabel := e.Label
+		if len(displayLabel) > MaxLabelLen {
+			displayLabel = displayLabel[:MaxLabelLen-1] + "…"
+		}
+		out.Bars = append(out.Bars, Bar{
+			Label: displayLabel, ValueText: valueText, Title: title,
+			Tip: BuildTipHTML(color, e.Label, tipRows), Color: color,
+			BarY: Pct(bandTop + barTopOff), BarH: Pct(barH),
+			FillW: Pct(HBarTrackW * frac), CenterY: Pct(bandTop + band/2),
 		})
 	}
-	return lay
+	return out
 }
 
-// HBarSVG renders the horizontal bar chart described by lay.
-func HBarSVG(w io.Writer, lay HBarLayout) error {
-	s := newSVG(w)
-	s.open(lay.W, lay.H, lay.Title)
-	for _, b := range lay.Bars {
-		cy := b.Box.Y + b.Box.H/2 + 4
-		s.text(b.Box.X-8, cy, "end", "chart-label", b.Label)
-		s.p(`<g>`)
-		s.title(b.Label + ": " + b.Value)
-		s.rect(b.Box, b.Color, `rx="2"`)
-		s.p(`</g>`)
-		s.text(b.ValX, cy, "start", "chart-value", b.Value)
+func LayoutStackedBar(data StackedBarSeries) StackedBar {
+	out := StackedBar{
+		LabelX: Pct(HBarLabelGutter - 2),
+		PlotX:  Pct(HBarPlotX),
+		TrackW: Pct(HBarTrackW),
 	}
-	s.close()
-	return s.Err()
-}
-
-// StackedBarInput configures a stacked or grouped vertical bar chart.
-type StackedBarInput struct {
-	Categories []string // x-axis groups
-	Series     []Datum2 // each series spans all categories
-	Title      string
-	Grouped    bool    // true = side-by-side; false = stacked
-	Width      float64 // defaults to 560
-	Height     float64 // defaults to 320
-}
-
-// Datum2 is a named series of values aligned to a category axis.
-type Datum2 struct {
-	Name   string
-	Values []float64
-}
-
-// StackedBarLayout is the geometry for a stacked/grouped vertical bar chart.
-type StackedBarLayout struct {
-	W, H    float64
-	Title   string
-	Plot    Box
-	Rects   []barRect
-	YTicks  []axisTick
-	XLabels []axisTick
-}
-
-type barRect struct {
-	Box    Box
-	Color  string
-	Series string
-	Cat    string
-	Value  float64
-}
-
-// LayoutStackedBar computes geometry for a stacked or grouped vertical bar chart.
-func LayoutStackedBar(in StackedBarInput) StackedBarLayout {
-	w := in.Width
-	if w == 0 {
-		w = 560
+	n := len(data.Series)
+	if n == 0 {
+		return out
 	}
-	h := in.Height
-	if h == 0 {
-		h = 320
+	gmax := float64(data.Max)
+	if gmax == 0 {
+		for _, row := range data.Series {
+			var total float64
+			for _, seg := range row.Segments {
+				total += float64(seg.Value)
+			}
+			gmax = MaxF(gmax, total)
+		}
 	}
-	plot := Box{X: 48, Y: 16, W: w - 64, H: h - 40}
-	nCat := len(in.Categories)
-	if nCat == 0 {
-		return StackedBarLayout{W: w, H: h, Title: in.Title, Plot: plot}
+	if gmax == 0 {
+		gmax = 1
 	}
+	band := 100.0 / float64(n)
+	barTopOff := band * HBarBarInset
+	barH := band * (1 - 2*HBarBarInset)
+	legendSeen := make(map[string]bool)
 
-	// Determine y-axis max.
-	max := 0.0
-	if in.Grouped {
-		for _, s := range in.Series {
-			for _, v := range s.Values {
-				max = math.Max(max, v)
+	for i, row := range data.Series {
+		bandTop := float64(i) * band
+		var total int
+		for _, seg := range row.Segments {
+			total += seg.Value
+		}
+		displayLabel := row.Label
+		if len(displayLabel) > MaxLabelLen {
+			displayLabel = displayLabel[:MaxLabelLen-1] + "…"
+		}
+		tipRows := make([]TipRow, 0, len(row.Segments))
+		for _, seg := range row.Segments {
+			tipRows = append(tipRows, TipRow{Label: seg.Label, Value: CommaInt(seg.Value) + data.Unit})
+		}
+		tipRows = append(tipRows, TipRow{Label: "total", Value: CommaInt(total) + data.Unit})
+
+		sr := StackedRow{
+			Label: displayLabel, Total: CommaInt(total) + data.Unit,
+			Tip:  BuildTipHTML("", row.Label, tipRows),
+			BarY: Pct(bandTop + barTopOff), BarH: Pct(barH), CenterY: Pct(bandTop + band/2),
+		}
+		var offset float64
+		for si, seg := range row.Segments {
+			segW := (float64(seg.Value) / gmax) * HBarTrackW
+			color := seg.Color
+			if color == "" {
+				color = ColorVar(si)
+			}
+			sr.Segs = append(sr.Segs, StackedSeg{X: Pct(HBarPlotX + offset), W: Pct(segW), Color: color})
+			offset += segW
+			if !legendSeen[seg.Label] {
+				legendSeen[seg.Label] = true
+				out.Legend = append(out.Legend, LegendItem{Label: seg.Label, Color: color})
 			}
 		}
-	} else {
-		for c := 0; c < nCat; c++ {
-			sum := 0.0
-			for _, s := range in.Series {
-				if c < len(s.Values) {
-					sum += s.Values[c]
+		out.Rows = append(out.Rows, sr)
+	}
+	return out
+}
+
+func LayoutBullet(data BulletSeries, hue float64) BulletBar {
+	out := BulletBar{
+		LabelX: Pct(HBarLabelGutter - 2),
+		PlotX:  Pct(HBarPlotX),
+		TrackW: Pct(HBarTrackW),
+	}
+	n := len(data.Series)
+	if n == 0 {
+		return out
+	}
+	gmax := float64(data.Max)
+	if gmax == 0 {
+		for _, row := range data.Series {
+			for _, m := range row.Measures {
+				gmax = MaxF(gmax, float64(m.Value))
+			}
+		}
+	}
+	if gmax == 0 {
+		gmax = 1
+	}
+	maxMeasures := 0
+	for _, row := range data.Series {
+		if len(row.Measures) > maxMeasures {
+			maxMeasures = len(row.Measures)
+		}
+	}
+	ramp := GaugeRamp(maxMeasures, hue)
+	legendSeen := make(map[string]bool)
+	band := 100.0 / float64(n)
+	barTopOff := band * HBarBarInset
+	barH := band * (1 - 2*HBarBarInset)
+
+	for i, row := range data.Series {
+		bandTop := float64(i) * band
+		displayLabel := row.Label
+		if len(displayLabel) > MaxLabelLen {
+			displayLabel = displayLabel[:MaxLabelLen-1] + "…"
+		}
+		tipRows := make([]TipRow, 0, len(row.Measures))
+		for _, m := range row.Measures {
+			tipRows = append(tipRows, TipRow{Label: m.Label, Value: CommaInt(m.Value) + data.Unit})
+		}
+		total := ""
+		if len(row.Measures) > 0 {
+			total = CommaInt(row.Measures[len(row.Measures)-1].Value) + data.Unit
+		}
+		br := BulletBarRow{
+			Label: displayLabel, Total: total, Tip: BuildTipHTML("", row.Label, tipRows),
+			BarY: Pct(bandTop + barTopOff), BarH: Pct(barH), CenterY: Pct(bandTop + band/2),
+		}
+		sorted := make([]BulletMeasure, len(row.Measures))
+		copy(sorted, row.Measures)
+		for a := 0; a < len(sorted); a++ {
+			for b := a + 1; b < len(sorted); b++ {
+				if sorted[a].Value < sorted[b].Value {
+					sorted[a], sorted[b] = sorted[b], sorted[a]
 				}
 			}
-			max = math.Max(max, sum)
 		}
-	}
-	if max <= 0 {
-		max = 1
-	}
-
-	lay := StackedBarLayout{W: w, H: h, Title: in.Title, Plot: plot}
-	sy := func(v float64) float64 { return plot.Bottom() - v/max*plot.H }
-	catW := plot.W / float64(nCat)
-	for c := 0; c < nCat; c++ {
-		cx := plot.X + float64(c)*catW
-		lay.XLabels = append(lay.XLabels, axisTick{Pos: cx + catW/2, Label: in.Categories[c]})
-		if in.Grouped {
-			nS := len(in.Series)
-			if nS == 0 {
-				continue
+		for j, m := range sorted {
+			frac := float64(m.Value) / gmax
+			if frac > 1 {
+				frac = 1
 			}
-			slot := catW * 0.8 / float64(nS)
-			off := catW * 0.1
-			for si, s := range in.Series {
-				v := 0.0
-				if c < len(s.Values) {
-					v = s.Values[c]
+			br.Bars = append(br.Bars, BulletSeg{X: Pct(HBarPlotX), W: Pct(HBarTrackW * frac), Color: ramp[j]})
+			if !legendSeen[m.Label] {
+				legendSeen[m.Label] = true
+				rampIdx := len(row.Measures) - 1 - j
+				if rampIdx < 0 {
+					rampIdx = 0
 				}
-				bx := cx + off + float64(si)*slot
-				top := sy(v)
-				lay.Rects = append(lay.Rects, barRect{
-					Box:    Box{X: bx, Y: top, W: slot * 0.9, H: plot.Bottom() - top},
-					Color:  QualitativeVar(si),
-					Series: s.Name, Cat: in.Categories[c], Value: v,
-				})
+				out.Legend = append(out.Legend, LegendItem{Label: m.Label, Color: ramp[rampIdx]})
 			}
-		} else {
-			bw := catW * 0.7
-			bx := cx + (catW-bw)/2
-			cursor := plot.Bottom()
-			for si, s := range in.Series {
-				v := 0.0
-				if c < len(s.Values) {
-					v = s.Values[c]
-				}
-				hgt := v / max * plot.H
-				top := cursor - hgt
-				lay.Rects = append(lay.Rects, barRect{
-					Box:    Box{X: bx, Y: top, W: bw, H: hgt},
-					Color:  QualitativeVar(si),
-					Series: s.Name, Cat: in.Categories[c], Value: v,
-				})
-				cursor = top
+		}
+		out.Rows = append(out.Rows, br)
+	}
+	return out
+}
+
+func LayoutGroupedBar(data GroupedBarData) GroupedBar {
+	out := GroupedBar{
+		LabelX: Pct(HBarLabelGutter - 2),
+		PlotX:  Pct(HBarPlotX),
+		TrackW: Pct(HBarTrackW),
+	}
+	n := len(data.Rows)
+	nMeasures := len(data.Measures)
+	if n == 0 || nMeasures == 0 {
+		return out
+	}
+	gmax := float64(data.Max)
+	if gmax == 0 {
+		for _, row := range data.Rows {
+			for _, v := range row.Values {
+				gmax = MaxF(gmax, float64(v))
 			}
 		}
 	}
-	for _, t := range niceTicks(0, max, 5) {
-		lay.YTicks = append(lay.YTicks, axisTick{Pos: sy(t), Label: fnum(t)})
+	if gmax == 0 {
+		gmax = 1
 	}
-	return lay
-}
+	for mi, m := range data.Measures {
+		out.Legend = append(out.Legend, LegendItem{Label: m, Color: ColorVar(mi)})
+	}
+	band := 100.0 / float64(n)
+	barTopOff := band * HBarBarInset
+	barH := band * (1 - 2*HBarBarInset)
+	subH := barH / float64(nMeasures)
 
-// StackedBarSVG renders the stacked/grouped bar chart described by lay.
-func StackedBarSVG(w io.Writer, lay StackedBarLayout) error {
-	s := newSVG(w)
-	s.open(lay.W, lay.H, lay.Title)
-	for _, t := range lay.YTicks {
-		s.line(lay.Plot.X, t.Pos, lay.Plot.Right(), t.Pos,
-			"var(--chart-grid, currentColor)",
-			`stroke-width="1" stroke-opacity="0.15" vector-effect="non-scaling-stroke"`)
-		s.text(lay.Plot.X-6, t.Pos+3, "end", "chart-axis", t.Label)
-	}
-	for _, r := range lay.Rects {
-		s.p(`<g>`)
-		s.title(r.Series + " / " + r.Cat + ": " + fnum(r.Value))
-		s.rect(r.Box, r.Color, `rx="1"`)
-		s.p(`</g>`)
-	}
-	for _, t := range lay.XLabels {
-		s.text(t.Pos, lay.Plot.Bottom()+16, "middle", "chart-axis", t.Label)
-	}
-	s.close()
-	return s.Err()
-}
-
-// BulletInput configures a bullet chart: a measure bar against a target and
-// qualitative ranges.
-type BulletInput struct {
-	Title   string
-	Label   string
-	Measure float64
-	Target  float64
-	Ranges  []float64 // ascending range thresholds (qualitative bands)
-	Max     float64   // 0 = auto
-	Unit    string
-	Width   float64 // defaults to 360
-	Height  float64 // defaults to 48
-}
-
-// BulletLayout is the geometry for a bullet chart.
-type BulletLayout struct {
-	W, H    float64
-	Title   string
-	Label   string
-	Bands   []barRect
-	Measure Box
-	TargetX float64
-	HasTgt  bool
-	ValTxt  string
-}
-
-// LayoutBullet computes geometry for a bullet chart.
-func LayoutBullet(in BulletInput) BulletLayout {
-	w := in.Width
-	if w == 0 {
-		w = 360
-	}
-	h := in.Height
-	if h == 0 {
-		h = 48
-	}
-	max := in.Max
-	if max <= 0 {
-		max = math.Max(in.Measure, in.Target)
-		for _, r := range in.Ranges {
-			max = math.Max(max, r)
+	for i, row := range data.Rows {
+		bandTop := float64(i) * band
+		displayLabel := row.Label
+		if len(displayLabel) > MaxLabelLen {
+			displayLabel = displayLabel[:MaxLabelLen-1] + "…"
 		}
+		tipRows := make([]TipRow, 0, nMeasures)
+		for mi, v := range row.Values {
+			if mi < len(data.Measures) {
+				tipRows = append(tipRows, TipRow{Label: data.Measures[mi], Value: CommaInt(v) + data.Unit})
+			}
+		}
+		gr := GroupedRow{
+			Label: displayLabel, Tip: BuildTipHTML("", row.Label, tipRows),
+			BarY: Pct(bandTop + barTopOff), BarH: Pct(barH), CenterY: Pct(bandTop + band/2),
+		}
+		for mi, v := range row.Values {
+			frac := float64(v) / gmax
+			if frac > 1 {
+				frac = 1
+			}
+			y := bandTop + barTopOff + float64(mi)*subH
+			gr.Bars = append(gr.Bars, GroupedSeg{
+				X: Pct(HBarPlotX), Y: Pct(y), W: Pct(HBarTrackW * frac), H: Pct(subH * 0.85), Color: ColorVar(mi),
+			})
+		}
+		out.Rows = append(out.Rows, gr)
 	}
-	if max <= 0 {
-		max = 1
-	}
-	trackX := 0.0
-	if in.Label != "" {
-		trackX = 96
-	}
-	trackW := w - trackX
-	sx := func(v float64) float64 { return trackX + v/max*trackW }
-
-	lay := BulletLayout{W: w, H: h, Title: in.Title, Label: in.Label,
-		ValTxt: fnum(in.Measure) + in.Unit}
-	// Qualitative bands, lightest (diverging) first.
-	prev := 0.0
-	for i, r := range in.Ranges {
-		lay.Bands = append(lay.Bands, barRect{
-			Box:   Box{X: sx(prev), Y: 8, W: sx(r) - sx(prev), H: h - 16},
-			Color: DivergingVar(i, len(in.Ranges)),
-		})
-		prev = r
-	}
-	mh := (h - 16) * 0.4
-	lay.Measure = Box{X: trackX, Y: (h-mh)/2 + 0, W: sx(in.Measure) - trackX, H: mh}
-	if in.Target > 0 {
-		lay.TargetX = sx(in.Target)
-		lay.HasTgt = true
-	}
-	return lay
-}
-
-// BulletSVG renders the bullet chart described by lay.
-func BulletSVG(w io.Writer, lay BulletLayout) error {
-	s := newSVG(w)
-	s.open(lay.W, lay.H, lay.Title)
-	if lay.Label != "" {
-		s.text(88, lay.H/2+4, "end", "chart-label", lay.Label)
-	}
-	for _, b := range lay.Bands {
-		s.rect(b.Box, b.Color, `fill-opacity="0.35"`)
-	}
-	s.p(`<g>`)
-	s.title(lay.Label + ": " + lay.ValTxt)
-	s.rect(lay.Measure, QualitativeVar(0), `rx="1"`)
-	s.p(`</g>`)
-	if lay.HasTgt {
-		s.line(lay.TargetX, 6, lay.TargetX, lay.H-6,
-			"var(--chart-emphasis, currentColor)",
-			`stroke-width="2" vector-effect="non-scaling-stroke"`)
-	}
-	s.close()
-	return s.Err()
+	return out
 }

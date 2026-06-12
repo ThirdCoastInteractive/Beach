@@ -1,0 +1,165 @@
+// Chart fragment templates. Each wraps a server-rendered SVG chart in
+// a figure element that Datastar can merge by id.
+package chart
+
+// ChartBarFragment wraps a server-rendered horizontal bar chart.
+templ ChartBarFragment(id string, c BarChart) {
+	<figure id={ id } class="chart-frag">
+		@BarChartSVG(c)
+	</figure>
+}
+
+// ChartStackedBarFragment wraps a server-rendered stacked bar chart.
+templ ChartStackedBarFragment(id string, c StackedBar) {
+	<figure id={ id } class="chart-frag">
+		@StackedBarSVG(c)
+	</figure>
+}
+
+// ChartStackedGaugeFragment wraps a server-rendered stacked gauge.
+templ ChartStackedGaugeFragment(id string, g StackedGauge) {
+	<figure id={ id } class="chart-frag">
+		@StackedGaugeSVG(g)
+	</figure>
+}
+
+// ChartGaugeFragment wraps a server-rendered gauge arc.
+templ ChartGaugeFragment(id string, g Gauge) {
+	<figure id={ id } class="chart-frag">
+		@GaugeSVG(g)
+	</figure>
+}
+
+// ChartBillboardFragment wraps a server-rendered billboard KPI.
+templ ChartBillboardFragment(id string, b Billboard) {
+	<figure id={ id } class="chart-frag">
+		@BillboardSVG(b)
+	</figure>
+}
+
+// ChartBoxPlotFragment wraps a server-rendered box plot.
+templ ChartBoxPlotFragment(id string, b BoxPlot) {
+	<figure id={ id } class="chart-frag">
+		@BoxPlotSVG(b)
+	</figure>
+}
+
+// ChartCalendarFragment wraps a server-rendered calendar heatmap.
+templ ChartCalendarFragment(id string, c Calendar) {
+	<figure id={ id } class="chart-frag">
+		@CalendarSVG(c)
+	</figure>
+}
+
+// ChartBollingerFragment wraps a server-rendered Bollinger bands chart.
+templ ChartBollingerFragment(id string, b Bollinger) {
+	<figure id={ id } class="chart-frag">
+		@BollingerSVG(b)
+	</figure>
+}
+
+// ChartHorizonFragment wraps a server-rendered horizon chart.
+templ ChartHorizonFragment(id string, h Horizon) {
+	<figure id={ id } class="chart-frag">
+		@HorizonSVG(h)
+	</figure>
+}
+
+// ChartRidgelineFragment wraps a server-rendered ridgeline plot.
+templ ChartRidgelineFragment(id string, r Ridgeline) {
+	<figure id={ id } class="chart-frag">
+		@RidgelineSVG(r)
+	</figure>
+}
+
+// ChartDifferenceFragment wraps a server-rendered difference chart.
+templ ChartDifferenceFragment(id string, d Difference) {
+	<figure id={ id } class="chart-frag">
+		@DifferenceSVG(d)
+	</figure>
+}
+
+// ChartTimelineFragment wraps a server-rendered timeline.
+templ ChartTimelineFragment(id string, t Timeline) {
+	<figure id={ id } class="chart-frag">
+		@TimelineSVG(t)
+	</figure>
+}
+
+// ChartBundleFragment wraps a server-rendered edge bundling diagram.
+templ ChartBundleFragment(id string, b Bundle) {
+	<figure id={ id } class="chart-frag">
+		@BundleSVG(b)
+	</figure>
+}
+
+// ChartGroupedBarFragment wraps a server-rendered grouped bar chart.
+templ ChartGroupedBarFragment(id string, c GroupedBar) {
+	<figure id={ id } class="chart-frag">
+		@GroupedBarSVG(c)
+	</figure>
+}
+
+// ChartStreamFragment wraps a server-rendered streamgraph.
+templ ChartStreamFragment(id string, s Stream) {
+	<figure id={ id } class="chart-frag chart-frag-col">
+		@StreamSVG(s)
+	</figure>
+}
+
+// ChartScatterFragment wraps a server-rendered scatterplot.
+templ ChartScatterFragment(id string, s Scatter) {
+	<figure id={ id } class="chart-frag chart-frag-col">
+		@ScatterSVG(s)
+	</figure>
+}
+
+// ChartSankeyFragment wraps a server-rendered Sankey diagram.
+templ ChartSankeyFragment(id string, s Sankey) {
+	<figure id={ id } class="chart-frag">
+		@SankeySVG(s)
+	</figure>
+}
+
+// ChartChordFragment wraps a server-rendered chord diagram.
+templ ChartChordFragment(id string, c Chord) {
+	<figure id={ id } class="chart-frag">
+		@ChordSVG(c)
+	</figure>
+}
+
+// ChartSparklineFragment wraps a server-rendered sparkline.
+templ ChartSparklineFragment(id string, s Sparkline) {
+	<figure id={ id } class="chart-frag">
+		@SparklineSVG(s)
+	</figure>
+}
+
+// ChartHeatmapFragment wraps a server-rendered heatmap.
+templ ChartHeatmapFragment(id string, h Heatmap) {
+	<figure id={ id } class="chart-frag">
+		@HeatmapSVG(h)
+	</figure>
+}
+
+// ChartBulletBarFragment wraps a server-rendered bullet (overlapping) bar chart.
+templ ChartBulletBarFragment(id string, c BulletBar) {
+	<figure id={ id } class="chart-frag">
+		@BulletBarSVG(c)
+	</figure>
+}
+
+// ChartLineFragment wraps a server-rendered line/area chart.
+templ ChartLineFragment(c LineChart) {
+	<figure
+		id={ c.HoverID }
+		data-line-chart="1"
+		tabindex="0"
+		role="group"
+		aria-label="Time series chart. Use left and right arrow keys to step through samples."
+		class="chart-frag chart-frag-col focus-ring"
+	>
+		@LineChartSVG(c)
+		<div class="sr-only" role="status" aria-live="polite"></div>
+	</figure>
+}

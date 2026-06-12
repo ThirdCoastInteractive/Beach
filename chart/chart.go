@@ -1,271 +1,152 @@
-// Package chart renders server-side SVG charts in pure Go.
-//
-// Every chart is final HTML, drawn on the server before it reaches the browser.
-// The API is two steps: a Layout* function computes geometry from data, and a
-// render function (Render, or the per-type SVG funcs) emits the SVG to an
-// io.Writer.
-//
-//	layout := chart.LayoutHBar(chart.HBarInput{Series: rows, Unit: " kW"})
-//	chart.HBarSVG(w, layout)
-//
-// The library obeys the framework's laws by construction:
-//
-//   - Token-themed: series colors cycle the design system's
-//     --chart-qualitative-1..12; diverging scales use --chart-diverging-*. No
-//     hardcoded colors appear in chart code.
-//   - Accessible: role="img" on roots with a <title>; color is never the only
-//     encoding the caller is asked to rely on.
-//   - Responsive without scripts: a viewBox plus preserveAspectRatio lets a
-//     chart fill any container while stroke widths stay constant.
-//
-// Rendering is plain text/template + direct io.Writer; there is no templ or
-// client JavaScript involved.
+// Package chart computes SVG geometry for server-rendered charts.
+// All layout functions accept data types and return positioned SVG
+// geometry structs. The rendering (templ markup) lives in
+// internal/view/component; this package is pure geometry with no
+// templ or web dependency.
 package chart
 
 import (
 	"fmt"
-	"io"
-	"math"
 	"strconv"
-	"strings"
 )
 
-// Box is a rectangular region in SVG user units.
-type Box struct {
-	X, Y, W, H float64
+// Pct formats a 0-100 value as an SVG percentage string.
+func Pct(v float64) string {
+	return strconv.FormatFloat(v, 'f', 2, 64) + "%"
 }
 
-// Inset returns the box shrunk by the given padding on every side.
-func (b Box) Inset(pad float64) Box {
-	return Box{X: b.X + pad, Y: b.Y + pad, W: b.W - 2*pad, H: b.H - 2*pad}
+// F formats a float for viewBox-based SVG coordinates.
+func F(v float64) string {
+	return strconv.FormatFloat(v, 'f', 1, 64)
 }
 
-// Right is the box's right edge (X + W).
-func (b Box) Right() float64 { return b.X + b.W }
+func MinF(a, b float64) float64 {
+	if a < b {
+		return a
+	}
+	return b
+}
 
-// Bottom is the box's bottom edge (Y + H).
-func (b Box) Bottom() float64 { return b.Y + b.H }
+func MaxF(a, b float64) float64 {
+	if a > b {
+		return a
+	}
+	return b
+}
 
-// QualitativeVar returns the CSS variable reference for the i-th qualitative
-// series color, cycling through --chart-qualitative-1..12 (1-indexed in the
-// token names). The index may be any non-negative integer; it wraps.
-func QualitativeVar(i int) string {
-	n := (i % 12)
+// CommaInt formats an integer with thousands separators.
+func CommaInt(n int) string {
+	s := strconv.Itoa(n)
+	neg := false
 	if n < 0 {
-		n += 12
+		neg = true
+		s = s[1:]
 	}
-	return fmt.Sprintf("var(--chart-qualitative-%d)", n+1)
+	var b []byte
+	for i := 0; i < len(s); i++ {
+		if i > 0 && (len(s)-i)%3 == 0 {
+			b = append(b, ',')
+		}
+		b = append(b, s[i])
+	}
+	if neg {
+		return "-" + string(b)
+	}
+	return string(b)
 }
 
-// DivergingVar returns the CSS variable reference for the i-th diverging color,
-// cycling through --chart-diverging-1..N. count is the number of stops in the
-// scale (at least 1).
-func DivergingVar(i, count int) string {
-	if count < 1 {
-		count = 1
+func HtmlEsc(s string) string {
+	var b []byte
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '&':
+			b = append(b, []byte("&amp;")...)
+		case '<':
+			b = append(b, []byte("&lt;")...)
+		case '>':
+			b = append(b, []byte("&gt;")...)
+		case '"':
+			b = append(b, []byte("&quot;")...)
+		default:
+			b = append(b, s[i])
+		}
 	}
-	n := i % count
-	if n < 0 {
-		n += count
-	}
-	return fmt.Sprintf("var(--chart-diverging-%d)", n+1)
+	return string(b)
 }
 
-// niceTicks returns up to roughly count "nice" tick values spanning [min,max].
-// It is used by axis-bearing charts to place gridlines on round numbers.
-func niceTicks(min, max float64, count int) []float64 {
-	if count < 2 {
-		count = 2
+// ColorVar returns the CSS custom property for the i-th series color,
+// cycling the 15-color palette.
+func ColorVar(i int) string {
+	return fmt.Sprintf("var(--color-series-%c)", 'a'+(i%15))
+}
+
+// GaugeRamp returns n OKLCH color strings graduated from dim (index 0)
+// to bold (index n-1). All share the same hue.
+func GaugeRamp(n int, hue float64) []string {
+	if n <= 0 {
+		return nil
 	}
-	if max <= min {
-		return []float64{min}
+	if n == 1 {
+		return []string{fmt.Sprintf("oklch(0.65 0.16 %.0f)", hue)}
 	}
-	span := niceNum(max-min, false)
-	step := niceNum(span/float64(count-1), true)
-	lo := math.Floor(min/step) * step
-	hi := math.Ceil(max/step) * step
-	var out []float64
-	for v := lo; v <= hi+step*0.5; v += step {
-		out = append(out, v)
+	out := make([]string, n)
+	for i := range out {
+		t := float64(i) / float64(n-1)
+		l := 0.30 + t*0.40
+		c := 0.04 + t*0.14
+		out[i] = fmt.Sprintf("oklch(%.2f %.2f %.0f)", l, c, hue)
 	}
 	return out
 }
 
-func niceNum(x float64, round bool) float64 {
-	if x == 0 {
-		return 0
+// TipRow is one label-value pair in a chart tooltip.
+type TipRow struct {
+	Label string
+	Value string
+}
+
+// BuildTipHTML builds styled tooltip HTML for the data-tip attribute.
+func BuildTipHTML(colorVar, title string, rows []TipRow) string {
+	dot := ""
+	if colorVar != "" {
+		dot = `<span class="chart-tooltip-dot" style="background:` + colorVar + `"></span>`
 	}
-	exp := math.Floor(math.Log10(x))
-	frac := x / math.Pow(10, exp)
-	var nf float64
-	if round {
-		switch {
-		case frac < 1.5:
-			nf = 1
-		case frac < 3:
-			nf = 2
-		case frac < 7:
-			nf = 5
-		default:
-			nf = 10
+	html := `<div class="chart-tooltip-head">` + dot + `<span>` + HtmlEsc(title) + `</span></div>`
+	if len(rows) > 0 {
+		html += `<div class="chart-tooltip-rows">`
+		for _, r := range rows {
+			html += `<div class="chart-tooltip-row">` +
+				`<span class="chart-tooltip-label">` + HtmlEsc(r.Label) + `</span>` +
+				`<span class="chart-tooltip-value">` + HtmlEsc(r.Value) + `</span></div>`
 		}
-	} else {
-		switch {
-		case frac <= 1:
-			nf = 1
-		case frac <= 2:
-			nf = 2
-		case frac <= 5:
-			nf = 5
-		default:
-			nf = 10
-		}
+		html += `</div>`
 	}
-	return nf * math.Pow(10, exp)
+	return html
 }
 
-// fnum formats a float for SVG output: trims trailing zeros, caps precision at
-// 3 decimals, and renders -0 as 0. Keeps golden files stable across platforms.
-func fnum(v float64) string {
-	if v == 0 || (v > -0.0005 && v < 0.0005) {
-		return "0"
-	}
-	s := strconv.FormatFloat(v, 'f', 3, 64)
-	s = strings.TrimRight(s, "0")
-	s = strings.TrimRight(s, ".")
-	return s
+// Horizontal bar layout constants.
+const (
+	HBarLabelGutter = 28.0
+	HBarValueGutter = 11.0
+	HBarPlotX       = HBarLabelGutter + 1.0
+	HBarTrackW      = 100.0 - HBarPlotX - HBarValueGutter
+	HBarBarInset    = 0.16
+	MaxLabelLen     = 22
+)
+
+// LegendItem is a labeled color swatch used in chart legends.
+type LegendItem struct {
+	Label string
+	Color string
 }
 
-// esc escapes text for inclusion in SVG/XML body or attribute values.
-func esc(s string) string {
-	r := strings.NewReplacer(
-		"&", "&amp;",
-		"<", "&lt;",
-		">", "&gt;",
-		"\"", "&quot;",
-		"'", "&#39;",
-	)
-	return r.Replace(s)
+// AxisTick is a positioned label on a chart axis.
+type AxisTick struct {
+	Pos   float64
+	Label string
 }
 
-// svg is a small fluent builder over an io.Writer for emitting SVG. It records
-// the first write error and is a no-op afterward, so callers can write a whole
-// chart then check Err once.
-type svg struct {
-	w   io.Writer
-	err error
-}
-
-func newSVG(w io.Writer) *svg { return &svg{w: w} }
-
-func (s *svg) Err() error { return s.err }
-
-func (s *svg) p(parts ...string) {
-	if s.err != nil {
-		return
-	}
-	for _, p := range parts {
-		if _, err := io.WriteString(s.w, p); err != nil {
-			s.err = err
-			return
-		}
-	}
-}
-
-// open writes the root <svg> element with a viewBox and accessibility metadata.
-func (s *svg) open(w, h float64, title string) {
-	s.p(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 `,
-		fnum(w), " ", fnum(h),
-		`" preserveAspectRatio="xMidYMid meet" role="img" class="chart"`)
-	if title != "" {
-		s.p(` aria-label="`, esc(title), `">`)
-		s.p(`<title>`, esc(title), `</title>`)
-	} else {
-		s.p(`>`)
-	}
-}
-
-func (s *svg) close() { s.p(`</svg>`) }
-
-// rect writes a <rect>. fill is a CSS color/variable string; extra is appended
-// raw (e.g. `rx="2"`).
-func (s *svg) rect(b Box, fill, extra string) {
-	s.p(`<rect x="`, fnum(b.X), `" y="`, fnum(b.Y),
-		`" width="`, fnum(b.W), `" height="`, fnum(b.H),
-		`" fill="`, fill, `"`)
-	if extra != "" {
-		s.p(" ", extra)
-	}
-	s.p(`/>`)
-}
-
-func (s *svg) line(x1, y1, x2, y2 float64, stroke, extra string) {
-	s.p(`<line x1="`, fnum(x1), `" y1="`, fnum(y1),
-		`" x2="`, fnum(x2), `" y2="`, fnum(y2),
-		`" stroke="`, stroke, `"`)
-	if extra != "" {
-		s.p(" ", extra)
-	}
-	s.p(`/>`)
-}
-
-func (s *svg) circle(cx, cy, r float64, fill, extra string) {
-	s.p(`<circle cx="`, fnum(cx), `" cy="`, fnum(cy),
-		`" r="`, fnum(r), `" fill="`, fill, `"`)
-	if extra != "" {
-		s.p(" ", extra)
-	}
-	s.p(`/>`)
-}
-
-func (s *svg) path(d, fill, stroke, extra string) {
-	s.p(`<path d="`, d, `" fill="`, fill, `"`)
-	if stroke != "" {
-		s.p(` stroke="`, stroke, `"`)
-	}
-	if extra != "" {
-		s.p(" ", extra)
-	}
-	s.p(`/>`)
-}
-
-// text writes a <text> element. anchor is start|middle|end (empty = default).
-func (s *svg) text(x, y float64, anchor, cls, body string) {
-	s.p(`<text x="`, fnum(x), `" y="`, fnum(y), `"`)
-	if anchor != "" {
-		s.p(` text-anchor="`, anchor, `"`)
-	}
-	if cls != "" {
-		s.p(` class="`, cls, `"`)
-	}
-	s.p(`>`, esc(body), `</text>`)
-}
-
-// title writes a child <title> for an element group (tooltip/accessible name).
-func (s *svg) title(body string) {
-	s.p(`<title>`, esc(body), `</title>`)
-}
-
-// polyPath builds an SVG path "d" from points; if close, the path is closed.
-func polyPath(pts [][2]float64, closed bool) string {
-	if len(pts) == 0 {
-		return ""
-	}
-	var b strings.Builder
-	b.WriteString("M")
-	for i, p := range pts {
-		if i == 1 {
-			b.WriteString("L")
-		}
-		if i > 0 {
-			b.WriteString(" ")
-		}
-		b.WriteString(fnum(p[0]))
-		b.WriteString(",")
-		b.WriteString(fnum(p[1]))
-	}
-	if closed {
-		b.WriteString("Z")
-	}
-	return b.String()
+// Itoa converts an int to string (used in templ data attributes).
+func Itoa(i int) string {
+	return strconv.Itoa(i)
 }

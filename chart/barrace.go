@@ -1,9 +1,16 @@
 package chart
 
 import (
-	"io"
 	"sort"
+	"strconv"
+	"strings"
 )
+
+// Datum is one labeled value in a bar-race frame.
+type Datum struct {
+	Label string
+	Value float64
+}
 
 // BarRaceInput configures one frame of a bar race. Each frame is a normal SSR
 // render; animation comes from the server patching successive frames over SSE
@@ -26,13 +33,13 @@ type BarRaceLayout struct {
 }
 
 type raceBar struct {
-	ID    string // stable per-label id for SSE patching
-	Box   Box
-	Color string
-	Label string
-	Value string
-	ValX  float64
-	LblY  float64
+	ID         string // stable per-label id for SSE patching
+	X, Y, W, H float64
+	Color      string
+	Label      string
+	Value      string
+	ValX       float64
+	LblY       float64
 }
 
 // LayoutBarRace computes geometry for one frame of a bar race. Bars are sorted
@@ -78,8 +85,11 @@ func LayoutBarRace(in BarRaceInput) BarRaceLayout {
 		}
 		lay.Bars = append(lay.Bars, raceBar{
 			ID:    "race-" + slug(d.Label),
-			Box:   Box{X: trackX, Y: y + 4, W: bw, H: rowH - 12},
-			Color: QualitativeVar(rank),
+			X:     trackX,
+			Y:     y + 4,
+			W:     bw,
+			H:     rowH - 12,
+			Color: ColorVar(rank),
 			Label: d.Label,
 			Value: fnum(d.Value),
 			ValX:  trackX + bw + 6,
@@ -108,20 +118,14 @@ func slug(s string) string {
 	return string(out)
 }
 
-// BarRaceSVG renders one frame of the bar race described by lay. Each bar group
-// carries a stable id so the server can patch it over SSE; CSS transitions on
-// the client tween the geometry between frames.
-func BarRaceSVG(w io.Writer, lay BarRaceLayout) error {
-	s := newSVG(w)
-	s.open(lay.W, lay.H, lay.Title)
-	for _, b := range lay.Bars {
-		s.p(`<g id="`, b.ID, `">`)
-		s.title(b.Label + ": " + b.Value)
-		s.text(b.Box.X-8, b.LblY+4, "end", "chart-label", b.Label)
-		s.rect(b.Box, b.Color, `rx="2"`)
-		s.text(b.ValX, b.LblY+4, "start", "chart-value", b.Value)
-		s.p(`</g>`)
+// fnum formats a race value: trims trailing zeros, caps precision at 3
+// decimals, and renders -0 as 0, so labels stay short and stable.
+func fnum(v float64) string {
+	if v == 0 || (v > -0.0005 && v < 0.0005) {
+		return "0"
 	}
-	s.close()
-	return s.Err()
+	s := strconv.FormatFloat(v, 'f', 3, 64)
+	s = strings.TrimRight(s, "0")
+	s = strings.TrimRight(s, ".")
+	return s
 }

@@ -1,116 +1,136 @@
 package chart
 
-import (
-	"io"
-	"math"
-)
+import "fmt"
 
-// BoxStats is the five-number summary for one box in a box plot. Callers
-// compute the quantiles (the package does not assume raw samples).
-type BoxStats struct {
-	Label                    string
-	Min, Q1, Median, Q3, Max float64
+// --- Input types ------------------------------------------------------------
+
+type BoxPlotData struct {
+	Groups []BoxGroup `json:"groups"`
+	YLabel string     `json:"yLabel,omitempty"`
+	Unit   string     `json:"unit,omitempty"`
 }
 
-// BoxPlotInput configures a box-and-whisker plot.
-type BoxPlotInput struct {
-	Title  string
-	Boxes  []BoxStats
-	Width  float64 // defaults to 480
-	Height float64 // defaults to 320
+type BoxGroup struct {
+	Label string  `json:"label"`
+	Min   float64 `json:"min"`
+	Q1    float64 `json:"q1"`
+	Med   float64 `json:"med"`
+	Q3    float64 `json:"q3"`
+	Max   float64 `json:"max"`
 }
 
-// BoxPlotLayout is the geometry for a box plot.
-type BoxPlotLayout struct {
-	W, H   float64
-	Title  string
-	Plot   Box
-	Items  []boxGeom
-	YTicks []axisTick
+// --- Output geometry --------------------------------------------------------
+
+// BoxPlot uses a 1000x700 viewBox.
+type BoxPlot struct {
+	Boxes  []Box
+	GridYs []float64
+	YTicks []ScatterTick
+	PlotL  float64
+	PlotR  float64
+	PlotT  float64
+	PlotB  float64
 }
 
-type boxGeom struct {
-	Label                      string
-	Color                      string
-	CX, BoxW                   float64
-	YMin, YQ1, YMed, YQ3, YMax float64
-	Stats                      BoxStats
+type Box struct {
+	Label  string
+	CX     float64
+	BoxW   float64
+	MinY   float64
+	Q1Y    float64
+	MedY   float64
+	Q3Y    float64
+	MaxY   float64
+	Color  string
+	Tip    string
+	LabelY float64
 }
 
-// LayoutBoxPlot computes geometry for a box plot.
-func LayoutBoxPlot(in BoxPlotInput) BoxPlotLayout {
-	w := in.Width
-	if w == 0 {
-		w = 480
-	}
-	h := in.Height
-	if h == 0 {
-		h = 320
-	}
-	plot := Box{X: 48, Y: 16, W: w - 64, H: h - 40}
-	lay := BoxPlotLayout{W: w, H: h, Title: in.Title, Plot: plot}
-	n := len(in.Boxes)
+// --- Layout -----------------------------------------------------------------
+
+func LayoutBoxPlot(data BoxPlotData) BoxPlot {
+	n := len(data.Groups)
 	if n == 0 {
-		return lay
+		return BoxPlot{}
 	}
-	min, max := math.Inf(1), math.Inf(-1)
-	for _, b := range in.Boxes {
-		min = math.Min(min, b.Min)
-		max = math.Max(max, b.Max)
+
+	const (
+		vw   = 1000.0
+		vh   = 700.0
+		padL = 80.0
+		padR = 30.0
+		padT = 20.0
+		padB = 70.0
+	)
+	plotW := vw - padL - padR
+	plotH := vh - padT - padB
+
+	var minV, maxV float64
+	minV = data.Groups[0].Min
+	maxV = data.Groups[0].Max
+	for _, g := range data.Groups {
+		if g.Min < minV {
+			minV = g.Min
+		}
+		if g.Max > maxV {
+			maxV = g.Max
+		}
 	}
-	if max <= min {
-		max = min + 1
+	span := maxV - minV
+	if span == 0 {
+		span = 1
 	}
-	sy := func(v float64) float64 { return plot.Bottom() - (v-min)/(max-min)*plot.H }
-	slot := plot.W / float64(n)
-	bw := math.Min(slot*0.5, 48)
-	for i, b := range in.Boxes {
-		cx := plot.X + slot*float64(i) + slot/2
-		lay.Items = append(lay.Items, boxGeom{
-			Label: b.Label, Color: QualitativeVar(i),
-			CX: cx, BoxW: bw,
-			YMin: sy(b.Min), YQ1: sy(b.Q1), YMed: sy(b.Median),
-			YQ3: sy(b.Q3), YMax: sy(b.Max), Stats: b,
+	padFrac := span * 0.1
+	minV -= padFrac
+	maxV += padFrac
+	span = maxV - minV
+
+	out := BoxPlot{
+		PlotL: padL, PlotR: vw - padR, PlotT: padT, PlotB: vh - padB,
+	}
+
+	yMap := func(v float64) float64 {
+		return (vh - padB) - ((v-minV)/span)*plotH
+	}
+
+	nTicks := 6
+	for i := 0; i <= nTicks; i++ {
+		t := float64(i) / float64(nTicks)
+		yVal := minV + t*span
+		yPos := yMap(yVal)
+		out.GridYs = append(out.GridYs, yPos)
+		out.YTicks = append(out.YTicks, ScatterTick{Pos: yPos, Label: fmt.Sprintf("%.0f", yVal)})
+	}
+
+	band := plotW / float64(n)
+	boxW := band * 0.5
+
+	for i, g := range data.Groups {
+		cx := padL + (float64(i)+0.5)*band
+		color := ColorVar(i)
+
+		tip := BuildTipHTML(color, g.Label, []TipRow{
+			{Label: "max", Value: fmt.Sprintf("%.0f", g.Max) + " " + data.Unit},
+			{Label: "Q3", Value: fmt.Sprintf("%.0f", g.Q3) + " " + data.Unit},
+			{Label: "median", Value: fmt.Sprintf("%.0f", g.Med) + " " + data.Unit},
+			{Label: "Q1", Value: fmt.Sprintf("%.0f", g.Q1) + " " + data.Unit},
+			{Label: "min", Value: fmt.Sprintf("%.0f", g.Min) + " " + data.Unit},
+		})
+
+		out.Boxes = append(out.Boxes, Box{
+			Label:  g.Label,
+			CX:     cx,
+			BoxW:   boxW,
+			MinY:   yMap(g.Min),
+			Q1Y:    yMap(g.Q1),
+			MedY:   yMap(g.Med),
+			Q3Y:    yMap(g.Q3),
+			MaxY:   yMap(g.Max),
+			Color:  color,
+			Tip:    tip,
+			LabelY: vh - padB + 30,
 		})
 	}
-	for _, t := range niceTicks(min, max, 5) {
-		lay.YTicks = append(lay.YTicks, axisTick{Pos: sy(t), Label: fnum(t)})
-	}
-	return lay
-}
 
-// BoxPlotSVG renders the box plot described by lay.
-func BoxPlotSVG(w io.Writer, lay BoxPlotLayout) error {
-	s := newSVG(w)
-	s.open(lay.W, lay.H, lay.Title)
-	for _, t := range lay.YTicks {
-		s.line(lay.Plot.X, t.Pos, lay.Plot.Right(), t.Pos,
-			"var(--chart-grid, currentColor)",
-			`stroke-width="1" stroke-opacity="0.15" vector-effect="non-scaling-stroke"`)
-		s.text(lay.Plot.X-6, t.Pos+3, "end", "chart-axis", t.Label)
-	}
-	for _, g := range lay.Items {
-		half := g.BoxW / 2
-		s.p(`<g>`)
-		s.title(g.Label)
-		// whiskers
-		s.line(g.CX, g.YMax, g.CX, g.YQ3, "currentColor",
-			`stroke-width="1" vector-effect="non-scaling-stroke"`)
-		s.line(g.CX, g.YQ1, g.CX, g.YMin, "currentColor",
-			`stroke-width="1" vector-effect="non-scaling-stroke"`)
-		s.line(g.CX-half/2, g.YMax, g.CX+half/2, g.YMax, "currentColor",
-			`stroke-width="1" vector-effect="non-scaling-stroke"`)
-		s.line(g.CX-half/2, g.YMin, g.CX+half/2, g.YMin, "currentColor",
-			`stroke-width="1" vector-effect="non-scaling-stroke"`)
-		// box (Q1..Q3)
-		s.rect(Box{X: g.CX - half, Y: g.YQ3, W: g.BoxW, H: g.YQ1 - g.YQ3},
-			g.Color, `fill-opacity="0.4" stroke="`+g.Color+`" stroke-width="1" vector-effect="non-scaling-stroke"`)
-		// median
-		s.line(g.CX-half, g.YMed, g.CX+half, g.YMed, g.Color,
-			`stroke-width="2" vector-effect="non-scaling-stroke"`)
-		s.p(`</g>`)
-		s.text(g.CX, lay.Plot.Bottom()+16, "middle", "chart-axis", g.Label)
-	}
-	s.close()
-	return s.Err()
+	return out
 }

@@ -1,157 +1,225 @@
 package chart
 
 import (
-	"io"
+	"fmt"
 	"math"
 )
 
-// ChordInput configures a chord diagram from a square relationship matrix.
-// Matrix[i][j] is the weight from group i to group j.
-type ChordInput struct {
-	Title  string
-	Labels []string
-	Matrix [][]float64
-	Size   float64 // diameter; defaults to 360
+// --- Input types ------------------------------------------------------------
+
+type ChordData struct {
+	Groups []string    `json:"groups"`
+	Matrix [][]float64 `json:"matrix"`
+	Unit   string      `json:"unit,omitempty"`
 }
 
-// ChordLayout is the geometry for a chord diagram.
-type ChordLayout struct {
-	W, H    float64
-	Title   string
-	Arcs    []chordArc
-	Ribbons []chordRibbon
+// --- Output geometry --------------------------------------------------------
+
+// Chord uses a 200x200 viewBox centered at (100,100).
+type Chord struct {
+	Arcs    []ChordArc
+	Ribbons []ChordRibbon
 }
 
-type chordArc struct {
-	D      string
-	Color  string
-	Label  string
-	LblX   float64
-	LblY   float64
-	Anchor string
+type ChordArc struct {
+	PathD       string
+	Color       string
+	Label       string
+	LabelX      string
+	LabelY      string
+	LabelAnchor string
+	Tip         string
+	GroupIdx    int
 }
 
-type chordRibbon struct {
-	D     string
-	Color string
-	Tip   string
+type ChordRibbon struct {
+	PathD    string
+	Color    string
+	Opacity  string
+	Tip      string
+	SrcGroup int
+	DstGroup int
 }
 
-// LayoutChord computes geometry for a chord diagram. Each group gets an arc on
-// the circle sized by its total weight; ribbons connect related groups.
-func LayoutChord(in ChordInput) ChordLayout {
-	size := in.Size
-	if size == 0 {
-		size = 360
+// --- Layout -----------------------------------------------------------------
+
+func LayoutChord(data ChordData) Chord {
+	n := len(data.Groups)
+	if n == 0 || len(data.Matrix) != n {
+		return Chord{}
 	}
-	lay := ChordLayout{W: size, H: size, Title: in.Title}
-	n := len(in.Labels)
-	if n == 0 {
-		return lay
-	}
-	cx, cy := size/2, size/2
-	rOuter := size/2 - 40
-	rInner := rOuter - 12
 
-	// Row totals (out + in, symmetric-ish) for arc sizing.
+	// Row totals for arc sizing.
 	totals := make([]float64, n)
-	grand := 0.0
+	var grandTotal float64
 	for i := 0; i < n; i++ {
 		for j := 0; j < n; j++ {
-			if i < len(in.Matrix) && j < len(in.Matrix[i]) {
-				totals[i] += in.Matrix[i][j]
-			}
+			totals[i] += data.Matrix[i][j]
 		}
-		grand += totals[i]
+		grandTotal += totals[i]
 	}
-	if grand <= 0 {
-		grand = 1
+	if grandTotal == 0 {
+		return Chord{}
 	}
-	gap := 0.03 * 2 * math.Pi
-	avail := 2*math.Pi - gap*float64(n)
-	// arc angle ranges
-	start := make([]float64, n)
-	end := make([]float64, n)
-	ang := -math.Pi / 2
+
+	const (
+		cx       = 100.0
+		cy       = 100.0
+		outerR   = 44.0
+		innerR   = 40.0
+		padAngle = 0.04
+		twoPi    = 2 * math.Pi
+	)
+
+	totalPad := padAngle * float64(n)
+	availAngle := twoPi - totalPad
+
+	// Compute arc start/end angles.
+	type arcRange struct {
+		start, end float64
+	}
+	arcs := make([]arcRange, n)
+	angle := 0.0
 	for i := 0; i < n; i++ {
-		start[i] = ang
-		sweep := totals[i] / grand * avail
-		end[i] = ang + sweep
-		ang = end[i] + gap
+		sweep := (totals[i] / grandTotal) * availAngle
+		arcs[i] = arcRange{start: angle, end: angle + sweep}
+		angle += sweep + padAngle
 	}
-	pt := func(r, a float64) (float64, float64) {
-		return cx + r*math.Cos(a), cy + r*math.Sin(a)
+
+	polarXY := func(r, a float64) (float64, float64) {
+		return cx + r*math.Cos(a-math.Pi/2), cy + r*math.Sin(a-math.Pi/2)
 	}
-	for i := 0; i < n; i++ {
-		x0, y0 := pt(rOuter, start[i])
-		x1, y1 := pt(rOuter, end[i])
-		xi1, yi1 := pt(rInner, end[i])
-		xi0, yi0 := pt(rInner, start[i])
+
+	arcPath := func(r float64, a0, a1 float64) string {
+		x0, y0 := polarXY(r, a0)
+		x1, y1 := polarXY(r, a1)
 		large := 0
-		if end[i]-start[i] > math.Pi {
+		if a1-a0 > math.Pi {
 			large = 1
 		}
-		d := "M" + fnum(x0) + "," + fnum(y0) +
-			" A" + fnum(rOuter) + "," + fnum(rOuter) + " 0 " + itoa(large) + " 1 " + fnum(x1) + "," + fnum(y1) +
-			" L" + fnum(xi1) + "," + fnum(yi1) +
-			" A" + fnum(rInner) + "," + fnum(rInner) + " 0 " + itoa(large) + " 0 " + fnum(xi0) + "," + fnum(yi0) + " Z"
-		mid := (start[i] + end[i]) / 2
-		lx, ly := pt(rOuter+12, mid)
-		anchor := "start"
-		if math.Cos(mid) < 0 {
+		return fmt.Sprintf("M %.2f %.2f A %.2f %.2f 0 %d 1 %.2f %.2f", x0, y0, r, r, large, x1, y1)
+	}
+
+	out := Chord{}
+
+	for i := 0; i < n; i++ {
+		color := ColorVar(i)
+		midAngle := (arcs[i].start + arcs[i].end) / 2
+
+		outerPath := arcPath(outerR, arcs[i].start, arcs[i].end)
+		ix0, iy0 := polarXY(innerR, arcs[i].end)
+		innerPath := arcPath(innerR, arcs[i].end, arcs[i].start)
+		ox0, oy0 := polarXY(outerR, arcs[i].start)
+
+		d := outerPath +
+			fmt.Sprintf(" L %.2f %.2f ", ix0, iy0) +
+			reverseArc(innerPath) +
+			fmt.Sprintf(" L %.2f %.2f Z", ox0, oy0)
+
+		lx, ly := polarXY(outerR+6, midAngle)
+		anchor := "middle"
+		if lx < cx-5 {
 			anchor = "end"
+		} else if lx > cx+5 {
+			anchor = "start"
 		}
-		lay.Arcs = append(lay.Arcs, chordArc{
-			D: d, Color: QualitativeVar(i), Label: in.Labels[i],
-			LblX: lx, LblY: ly + 3, Anchor: anchor,
+
+		tip := BuildTipHTML(color, data.Groups[i],
+			[]TipRow{{Label: "total", Value: fmt.Sprintf("%.0f", totals[i]) + " " + data.Unit}})
+
+		out.Arcs = append(out.Arcs, ChordArc{
+			PathD:       d,
+			Color:       color,
+			Label:       data.Groups[i],
+			LabelX:      fmt.Sprintf("%.2f", lx),
+			LabelY:      fmt.Sprintf("%.2f", ly),
+			LabelAnchor: anchor,
+			Tip:         tip,
+			GroupIdx:    i,
 		})
 	}
-	// Ribbons: for each i<j with weight, a quadratic-ish band through center.
+
+	// Ribbons -- one per non-zero matrix cell.
+	offsets := make([]float64, n)
 	for i := 0; i < n; i++ {
-		for j := i; j < n; j++ {
-			var wgt float64
-			if i < len(in.Matrix) && j < len(in.Matrix[i]) {
-				wgt += in.Matrix[i][j]
-			}
-			if i != j && j < len(in.Matrix) && i < len(in.Matrix[j]) {
-				wgt += in.Matrix[j][i]
-			}
-			if wgt <= 0 {
+		for j := 0; j < n; j++ {
+			v := data.Matrix[i][j]
+			if v <= 0 {
 				continue
 			}
-			ai := (start[i] + end[i]) / 2
-			aj := (start[j] + end[j]) / 2
-			xi, yi := pt(rInner, ai)
-			xj, yj := pt(rInner, aj)
-			d := "M" + fnum(xi) + "," + fnum(yi) +
-				" Q" + fnum(cx) + "," + fnum(cy) + " " + fnum(xj) + "," + fnum(yj)
-			lay.Ribbons = append(lay.Ribbons, chordRibbon{
-				D: d, Color: QualitativeVar(i),
-				Tip: in.Labels[i] + " ↔ " + in.Labels[j] + ": " + fnum(wgt),
+			srcSweep := (v / grandTotal) * availAngle
+			srcA0 := arcs[i].start + offsets[i]
+			srcA1 := srcA0 + srcSweep
+			offsets[i] += srcSweep
+
+			// Find the target sub-arc.
+			var tgtOff float64
+			for k := 0; k < i; k++ {
+				tgtOff += (data.Matrix[k][j] / grandTotal) * availAngle
+			}
+			tgtSweep := (v / grandTotal) * availAngle
+			tgtA0 := arcs[j].start + tgtOff
+			tgtA1 := tgtA0 + tgtSweep
+
+			sx0, sy0 := polarXY(innerR, srcA0)
+			sx1, sy1 := polarXY(innerR, srcA1)
+			tx0, ty0 := polarXY(innerR, tgtA0)
+			tx1, ty1 := polarXY(innerR, tgtA1)
+
+			d := fmt.Sprintf("M %.2f %.2f", sx0, sy0)
+			srcLarge := 0
+			if srcA1-srcA0 > math.Pi {
+				srcLarge = 1
+			}
+			d += fmt.Sprintf(" A %.2f %.2f 0 %d 1 %.2f %.2f", innerR, innerR, srcLarge, sx1, sy1)
+			d += fmt.Sprintf(" Q %.2f %.2f %.2f %.2f", cx, cy, tx0, ty0)
+			tgtLarge := 0
+			if tgtA1-tgtA0 > math.Pi {
+				tgtLarge = 1
+			}
+			d += fmt.Sprintf(" A %.2f %.2f 0 %d 1 %.2f %.2f", innerR, innerR, tgtLarge, tx1, ty1)
+			d += fmt.Sprintf(" Q %.2f %.2f %.2f %.2f Z", cx, cy, sx0, sy0)
+
+			tip := BuildTipHTML("", data.Groups[i]+" → "+data.Groups[j],
+				[]TipRow{{Label: "flow", Value: fmt.Sprintf("%.0f", v) + " " + data.Unit}})
+
+			out.Ribbons = append(out.Ribbons, ChordRibbon{
+				PathD:    d,
+				Color:    ColorVar(i),
+				Opacity:  "0.45",
+				Tip:      tip,
+				SrcGroup: i,
+				DstGroup: j,
 			})
 		}
 	}
-	return lay
+
+	return out
 }
 
-// ChordSVG renders the chord diagram described by lay.
-func ChordSVG(w io.Writer, lay ChordLayout) error {
-	s := newSVG(w)
-	s.open(lay.W, lay.H, lay.Title)
-	for _, r := range lay.Ribbons {
-		s.p(`<g>`)
-		s.title(r.Tip)
-		s.path(r.D, "none", r.Color,
-			`stroke-width="2" stroke-opacity="0.4" vector-effect="non-scaling-stroke"`)
-		s.p(`</g>`)
+// reverseArc flips the sweep-direction flag in a single SVG arc command.
+func reverseArc(d string) string {
+	out := make([]byte, len(d))
+	copy(out, d)
+	inA := false
+	spaces := 0
+	for i := 0; i < len(out); i++ {
+		if out[i] == 'A' {
+			inA = true
+			spaces = 0
+			continue
+		}
+		if inA && out[i] == ' ' {
+			spaces++
+			if spaces == 5 {
+				if i+1 < len(out) && out[i+1] == '1' {
+					out[i+1] = '0'
+				} else if i+1 < len(out) && out[i+1] == '0' {
+					out[i+1] = '1'
+				}
+				inA = false
+			}
+		}
 	}
-	for _, a := range lay.Arcs {
-		s.p(`<g>`)
-		s.title(a.Label)
-		s.path(a.D, a.Color, "", "")
-		s.p(`</g>`)
-		s.text(a.LblX, a.LblY, a.Anchor, "chart-label", a.Label)
-	}
-	s.close()
-	return s.Err()
+	return string(out)
 }

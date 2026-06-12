@@ -1,91 +1,188 @@
 package chart
 
-import "io"
+import (
+	"fmt"
+	"math"
+)
 
-// ScatterInput configures a scatter plot. It reuses XYSeries; each series gets
-// its own qualitative color.
-type ScatterInput struct {
-	Series []XYSeries
-	Title  string
-	Width  float64 // defaults to 480
-	Height float64 // defaults to 360
-	Radius float64 // point radius; defaults to 3
+// --- Input types ------------------------------------------------------------
+
+type ScatterData struct {
+	Series []ScatterSeries `json:"series"`
+	XLabel string          `json:"xLabel,omitempty"`
+	YLabel string          `json:"yLabel,omitempty"`
 }
 
-// ScatterLayout is the geometry for a scatter plot.
-type ScatterLayout struct {
-	W, H   float64
-	Title  string
-	Plot   Box
-	Radius float64
-	Series []scatterSeries
-	XTicks []axisTick
-	YTicks []axisTick
+type ScatterSeries struct {
+	Label  string         `json:"label"`
+	Points []ScatterPoint `json:"points"`
 }
 
-type scatterSeries struct {
-	Name  string
+type ScatterPoint struct {
+	X     float64 `json:"x"`
+	Y     float64 `json:"y"`
+	Label string  `json:"label,omitempty"`
+}
+
+// --- Output geometry --------------------------------------------------------
+
+// Scatter uses a 1000x700 viewBox.
+type Scatter struct {
+	Dots       []ScatterDot
+	TrendLines []ScatterTrend
+	GridYs     []float64
+	GridXs     []float64
+	YTicks     []ScatterTick
+	XTicks     []ScatterTick
+	Legend     []LegendItem
+	PlotL      float64
+	PlotR      float64
+	PlotT      float64
+	PlotB      float64
+}
+
+type ScatterTrend struct {
+	X1, Y1, X2, Y2 float64
+	Color          string
+}
+
+type ScatterDot struct {
+	CX    float64
+	CY    float64
+	R     float64
 	Color string
-	Pts   [][2]float64
+	Tip   string
 }
 
-// LayoutScatter computes geometry for a scatter plot.
-func LayoutScatter(in ScatterInput) ScatterLayout {
-	w := in.Width
-	if w == 0 {
-		w = 480
-	}
-	h := in.Height
-	if h == 0 {
-		h = 360
-	}
-	rad := in.Radius
-	if rad == 0 {
-		rad = 3
-	}
-	plot := Box{X: 48, Y: 16, W: w - 64, H: h - 40}
-	xmin, xmax, ymin, ymax := dataBounds(in.Series)
-	if xmax <= xmin {
-		xmax = xmin + 1
-	}
-	if ymax <= ymin {
-		ymax = ymin + 1
-	}
-	sx := func(x float64) float64 { return plot.X + (x-xmin)/(xmax-xmin)*plot.W }
-	sy := func(y float64) float64 { return plot.Bottom() - (y-ymin)/(ymax-ymin)*plot.H }
-
-	lay := ScatterLayout{W: w, H: h, Title: in.Title, Plot: plot, Radius: rad}
-	for i, ser := range in.Series {
-		g := scatterSeries{Name: ser.Name, Color: QualitativeVar(i)}
-		for _, p := range ser.Points {
-			g.Pts = append(g.Pts, [2]float64{sx(p.X), sy(p.Y)})
-		}
-		lay.Series = append(lay.Series, g)
-	}
-	for _, t := range niceTicks(ymin, ymax, 5) {
-		lay.YTicks = append(lay.YTicks, axisTick{Pos: sy(t), Label: fnum(t)})
-	}
-	for _, t := range niceTicks(xmin, xmax, 6) {
-		lay.XTicks = append(lay.XTicks, axisTick{Pos: sx(t), Label: fnum(t)})
-	}
-	return lay
+type ScatterTick struct {
+	Pos   float64
+	Label string
 }
 
-// ScatterSVG renders the scatter plot described by lay.
-func ScatterSVG(w io.Writer, lay ScatterLayout) error {
-	s := newSVG(w)
-	s.open(lay.W, lay.H, lay.Title)
-	drawGrid(s, lay.Plot, lay.XTicks, lay.YTicks)
-	for _, g := range lay.Series {
-		s.p(`<g fill="`, g.Color, `">`)
-		if g.Name != "" {
-			s.title(g.Name)
-		}
-		for _, p := range g.Pts {
-			s.circle(p[0], p[1], lay.Radius, g.Color, `fill-opacity="0.7"`)
-		}
-		s.p(`</g>`)
+// --- Layout -----------------------------------------------------------------
+
+func LayoutScatter(data ScatterData) Scatter {
+	if len(data.Series) == 0 {
+		return Scatter{}
 	}
-	s.close()
-	return s.Err()
+
+	const (
+		vw   = 1000.0
+		vh   = 700.0
+		padL = 80.0
+		padR = 30.0
+		padT = 30.0
+		padB = 60.0
+	)
+	plotW := vw - padL - padR
+	plotH := vh - padT - padB
+
+	var minX, maxX, minY, maxY float64
+	first := true
+	for _, s := range data.Series {
+		for _, p := range s.Points {
+			if first {
+				minX, maxX = p.X, p.X
+				minY, maxY = p.Y, p.Y
+				first = false
+			}
+			minX = math.Min(minX, p.X)
+			maxX = math.Max(maxX, p.X)
+			minY = math.Min(minY, p.Y)
+			maxY = math.Max(maxY, p.Y)
+		}
+	}
+	spanX := maxX - minX
+	spanY := maxY - minY
+	if spanX == 0 {
+		spanX = 1
+	}
+	if spanY == 0 {
+		spanY = 1
+	}
+	padFracX := spanX * 0.05
+	padFracY := spanY * 0.05
+	minX -= padFracX
+	maxX += padFracX
+	minY -= padFracY
+	maxY += padFracY
+	spanX = maxX - minX
+	spanY = maxY - minY
+
+	out := Scatter{
+		PlotL: padL, PlotR: vw - padR, PlotT: padT, PlotB: vh - padB,
+	}
+
+	nYTicks := 5
+	for i := 0; i <= nYTicks; i++ {
+		t := float64(i) / float64(nYTicks)
+		yVal := minY + t*spanY
+		yPos := (vh - padB) - t*plotH
+		out.GridYs = append(out.GridYs, yPos)
+		out.YTicks = append(out.YTicks, ScatterTick{Pos: yPos, Label: fmt.Sprintf("%.0f", yVal)})
+	}
+
+	nXTicks := 5
+	for i := 0; i <= nXTicks; i++ {
+		t := float64(i) / float64(nXTicks)
+		xVal := minX + t*spanX
+		xPos := padL + t*plotW
+		out.GridXs = append(out.GridXs, xPos)
+		out.XTicks = append(out.XTicks, ScatterTick{Pos: xPos, Label: fmt.Sprintf("%.0f", xVal)})
+	}
+
+	for si, s := range data.Series {
+		color := ColorVar(si)
+		out.Legend = append(out.Legend, LegendItem{Label: s.Label, Color: color})
+
+		var sumX, sumY, sumXX, sumXY float64
+		n := float64(len(s.Points))
+
+		for _, p := range s.Points {
+			tx := (p.X - minX) / spanX
+			ty := (p.Y - minY) / spanY
+			cx := padL + tx*plotW
+			cy := (vh - padB) - ty*plotH
+
+			label := p.Label
+			if label == "" {
+				label = fmt.Sprintf("(%.1f, %.1f)", p.X, p.Y)
+			}
+			tip := BuildTipHTML(color, label, []TipRow{
+				{Label: data.XLabel, Value: fmt.Sprintf("%.1f", p.X)},
+				{Label: data.YLabel, Value: fmt.Sprintf("%.1f", p.Y)},
+			})
+
+			out.Dots = append(out.Dots, ScatterDot{
+				CX: cx, CY: cy, R: 6, Color: color, Tip: tip,
+			})
+
+			sumX += p.X
+			sumY += p.Y
+			sumXX += p.X * p.X
+			sumXY += p.X * p.Y
+		}
+
+		if n >= 2 {
+			denom := n*sumXX - sumX*sumX
+			if denom != 0 {
+				slope := (n*sumXY - sumX*sumY) / denom
+				intercept := (sumY - slope*sumX) / n
+
+				trendY0 := slope*minX + intercept
+				trendY1 := slope*maxX + intercept
+
+				x1 := padL
+				y1 := (vh - padB) - ((trendY0-minY)/spanY)*plotH
+				x2 := padL + plotW
+				y2 := (vh - padB) - ((trendY1-minY)/spanY)*plotH
+
+				out.TrendLines = append(out.TrendLines, ScatterTrend{
+					X1: x1, Y1: y1, X2: x2, Y2: y2, Color: color,
+				})
+			}
+		}
+	}
+
+	return out
 }

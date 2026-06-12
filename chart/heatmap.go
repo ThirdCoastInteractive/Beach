@@ -1,106 +1,128 @@
 package chart
 
-import (
-	"io"
-	"math"
-)
+import "fmt"
 
-// HeatmapInput configures a labeled grid heatmap.
-type HeatmapInput struct {
-	Title  string
-	Cols   []string
-	Rows   []string
-	Values [][]float64 // [row][col]
-	Width  float64     // defaults to 480
-	Height float64     // defaults to 320
+// --- Input types ------------------------------------------------------------
+
+type HeatmapData struct {
+	Rows  []string      `json:"rows"`
+	Cols  []string      `json:"cols"`
+	Cells []HeatmapCell `json:"cells"`
+	Unit  string        `json:"unit,omitempty"`
 }
 
-// HeatmapLayout is the geometry for a grid heatmap.
-type HeatmapLayout struct {
-	W, H    float64
-	Title   string
-	Cells   []heatCell
-	ColLbls []axisTick
-	RowLbls []axisTick
+type HeatmapCell struct {
+	Row   int     `json:"row"`
+	Col   int     `json:"col"`
+	Value float64 `json:"value"`
 }
 
-type heatCell struct {
-	Box     Box
-	Opacity float64
-	Color   string
-	Tip     string
+// --- Output geometry --------------------------------------------------------
+
+type Heatmap struct {
+	Cells    []HeatmapGridCell
+	RowCount int
+	ColCount int
+	Rows     []HeatmapLabel
+	Cols     []HeatmapLabel
+	Tip      string
 }
 
-// LayoutHeatmap computes geometry for a grid heatmap. Cell intensity is encoded
-// as opacity over a single qualitative hue so the scale reads sequentially.
-func LayoutHeatmap(in HeatmapInput) HeatmapLayout {
-	w := in.Width
-	if w == 0 {
-		w = 480
-	}
-	h := in.Height
-	if h == 0 {
-		h = 320
-	}
-	lay := HeatmapLayout{W: w, H: h, Title: in.Title}
-	nRow, nCol := len(in.Rows), len(in.Cols)
-	if nRow == 0 || nCol == 0 {
-		return lay
-	}
-	left, top := 64.0, 24.0
-	gridW := w - left - 8
-	gridH := h - top - 24
-	cw := gridW / float64(nCol)
-	ch := gridH / float64(nRow)
+type HeatmapGridCell struct {
+	X     string
+	Y     string
+	W     string
+	H     string
+	Color string
+	Tip   string
+}
 
-	min, max := math.Inf(1), math.Inf(-1)
-	for _, row := range in.Values {
-		for _, v := range row {
-			min = math.Min(min, v)
-			max = math.Max(max, v)
+type HeatmapLabel struct {
+	Text string
+	X    string
+	Y    string
+}
+
+// --- Layout -----------------------------------------------------------------
+
+func LayoutHeatmap(data HeatmapData) Heatmap {
+	nRows := len(data.Rows)
+	nCols := len(data.Cols)
+	if nRows == 0 || nCols == 0 {
+		return Heatmap{}
+	}
+
+	const (
+		labelLeft   = 16.0
+		labelTop    = 8.0
+		plotLeft    = 17.0
+		plotTop     = 9.0
+		plotRight   = 99.0
+		plotBottom  = 95.0
+		cellPadding = 0.3
+	)
+	plotW := plotRight - plotLeft
+	plotH := plotBottom - plotTop
+	cellW := plotW / float64(nCols)
+	cellH := plotH / float64(nRows)
+
+	var minV, maxV float64
+	first := true
+	for _, c := range data.Cells {
+		if first || c.Value < minV {
+			minV = c.Value
 		}
-	}
-	if max <= min {
-		max = min + 1
-	}
-	color := QualitativeVar(0)
-	for r := 0; r < nRow; r++ {
-		for c := 0; c < nCol; c++ {
-			var v float64
-			if r < len(in.Values) && c < len(in.Values[r]) {
-				v = in.Values[r][c]
-			}
-			op := 0.1 + 0.9*(v-min)/(max-min)
-			lay.Cells = append(lay.Cells, heatCell{
-				Box:     Box{X: left + float64(c)*cw, Y: top + float64(r)*ch, W: cw - 1, H: ch - 1},
-				Opacity: op, Color: color,
-				Tip: in.Rows[r] + " / " + in.Cols[c] + ": " + fnum(v),
-			})
+		if first || c.Value > maxV {
+			maxV = c.Value
 		}
-		lay.RowLbls = append(lay.RowLbls, axisTick{Pos: top + float64(r)*ch + ch/2 + 3, Label: in.Rows[r]})
+		first = false
 	}
-	for c := 0; c < nCol; c++ {
-		lay.ColLbls = append(lay.ColLbls, axisTick{Pos: left + float64(c)*cw + cw/2, Label: in.Cols[c]})
+	span := maxV - minV
+	if span == 0 {
+		span = 1
 	}
-	return lay
-}
 
-// HeatmapSVG renders the heatmap described by lay.
-func HeatmapSVG(w io.Writer, lay HeatmapLayout) error {
-	s := newSVG(w)
-	s.open(lay.W, lay.H, lay.Title)
-	for _, cell := range lay.Cells {
-		s.p(`<g>`)
-		s.title(cell.Tip)
-		s.rect(cell.Box, cell.Color, `fill-opacity="`+fnum(cell.Opacity)+`" rx="1"`)
-		s.p(`</g>`)
+	out := Heatmap{RowCount: nRows, ColCount: nCols}
+
+	for i, label := range data.Rows {
+		y := plotTop + (float64(i)+0.5)*cellH
+		out.Rows = append(out.Rows, HeatmapLabel{
+			Text: label,
+			X:    Pct(labelLeft),
+			Y:    Pct(y),
+		})
 	}
-	for _, t := range lay.ColLbls {
-		s.text(t.Pos, 16, "middle", "chart-axis", t.Label)
+	for j, label := range data.Cols {
+		x := plotLeft + (float64(j)+0.5)*cellW
+		out.Cols = append(out.Cols, HeatmapLabel{
+			Text: label,
+			X:    Pct(x),
+			Y:    Pct(labelTop),
+		})
 	}
-	for _, t := range lay.RowLbls {
-		s.text(58, t.Pos, "end", "chart-axis", t.Label)
+
+	for _, c := range data.Cells {
+		t := (c.Value - minV) / span
+		l := 0.25 + t*0.45
+		ch := 0.02 + t*0.16
+		color := fmt.Sprintf("oklch(%.2f %.2f 250)", l, ch)
+
+		x := plotLeft + float64(c.Col)*cellW + cellPadding
+		y := plotTop + float64(c.Row)*cellH + cellPadding
+		w := cellW - 2*cellPadding
+		h := cellH - 2*cellPadding
+
+		tip := BuildTipHTML(color, data.Rows[c.Row]+" / "+data.Cols[c.Col],
+			[]TipRow{{Label: "value", Value: fmt.Sprintf("%.0f", c.Value) + " " + data.Unit}})
+
+		out.Cells = append(out.Cells, HeatmapGridCell{
+			X:     Pct(x),
+			Y:     Pct(y),
+			W:     Pct(w),
+			H:     Pct(h),
+			Color: color,
+			Tip:   tip,
+		})
 	}
-	s.close()
-	return s.Err()
+	return out
 }
