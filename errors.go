@@ -9,7 +9,7 @@ import (
 )
 
 // Errors are part of the handler contract: handlers return errors, not error
-// responses. The framework maps them to the kit's error page on navigation and
+// responses. The framework maps them to the driftwood error page on navigation and
 // to a toast / inline-validation patch on a Datastar request. One error type,
 // both renderings — no handler ever writes its own error HTML.
 
@@ -33,7 +33,7 @@ var (
 
 // ValidationError is a field-keyed validation failure returned by Bind and by
 // handlers that validate input. On a Datastar request the framework renders it as
-// inline field errors; on navigation it folds into the kit's error page. It maps
+// inline field errors; on navigation it folds into the error page. It maps
 // to HTTP 400.
 type ValidationError struct {
 	// Fields maps a form field name to its human-readable error. A general

@@ -4,11 +4,11 @@
 //
 // The builder collapses the boilerplate every service would otherwise repeat: a
 // fixed middleware stack (request log, recover, security headers + CSP, optional
-// session auth, kit injection), GET /healthz, static file serving with boot-time
-// SHA256 ETags and immutable cache headers, and graceful shutdown. Routes
-// register against typed handler shapes — PageFunc, ActionFunc, StreamFunc —
-// that encode the house rules by construction, with guards (Authed, Role, Can)
-// that make the auth story visible in the route table.
+// session auth), GET /healthz, static file serving with boot-time SHA256 ETags
+// and immutable cache headers, and graceful shutdown. Routes register against
+// typed handler shapes — PageFunc, ActionFunc, StreamFunc — that encode the
+// house rules by construction, with guards (Authed, Role, Can) that make the
+// auth story visible in the route table.
 //
 // Echo is named in the architecture doc, but the frozen go.mod ships no web
 // framework, so the implementation is stdlib net/http with the Go 1.22 ServeMux
@@ -31,12 +31,10 @@ import (
 
 	"github.com/ThirdCoastInteractive/the-beach/hub"
 	"github.com/ThirdCoastInteractive/the-beach/session"
-	"github.com/ThirdCoastInteractive/the-beach/ui"
 )
 
-// Config configures a new App. The zero value is usable: it yields a kit-less
-// build that refuses to start (a kit is mandatory), so every field worth setting
-// has a sensible default and the only hard requirement is a UI kit.
+// Config configures a new App. The zero value is usable: every field worth
+// setting has a sensible default.
 type Config struct {
 	// Service names the running service (used in logs and the default Server
 	// header). e.g. "live".
@@ -53,14 +51,9 @@ type Config struct {
 
 	// Static is the filesystem served under /static (with boot-time ETags and
 	// immutable cache headers). When nil, the framework serves the embedded
-	// internal/view/static tree (the kit stylesheet and the Datastar client).
+	// internal/view/static tree (app.css, the Datastar client, and the chart
+	// modules).
 	Static fs.FS
-
-	// Kit selects the UI kit injected into every request context, surfaced to
-	// handlers as c.Kit(). Use KitStatic(name) or the NoopKit fallback. A nil
-	// Kit means "use the registered mandatory kit"; if none is registered the
-	// build refuses to Start.
-	Kit KitSelector
 
 	// Sessions, when non-nil, enables session-backed auth: OptionalAuth runs in
 	// the middleware stack and guards (Authed/Role) resolve against it. Left nil,
@@ -110,15 +103,13 @@ type App struct {
 	mux    *http.ServeMux
 	log    *slog.Logger
 	static *staticHandler
-	kit    ui.Kit
 	hub    *hub.Hub
 	srv    *http.Server
 }
 
 // New builds an App from cfg. It wires the static handler (computing boot-time
-// ETags), resolves the UI kit, and registers GET /healthz and the static tree.
-// It does not bind a socket; that happens in Start. A missing kit is reported at
-// Start, not here, so tests can construct an App without registering a kit.
+// ETags) and registers GET /healthz and the static tree. It does not bind a
+// socket; that happens in Start.
 func New(cfg Config) *App {
 	if cfg.Logger == nil {
 		cfg.Logger = slog.Default()
@@ -137,12 +128,8 @@ func New(cfg Config) *App {
 		hub: cfg.Hub,
 	}
 
-	// Resolve the kit eagerly so a misconfigured kit fails at build, not on the
-	// first request. A nil selector defers to the registered mandatory kit.
-	a.kit = resolveKit(cfg.Kit)
-
 	// Static tree, overlaid framework-first: the framework's canonical assets
-	// (the kit's app.css and the Datastar client) always serve and take
+	// (app.css, the Datastar client, the chart modules) always serve and take
 	// precedence, then the app's own static (images, etc.). Apps never copy the
 	// stylesheet or datastar.js — they get the framework copies here.
 	staticFS := fs.FS(embeddedStatic())
@@ -165,10 +152,6 @@ func New(cfg Config) *App {
 // Mux exposes the underlying ServeMux for advanced wiring (mounting a sub-router,
 // a third-party handler). Prefer Page/Action/Stream/Raw; this is the escape hatch.
 func (a *App) Mux() *http.ServeMux { return a.mux }
-
-// Kit returns the resolved UI kit. Mostly for tests and diagnostics; handlers
-// read the kit from the request context via c.Kit().
-func (a *App) Kit() ui.Kit { return a.kit }
 
 // Logger returns the app's structured logger.
 func (a *App) Logger() *slog.Logger { return a.log }
@@ -200,8 +183,7 @@ func (a *App) handler() http.Handler {
 	var h http.Handler = a.mux
 
 	// Innermost first; outermost wraps last so it runs first on the way in.
-	// Order on the way in: requestLog -> recover -> secureHeaders -> auth -> kit.
-	h = a.injectKit(h)
+	// Order on the way in: requestLog -> recover -> secureHeaders -> auth.
 	h = a.injectAuth(h)
 	h = a.secureHeaders(h)
 	h = a.recoverPanic(h)
@@ -211,23 +193,13 @@ func (a *App) handler() http.Handler {
 
 // Handler returns the app as a single http.Handler with the full middleware
 // stack applied. Useful for httptest and for embedding the app in another server.
-// It panics if no UI kit is available, matching Start's mandatory-kit rule.
 func (a *App) Handler() http.Handler {
-	if a.kit == nil {
-		panic("beach: no UI kit registered — set Config.Kit or import a kit package")
-	}
 	return a.handler()
 }
 
 // Start binds addr and serves until an interrupt (SIGINT/SIGTERM), then shuts
-// down gracefully within ShutdownTimeout. It refuses to start if no UI kit is
-// available — component lookup can never silently fall through to a blank page.
+// down gracefully within ShutdownTimeout.
 func (a *App) Start(addr string) error {
-	if a.kit == nil {
-		return errors.New("beach: refusing to start — no UI kit registered " +
-			"(set Config.Kit, or import a kit package for its init() registration)")
-	}
-
 	a.srv = &http.Server{
 		Addr:              addr,
 		Handler:           a.handler(),
@@ -267,22 +239,6 @@ func (a *App) Shutdown(ctx context.Context) error {
 		return nil
 	}
 	return a.srv.Shutdown(ctx)
-}
-
-// resolveKit turns a KitSelector into a concrete kit. A nil selector means "use
-// the registered mandatory kit" — resolved lazily so an app that registers its
-// kit via a blank import still works. resolveKit never panics: a missing kit is
-// reported by Start.
-func resolveKit(sel KitSelector) ui.Kit {
-	if sel != nil {
-		return sel()
-	}
-	// Defer to the registry's mandatory kit if one is registered. Mandatory()
-	// panics when none exists, so guard it.
-	if len(ui.Registered()) == 0 {
-		return nil
-	}
-	return ui.Mandatory()
 }
 
 // pathIsExempt reports whether p should skip request logging (probes and static

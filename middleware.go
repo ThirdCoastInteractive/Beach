@@ -7,16 +7,15 @@ import (
 
 	"github.com/ThirdCoastInteractive/the-beach/auth"
 	"github.com/ThirdCoastInteractive/the-beach/session"
-	"github.com/ThirdCoastInteractive/the-beach/ui"
 )
 
 // The fixed middleware stack, in the order requests traverse it on the way in:
 //
-//	requestLog -> recover -> secureHeaders -> auth -> kit -> route
+//	requestLog -> recover -> secureHeaders -> auth -> route
 //
 // Each is a plain net/http wrapper. The order is fixed by App.handler(); apps do
-// not reorder it. Auth and kit are the two stages that populate the request
-// context the typed handlers read back via *Ctx.
+// not reorder it. Auth is the stage that populates the request context the typed
+// handlers read back via *Ctx.
 
 // statusRecorder captures the response status for the request log.
 type statusRecorder struct {
@@ -133,17 +132,4 @@ func (a *App) injectAuth(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	}))
-}
-
-// injectKit stashes the resolved UI kit in the request context so handlers read
-// it via c.Kit(). The builder refuses to Start without a kit, so a.kit is always
-// non-nil by the time a request arrives.
-func (a *App) injectKit(next http.Handler) http.Handler {
-	kit := a.kit
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if kit != nil {
-			r = r.WithContext(ui.WithKit(r.Context(), kit))
-		}
-		next.ServeHTTP(w, r)
-	})
 }

@@ -49,7 +49,7 @@ func (b *bindReq) Validate() error {
 }
 
 func TestBindJSON(t *testing.T) {
-	a := New(Config{Kit: KitNoop()})
+	a := New(Config{})
 	req := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(`{"email":"a@b.c","qty":3}`))
 	req.Header.Set("Content-Type", "application/json")
 	c := a.newCtx(httptest.NewRecorder(), req)
@@ -64,7 +64,7 @@ func TestBindJSON(t *testing.T) {
 }
 
 func TestBindJSONIgnoresUnknownSignals(t *testing.T) {
-	a := New(Config{Kit: KitNoop()})
+	a := New(Config{})
 	// Datastar posts a superset of signals; binding must not hard-fail.
 	req := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(`{"email":"a@b.c","qty":1,"extra":true}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -79,7 +79,7 @@ func TestBindJSONIgnoresUnknownSignals(t *testing.T) {
 }
 
 func TestBindForm(t *testing.T) {
-	a := New(Config{Kit: KitNoop()})
+	a := New(Config{})
 	req := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader("email=x@y.z&qty=7"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	c := a.newCtx(httptest.NewRecorder(), req)
@@ -93,7 +93,7 @@ func TestBindForm(t *testing.T) {
 }
 
 func TestBindValidateFails(t *testing.T) {
-	a := New(Config{Kit: KitNoop()})
+	a := New(Config{})
 	req := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(`{"qty":1}`))
 	req.Header.Set("Content-Type", "application/json")
 	c := a.newCtx(httptest.NewRecorder(), req)

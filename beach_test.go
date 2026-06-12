@@ -12,19 +12,16 @@ import (
 	"github.com/a-h/templ"
 )
 
-// comp is a tiny templ component for tests.
+// comp is a tiny templ component for tests: trusted literal markup.
 func comp(html string) templ.Component {
-	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
-		_, err := io.WriteString(w, html)
-		return err
-	})
+	return templ.Raw(html)
 }
 
-// testApp builds an App wired with the no-op kit (no DB, no hub) for handler
-// tests, and returns it plus its full http.Handler.
+// testApp builds a bare App (no DB, no hub) for handler tests, and returns it
+// plus its full http.Handler.
 func testApp(t *testing.T) (*App, http.Handler) {
 	t.Helper()
-	a := New(Config{Service: "test", Kit: KitNoop()})
+	a := New(Config{Service: "test"})
 	return a, a.Handler()
 }
 
@@ -42,23 +39,12 @@ func TestHealthz(t *testing.T) {
 
 func TestHealthzProbeFails(t *testing.T) {
 	a := New(Config{
-		Kit:     KitNoop(),
 		Healthz: func(context.Context) error { return io.EOF },
 	})
 	rec := httptest.NewRecorder()
 	a.Handler().ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz", nil))
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("failing probe status = %d, want 503", rec.Code)
-	}
-}
-
-func TestStartRefusesWithoutKit(t *testing.T) {
-	a := New(Config{}) // no kit registered, no selector
-	if a.kit != nil {
-		t.Fatal("expected nil kit when none registered")
-	}
-	if err := a.Start(":0"); err == nil {
-		t.Fatal("Start should refuse without a kit")
 	}
 }
 
@@ -109,7 +95,6 @@ func TestAssetURLBusts(t *testing.T) {
 
 func TestSecurityHeadersAndCSP(t *testing.T) {
 	a := New(Config{
-		Kit: KitNoop(),
 		CSP: CSPDefault().AllowMedia("https://example.com"),
 	})
 	a.Page("/", func(c *Ctx) (View, error) {
@@ -242,7 +227,7 @@ func TestRawEscapeHatch(t *testing.T) {
 }
 
 func TestRecoverPanic(t *testing.T) {
-	a := New(Config{Kit: KitNoop(), Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
+	a := New(Config{Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
 	h := a.Handler()
 	a.Page("/boom", func(c *Ctx) (View, error) {
 		panic("kaboom")

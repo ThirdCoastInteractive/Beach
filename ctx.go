@@ -7,7 +7,6 @@ import (
 	"github.com/ThirdCoastInteractive/the-beach/auth"
 	"github.com/ThirdCoastInteractive/the-beach/datastar"
 	"github.com/ThirdCoastInteractive/the-beach/session"
-	"github.com/ThirdCoastInteractive/the-beach/ui"
 )
 
 // Principal is re-exported so handler signatures and guard call sites name a
@@ -21,9 +20,9 @@ type Principal = auth.Principal
 type User = session.User
 
 // Ctx is the request-scoped context the typed handlers receive. It wraps the
-// http.ResponseWriter and *http.Request and exposes the kit, the session user,
-// and the auth principal, plus the small helpers (path/query params, binding)
-// the house handlers lean on. Construct one only through the framework; handlers
+// http.ResponseWriter and *http.Request and exposes the session user and the
+// auth principal, plus the small helpers (path/query params, binding) the
+// house handlers lean on. Construct one only through the framework; handlers
 // receive *Ctx, never build it.
 type Ctx struct {
 	W http.ResponseWriter
@@ -39,11 +38,6 @@ func (a *App) newCtx(w http.ResponseWriter, r *http.Request) *Ctx {
 
 // Context returns the request's context.Context, for cancellation and deadlines.
 func (c *Ctx) Context() context.Context { return c.R.Context() }
-
-// Kit returns the request-scoped UI kit injected by the App. It always returns a
-// usable kit (falling back to the registered mandatory kit), so a handler never
-// nil-checks it.
-func (c *Ctx) Kit() ui.Kit { return ui.KitFrom(c.R.Context()) }
 
 // User returns the session identity and whether one is present. Anonymous
 // requests return the zero User and false. Behind a guard (Authed/Role/Can) the

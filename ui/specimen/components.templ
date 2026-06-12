@@ -1,0 +1,465 @@
+// The driftwood component gallery: every catalog component in its
+// representative states, grouped by family. Overlays render closed with
+// visible triggers (native dialog/popover, no toggle script); everything
+// else renders inline.
+package specimen
+
+import (
+	"github.com/ThirdCoastInteractive/the-beach/datastar"
+	"github.com/ThirdCoastInteractive/the-beach/ui/driftwood"
+)
+
+// componentGallery renders the full catalog, one section per family.
+templ componentGallery() {
+	@driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Components"})
+	@buttonsSection()
+	@navSection()
+	@formsSection()
+	@dataSection()
+	@feedbackSection()
+	@overlaysSection()
+	@mediaSection()
+	@messagingSection()
+	@layoutSection()
+}
+
+// --- buttons -------------------------------------------------------------------
+
+templ buttonsSection() {
+	@driftwood.Card(driftwood.CardProps{Heading: "Buttons"}) {
+		<div class="spec-row">
+			@driftwood.Button(driftwood.ButtonProps{Label: "Neutral"})
+			@driftwood.Button(driftwood.ButtonProps{Label: "Accent", Role: driftwood.RoleAccent})
+			@driftwood.Button(driftwood.ButtonProps{Label: "Good", Role: driftwood.RoleGood})
+			@driftwood.Button(driftwood.ButtonProps{Label: "Warn", Role: driftwood.RoleWarn})
+			@driftwood.Button(driftwood.ButtonProps{Label: "Danger", Role: driftwood.RoleDanger})
+			@driftwood.Button(driftwood.ButtonProps{Label: "Info", Role: driftwood.RoleInfo})
+			@driftwood.Button(driftwood.ButtonProps{Label: "Ghost", Role: driftwood.RoleGhost})
+			@driftwood.Button(driftwood.ButtonProps{Label: "Quiet", Role: driftwood.RoleQuiet})
+		</div>
+		<div class="spec-row">
+			@driftwood.Button(driftwood.ButtonProps{Label: "Small", Size: driftwood.SizeSm})
+			@driftwood.Button(driftwood.ButtonProps{Label: "Medium"})
+			@driftwood.Button(driftwood.ButtonProps{Label: "Large", Size: driftwood.SizeLg})
+			@driftwood.Button(driftwood.ButtonProps{Label: "Search", LeadIcon: "search", Role: driftwood.RoleAccent})
+			@driftwood.Button(driftwood.ButtonProps{Label: "Next", TailIcon: "chevron-down"})
+			@driftwood.Button(driftwood.ButtonProps{Label: "Disabled", Disabled: true})
+			@driftwood.Button(driftwood.ButtonProps{Label: "Saving", Loading: "$busy", Role: driftwood.RoleAccent})
+			@driftwood.Button(driftwood.ButtonProps{Label: "Erase reef", Hazard: true})
+		</div>
+		<div class="spec-row">
+			@driftwood.IconButton(driftwood.IconButtonProps{Icon: "gear", Label: "Settings"})
+			@driftwood.IconButton(driftwood.IconButtonProps{Icon: "trash", Label: "Delete", Role: driftwood.RoleDanger})
+			@driftwood.IconButton(driftwood.IconButtonProps{Icon: "plus", Label: "Add", Role: driftwood.RoleAccent, Size: driftwood.SizeLg})
+			@driftwood.ButtonGroup(driftwood.ButtonGroupProps{Label: "Range"}) {
+				@driftwood.Button(driftwood.ButtonProps{Label: "Day"})
+				@driftwood.Button(driftwood.ButtonProps{Label: "Week"})
+				@driftwood.Button(driftwood.ButtonProps{Label: "Season"})
+			}
+			@driftwood.MenuButton(driftwood.MenuButtonProps{
+				ID:    "spec-menu",
+				Label: "Actions",
+				Icon:  "chevron-down",
+				Items: []driftwood.MenuItem{
+					{Label: "Edit", Href: "/specimen", Icon: "pencil"},
+					{Label: "Pin", Icon: "pin", On: "@post('/specimen/pin')"},
+					{Label: "Delete", Icon: "trash", On: "@post('/specimen/delete')"},
+				},
+			})
+		</div>
+	}
+}
+
+// --- nav -----------------------------------------------------------------------
+
+templ navSection() {
+	@driftwood.Card(driftwood.CardProps{Heading: "Navigation"}) {
+		@driftwood.Navbar(driftwood.NavbarProps{
+			Brand: "the-beach",
+			Items: []driftwood.NavItem{
+				{Label: "Dashboard", Href: "/", Icon: "home", Active: true},
+				{Label: "Rentals", Href: "/rentals", Icon: "box"},
+				{Label: "Reports", Href: "/reports", Icon: "chart"},
+			},
+		})
+		@driftwood.Breadcrumbs(driftwood.BreadcrumbsProps{
+			Items: []driftwood.NavItem{
+				{Label: "Home", Href: "/"},
+				{Label: "Rentals", Href: "/rentals"},
+				{Label: "Umbrella #42"},
+			},
+		})
+		@driftwood.Tabs(driftwood.TabsProps{
+			Name: "spec-tabs",
+			Tabs: []driftwood.Tab{
+				{ID: "spec-tab-overview", Label: "Overview", Active: true},
+				{ID: "spec-tab-history", Label: "History"},
+				{ID: "spec-tab-deferred", Label: "Deferred", Get: "/specimen/tab/deferred"},
+			},
+		})
+		@driftwood.Pagination(driftwood.PaginationProps{Page: 3, Pages: 12, GetBase: "/specimen/list"})
+		<div class="spec-sidebar-demo">
+			@specSidebar()
+		</div>
+	}
+}
+
+// specSidebar is the sidebar nav used standalone above and inside the Shell demo.
+templ specSidebar() {
+	@driftwood.Sidebar(driftwood.SidebarNavProps{
+		Sections: []driftwood.SidebarSection{
+			{Label: "Operations", Items: []driftwood.NavItem{
+				{Label: "Dashboard", Href: "/", Icon: "home", Active: true},
+				{Label: "Inbox", Href: "/inbox", Icon: "inbox"},
+				{Label: "Rentals", Href: "/rentals", Icon: "box"},
+			}},
+			{Label: "Insight", Items: []driftwood.NavItem{
+				{Label: "Charts", Href: "/charts", Icon: "chart"},
+				{Label: "Lists", Href: "/lists", Icon: "list"},
+			}},
+		},
+	})
+}
+
+// --- forms ---------------------------------------------------------------------
+
+templ formsSection() {
+	@driftwood.Card(driftwood.CardProps{Heading: "Forms"}) {
+		@driftwood.FormError(driftwood.FormErrorProps{
+			Title:    "The booking could not be saved",
+			Messages: []string{"Renter name is required", "Return time is before pickup time"},
+		})
+		@driftwood.Form(driftwood.FormProps{Post: "/specimen/save", TwoCol: true}) {
+			@driftwood.Field(driftwood.FieldProps{Label: "Renter", For: "spec-renter", Help: "As it appears on the waiver."}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "spec-renter", Name: "renter", Placeholder: "Sandy Shores"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Email", For: "spec-email", Error: "That address bounced last season."}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "spec-email", Name: "email", Type: "email", Value: "gull@example", Error: true})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Deposit", For: "spec-deposit"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "spec-deposit", Name: "deposit", Prefix: "$", Suffix: ".00", Value: "25"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Locker", For: "spec-locker", Help: "Assigned at the stand; read-only here."}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "spec-locker", Name: "locker", Value: "B-17", Disabled: true})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Board", For: "spec-board"}) {
+				@driftwood.Select(driftwood.SelectProps{
+					ID: "spec-board", Name: "board", Placeholder: "Pick a board…",
+					Options: []driftwood.Option{
+						{Value: "log", Label: "9'2\" log"},
+						{Value: "funboard", Label: "7'6\" funboard", Selected: true},
+						{Value: "fish", Label: "5'10\" fish"},
+					},
+				})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Notes", For: "spec-notes"}) {
+				@driftwood.Textarea(driftwood.TextareaProps{ID: "spec-notes", Name: "notes", Rows: 3, AutoGrow: true, Value: "Prefers the north break."})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Tide window"}) {
+				@driftwood.RadioGroup(driftwood.RadioGroupProps{
+					Name: "tide", Inline: true,
+					Options: []driftwood.RadioOption{
+						{Value: "low", Label: "Low"},
+						{Value: "mid", Label: "Mid", Checked: true},
+						{Value: "high", Label: "High"},
+					},
+				})
+			}
+			@driftwood.Checkbox(driftwood.CheckboxProps{ID: "spec-waiver", Name: "waiver", Value: "yes", Label: "Waiver signed", Checked: true})
+			@driftwood.Toggle(driftwood.ToggleProps{ID: "spec-sms", Name: "sms", Label: "Tide alerts", Description: "Text when the window opens.", Checked: true})
+			@driftwood.Button(driftwood.ButtonProps{Label: "Save booking", Role: driftwood.RoleAccent, Type: "submit"})
+		}
+		@driftwood.Divider(driftwood.DividerProps{Label: "input group"})
+		@driftwood.InputGroup(driftwood.InputGroupProps{
+			Input:  driftwood.TextInputProps{Name: "q", Placeholder: "Search rentals…"},
+			Button: driftwood.ButtonProps{Label: "Go", Role: driftwood.RoleAccent, Type: "submit"},
+		})
+	}
+}
+
+// --- data ----------------------------------------------------------------------
+
+templ dataSection() {
+	@driftwood.Card(driftwood.CardProps{Heading: "Data"}) {
+		@driftwood.Grid(driftwood.GridProps{Cols: 3}) {
+			@driftwood.Stat(driftwood.StatProps{Label: "Visitors", Value: "12,408", Delta: driftwood.Delta{Value: "+8.2%", Dir: "up"}})
+			@driftwood.Stat(driftwood.StatProps{Label: "Rentals out", Value: "348", Delta: driftwood.Delta{Value: "-3.1%", Dir: "down"}})
+			@driftwood.Stat(driftwood.StatProps{Label: "Water temp", Value: "74°F"})
+		}
+		@driftwood.Divider(driftwood.DividerProps{})
+		@driftwood.Table(driftwood.TableProps{
+			Columns: []driftwood.Column{
+				{Header: "Vendor", Get: "/specimen/sort/vendor"},
+				{Header: "Stand"},
+				{Header: "Revenue", Get: "/specimen/sort/revenue"},
+				{Header: "Status"},
+			},
+			Rows: [][]string{
+				{"Tide Rentals", "North 3", "$9,420", "open"},
+				{"Salt & Sugar", "Boardwalk 1", "$8,110", "open"},
+				{"Gull Shack", "Pier 2", "$5,230", "closed"},
+			},
+		})
+		@driftwood.Table(driftwood.TableProps{
+			Columns: []driftwood.Column{{Header: "Vendor"}, {Header: "Revenue"}},
+			Rows:    nil,
+			Dense:   true,
+			Empty:   "No vendors match this filter.",
+		})
+		@driftwood.Divider(driftwood.DividerProps{})
+		<div class="spec-row">
+			@driftwood.Badge(driftwood.BadgeProps{Label: "Neutral"})
+			@driftwood.Badge(driftwood.BadgeProps{Label: "Accent", Role: driftwood.RoleAccent})
+			@driftwood.Badge(driftwood.BadgeProps{Label: "Good", Role: driftwood.RoleGood, Dot: true})
+			@driftwood.Badge(driftwood.BadgeProps{Label: "Warn", Role: driftwood.RoleWarn, Dot: true})
+			@driftwood.Badge(driftwood.BadgeProps{Label: "Danger", Role: driftwood.RoleDanger})
+			@driftwood.Badge(driftwood.BadgeProps{Label: "Info", Role: driftwood.RoleInfo})
+		</div>
+		@driftwood.Divider(driftwood.DividerProps{})
+		@driftwood.DescList(driftwood.DescListProps{
+			TwoCol: true,
+			Items: []driftwood.DescItem{
+				{Term: "Break", Value: "North Jetty"},
+				{Term: "Swell", Value: "4.5 ft @ 11s NW"},
+				{Term: "Wind", Value: "6 kn offshore"},
+				{Term: "Crowd", Value: "moderate"},
+			},
+		})
+		@driftwood.Divider(driftwood.DividerProps{})
+		@driftwood.StackedList(driftwood.StackedListProps{
+			Rows: []driftwood.ListRow{
+				{
+					Avatar: driftwood.Avatar(driftwood.AvatarProps{Initials: "TR", Size: driftwood.SizeSm}),
+					Title:  "Tide Rentals",
+					Meta:   "North 3 — opened 8:00",
+					Href:   "/vendors/tide",
+					Badge:  &driftwood.BadgeProps{Label: "Open", Role: driftwood.RoleGood, Dot: true},
+				},
+				{
+					Avatar: driftwood.Avatar(driftwood.AvatarProps{Initials: "SS", Size: driftwood.SizeSm}),
+					Title:  "Salt & Sugar",
+					Meta:   "Boardwalk 1 — opened 9:00",
+					Action: driftwood.IconButton(driftwood.IconButtonProps{Icon: "pencil", Label: "Edit"}),
+				},
+				{
+					Avatar: driftwood.Avatar(driftwood.AvatarProps{Initials: "GS", Size: driftwood.SizeSm}),
+					Title:  "Gull Shack",
+					Meta:   "Pier 2 — closed for repairs",
+					Badge:  &driftwood.BadgeProps{Label: "Closed", Role: driftwood.RoleDanger},
+				},
+			},
+		})
+		@driftwood.Divider(driftwood.DividerProps{})
+		@driftwood.GridList(driftwood.GridListProps{Cols: 3}) {
+			<li>
+				@driftwood.Card(driftwood.CardProps{Heading: "North 3"}) {
+					<p>Umbrellas + boards.</p>
+				}
+			</li>
+			<li>
+				@driftwood.Card(driftwood.CardProps{Heading: "Boardwalk 1"}) {
+					<p>Food + drinks.</p>
+				}
+			</li>
+			<li>
+				@driftwood.Card(driftwood.CardProps{Heading: "Pier 2"}) {
+					<p>Bait + tackle.</p>
+				}
+			</li>
+		}
+	}
+}
+
+// --- feedback ------------------------------------------------------------------
+
+templ feedbackSection() {
+	@driftwood.Card(driftwood.CardProps{Heading: "Feedback"}) {
+		@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleGood, Title: "Booking saved"}) {
+			Locker B-17 is reserved until 6pm.
+		}
+		@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleWarn, Title: "Rip current advisory", Dismissible: true}) {
+			Yellow flag until the afternoon tide turns.
+		}
+		@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleDanger, Title: "Stand offline"}) {
+			Pier 2 point-of-sale has not reported for 20 minutes.
+		}
+		@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleInfo, Title: "Heads up"}) {
+			Night market setup begins at 4pm on the south boardwalk.
+		}
+		@driftwood.ErrorAlert("spec-error-alert", true, "Save failed", "The reservation service returned a conflict — retry in a moment.")
+		@driftwood.Divider(driftwood.DividerProps{})
+		<div class="spec-row">
+			@driftwood.Toast(driftwood.ToastProps{Role: driftwood.RoleGood, Title: "Synced", Message: "Tide tables updated."})
+			@driftwood.Toast(driftwood.ToastProps{Role: driftwood.RoleWarn, Title: "Slow link", Message: "Retrying the camera feed."})
+		</div>
+		@driftwood.Divider(driftwood.DividerProps{})
+		@driftwood.Progress(driftwood.ProgressProps{Value: 348, Max: 400, Label: "Umbrellas deployed"})
+		@driftwood.Progress(driftwood.ProgressProps{Value: 92, Max: 400, Label: "Kayaks out", Role: driftwood.RoleWarn})
+		@driftwood.Progress(driftwood.ProgressProps{Label: "Syncing tide tables"})
+		@driftwood.Divider(driftwood.DividerProps{})
+		<div class="spec-row">
+			@driftwood.Spinner(driftwood.SpinnerProps{Size: driftwood.SizeSm})
+			@driftwood.Spinner(driftwood.SpinnerProps{})
+			@driftwood.Spinner(driftwood.SpinnerProps{Size: driftwood.SizeLg})
+			@driftwood.Skeleton(driftwood.SkeletonProps{Width: "12rem", Height: "1.25rem"})
+			@driftwood.Skeleton(driftwood.SkeletonProps{Width: "8rem", Height: "8rem"})
+		</div>
+		@driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "inbox", Message: "No bookings yet — the tide chart says wait an hour."})
+	}
+}
+
+// --- overlays --------------------------------------------------------------------
+
+templ overlaysSection() {
+	@driftwood.Card(driftwood.CardProps{Heading: "Overlays"}) {
+		<div class="spec-row">
+			@driftwood.Button(driftwood.ButtonProps{
+				Label: "Open modal",
+				Attrs: datastar.Attrs{datastar.OnClick("document.getElementById('spec-modal').showModal()")},
+			})
+			@driftwood.Button(driftwood.ButtonProps{
+				Label: "Open right drawer",
+				Attrs: datastar.Attrs{datastar.OnClick("document.getElementById('spec-drawer-right').showModal()")},
+			})
+			@driftwood.Button(driftwood.ButtonProps{
+				Label: "Open left drawer",
+				Attrs: datastar.Attrs{datastar.OnClick("document.getElementById('spec-drawer-left').showModal()")},
+			})
+			@driftwood.Popover(driftwood.PopoverProps{ID: "spec-popover", Label: "Conditions", Icon: "chart"}) {
+				<p>4.5 ft @ 11s NW — offshore till noon.</p>
+			}
+			@driftwood.Tooltip(driftwood.TooltipProps{Text: "Updated every 10 minutes"}) {
+				@driftwood.Badge(driftwood.BadgeProps{Label: "Live", Role: driftwood.RoleGood, Dot: true})
+			}
+		</div>
+		@driftwood.Modal(driftwood.ModalProps{ID: "spec-modal", Title: "Confirm return"}) {
+			<p>Close out locker B-17 and release the deposit?</p>
+			@driftwood.Button(driftwood.ButtonProps{Label: "Release deposit", Role: driftwood.RoleAccent})
+		}
+		@driftwood.Drawer(driftwood.DrawerProps{ID: "spec-drawer-right", Title: "Booking details", Side: "right"}) {
+			@driftwood.DescList(driftwood.DescListProps{Items: []driftwood.DescItem{
+				{Term: "Renter", Value: "Sandy Shores"},
+				{Term: "Board", Value: "7'6\" funboard"},
+			}})
+		}
+		@driftwood.Drawer(driftwood.DrawerProps{ID: "spec-drawer-left", Title: "Filters", Side: "left"}) {
+			@driftwood.Checkbox(driftwood.CheckboxProps{ID: "spec-filter-open", Name: "open", Label: "Open stands only", Checked: true})
+		}
+	}
+}
+
+// --- media ----------------------------------------------------------------------
+
+templ mediaSection() {
+	@driftwood.Card(driftwood.CardProps{Heading: "Media"}) {
+		<div class="spec-row">
+			@driftwood.Avatar(driftwood.AvatarProps{Initials: "SS", Alt: "Sandy Shores", Size: driftwood.SizeSm})
+			@driftwood.Avatar(driftwood.AvatarProps{Initials: "SS", Alt: "Sandy Shores", Status: "online"})
+			@driftwood.Avatar(driftwood.AvatarProps{Initials: "GP", Alt: "Gull Point", Size: driftwood.SizeLg, Status: "away"})
+		</div>
+		@driftwood.Grid(driftwood.GridProps{Cols: 3}) {
+			@driftwood.Image(driftwood.ImageProps{
+				Src:   sampleImageSrc,
+				Alt:   "Stylized beach scene",
+				Ratio: driftwood.RatioWide,
+				Fit:   driftwood.FitCover,
+			})
+			@driftwood.Figure(driftwood.FigureProps{
+				Image: driftwood.ImageProps{
+					Src:   sampleImageSrc,
+					Alt:   "Stylized beach scene",
+					Ratio: driftwood.RatioPhoto,
+					Fit:   driftwood.FitContain,
+				},
+				Caption: "Figure: the same scene, 4:3, contained.",
+			})
+			@driftwood.AspectRatio(driftwood.AspectBoxProps{Ratio: driftwood.RatioSquare}) {
+				<div class="spec-aspect-fill">1:1 reserved box</div>
+			}
+		}
+	}
+}
+
+// --- messaging -------------------------------------------------------------------
+
+templ messagingSection() {
+	@driftwood.Card(driftwood.CardProps{Heading: "Messaging"}) {
+		<div class="spec-row">
+			@driftwood.Presence(driftwood.PresencePillProps{State: "connected", Label: "Connected"})
+			@driftwood.Presence(driftwood.PresencePillProps{State: "reconnecting", Label: "Reconnecting…"})
+			@driftwood.Presence(driftwood.PresencePillProps{State: "waiting", Label: "Waiting for crew"})
+		</div>
+		@driftwood.MessageList(driftwood.MessageListProps{
+			Messages: []driftwood.Message{
+				{System: true, Body: "Channel opened — lifeguard tower 3.", At: "07:58"},
+				{Author: "Tower 3", Body: "Yellow flag going up, rip by the jetty.", At: "08:02"},
+				{Author: "You", Body: "Copy. Moving the swim lesson south.", Own: true, At: "08:03"},
+			},
+		})
+		@driftwood.Composer(driftwood.ComposerProps{Name: "message", Placeholder: "Message tower 3…", Post: "/specimen/send"})
+	}
+}
+
+// --- layout ---------------------------------------------------------------------
+
+templ layoutSection() {
+	@driftwood.Card(driftwood.CardProps{Heading: "Layout"}) {
+		@driftwood.Grid(driftwood.GridProps{Cols: 3}) {
+			@driftwood.Card(driftwood.CardProps{Heading: "Panel card"}) {
+				<p>The default surface.</p>
+			}
+			@driftwood.Card(driftwood.CardProps{Heading: "Well card", Surface: driftwood.SurfaceWell}) {
+				<p>The recessed surface.</p>
+			}
+			@driftwood.Card(driftwood.CardProps{}) {
+				@driftwood.CardHeading(driftwood.CardHeadingProps{
+					Title:  "Rich header",
+					Meta:   "CardHeading: meta + action slot",
+					Action: driftwood.IconButton(driftwood.IconButtonProps{Icon: "refresh", Label: "Refresh"}),
+				})
+				<p>Headerless Card carrying a CardHeading.</p>
+			}
+		}
+		@driftwood.Divider(driftwood.DividerProps{})
+		@driftwood.Divider(driftwood.DividerProps{Label: "labeled divider"})
+		@driftwood.Split(driftwood.SplitProps{List: splitListPane(), Detail: splitDetailPane()})
+	}
+	@driftwood.Card(driftwood.CardProps{Heading: "Shell", Surface: driftwood.SurfaceWell}) {
+		<p class="spec-note">
+			The app frame: topbar, sidebar, main. Shown embedded; real apps make it
+			the page root.
+		</p>
+		@driftwood.Shell(driftwood.AppShellProps{
+			Topbar: driftwood.Navbar(driftwood.NavbarProps{
+				Brand: "the-beach",
+				Items: []driftwood.NavItem{{Label: "Dashboard", Href: "/", Active: true}},
+			}),
+			Sidebar: specSidebar(),
+		}) {
+			<p>Main content area.</p>
+		}
+	}
+}
+
+// splitListPane is the master pane of the Split demo.
+templ splitListPane() {
+	@driftwood.StackedList(driftwood.StackedListProps{
+		Rows: []driftwood.ListRow{
+			{Title: "North Beach", Meta: "9,420 visits"},
+			{Title: "The Cove", Meta: "7,180 visits"},
+			{Title: "Pier South", Meta: "5,660 visits"},
+		},
+	})
+}
+
+// splitDetailPane is the detail pane of the Split demo.
+templ splitDetailPane() {
+	@driftwood.DescList(driftwood.DescListProps{
+		TwoCol: true,
+		Items: []driftwood.DescItem{
+			{Term: "Beach", Value: "North Beach"},
+			{Term: "Flag", Value: "Green"},
+			{Term: "Towers", Value: "3 staffed"},
+		},
+	})
+}

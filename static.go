@@ -42,7 +42,7 @@ type staticHandler struct {
 // overlayFS serves files from an ordered list of filesystems: the first layer
 // that has a file wins for reads, and directory listings are the union of all
 // layers (so fs.WalkDir over the overlay visits every file). It lets the App
-// serve an app's static tree and a kit's own assets under one /static prefix.
+// serve an app's static tree and the framework's own assets under one /static prefix.
 type overlayFS struct{ layers []fs.FS }
 
 func (o overlayFS) Open(name string) (fs.File, error) {
