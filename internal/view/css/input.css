@@ -17,118 +17,963 @@
   --radius-4xl: 0px;
 }
 
-/* Chart + semantic theming tokens. The chart package references these by name
- * (var(--chart-qualitative-N), var(--success), ...) so SVGs theme from CSS with
- * no hardcoded color in Go. Tuned for the dark surface.
+/* Design tokens — the framework's whole color vocabulary, dark-first. Charts
+ * and components reference ONLY these names (plus Tailwind palette utilities
+ * inside dw-* rules where no token fits). An unlayered :root beats Tailwind's
+ * @layer theme, so the font tokens here also win over the default stacks.
  *
- * The qualitative series colors and the --color-sky-* accent overrides below are
- * generated from the RYBitten "munsell" gamut (Munsell Color System, 1905):
- * `go run ./cmd/gamuts -css munsell` and `-accent munsell`. Regenerate from a
- * different gamut to repaint both charts and the driftwood accent in one swap.
- * The accent overrides win because driftwood's @apply sky-* rules compile to
- * var(--color-sky-N) and this unlayered :root beats Tailwind's @layer theme. */
+ * Surfaces and lines are the Tailwind zinc ramp by value; the accent family is
+ * the RYBitten "munsell" gamut's blue axis (the old sky-* override, now under
+ * its own name); the series ramp is `rybitten.SeriesVars(Cubes["munsell"])` —
+ * regenerate from a different gamut to repaint every chart in one swap. */
 :root {
-  --chart-qualitative-1: #b5413c;
-  --chart-qualitative-2: #c9653d;
-  --chart-qualitative-3: #dc893d;
-  --chart-qualitative-4: #e1a547;
-  --chart-qualitative-5: #e5c151;
-  --chart-qualitative-6: #79b562;
-  --chart-qualitative-7: #0daa72;
-  --chart-qualitative-8: #249d8f;
-  --chart-qualitative-9: #3b8fab;
-  --chart-qualitative-10: #5a7899;
-  --chart-qualitative-11: #796186;
-  --chart-qualitative-12: #975161;
-  --chart-diverging-1: #38bdf8;
-  --chart-diverging-2: #60a5fa;
-  --chart-diverging-3: #93c5fd;
-  --chart-diverging-4: #c7d2fe;
-  --chart-diverging-5: #e5e7eb;
-  --chart-diverging-6: #fecaca;
-  --chart-diverging-7: #fca5a5;
-  --chart-diverging-8: #f87171;
-  --chart-diverging-9: #ef4444;
-  --chart-diverging-10: #dc2626;
-  --chart-diverging-11: #b91c1c;
-  --chart-diverging-12: #991b1b;
-  --chart-grid: #3f3f46;
-  --chart-emphasis: #e4e4e7;
-  --success: #34d399;
-  --warning: #fbbf24;
-  --error: #f87171;
-  --info: #60a5fa;
+  /* Fonts. No bundled webfonts — system stacks. */
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
-  /* Accent ← munsell blue axis. Repaints every driftwood sky-* accent. */
-  --color-sky-300: #b2c4bd;
-  --color-sky-400: #64a1b1;
-  --color-sky-500: #4091ac;
-  --color-sky-600: #3b8ea8;
-  --color-sky-950: #354b45;
+  /* Surface ladder */
+  --color-paper: #09090b;        /* page background (zinc-950) */
+  --color-panel: #18181b;        /* card / chrome background (zinc-900) */
+  --color-panel-hover: #27272a;  /* raised / hovered panel (zinc-800) */
+
+  /* Foreground ladder */
+  --color-fg-default: #f4f4f5;   /* primary text (zinc-100) */
+  --color-fg-muted: #a1a1aa;     /* secondary text (zinc-400) */
+
+  /* Line ladder */
+  --color-line-soft: #27272a;    /* hairline dividers (zinc-800) */
+  --color-line-strong: #52525b;  /* emphatic borders, input edges (zinc-600) */
+
+  /* Accent — munsell teal, with the derived stops the kit needs internally
+     (sampled from the gamut's blue axis at the old sky-stop lightnesses). */
+  --color-accent: #3b8ea8;
+  --color-accent-hover: #4091ac; /* solid-fill hover */
+  --color-accent-text: #64a1b1;  /* accent as text/link on dark */
+  --color-accent-soft: #354b45;  /* tinted background wash */
+
+  /* Status semantics */
+  --color-good: #34d399;
+  --color-warn: #fbbf24;
+  --color-bad: #f87171;
+  --color-info: #60a5fa;
+
+  /* Chart series a–o.
+     Munsell Color System — Albert Henry Munsell (1905).
+     Generated from rybitten gamut "munsell". */
+  --color-series-a: #b5413c;
+  --color-series-b: #c35a3c;
+  --color-series-c: #d8823d;
+  --color-series-d: #dd8f3f;
+  --color-series-e: #e2ad4a;
+  --color-series-f: #e5c151;
+  --color-series-g: #99b95d;
+  --color-series-h: #23ac6f;
+  --color-series-i: #12a778;
+  --color-series-j: #2b9997;
+  --color-series-k: #3b8fab;
+  --color-series-l: #517f9e;
+  --color-series-m: #73668a;
+  --color-series-n: #7f5e7e;
+  --color-series-o: #a04c56;
 }
 
-/* the-beach reference kit (driftwood) — Tailwind v4 build.
+/* Chart color themes (from Atlas). Each palette redefines --color-series-a
+   through --color-series-o under a [data-chart-theme] selector; charts inherit
+   the nearest ancestor's theme, so chart-toolbar.js theme-switches a single
+   widget by setting the attribute on it. The page default (no attribute) is
+   the munsell series on :root above; "munsell" mirrors it so the picker can
+   return to it explicitly. */
+[data-chart-theme="munsell"] {
+  --color-series-a: #b5413c;
+  --color-series-b: #c35a3c;
+  --color-series-c: #d8823d;
+  --color-series-d: #dd8f3f;
+  --color-series-e: #e2ad4a;
+  --color-series-f: #e5c151;
+  --color-series-g: #99b95d;
+  --color-series-h: #23ac6f;
+  --color-series-i: #12a778;
+  --color-series-j: #2b9997;
+  --color-series-k: #3b8fab;
+  --color-series-l: #517f9e;
+  --color-series-m: #73668a;
+  --color-series-n: #7f5e7e;
+  --color-series-o: #a04c56;
+}
+
+[data-chart-theme="default"] {
+  --color-series-a: oklch(0.65 0.19 250);
+  --color-series-b: oklch(0.72 0.18 150);
+  --color-series-c: oklch(0.70 0.17 55);
+  --color-series-d: oklch(0.62 0.20 25);
+  --color-series-e: oklch(0.60 0.17 310);
+  --color-series-f: oklch(0.68 0.16 195);
+  --color-series-g: oklch(0.66 0.17 85);
+  --color-series-h: oklch(0.58 0.18 275);
+  --color-series-i: oklch(0.64 0.16 120);
+  --color-series-j: oklch(0.66 0.16 175);
+  --color-series-k: oklch(0.62 0.18 230);
+  --color-series-l: oklch(0.70 0.17 40);
+  --color-series-m: oklch(0.64 0.17 350);
+  --color-series-n: oklch(0.66 0.15 135);
+  --color-series-o: oklch(0.62 0.16 210);
+}
+
+[data-chart-theme="warm"] {
+  --color-series-a: oklch(0.65 0.22 35);
+  --color-series-b: oklch(0.70 0.19 55);
+  --color-series-c: oklch(0.60 0.20 15);
+  --color-series-d: oklch(0.72 0.16 75);
+  --color-series-e: oklch(0.55 0.18 5);
+  --color-series-f: oklch(0.68 0.17 45);
+  --color-series-g: oklch(0.62 0.19 25);
+  --color-series-h: oklch(0.58 0.15 65);
+  --color-series-i: oklch(0.66 0.20 40);
+  --color-series-j: oklch(0.70 0.14 85);
+  --color-series-k: oklch(0.56 0.17 10);
+  --color-series-l: oklch(0.64 0.18 50);
+  --color-series-m: oklch(0.60 0.16 70);
+  --color-series-n: oklch(0.68 0.15 30);
+  --color-series-o: oklch(0.62 0.19 60);
+}
+
+[data-chart-theme="cool"] {
+  --color-series-a: oklch(0.58 0.20 240);
+  --color-series-b: oklch(0.64 0.18 200);
+  --color-series-c: oklch(0.60 0.19 270);
+  --color-series-d: oklch(0.68 0.16 180);
+  --color-series-e: oklch(0.55 0.21 300);
+  --color-series-f: oklch(0.62 0.17 220);
+  --color-series-g: oklch(0.66 0.18 190);
+  --color-series-h: oklch(0.56 0.19 260);
+  --color-series-i: oklch(0.70 0.15 210);
+  --color-series-j: oklch(0.58 0.20 280);
+  --color-series-k: oklch(0.64 0.16 170);
+  --color-series-l: oklch(0.60 0.18 250);
+  --color-series-m: oklch(0.66 0.17 230);
+  --color-series-n: oklch(0.62 0.19 290);
+  --color-series-o: oklch(0.68 0.15 200);
+}
+
+[data-chart-theme="neon"] {
+  --color-series-a: oklch(0.70 0.30 330);
+  --color-series-b: oklch(0.75 0.28 85);
+  --color-series-c: oklch(0.65 0.28 145);
+  --color-series-d: oklch(0.70 0.26 205);
+  --color-series-e: oklch(0.60 0.32 265);
+  --color-series-f: oklch(0.68 0.30 325);
+  --color-series-g: oklch(0.72 0.28 55);
+  --color-series-h: oklch(0.74 0.26 115);
+  --color-series-i: oklch(0.68 0.27 175);
+  --color-series-j: oklch(0.66 0.29 235);
+  --color-series-k: oklch(0.62 0.31 295);
+  --color-series-l: oklch(0.70 0.29 355);
+  --color-series-m: oklch(0.71 0.28 40);
+  --color-series-n: oklch(0.73 0.26 100);
+  --color-series-o: oklch(0.67 0.27 160);
+}
+
+[data-chart-theme="terminal"] {
+  --color-series-a: oklch(0.50 0.22 135);
+  --color-series-b: oklch(0.60 0.20 140);
+  --color-series-c: oklch(0.45 0.18 150);
+  --color-series-d: oklch(0.55 0.16 125);
+  --color-series-e: oklch(0.40 0.20 145);
+  --color-series-f: oklch(0.58 0.17 130);
+  --color-series-g: oklch(0.48 0.19 155);
+  --color-series-h: oklch(0.52 0.15 120);
+  --color-series-i: oklch(0.62 0.18 140);
+  --color-series-j: oklch(0.44 0.16 160);
+  --color-series-k: oklch(0.56 0.20 135);
+  --color-series-l: oklch(0.42 0.14 150);
+  --color-series-m: oklch(0.54 0.19 145);
+  --color-series-n: oklch(0.46 0.17 130);
+  --color-series-o: oklch(0.60 0.15 155);
+}
+
+[data-chart-theme="amber"] {
+  --color-series-a: oklch(0.65 0.18 75);
+  --color-series-b: oklch(0.60 0.16 65);
+  --color-series-c: oklch(0.55 0.14 55);
+  --color-series-d: oklch(0.70 0.15 80);
+  --color-series-e: oklch(0.50 0.12 50);
+  --color-series-f: oklch(0.62 0.17 70);
+  --color-series-g: oklch(0.58 0.13 60);
+  --color-series-h: oklch(0.68 0.16 85);
+  --color-series-i: oklch(0.52 0.15 45);
+  --color-series-j: oklch(0.64 0.14 75);
+  --color-series-k: oklch(0.56 0.16 55);
+  --color-series-l: oklch(0.66 0.13 65);
+  --color-series-m: oklch(0.60 0.15 80);
+  --color-series-n: oklch(0.54 0.11 50);
+  --color-series-o: oklch(0.62 0.14 70);
+}
+
+[data-chart-theme="mono"] {
+  --color-series-a: oklch(0.90 0.01 60);
+  --color-series-b: oklch(0.80 0.01 60);
+  --color-series-c: oklch(0.70 0.01 60);
+  --color-series-d: oklch(0.60 0.01 60);
+  --color-series-e: oklch(0.50 0.01 60);
+  --color-series-f: oklch(0.85 0.01 60);
+  --color-series-g: oklch(0.75 0.01 60);
+  --color-series-h: oklch(0.65 0.01 60);
+  --color-series-i: oklch(0.55 0.01 60);
+  --color-series-j: oklch(0.45 0.01 60);
+  --color-series-k: oklch(0.88 0.01 60);
+  --color-series-l: oklch(0.78 0.01 60);
+  --color-series-m: oklch(0.68 0.01 60);
+  --color-series-n: oklch(0.58 0.01 60);
+  --color-series-o: oklch(0.48 0.01 60);
+}
+
+[data-chart-theme="earth"] {
+  --color-series-a: oklch(0.55 0.14 80);
+  --color-series-b: oklch(0.60 0.16 120);
+  --color-series-c: oklch(0.50 0.12 40);
+  --color-series-d: oklch(0.65 0.14 150);
+  --color-series-e: oklch(0.48 0.10 30);
+  --color-series-f: oklch(0.58 0.15 100);
+  --color-series-g: oklch(0.52 0.13 60);
+  --color-series-h: oklch(0.62 0.12 140);
+  --color-series-i: oklch(0.46 0.11 50);
+  --color-series-j: oklch(0.56 0.14 110);
+  --color-series-k: oklch(0.54 0.12 70);
+  --color-series-l: oklch(0.64 0.13 130);
+  --color-series-m: oklch(0.50 0.10 45);
+  --color-series-n: oklch(0.60 0.15 90);
+  --color-series-o: oklch(0.58 0.11 160);
+}
+
+/* ==========================================================================
+ * A11y + text utilities. Plain rules, not @utility: chart fragments and the
+ * runtime-injected chart JS reference these, and on-demand emission would
+ * drop class names the source scanner never sees.
+ * ========================================================================== */
+
+/* Visually hidden, still announced — the standard clip pattern. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Keyboard-only focus indicator (Atlas's @utility as a plain rule; the-beach
+   has no accent-3, so the base accent draws the ring). */
+.focus-ring:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* Mono small-caps kicker above headings/widget titles (from atlas-text.css,
+   theme vars flattened to their values). */
+.heading-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--color-fg-muted);
+}
+
+/* ==========================================================================
+ * Dashboard + chart CSS, ported from Atlas (atlas-dashboard.css). These are
+ * plain unlayered rules, not @utility: the toolbar/tooltip elements are
+ * injected by chart JS at runtime, so Tailwind's source scanner never sees
+ * the class names and on-demand emission would drop them.
+ * ========================================================================== */
+
+/* Dashboard grid. 12 columns at lg+, 6 at md, full-width stack below. A fixed
+   row track height is what gives chart widgets their height — .chart-svg fills
+   100% of the widget body, so a widget outside .dash-grid needs its own
+   reserved height. */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  grid-auto-rows: minmax(11.5rem, auto);
+  gap: 0.75rem;
+}
+
+/* Column spans (widened at the breakpoints below). */
+.dash-col-3, .dash-col-4, .dash-col-6, .dash-col-8, .dash-col-12 { grid-column: span 1; }
+
+/* Row spans — number of grid track rows the widget occupies. */
+.dash-row-1 { grid-row: span 1; }
+.dash-row-2 { grid-row: span 2; }
+.dash-row-3 { grid-row: span 3; }
+.dash-row-4 { grid-row: span 4; }
+
+/* Widget shell */
+.dash-widget {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-panel);
+  box-shadow: 3px 3px 0 var(--color-line-strong);
+  overflow: hidden;
+}
+
+/* Widget body fills remaining height after header */
+.dash-widget-body {
+  flex: 1 1 0%;
+  min-height: 0;
+  padding: 0.5rem;
+  overflow: hidden;
+}
+
+.dash-widget-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-line-strong);
+  flex-shrink: 0;
+}
+
+/* Widget title — sits in .dash-widget-header alongside (or instead of) a
+   .heading-eyebrow; mono so the header matches the chart text inside. */
+.dash-widget-title {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-fg-default);
+}
+
+/* Server-rendered SVG charts. The chart fills its widget body via
+   width/height 100% and percentage geometry. Text is sized in rem so it
+   stays a fixed screen size as the chart stretches. */
+.chart-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Chart fragment plumbing. Each fragment is a <figure> Datastar morphs by id;
+   the -col variant stacks a legend/ticks row around a stretching .chart-fill
+   so the SVG absorbs whatever height the widget body grants. */
+.chart-frag {
+  height: 100%;
+  width: 100%;
+}
+
+.chart-frag-col {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.chart-fill {
+  flex: 1 1 0%;
+  min-height: 0;
+  width: 100%;
+}
+
+.chart-ticks {
+  display: flex;
+  justify-content: space-between;
+  padding-inline: 0.25rem;
+  flex-shrink: 0;
+  margin-top: -0.25rem;
+}
+
+.chart-tick {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-fg-muted);
+}
+
+/* Horizontal bar chart. Font sizes in rem stay fixed regardless of the
+   widget's pixel dimensions. */
+.cbar-label {
+  fill: var(--color-fg-muted);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+.cbar-value {
+  fill: var(--color-fg-default);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.cbar-track {
+  fill: var(--color-line-soft);
+}
+
+.cbar-fill {
+  transition: opacity 0.12s ease;
+}
+
+.cbar:hover .cbar-fill {
+  opacity: 0.78;
+}
+
+.cbar:hover .cbar-label {
+  fill: var(--color-fg-default);
+}
+
+/* Hover effects for stacked/bullet/sankey/chord/stream/scatter.
+   chart-hover-fade: dim siblings when one element is hovered.
+   chart-hover-dot: enlarge dots on hover.
+   chart-hover-node: brighten nodes on hover. */
+.chart-hover-fade {
+  transition: opacity 0.15s ease;
+}
+
+.chart-svg:has(.chart-hover-fade:hover) .chart-hover-fade {
+  opacity: 0.12 !important;
+}
+
+.chart-svg:has(.chart-hover-fade:hover) .chart-hover-fade:hover {
+  opacity: 0.9 !important;
+}
+
+.chart-hover-dot {
+  transition: r 0.12s ease, opacity 0.12s ease;
+}
+
+.chart-hover-dot:hover {
+  opacity: 1 !important;
+  r: attr(r type(<number>), 8);
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+.chart-hover-node {
+  transition: filter 0.12s ease;
+}
+
+.chart-hover-node:hover {
+  filter: brightness(1.3);
+}
+
+/* Stacked bar segment hover */
+.cbar rect[fill]:not(.cbar-track):not([fill="transparent"]) {
+  transition: opacity 0.12s ease;
+}
+
+.cbar:hover rect[fill]:not(.cbar-track):not([fill="transparent"]) {
+  opacity: 0.85;
+}
+
+/* Click-to-pin: same dim-siblings effect as hover, but persistent. */
+.chart-svg.chart-pinned .chart-hover-fade {
+  opacity: 0.12 !important;
+}
+
+.chart-svg.chart-pinned .chart-pin-active {
+  opacity: 0.9 !important;
+  filter: brightness(1.2);
+}
+
+.chart-svg.chart-pinned .chart-hover-node {
+  opacity: 0.5;
+}
+
+.chart-svg.chart-pinned .chart-hover-node.chart-pin-active {
+  opacity: 1 !important;
+  filter: brightness(1.3);
+}
+
+/* Sankey / chord / bundle marks. Atlas carried these transitions as inline
+   style attributes in the SVG markup; here they live in CSS so the hover JS
+   modules (chart-sankey/chord/bundle-hover.js) only flip inline
+   opacity/filter/stroke-width values and the transition animates them. */
+.sankey-link {
+  transition: opacity 0.15s ease;
+  cursor: pointer;
+}
+
+.sankey-label {
+  cursor: pointer;
+}
+
+.chord-ribbon,
+.chord-arc {
+  transition: opacity 0.15s ease, filter 0.15s ease;
+  cursor: pointer;
+}
+
+.bundle-link {
+  transition: opacity 0.15s ease, stroke-width 0.15s ease;
+}
+
+.bundle-node {
+  transition: opacity 0.15s ease, filter 0.15s ease, r 0.12s ease;
+  cursor: pointer;
+}
+
+/* SSE bar race. The server publishes a whole new frame each tick; element ids
+   are stable per label, so Datastar morphs attributes in place and these
+   transitions tween the geometry — the animation is pure CSS, no client code.
+   Labels/values carry the same x/y transition so rows glide with their bars. */
+.race-fill {
+  transition: x 0.6s ease, y 0.6s ease, width 0.6s ease, height 0.6s ease, fill 0.6s ease;
+}
+
+.race-label,
+.race-value {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  transition: x 0.6s ease, y 0.6s ease;
+}
+
+.race-label {
+  fill: var(--color-fg-muted);
+}
+
+.race-value {
+  fill: var(--color-fg-default);
+  font-weight: 700;
+}
+
+/* Line / area chart. Outer-layer text is rem (fixed size); the line
+   stroke is held constant through the stretchy inner SVG via
+   vector-effect. */
+.cline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+  padding: 0.1rem 0.25rem 0.4rem;
+  flex-shrink: 0;
+}
+
+.cline-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-fg-muted);
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0.1rem 0.2rem;
+  cursor: pointer;
+}
+
+.cline-legend-item:hover {
+  color: var(--color-fg-default);
+}
+
+.cline-legend-item.cline-off {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.cline-legend-swatch {
+  flex: none;
+}
+
+.cline-grid {
+  stroke: var(--color-line-soft);
+  stroke-opacity: 0.5;
+}
+
+.cline-ylabel {
+  fill: var(--color-fg-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-anchor: end;
+  dominant-baseline: central;
+}
+
+.cline-xlabel {
+  fill: var(--color-fg-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-anchor: middle;
+  dominant-baseline: hanging;
+}
+
+.cline-line {
+  fill: none;
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.cline-area {
+  stroke: none;
+  fill-opacity: 0.07;
+}
+
+.cline-ma {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+  stroke-opacity: 0.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.cline-dot {
+  stroke: var(--color-paper);
+  stroke-width: 1;
+  opacity: 0.7;
+}
+
+.cline-ref {
+  stroke: var(--color-bad);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+}
+
+.cline-ref-label {
+  fill: var(--color-bad);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-anchor: end;
+}
+
+.cline-footnote {
+  fill: var(--color-warn);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.cline-overlay {
+  fill: transparent;
+  cursor: crosshair;
+}
+
+.cline-crosshair {
+  stroke: var(--color-fg-muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  pointer-events: none;
+}
+
+.cline-handle {
+  stroke: var(--color-paper);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.cline-band {
+  fill: var(--color-accent);
+  fill-opacity: 0.1;
+  pointer-events: none;
+}
+
+.cline-startline {
+  stroke: var(--color-fg-muted);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  stroke-opacity: 0.6;
+  pointer-events: none;
+}
+
+.cline-up {
+  color: var(--color-good);
+}
+
+.cline-down {
+  color: var(--color-bad);
+}
+
+.chart-tooltip-sub {
+  margin-top: -0.1rem;
+}
+
+.chart-tooltip-stat {
+  color: var(--color-fg-muted);
+  font-size: 0.7rem;
+}
+
+/* Chart tooltip — a single shared floating element the hover JS reuses.
+   Positioned fixed (viewport coords) and clamped in JS. */
+.chart-tooltip {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  max-width: 18rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-panel);
+  box-shadow: 0 6px 20px -4px rgb(0 0 0 / 0.35);
+  font-family: var(--font-mono);
+  color: var(--color-fg-default);
+}
+
+.chart-tooltip-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+/* Separator line under the header when rows follow. */
+.chart-tooltip-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.45rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--color-line-soft);
+}
+
+.chart-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+}
+
+.chart-tooltip-label {
+  color: var(--color-fg-muted);
+  white-space: nowrap;
+}
+
+.chart-tooltip-value {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chart-tooltip-dot {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 0;
+  flex-shrink: 0;
+}
+
+/* Dashboard grid responsive breakpoints */
+
+@media (width >= 768px) {
+  .dash-grid   { grid-template-columns: repeat(6, 1fr); }
+  .dash-col-3  { grid-column: span 3; }
+  .dash-col-4  { grid-column: span 3; }
+  .dash-col-6  { grid-column: span 6; }
+  .dash-col-8  { grid-column: span 6; }
+  .dash-col-12 { grid-column: span 6; }
+}
+
+@media (width >= 1024px) {
+  .dash-grid   { grid-template-columns: repeat(12, 1fr); }
+  .dash-col-3  { grid-column: span 3; }
+  .dash-col-4  { grid-column: span 4; }
+  .dash-col-6  { grid-column: span 6; }
+  .dash-col-8  { grid-column: span 8; }
+  .dash-col-12 { grid-column: span 12; }
+}
+
+@media (width >= 1920px) {
+  .dash-col-6  { grid-column: span 3; }
+  .dash-col-8  { grid-column: span 4; }
+  .dash-col-12 { grid-column: span 6; }
+}
+
+/* Chart toolbar — controls chart-toolbar.js injects into the widget header. */
+.chart-toolbar-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.chart-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--color-line-soft);
+  background: transparent;
+  color: var(--color-fg-muted);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  white-space: nowrap;
+}
+
+.chart-toolbar-btn:hover {
+  background: var(--color-panel-hover);
+  color: var(--color-fg-default);
+}
+
+/* Theme dropdown */
+.chart-toolbar-dropdown {
+  position: relative;
+}
+
+.chart-toolbar-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  right: 0;
+  z-index: 50;
+  min-width: 7rem;
+  padding: 0.25rem 0;
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-panel);
+  box-shadow: 0 6px 20px -4px rgb(0 0 0 / 0.4);
+}
+
+.chart-toolbar-menu-open {
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-toolbar-menu-item {
+  display: block;
+  width: 100%;
+  padding: 0.3rem 0.6rem;
+  border: none;
+  background: transparent;
+  color: var(--color-fg-muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.08s;
+}
+
+.chart-toolbar-menu-item:hover {
+  background: var(--color-panel-hover);
+  color: var(--color-fg-default);
+}
+
+/* ==========================================================================
+ * Icons. ui.Icon emits <i class="icon icon-<name>">; the ::before map below
+ * is a monochrome-leaning Unicode stand-in until the planned subset icon font
+ * ships (ui.UsedIcons already feeds the subsetter). The old stellar.css never
+ * styled icons at all — every <i> rendered empty — so this is what makes them
+ * visible. \FE0E pins text presentation where a glyph defaults to color emoji.
+ * ========================================================================== */
+
+/* No fixed 1em box: these are font glyphs, so size via font-size and let them
+   flow inline. inline-block so icon-spin's transform applies. */
+.icon {
+  display: inline-block;
+  font-style: normal;
+  line-height: 1;
+}
+
+.icon-sm { font-size: 0.875em; }
+.icon-lg { font-size: 1.25em; }
+
+.icon-spin {
+  animation: icon-spin 1s linear infinite;
+}
+
+@keyframes icon-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Glyph map — every icon name the framework and examples reference today. */
+.icon-alert-octagon::before  { content: "⛔\FE0E"; }
+.icon-alert-triangle::before { content: "⚠\FE0E"; }
+.icon-arrow-down::before     { content: "↓"; }
+.icon-arrow-right::before    { content: "→"; }
+.icon-arrow-up::before       { content: "↑"; }
+.icon-box::before            { content: "📦\FE0E"; }
+.icon-chart::before          { content: "📊\FE0E"; }
+.icon-check::before          { content: "✓"; }
+.icon-check-circle::before   { content: "✔\FE0E"; }
+.icon-chevron-down::before   { content: "⌄"; }
+.icon-chevron-up-down::before { content: "↕\FE0E"; }
+.icon-gear::before           { content: "⚙\FE0E"; }
+.icon-home::before           { content: "⌂"; }
+.icon-inbox::before          { content: "📥\FE0E"; }
+.icon-info-circle::before    { content: "ℹ\FE0E"; }
+.icon-list::before           { content: "☰"; }
+.icon-pencil::before         { content: "✎"; }
+.icon-pin::before            { content: "📌\FE0E"; }
+.icon-play::before           { content: "▶\FE0E"; }
+.icon-plus::before           { content: "+"; }
+.icon-refresh::before        { content: "↻"; }
+.icon-search::before         { content: "⌕"; }
+.icon-send::before           { content: "➤"; }
+.icon-skip-forward::before   { content: "⏭\FE0E"; }
+.icon-spinner::before        { content: "◐"; } /* asymmetric, so icon-spin reads */
+.icon-trash::before          { content: "🗑\FE0E"; }
+.icon-x::before              { content: "✕"; }
+
+/* ==========================================================================
+ * the-beach reference kit (driftwood) — Tailwind v4 build.
  * A dark, dense dashboard theme. Components emit semantic dw-* classes; this
  * sheet styles them with Tailwind utilities via @apply, so markup stays clean
- * and the whole kit restyles from one place. Zinc surfaces, sky accent. */
+ * and the whole kit restyles from one place. Colors come from the tokens
+ * above (`bg-(--color-x)` is Tailwind's var() shorthand); Tailwind palette
+ * utilities remain only where no token fits — intermediate zinc text shades
+ * and the multi-shade semantic trios on alerts/badges/buttons.
+ * ========================================================================== */
 
 @layer components {
   /* --- root surfaces ---------------------------------------------------- */
   .dw-root { color-scheme: dark; }
-  .dw-body { @apply m-0 min-h-screen bg-zinc-950 text-zinc-100 antialiased text-[15px] leading-relaxed; font-family: ui-sans-serif, system-ui, sans-serif; }
+  .dw-body { @apply m-0 min-h-screen bg-(--color-paper) text-(--color-fg-default) antialiased text-[15px] leading-relaxed; font-family: var(--font-sans); }
 
   /* --- layout ----------------------------------------------------------- */
   .dw-container { @apply mx-auto w-full max-w-5xl px-6 py-8; }
   .dw-page-heading { @apply mb-8; }
   .dw-page-title { @apply m-0 text-2xl font-bold tracking-tight text-zinc-50; }
-  .dw-page-subtitle { @apply mt-1 text-sm text-zinc-400; }
-  .dw-section-heading { @apply mt-8 mb-3 text-lg font-semibold text-zinc-100; }
+  .dw-page-subtitle { @apply mt-1 text-sm text-(--color-fg-muted); }
+  .dw-section-heading { @apply mt-8 mb-3 text-lg font-semibold text-(--color-fg-default); }
 
-  .dw-card { @apply overflow-clip rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-100 shadow-sm; }
-  .dw-surface-well { @apply bg-zinc-950 shadow-none; }
-  .dw-card-head { @apply flex items-center gap-3 border-b border-zinc-800 px-4 py-3; }
-  .dw-card-title { @apply m-0 text-sm font-semibold text-zinc-100; }
+  .dw-card { @apply overflow-clip rounded-xl border border-(--color-line-soft) bg-(--color-panel) text-(--color-fg-default) shadow-sm; }
+  .dw-surface-well { @apply bg-(--color-paper) shadow-none; }
+  .dw-card-head { @apply flex items-center gap-3 border-b border-(--color-line-soft) px-4 py-3; }
+  .dw-card-title { @apply m-0 text-sm font-semibold text-(--color-fg-default); }
   .dw-card-body { @apply p-4; }
   .dw-card-head-text { @apply grid gap-0.5; }
-  .dw-card-meta { @apply m-0 text-xs text-zinc-400; }
+  .dw-card-meta { @apply m-0 text-xs text-(--color-fg-muted); }
   .dw-card-head-action { @apply ms-auto; }
 
-  .dw-divider { @apply my-4 border-0 border-t border-zinc-800; }
+  .dw-divider { @apply my-4 border-0 border-t border-(--color-line-soft); }
   .dw-divider-labeled { @apply flex items-center gap-3 text-xs text-zinc-500; }
-  .dw-divider-labeled::before, .dw-divider-labeled::after { content: ""; @apply flex-1 border-t border-zinc-800; }
+  .dw-divider-labeled::before, .dw-divider-labeled::after { content: ""; @apply flex-1 border-t border-(--color-line-soft); }
 
   /* --- nav -------------------------------------------------------------- */
-  .dw-navbar { @apply flex items-center gap-4 border-b border-zinc-800 bg-zinc-900 px-4 py-3 text-zinc-100; }
+  .dw-navbar { @apply flex items-center gap-4 border-b border-(--color-line-soft) bg-(--color-panel) px-4 py-3 text-(--color-fg-default); }
   .dw-brand { @apply text-base font-bold text-zinc-50 no-underline; }
   .dw-navlinks { @apply ms-auto flex gap-1; }
-  .dw-navitem { @apply inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm text-zinc-300 no-underline transition-colors hover:bg-zinc-800 hover:text-zinc-100; }
-  .dw-navitem.is-active { @apply bg-zinc-800 text-sky-400; }
+  .dw-navitem { @apply inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm text-zinc-300 no-underline transition-colors hover:bg-(--color-panel-hover) hover:text-(--color-fg-default); }
+  .dw-navitem.is-active { @apply bg-(--color-panel-hover) text-(--color-accent-text); }
 
   .dw-breadcrumbs .dw-crumbs { @apply m-0 flex list-none flex-wrap gap-2 p-0 text-xs; }
   .dw-crumb:not(:last-child)::after { content: "/"; @apply ms-2 text-zinc-600; }
-  .dw-crumb-link { @apply text-sky-400 no-underline hover:underline; }
-  .dw-crumb.is-current { @apply text-zinc-400; }
+  .dw-crumb-link { @apply text-(--color-accent-text) no-underline hover:underline; }
+  .dw-crumb.is-current { @apply text-(--color-fg-muted); }
 
   .dw-tabs .dw-tab-radio { @apply pointer-events-none absolute opacity-0; }
-  .dw-tablist { @apply flex gap-1 border-b border-zinc-800; }
-  .dw-tab { @apply cursor-pointer border-b-2 border-transparent px-4 py-2 text-sm text-zinc-400 hover:text-zinc-100; }
-  .dw-tabs .dw-tab-radio:checked ~ .dw-tablist label.dw-tab { @apply border-sky-500 text-sky-400; }
+  .dw-tablist { @apply flex gap-1 border-b border-(--color-line-soft); }
+  .dw-tab { @apply cursor-pointer border-b-2 border-transparent px-4 py-2 text-sm text-(--color-fg-muted) hover:text-(--color-fg-default); }
+  .dw-tabs .dw-tab-radio:checked ~ .dw-tablist label.dw-tab { @apply border-(--color-accent) text-(--color-accent-text); }
 
   .dw-pagination { @apply flex items-center gap-1; }
-  .dw-page-link { @apply min-w-9 rounded-md px-3 py-2 text-center text-sm text-zinc-200 no-underline hover:bg-zinc-800; }
-  .dw-page-link.is-current { @apply bg-sky-600 text-white; }
+  .dw-page-link { @apply min-w-9 rounded-md px-3 py-2 text-center text-sm text-zinc-200 no-underline hover:bg-(--color-panel-hover); }
+  .dw-page-link.is-current { @apply bg-(--color-accent) text-white; }
   .dw-page-link.is-disabled { @apply pointer-events-none text-zinc-600; }
 
   /* --- buttons ---------------------------------------------------------- */
-  .dw-btn { @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-transparent bg-zinc-800 px-4 py-2 text-sm font-semibold leading-none text-zinc-100 transition-colors hover:bg-zinc-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500; }
+  .dw-btn { @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-transparent bg-(--color-panel-hover) px-4 py-2 text-sm font-semibold leading-none text-(--color-fg-default) transition-colors hover:bg-zinc-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent); }
   .dw-btn[disabled], .dw-btn[aria-busy="true"] { @apply cursor-not-allowed opacity-60; }
-  .dw-btn-accent { @apply bg-sky-600 text-white hover:bg-sky-500; }
+  .dw-btn-accent { @apply bg-(--color-accent) text-white hover:bg-(--color-accent-hover); }
   .dw-btn-good { @apply bg-emerald-600 text-white hover:bg-emerald-500; }
   .dw-btn-danger { @apply bg-red-600 text-white hover:bg-red-500; }
   .dw-btn-warn { @apply bg-amber-500 text-zinc-950 hover:bg-amber-400; }
   .dw-btn-info { @apply bg-blue-600 text-white hover:bg-blue-500; }
-  .dw-btn-ghost { @apply border-sky-600 bg-transparent text-sky-400 hover:bg-sky-950; }
-  .dw-btn-quiet { @apply bg-transparent text-zinc-200 hover:bg-zinc-800; }
+  .dw-btn-ghost { @apply border-(--color-accent) bg-transparent text-(--color-accent-text) hover:bg-(--color-accent-soft); }
+  .dw-btn-quiet { @apply bg-transparent text-zinc-200 hover:bg-(--color-panel-hover); }
   .dw-btn-sm { @apply px-3 py-1 text-xs; }
   .dw-btn-lg { @apply px-5 py-3 text-base; }
   .dw-btn-label { @apply inline-block; }
@@ -141,43 +986,43 @@
   }
   .dw-btn-hazard:hover { background-color: #ef4444; }
   .dw-btn-hazard > * { @apply relative; }
-  .dw-iconbtn { @apply inline-flex size-9 cursor-pointer items-center justify-center rounded-md border border-transparent bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500; }
+  .dw-iconbtn { @apply inline-flex size-9 cursor-pointer items-center justify-center rounded-md border border-transparent bg-transparent text-zinc-300 hover:bg-(--color-panel-hover) hover:text-(--color-fg-default) focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent); }
   .dw-btngroup { @apply inline-flex; }
   .dw-btngroup > .dw-btn { @apply rounded-none first:rounded-s-md last:rounded-e-md; }
-  .dw-btngroup > .dw-btn + .dw-btn { @apply border-s border-zinc-700; }
+  .dw-btngroup > .dw-btn + .dw-btn { @apply border-s border-(--color-line-strong); }
   .dw-menubtn { @apply relative inline-block; }
-  .dw-menu { @apply z-30 m-0 min-w-44 list-none rounded-md border border-zinc-800 bg-zinc-900 p-1 text-zinc-100 shadow-lg; }
+  .dw-menu { @apply z-30 m-0 min-w-44 list-none rounded-md border border-(--color-line-soft) bg-(--color-panel) p-1 text-(--color-fg-default) shadow-lg; }
   .dw-menu:popover-open { @apply absolute inset-auto; }
-  .dw-menu-link { @apply flex w-full cursor-pointer items-center gap-2 rounded-sm border-0 bg-transparent px-3 py-2 text-start text-sm text-zinc-200 no-underline hover:bg-zinc-800; }
+  .dw-menu-link { @apply flex w-full cursor-pointer items-center gap-2 rounded-sm border-0 bg-transparent px-3 py-2 text-start text-sm text-zinc-200 no-underline hover:bg-(--color-panel-hover); }
 
   /* --- forms ------------------------------------------------------------ */
   .dw-form { @apply grid gap-4; }
   .dw-form.is-twocol .dw-field { @apply grid grid-cols-[minmax(0,12rem)_minmax(0,1fr)] items-start gap-3; }
   .dw-field { @apply mb-4 flex flex-col gap-1.5; }
   .dw-label { @apply text-sm font-semibold text-zinc-200; }
-  .dw-help { @apply text-xs text-zinc-400; }
-  .dw-field-error { @apply text-xs text-red-400; }
-  .dw-input, .dw-textarea, .dw-select { @apply w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 transition-colors placeholder:text-zinc-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500; }
-  .dw-input.is-error, .dw-textarea.is-error, .dw-select.is-error { @apply border-red-500; }
-  .dw-input[disabled], .dw-textarea[disabled] { @apply bg-zinc-900 text-zinc-500; }
+  .dw-help { @apply text-xs text-(--color-fg-muted); }
+  .dw-field-error { @apply text-xs text-(--color-bad); }
+  .dw-input, .dw-textarea, .dw-select { @apply w-full rounded-md border border-(--color-line-strong) bg-(--color-paper) px-3 py-2 text-sm text-(--color-fg-default) transition-colors placeholder:text-zinc-500 focus:border-(--color-accent) focus:outline-none focus:ring-1 focus:ring-(--color-accent); }
+  .dw-input.is-error, .dw-textarea.is-error, .dw-select.is-error { @apply border-(--color-bad); }
+  .dw-input[disabled], .dw-textarea[disabled] { @apply bg-(--color-panel) text-zinc-500; }
   .dw-textarea { @apply min-h-24 resize-y; }
   .dw-inputgroup, .dw-input-group { @apply flex items-stretch; }
   .dw-inputgroup > .dw-input, .dw-inputgroup > .dw-input-group { @apply flex-1 rounded-e-none; }
   .dw-inputgroup > .dw-btn { @apply rounded-s-none; }
-  .dw-input-addon { @apply inline-flex items-center border border-zinc-700 bg-zinc-900 px-3 text-sm text-zinc-300; }
+  .dw-input-addon { @apply inline-flex items-center border border-(--color-line-strong) bg-(--color-panel) px-3 text-sm text-zinc-300; }
   .dw-select-wrap { @apply relative; }
   .dw-check, .dw-radio-row, .dw-toggle { @apply flex cursor-pointer items-center gap-2 text-sm; }
-  .dw-checkbox, .dw-radio { @apply size-4 accent-sky-500; }
+  .dw-checkbox, .dw-radio { @apply size-4 accent-(--color-accent); }
   .dw-radiogroup { @apply grid gap-2; }
   .dw-radiogroup.is-inline { @apply grid-flow-col justify-start gap-4; }
   .dw-toggle { @apply items-start; }
   .dw-toggle-input { @apply absolute size-px opacity-0; }
   .dw-toggle-track { @apply relative h-5 w-9 flex-none rounded-full bg-zinc-700 transition-colors; }
   .dw-toggle-thumb { @apply absolute start-0.5 top-1/2 size-4 -translate-y-1/2 rounded-full bg-white transition-all; }
-  .dw-toggle-input:checked + .dw-toggle-track { @apply bg-sky-600; }
+  .dw-toggle-input:checked + .dw-toggle-track { @apply bg-(--color-accent); }
   .dw-toggle-input:checked + .dw-toggle-track .dw-toggle-thumb { inset-inline-start: calc(100% - 1.25rem); }
   .dw-toggle-text { @apply grid gap-0.5; }
-  .dw-toggle-desc { @apply text-xs text-zinc-400; }
+  .dw-toggle-desc { @apply text-xs text-(--color-fg-muted); }
   .dw-formerror { @apply flex gap-3 rounded-md border border-red-900 bg-red-950 px-4 py-3 text-red-200; }
   .dw-formerror-body { @apply grid gap-1; }
   .dw-formerror-title { @apply font-bold; }
@@ -185,40 +1030,40 @@
 
   /* --- data ------------------------------------------------------------- */
   .dw-table { @apply w-full border-collapse text-sm; }
-  .dw-thead { @apply bg-zinc-900; }
-  .dw-th { @apply border-b border-zinc-800 px-3 py-2.5 text-start font-semibold text-zinc-300; }
+  .dw-thead { @apply bg-(--color-panel); }
+  .dw-th { @apply border-b border-(--color-line-soft) px-3 py-2.5 text-start font-semibold text-zinc-300; }
   .dw-th-sort { @apply inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent font-semibold text-inherit; }
-  .dw-td { @apply border-b border-zinc-800 px-3 py-2.5 text-zinc-200; }
-  .dw-tr:hover .dw-td { @apply bg-zinc-900; }
+  .dw-td { @apply border-b border-(--color-line-soft) px-3 py-2.5 text-zinc-200; }
+  .dw-tr:hover .dw-td { @apply bg-(--color-panel); }
   .dw-table.is-dense .dw-th, .dw-table.is-dense .dw-td { @apply px-2 py-1.5; }
   .dw-table-empty { @apply p-6 text-center text-zinc-500; }
   .dw-stat { @apply m-0 grid gap-1; }
-  .dw-stat-label { @apply text-xs uppercase tracking-wide text-zinc-400; }
+  .dw-stat-label { @apply text-xs uppercase tracking-wide text-(--color-fg-muted); }
   .dw-stat-value { @apply m-0 text-2xl font-bold leading-none text-zinc-50; }
   .dw-stat-delta { @apply inline-flex items-center gap-1 text-xs font-semibold; }
-  .dw-delta-up { @apply text-emerald-400; }
-  .dw-delta-down { @apply text-red-400; }
-  .dw-badge { @apply inline-flex items-center gap-1 rounded-full bg-zinc-800 px-2 py-0.5 text-xs font-semibold text-zinc-200; }
+  .dw-delta-up { @apply text-(--color-good); }
+  .dw-delta-down { @apply text-(--color-bad); }
+  .dw-badge { @apply inline-flex items-center gap-1 rounded-full bg-(--color-panel-hover) px-2 py-0.5 text-xs font-semibold text-zinc-200; }
   .dw-badge-dot { @apply size-2 rounded-full bg-current; }
-  .dw-badge-accent { @apply bg-sky-950 text-sky-300; }
+  .dw-badge-accent { @apply bg-(--color-accent-soft) text-(--color-accent-text); }
   .dw-badge-good { @apply bg-emerald-950 text-emerald-300; }
   .dw-badge-danger { @apply bg-red-950 text-red-300; }
   .dw-badge-warn { @apply bg-amber-950 text-amber-300; }
   .dw-badge-info { @apply bg-blue-950 text-blue-300; }
   .dw-desclist { @apply m-0 grid gap-2 gap-x-4; }
   .dw-desclist.is-twocol { @apply grid-cols-[minmax(0,auto)_minmax(0,1fr)]; }
-  .dw-dt { @apply font-semibold text-zinc-400; }
-  .dw-dd { @apply m-0 text-zinc-100; }
+  .dw-dt { @apply font-semibold text-(--color-fg-muted); }
+  .dw-dd { @apply m-0 text-(--color-fg-default); }
   .dw-stacked { @apply m-0 list-none p-0; }
-  .dw-row { @apply flex items-center gap-3 border-b border-zinc-800 py-3 last:border-b-0; }
+  .dw-row { @apply flex items-center gap-3 border-b border-(--color-line-soft) py-3 last:border-b-0; }
   .dw-row-media { @apply flex-none; }
   .dw-row-text { @apply grid min-w-0 flex-1 gap-0.5; }
-  .dw-row-title { @apply m-0 font-semibold text-zinc-100 no-underline; }
-  .dw-row-meta { @apply m-0 text-xs text-zinc-400; }
+  .dw-row-title { @apply m-0 font-semibold text-(--color-fg-default) no-underline; }
+  .dw-row-meta { @apply m-0 text-xs text-(--color-fg-muted); }
   .dw-row-action { @apply ms-auto flex flex-none items-center gap-2; }
 
   /* --- feedback --------------------------------------------------------- */
-  .dw-alert { @apply flex gap-3 rounded-md border border-zinc-800 bg-zinc-900 px-4 py-3 text-zinc-100; }
+  .dw-alert { @apply flex gap-3 rounded-md border border-(--color-line-soft) bg-(--color-panel) px-4 py-3 text-(--color-fg-default); }
   .dw-alert-icon { @apply flex-none; }
   .dw-alert-body { @apply grid flex-1 gap-1; }
   .dw-alert-title { @apply font-bold; }
@@ -231,8 +1076,8 @@
   .dw-empty-icon { @apply text-4xl; }
   .dw-spinner { @apply inline-flex; }
   .dw-spinner.is-block { @apply flex justify-center p-5; }
-  .dw-skeleton, .ui-skeleton, .ui-defer { @apply animate-pulse rounded-md bg-zinc-800; }
-  .dw-toast { @apply z-40 flex items-start gap-3 rounded-md border border-zinc-800 bg-zinc-900 px-4 py-3 text-zinc-100 shadow-lg; }
+  .dw-skeleton, .ui-skeleton, .ui-defer { @apply animate-pulse rounded-md bg-(--color-panel-hover); }
+  .dw-toast { @apply z-40 flex items-start gap-3 rounded-md border border-(--color-line-soft) bg-(--color-panel) px-4 py-3 text-(--color-fg-default) shadow-lg; }
   .dw-toast-icon { @apply flex-none; }
   .dw-toast-body { @apply grid flex-1 gap-0.5; }
   .dw-toast-title { @apply font-bold; }
@@ -242,43 +1087,44 @@
   .dw-toast-warn { @apply border-amber-900 bg-amber-950 text-amber-200; }
   .dw-toast-danger { @apply border-red-900 bg-red-950 text-red-200; }
   .dw-toast-info { @apply border-blue-900 bg-blue-950 text-blue-200; }
-  .dw-progress { @apply h-2 w-full overflow-hidden rounded-full bg-zinc-800; }
-  .dw-progress-bar { @apply h-full rounded-full bg-sky-500 transition-all; }
-  .dw-progress-good .dw-progress-bar { @apply bg-emerald-500; }
-  .dw-progress-danger .dw-progress-bar { @apply bg-red-500; }
-  .dw-progress-warn .dw-progress-bar { @apply bg-amber-500; }
-  .dw-progress-info .dw-progress-bar { @apply bg-blue-500; }
+  .dw-progress { @apply h-2 w-full overflow-hidden rounded-full bg-(--color-panel-hover); }
+  .dw-progress-bar { @apply h-full rounded-full bg-(--color-accent) transition-all; }
+  .dw-progress-good .dw-progress-bar { @apply bg-(--color-good); }
+  .dw-progress-danger .dw-progress-bar { @apply bg-(--color-bad); }
+  .dw-progress-warn .dw-progress-bar { @apply bg-(--color-warn); }
+  .dw-progress-info .dw-progress-bar { @apply bg-(--color-info); }
   .dw-progress.is-indeterminate .dw-progress-bar { @apply w-2/5 animate-pulse; }
 
   /* --- overlays --------------------------------------------------------- */
-  .dw-modal { @apply z-50 w-[calc(100%-3rem)] max-w-lg rounded-xl border border-zinc-800 bg-zinc-900 p-0 text-zinc-100 shadow-2xl; }
+  .dw-modal { @apply z-50 w-[calc(100%-3rem)] max-w-lg rounded-xl border border-(--color-line-soft) bg-(--color-panel) p-0 text-(--color-fg-default) shadow-2xl; }
   .dw-modal::backdrop { @apply bg-black/60; }
-  .dw-modal-head { @apply flex items-center justify-between border-b border-zinc-800 px-4 py-3; }
+  .dw-modal-head { @apply flex items-center justify-between border-b border-(--color-line-soft) px-4 py-3; }
   .dw-modal-title { @apply m-0 text-base font-semibold; }
   .dw-modal-body { @apply p-4; }
-  .dw-drawer { @apply fixed z-40 m-0 h-screen max-h-screen w-[min(28rem,100vw)] border-0 bg-zinc-900 p-0 text-zinc-100 shadow-2xl; }
+  .dw-drawer { @apply fixed z-40 m-0 h-screen max-h-screen w-[min(28rem,100vw)] border-0 bg-(--color-panel) p-0 text-(--color-fg-default) shadow-2xl; }
   .dw-drawer-right { @apply inset-y-0 end-0; }
   .dw-drawer-left { @apply inset-y-0 start-0; }
   .dw-drawer::backdrop { @apply bg-black/40; }
-  .dw-drawer-head { @apply flex items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3; }
+  .dw-drawer-head { @apply flex items-center justify-between gap-3 border-b border-(--color-line-soft) px-4 py-3; }
   .dw-drawer-title { @apply m-0 text-base font-semibold; }
   .dw-drawer-body { @apply overflow-auto p-4; }
   .dw-popover { @apply relative inline-block; }
-  .dw-popover-panel { @apply z-30 m-0 min-w-44 rounded-md border border-zinc-800 bg-zinc-900 p-3 text-zinc-100 shadow-lg; }
+  .dw-popover-panel { @apply z-30 m-0 min-w-44 rounded-md border border-(--color-line-soft) bg-(--color-panel) p-3 text-(--color-fg-default) shadow-lg; }
   .dw-popover-panel:popover-open { @apply absolute inset-auto; }
   .dw-tooltip { @apply relative inline-flex; }
-  .dw-tooltip-text { @apply pointer-events-none absolute bottom-full left-1/2 z-50 -translate-x-1/2 -translate-y-1 rounded bg-zinc-100 px-2 py-1 text-xs whitespace-nowrap text-zinc-900 opacity-0 transition-opacity; }
+  /* Tooltips invert: page foreground becomes the panel, page background the text. */
+  .dw-tooltip-text { @apply pointer-events-none absolute bottom-full left-1/2 z-50 -translate-x-1/2 -translate-y-1 rounded bg-(--color-fg-default) px-2 py-1 text-xs whitespace-nowrap text-(--color-paper) opacity-0 transition-opacity; }
   .dw-tooltip:hover .dw-tooltip-text, .dw-tooltip:focus-within .dw-tooltip-text { @apply opacity-100; }
 
   /* --- media ------------------------------------------------------------ */
-  .dw-avatar { @apply relative inline-flex size-9 items-center justify-center overflow-hidden rounded-full bg-zinc-800 font-semibold text-zinc-200; }
+  .dw-avatar { @apply relative inline-flex size-9 items-center justify-center overflow-hidden rounded-full bg-(--color-panel-hover) font-semibold text-zinc-200; }
   .dw-avatar-sm { @apply size-7 text-xs; }
   .dw-avatar-lg { @apply size-12 text-base; }
   .dw-avatar-img { @apply size-full object-cover; }
-  .dw-avatar-status { @apply absolute bottom-0 right-0 size-2.5 rounded-full border-2 border-zinc-950 bg-zinc-500; }
-  .dw-status-online { @apply bg-emerald-500; }
-  .dw-status-away { @apply bg-amber-500; }
-  .dw-aspect { @apply relative w-full overflow-hidden rounded-md bg-zinc-800; aspect-ratio: 1 / 1; }
+  .dw-avatar-status { @apply absolute bottom-0 right-0 size-2.5 rounded-full border-2 border-(--color-paper) bg-zinc-500; }
+  .dw-status-online { @apply bg-(--color-good); }
+  .dw-status-away { @apply bg-(--color-warn); }
+  .dw-aspect { @apply relative w-full overflow-hidden rounded-md bg-(--color-panel-hover); aspect-ratio: 1 / 1; }
   .dw-aspect-square { aspect-ratio: 1 / 1; }
   .dw-aspect-wide { aspect-ratio: 16 / 9; }
   .dw-aspect-photo { aspect-ratio: 4 / 3; }
@@ -287,39 +1133,39 @@
   .dw-fit-cover { @apply object-cover; }
   .dw-fit-contain { @apply object-contain; }
   .dw-figure { @apply m-0 grid gap-2; }
-  .dw-figcaption { @apply text-xs text-zinc-400; }
+  .dw-figcaption { @apply text-xs text-(--color-fg-muted); }
 
   /* --- messaging -------------------------------------------------------- */
   .dw-msglist { @apply m-0 flex list-none flex-col gap-2 p-3; }
-  .dw-msg { @apply flex max-w-[80%] flex-col gap-0.5 rounded-xl bg-zinc-800 px-3 py-2 text-sm text-zinc-100; }
-  .dw-msg.is-own { @apply self-end bg-sky-600 text-white; }
+  .dw-msg { @apply flex max-w-[80%] flex-col gap-0.5 rounded-xl bg-(--color-panel-hover) px-3 py-2 text-sm text-(--color-fg-default); }
+  .dw-msg.is-own { @apply self-end bg-(--color-accent) text-white; }
   .dw-msg.is-system { @apply max-w-none self-center bg-transparent text-xs italic text-zinc-500; }
   .dw-msg-author { @apply text-xs font-semibold opacity-80; }
   .dw-msg-time { @apply text-xs opacity-60; }
-  .dw-composer { @apply flex gap-2 border-t border-zinc-800 p-3; }
-  .dw-composer-input { @apply flex-1 resize-none rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100; }
-  .dw-composer-send { @apply inline-flex w-11 items-center justify-center rounded-xl border-0 bg-sky-600 text-white; }
-  .dw-presence { @apply inline-flex items-center gap-2 rounded-full bg-zinc-900 px-3 py-1 text-xs text-zinc-200; }
+  .dw-composer { @apply flex gap-2 border-t border-(--color-line-soft) p-3; }
+  .dw-composer-input { @apply flex-1 resize-none rounded-xl border border-(--color-line-strong) bg-(--color-paper) px-3 py-2 text-sm text-(--color-fg-default); }
+  .dw-composer-send { @apply inline-flex w-11 items-center justify-center rounded-xl border-0 bg-(--color-accent) text-white; }
+  .dw-presence { @apply inline-flex items-center gap-2 rounded-full bg-(--color-panel) px-3 py-1 text-xs text-zinc-200; }
   .dw-presence-dot { @apply size-2 rounded-full bg-zinc-500; }
-  .dw-presence.is-connected .dw-presence-dot, .dw-presence.is-paired .dw-presence-dot { @apply bg-emerald-500; }
-  .dw-presence.is-reconnecting .dw-presence-dot, .dw-presence.is-waiting .dw-presence-dot { @apply bg-amber-500; }
+  .dw-presence.is-connected .dw-presence-dot, .dw-presence.is-paired .dw-presence-dot { @apply bg-(--color-good); }
+  .dw-presence.is-reconnecting .dw-presence-dot, .dw-presence.is-waiting .dw-presence-dot { @apply bg-(--color-warn); }
 
   /* --- shell, grids, split ---------------------------------------------- */
   .dw-shell { @apply flex min-h-screen flex-col; }
-  .dw-shell-top { @apply sticky top-0 z-10 border-b border-zinc-800 bg-zinc-900 text-zinc-100; }
+  .dw-shell-top { @apply sticky top-0 z-10 border-b border-(--color-line-soft) bg-(--color-panel) text-(--color-fg-default); }
   .dw-shell-main { @apply min-w-0 flex-1; }
   .dw-shell-cols { @apply flex min-h-0 flex-1 items-stretch; }
-  .dw-shell-side { @apply w-64 flex-none border-e border-zinc-800 bg-zinc-900 text-zinc-100; }
+  .dw-shell-side { @apply w-64 flex-none border-e border-(--color-line-soft) bg-(--color-panel) text-(--color-fg-default); }
   .dw-grid, .dw-gridlist { @apply grid gap-4; grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr)); }
   .dw-gridlist { @apply m-0 list-none p-0; }
   .dw-split { @apply grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]; }
   .dw-sidebar { @apply grid gap-4 px-3 py-4; }
   .dw-side-label { @apply mb-1 text-xs uppercase tracking-wider text-zinc-500; }
   .dw-side-items { @apply m-0 grid list-none gap-1 p-0; }
-  .dw-side-link { @apply flex items-center gap-2 rounded-md px-3 py-2 text-sm text-zinc-200 no-underline hover:bg-zinc-800; }
-  .dw-side-link.is-active { @apply bg-zinc-800 text-sky-400; }
+  .dw-side-link { @apply flex items-center gap-2 rounded-md px-3 py-2 text-sm text-zinc-200 no-underline hover:bg-(--color-panel-hover); }
+  .dw-side-link.is-active { @apply bg-(--color-panel-hover) text-(--color-accent-text); }
 
-  /* --- demo-specific live region ---------------------------------------- */
+  /* --- scaffold live region (cmd/beach app template) ---------------------- */
   .dw-live { @apply grid gap-1 text-sm; }
   .dw-clock { @apply m-0 text-zinc-300; }
   .dw-count { @apply m-0 text-zinc-300; }
@@ -334,19 +1180,374 @@
   .dw-avatar, .dw-avatar-status,
   .dw-presence, .dw-presence-dot,
   .dw-tooltip-text { border-radius: 0; } /* bare `rounded` = 0.25rem, also token-blind */
+}
 
-  /* --- chart SVG text --------------------------------------------------- */
-  /* Charts render as <svg class="chart"> emitting semantic text classes but no
-     color of their own — without these rules the text falls back to black and
-     vanishes on the dark surface. `color` seeds currentColor for marks that use
-     it (e.g. a billboard delta with no up/down tint). chart-kpi-delta keeps its
-     own inline semantic fill, so it is only sized here, never recolored. */
-  .chart { color: var(--color-zinc-300); font-family: ui-sans-serif, system-ui, sans-serif; }
-  .chart-axis { fill: var(--color-zinc-500); font-size: 11px; }
-  .chart-label { fill: var(--color-zinc-300); font-size: 12px; }
-  .chart-value { fill: var(--color-zinc-100); font-size: 12px; font-weight: 600; }
-  .chart-gauge-value { fill: var(--chart-emphasis); font-size: 22px; font-weight: 700; }
-  .chart-kpi-label { fill: var(--color-zinc-400); font-size: 13px; }
-  .chart-kpi-value { fill: var(--chart-emphasis); font-size: 30px; font-weight: 700; }
-  .chart-kpi-delta { font-size: 13px; font-weight: 600; }
+/* ==========================================================================
+ * Error page (driftwood errors.templ). A centered column on the paper
+ * surface; the status code is the headline — oversized, muted, mono like a
+ * log line — with the human title and message under it.
+ * ========================================================================== */
+
+.dw-errorpage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 100vh;
+  padding: 1.5rem;
+  background: var(--color-paper);
+  text-align: center;
+}
+
+.dw-errorpage-code {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 6rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--color-fg-muted);
+}
+
+.dw-errorpage-title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--color-fg-default);
+}
+
+.dw-errorpage-msg {
+  margin: 0;
+  max-width: 36rem;
+  color: var(--color-fg-muted);
+}
+
+/* Card row — a content row inside a card body (pantry's item tiles): text
+   left, trailing badge pushed right, hairline separators between siblings. */
+.dw-card-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-block: 0.5rem;
+  border-bottom: 1px solid var(--color-line-soft);
+}
+
+.dw-card-row:last-child {
+  border-bottom: none;
+}
+
+/* ==========================================================================
+ * Specimen page (ui/specimen). Gallery-only layout; apps never emit spec-*.
+ * ========================================================================== */
+
+/* Token swatches: the fill proves the var, the caption names it. */
+.spec-swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.75rem;
+}
+
+.spec-swatch {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.5rem;
+  border: 1px solid var(--color-line-soft);
+  background: var(--color-panel);
+}
+
+.spec-swatch-fill {
+  height: 2.5rem;
+  border: 1px solid var(--color-line-soft); /* keeps near-paper tokens visible */
+}
+
+.spec-swatch-name {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.spec-swatch-note {
+  font-size: 0.75rem;
+  color: var(--color-fg-muted);
+}
+
+/* 15-cell palette strip — one cell per series token / gamut sample. */
+.spec-strip {
+  display: grid;
+  grid-template-columns: repeat(15, 1fr);
+  height: 2rem;
+  border: 1px solid var(--color-line-soft);
+}
+
+.spec-strip-cell {
+  min-width: 0;
+}
+
+.spec-type-sample {
+  margin: 0.5rem 0;
+}
+
+/* Icon gallery: recessed tiles so cells read against the panel card. */
+.spec-icon-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6rem, 1fr));
+  gap: 0.5rem;
+}
+
+.spec-icon-cell {
+  display: grid;
+  justify-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 0.25rem;
+  background: var(--color-paper);
+}
+
+.spec-icon-cell code {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--color-fg-muted);
+}
+
+/* Inline demo row: wraps, centers mixed-height components. */
+.spec-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-block: 0.75rem;
+}
+
+.spec-note {
+  font-size: 0.75rem;
+  color: var(--color-fg-muted);
+}
+
+.spec-gamut {
+  display: grid;
+  gap: 0.35rem;
+  margin-top: 0.75rem;
+}
+
+.spec-gamut-meta {
+  display: flex;
+  gap: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-fg-muted);
+}
+
+/* Generated-CSS disclosure: the SeriesVars :root block, shown verbatim. */
+.spec-css {
+  margin-top: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+}
+
+.spec-css pre {
+  margin: 0.5rem 0 0;
+  padding: 0.75rem;
+  background: var(--color-paper);
+  overflow: auto;
+}
+
+/* Bound the embedded Shell/Sidebar demos so they can't blow out the card. */
+.spec-sidebar-demo {
+  max-height: 22rem;
+  overflow: auto;
+  border: 1px solid var(--color-line-soft);
+  margin-top: 0.75rem;
+}
+
+/* Tinted fill for AspectRatio demos — proves the box reserves its space. */
+.spec-aspect-fill {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  background: var(--color-panel-hover);
+  color: var(--color-fg-muted);
+  font-size: 0.75rem;
+}
+
+/* ==========================================================================
+ * Example-app sections. boardwalk (bw-*) and driftbottle (db-*) ship no
+ * stylesheet of their own; the framework sheet carries their app-local
+ * classes so the examples stay single-binary with zero asset steps.
+ * ========================================================================== */
+
+/* --- boardwalk ---------------------------------------------------------- */
+
+.bw-board {
+  display: grid;
+  gap: 1rem;
+}
+
+.bw-turn {
+  margin: 0;
+}
+
+.bw-dice {
+  margin-left: 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--color-fg-muted);
+}
+
+/* The tile ring. Tiles share the card's panel surface; the hairline (plus the
+   inline group-accent border-top) is what delineates them. */
+.bw-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+  gap: 0.5rem;
+}
+
+.bw-tile {
+  padding: 0.5rem;
+  border: 1px solid var(--color-line-soft);
+  background: var(--color-panel);
+}
+
+.bw-tile-name {
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.bw-tile-meta {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--color-fg-muted);
+}
+
+/* Player tokens standing on the tile; the accent outline marks the occupied
+   square so positions read at a glance. */
+.bw-tile-here {
+  margin-top: 0.25rem;
+  font-size: 1rem;
+}
+
+.bw-tile:has(.bw-tile-here) {
+  outline: 1px solid var(--color-accent);
+  outline-offset: -1px;
+}
+
+.bw-standings h3,
+.bw-log h3,
+.bw-hand h3,
+.bw-hand h4 {
+  margin: 0 0 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.bw-standings ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.bw-open {
+  color: var(--color-fg-muted);
+}
+
+.bw-toturn {
+  margin-left: 0.35rem;
+  color: var(--color-accent-text);
+}
+
+/* Game log — a mono ticker, capped so a long game doesn't stretch the card. */
+.bw-log {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  max-height: 10rem;
+  overflow: auto;
+}
+
+.bw-log ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.2rem;
+}
+
+.bw-hand {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+}
+
+.bw-cash {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.bw-deeds {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.15rem;
+}
+
+.bw-muted {
+  color: var(--color-fg-muted);
+}
+
+/* Action-feedback toasts stack above everything, bottom-right. */
+.bw-toast-region {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Reserve room for the race SVG so the first SSE frame doesn't shift layout. */
+.bw-race {
+  min-height: 16rem;
+}
+
+/* --- driftbottle -------------------------------------------------------- */
+
+/* One narrow column; the card body stacks its mixed inline/block children
+   (presence pill, lead, feed, composer, buttons) without full-width buttons. */
+.db-room {
+  max-width: 36rem;
+  margin-inline: auto;
+}
+
+.db-room .dw-card-body {
+  display: grid;
+  gap: 0.75rem;
+  justify-items: start;
+}
+
+.db-room .dw-composer {
+  justify-self: stretch;
+}
+
+.db-lead {
+  margin: 0;
+  color: var(--color-fg-muted);
+}
+
+/* The #notice slot is always present as a morph target; collapse it empty. */
+.db-notice {
+  width: 100%;
+}
+
+.db-notice:empty {
+  display: none;
+}
+
+.db-feed {
+  width: 100%;
+  max-height: 20rem;
+  overflow: auto;
 }
