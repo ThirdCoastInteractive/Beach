@@ -172,6 +172,9 @@ func (a *app) doLogin(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 	token, _, _, err := a.authn.Login(r.Context(), r.FormValue("username"), r.FormValue("password"))
 	if err != nil {
+		// The failed handle is signal, not identity — brute-force runs show up
+		// as one handle hammered from one IP.
+		a.track(r, "login_fail", r.FormValue("username"), 0)
 		dest := "/login?err=1"
 		if err == auth.ErrAccountLocked {
 			dest = "/login?err=locked"
@@ -179,12 +182,16 @@ func (a *app) doLogin(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, dest, http.StatusSeeOther)
 		return
 	}
+	a.track(r, "login_ok", r.FormValue("username"), 0)
 	a.setSessionCookieW(w, token)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 // logout revokes the session and clears the cookie.
 func (a *app) logout(w http.ResponseWriter, r *http.Request) {
+	// Read the handle before the revoke, while the principal still resolves.
+	handle, _, _ := a.acct(&beach.Ctx{W: w, R: r})
+	a.track(r, "logout", handle, 0)
 	if a.sessions != nil {
 		if ck, err := r.Cookie(sessionCookie); err == nil {
 			_ = a.sessions.Revoke(r.Context(), ck.Value)

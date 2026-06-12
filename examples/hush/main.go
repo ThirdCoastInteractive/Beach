@@ -11,8 +11,10 @@
 // and in-memory (text posts through the 512-character limited-markdown text
 // path, image posts through local file storage); with it, both the wall and
 // the signup gate — applications, accounts, RBAC, sessions — live in Postgres.
-// The /compose page hosts the WebGPU camera island, and Repute scores posting
-// activity.
+// Production media is env-driven too (media.go): R2_* swaps the file store
+// for Cloudflare R2, CF_IMAGES_* routes image posts through Cloudflare
+// Images. The /compose page hosts the WebGPU camera island, and Repute
+// scores posting activity.
 package main
 
 import (
@@ -25,15 +27,17 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 
 	beach "github.com/ThirdCoastInteractive/the-beach"
 	"github.com/ThirdCoastInteractive/the-beach/auth"
+	"github.com/ThirdCoastInteractive/the-beach/ch"
+	"github.com/ThirdCoastInteractive/the-beach/mailer"
 	"github.com/ThirdCoastInteractive/the-beach/session"
 	"github.com/ThirdCoastInteractive/the-beach/storage"
+	"github.com/ThirdCoastInteractive/the-beach/storage/cfimages"
 	"github.com/ThirdCoastInteractive/the-beach/ui/specimen"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -48,16 +52,31 @@ var migrationsFS embed.FS
 // app holds the wired dependencies the handlers close over. With DATABASE_URL
 // set, the wall and the signup gate — applications, accounts, roles, sessions —
 // are Postgres-backed (pgStore); without it the app runs open and in-memory
-// (memStore): anyone can post, there's no gate.
+// (memStore): anyone can post, there's no gate. files and images are the media
+// wiring (media.go): Local or R2 behind the Store interface, plus the optional
+// Cloudflare Images client image posts route through.
 type app struct {
 	cfg      config
 	store    wall
-	files    *storage.Local
+	files    storage.Store
+	images   *cfimages.Client // nil = image posts go through files
 	rep      *reputation
+	mail     mailer.Mailer
 	authn    *auth.Authenticator
 	sessions *session.Store
 	pool     *pgxpool.Pool
 	release  bool
+
+	// The Cloudflare Images variant names (media.go sets them with the
+	// client): the full-size one feed cards render and the square-crop thumb
+	// the grid tiles use.
+	imgVariant string
+	imgThumb   string
+
+	// The observation store (analytics.go). chConn is nil without a
+	// CLICKHOUSE_DSN — analytics off — and events is then a no-op batcher.
+	chConn ch.Conn
+	events *ch.Batcher[event]
 
 	// The invite graph (invitee → inviter), in-memory, hydrated from
 	// hush_invites at boot — the chain echoes read it on every vote.
@@ -78,20 +97,17 @@ func main() {
 		log.Fatalf("hush: static sub-fs: %v", err)
 	}
 
-	// Local file store under the OS temp dir, served at /files. Ephemeral — a
-	// Postgres-persisted wall can outlive these bytes; Cloudflare Images
-	// (cf_image_id on hush_posts) is the durable image path, a later phase.
-	filesDir := os.Getenv("HUSH_FILES_DIR")
-	if filesDir == "" {
-		filesDir = filepath.Join(os.TempDir(), "hush-files")
+	a := &app{cfg: loadConfig(), release: os.Getenv("RELEASE") != ""}
+	// Media wiring (media.go): R2 or a local temp dir behind storage.Store,
+	// plus the optional Cloudflare Images client. With no R2_*/CF_IMAGES_* env
+	// the wall runs exactly as before — local ephemeral files served at /files.
+	if err := a.initMedia(); err != nil {
+		log.Fatalf("hush: media: %v", err)
 	}
-	files, err := storage.NewLocal(filesDir, "/files")
-	if err != nil {
-		log.Fatalf("hush: file store: %v", err)
-	}
-
-	a := &app{cfg: loadConfig(), files: files, release: os.Getenv("RELEASE") != ""}
 	a.rep = newReputation(a.cfg)
+	// The strongest transport the MAIL_/MAILGUN_/SMTP_ env supports; with none
+	// of it set, a LogMailer — outbox sends print to this terminal.
+	a.mail = mailer.New(mailer.ConfigFromEnv())
 
 	cfg := beach.Config{
 		Service: "hush",
@@ -142,6 +158,30 @@ func main() {
 		a.store = newMemStore()
 	}
 
+	// The outbox pump — transactional email leaves the process only here, and
+	// only in database mode (the queue is a table). Boot's reputation replay
+	// never enqueues, so a restart sends nothing twice.
+	if a.pool != nil && a.mail != nil {
+		go a.pumpOutbox(ctx)
+	}
+
+	// Optional ClickHouse: the observation store behind /admin/analytics. An
+	// empty CLICKHOUSE_DSN returns a nil conn — analytics off; track() and the
+	// batcher are nil-safe, so the wall runs identically either way. A bad DSN
+	// or migration also degrades to off rather than killing the wall.
+	if chDSN := os.Getenv("CLICKHOUSE_DSN"); chDSN != "" {
+		if conn, cerr := ch.Connect(ctx, chDSN); cerr != nil {
+			logger.Error("hush: clickhouse connect failed; analytics off", "err", cerr)
+		} else {
+			a.chConn = conn
+		}
+	}
+	if err := ch.Migrate(ctx, a.chConn, chMigrations()); err != nil {
+		logger.Error("hush: clickhouse migrate failed; analytics off", "err", err)
+		a.chConn = nil
+	}
+	a.events = ch.NewBatcher[event](a.chConn, "hush_events", ch.Batch{})
+
 	beachApp := beach.New(cfg)
 	a.routes(beachApp)
 
@@ -180,20 +220,50 @@ func (a *app) routes(app *beach.App) {
 	}
 	app.Action("/posts", a.createPost, postGuard...)
 	app.Action("/p/{id}/vote", a.votePost, postGuard...)
+	app.Action("/p/{id}/flag", a.flagPost, postGuard...)
 	app.Raw(http.MethodPost, "/upload", a.uploadImage, postGuard...)
 
-	// Admin queue: approve/reject applications.
+	// Admin: the application queue, plus the suite (admin.go) — the hub, the
+	// moderation review, the everything browser, the member ledger, and the
+	// one moderation action their forms post to.
 	var adminGuard []beach.Guard
 	if a.authn != nil {
 		adminGuard = append(adminGuard, app.Can("admin"))
 	}
 	app.Page("/admin/queue", a.queuePage, adminGuard...)
 	app.Raw(http.MethodPost, "/admin/decide", a.doDecide, adminGuard...)
+	app.Page("/admin", a.adminHub, adminGuard...)
+	app.Page("/admin/review", a.adminReview, adminGuard...)
+	app.Page("/admin/posts", a.adminPosts, adminGuard...)
+	app.Page("/admin/members", a.adminMembers, adminGuard...)
+	app.Page("/admin/outbox", a.adminOutbox, adminGuard...)
+	app.Raw(http.MethodPost, "/admin/moderate", a.doModerate, adminGuard...)
+
+	// Admin analytics (analytics.go): the dashboard page plus its deferred
+	// widget fragments — every route behind the same admin guard, since the
+	// charts and tables show everything the wall hides. Registered only when
+	// the gate exists at all: in database-less mode adminGuard would be empty,
+	// and an unguarded IP firehose is not a degraded mode, it's a leak.
+	if a.authn != nil {
+		app.Page("/admin/analytics", a.analyticsPage, adminGuard...)
+		app.Page("/admin/analytics/events", anlWidget("anl-events", a.anlEvents), adminGuard...)
+		app.Page("/admin/analytics/posts", anlWidget("anl-posts", a.anlPosts), adminGuard...)
+		app.Page("/admin/analytics/votes", anlWidget("anl-votes", a.anlVotes), adminGuard...)
+		app.Page("/admin/analytics/countries", anlWidget("anl-countries", a.anlCountries), adminGuard...)
+		app.Page("/admin/analytics/ips", anlWidget("anl-ips", a.anlIPs), adminGuard...)
+		app.Page("/admin/analytics/recent", anlWidget("anl-recent", a.anlRecent), adminGuard...)
+	}
 
 	// Application + auth (plain form posts → 303).
 	app.Raw(http.MethodPost, "/apply", a.doApply)
 	app.Raw(http.MethodPost, "/login", a.doLogin)
 	app.Raw(http.MethodGet, "/logout", a.logout)
+
+	// Member email (verify.go): the verification link is public — it arrives
+	// by mail, signed in or not; the set/resend forms check the session inside.
+	app.Page("/email/verify/{token}", a.verifyEmailPage)
+	app.Raw(http.MethodPost, "/email/set", a.doSetEmail)
+	app.Raw(http.MethodPost, "/email/resend", a.doResendEmail)
 
 	// The other doors (invites.go): capped open registration and invite
 	// redemption — both create accounts directly; minting is member-gated.
@@ -202,7 +272,11 @@ func (a *app) routes(app *beach.App) {
 	app.Raw(http.MethodPost, "/invite/{code}", a.doRedeem)
 	app.Raw(http.MethodPost, "/invites", a.doMint, postGuard...)
 
-	app.Raw(http.MethodGet, "/files/", http.StripPrefix("/files/", a.files).ServeHTTP)
+	// Only the local store needs an app route to serve its bytes — R2 URLs are
+	// absolute, pointing at the bucket's public/custom domain (or presigned).
+	if local, ok := a.files.(*storage.Local); ok {
+		app.Raw(http.MethodGet, "/files/", http.StripPrefix("/files/", local).ServeHTTP)
+	}
 }
 
 // compose serves the WebGPU camera page.
@@ -210,23 +284,29 @@ func (a *app) compose(c *beach.Ctx) (beach.View, error) {
 	return beach.View{Page: composePage()}, nil
 }
 
-// profileView is the tier-gated profile. Your own profile unlocks at tier 1;
-// below that it shows a locked notice (the Repute tier doing real gating
-// work). Your own unlocked profile also carries the invite panel.
+// profileView is the tier-gated profile. A profile below tier 1 is locked for
+// everyone — its owner gets the nudge, strangers get nothing (a viewable
+// sub-tier profile would leak standing on a wall that never prints it). Your
+// own unlocked profile carries the invite panel and the email section.
 func (a *app) profileView(c *beach.Ctx) (beach.View, error) {
 	handle := c.Param("handle")
 	me, _, _ := a.acct(c)
 	score := a.rep.score(handle)
 	tier := a.tierOf(score)
-	if handle == me && tier < 1 {
-		return beach.View{Page: noticePage("your profile is locked.",
-			"post things people like.")}, nil
+	if tier < 1 {
+		if handle == me {
+			return beach.View{Page: noticePage("your profile is locked.",
+				"post things people like.")}, nil
+		}
+		return beach.View{Page: notFoundPage(), Status: http.StatusNotFound}, nil
 	}
 	var panel invitePanel
+	var email emailSection
 	if handle == me {
 		panel = a.invitesFor(c.Context(), handle, tier)
+		email = a.emailFor(c.Context(), handle)
 	}
-	return beach.View{Page: profilePage(handle, tier, a.store.countByAuthor(c.Context(), handle), panel)}, nil
+	return beach.View{Page: profilePage(handle, tier, a.store.countByAuthor(c.Context(), handle), panel, email, handle == me)}, nil
 }
 
 // The feed renders feedSpan neighbors each way up front — enough that the top
@@ -251,9 +331,19 @@ func (a *app) postView(c *beach.Ctx) (beach.View, error) {
 	newer, moreNewer := a.store.neighbors(c.Context(), id, true, feedSpan)
 	older, moreOlder := a.store.neighbors(c.Context(), id, false, feedSpan)
 	handle, canPost, admin := a.acct(c)
+	a.track(c.R, "view_post", handle, id)
 	myVote := a.store.voteOf(c.Context(), id, voterKey(handle))
+	// the flag control's three states: absent on your own post, inert once
+	// you've flagged, live otherwise — persisted, not just patch-deep
+	flagState := ""
+	if canPost && !(p.Author != "" && p.Author == handle) {
+		flagState = "live"
+		if a.store.flagOf(c.Context(), id, voterKey(handle)) {
+			flagState = "done"
+		}
+	}
 	return beach.View{
-		Page: feedPage(newer, p, older, moreNewer, moreOlder, canPost, myVote, handle, admin, a.tierOf(a.rep.score(handle))),
+		Page: a.feedPage(newer, p, older, moreNewer, moreOlder, canPost, myVote, flagState, handle, admin, a.tierOf(a.rep.score(handle))),
 	}, nil
 }
 
@@ -278,7 +368,7 @@ func (a *app) feedMore(newer bool) beach.PageFunc {
 		cursor, _ := strconv.ParseInt(c.R.URL.Query().Get("cursor"), 10, 64)
 		posts, more := a.store.neighbors(c.Context(), cursor, newer, feedChunk)
 		return beach.View{
-			Fragment: feedBatch(dir, posts, more),
+			Fragment: a.feedBatch(dir, posts, more),
 			Target:   "feed-" + dir,
 			Mode:     beach.PatchReplace,
 		}, nil
@@ -289,9 +379,10 @@ func (a *app) feedMore(newer bool) beach.PageFunc {
 func (a *app) home(c *beach.Ctx) (beach.View, error) {
 	posts := a.store.list(c.Context())
 	handle, canPost, admin := a.acct(c)
+	a.track(c.R, "view_wall", handle, 0)
 	return beach.View{
-		Page:     homePage(posts, handle, canPost, admin, a.tierOf(a.rep.score(handle)), a.openLeft(c.Context())),
-		Fragment: grid(posts),
+		Page:     a.homePage(posts, handle, canPost, admin, a.tierOf(a.rep.score(handle)), a.openLeft(c.Context())),
+		Fragment: a.grid(posts),
 		Target:   "hush-grid",
 	}, nil
 }
@@ -322,8 +413,9 @@ func (a *app) createPost(c *beach.Ctx) (beach.Patches, error) {
 		return nil, err
 	}
 	a.rep.emit("post", author)
+	a.track(c.R, "post_text", author, p.ID)
 	return beach.Patches{
-		{Fragment: tile(p), Target: "hush-grid", Mode: beach.PatchPrepend, Signals: map[string]string{"body": ""}},
+		{Fragment: tile(p, a.postThumbURL(p)), Target: "hush-grid", Mode: beach.PatchPrepend, Signals: map[string]string{"body": ""}},
 		{Fragment: note(""), Target: "hush-note", Mode: beach.PatchInner},
 	}, nil
 }
@@ -339,15 +431,16 @@ func (a *app) votePost(c *beach.Ctx) (beach.Patches, error) {
 	up := c.R.URL.Query().Get("dir") != "down"
 	p, ok := a.store.vote(c.Context(), id, voter, up)
 	if ok {
-		kind, chainKind := "like", "chain-like"
+		kind, chainKind, evKind := "like", "chain-like", "vote_up"
 		if !up {
-			kind, chainKind = "dislike", "chain-dislike"
+			kind, chainKind, evKind = "dislike", "chain-dislike", "vote_down"
 		}
 		a.rep.emit(kind, p.Author)
 		// The chain echo: the author's inviter answers for them, at half weight.
 		if inviter := a.inviterOf(p.Author); inviter != "" {
 			a.rep.emit(chainKind, inviter)
 		}
+		a.track(c.R, evKind, handle, id)
 	}
 	// Outer morph: the fragment IS #vote-<id>, so replace the element by its id
 	// (inner mode would nest #vote-<id> inside itself). voteOf (not the ok flag)
@@ -355,10 +448,39 @@ func (a *app) votePost(c *beach.Ctx) (beach.Patches, error) {
 	return beach.Patches{{Fragment: reactions(p, true, a.store.voteOf(c.Context(), id, voter)), Target: "vote-" + c.Param("id"), Mode: beach.PatchOuter}}, nil
 }
 
-// uploadImage handles the plain multipart upload form: validate it's an image,
-// Put the bytes into the file store under a random key, append an image post, and
-// 303 back to the wall (a real navigation — no Datastar, CSP-clean). The camera
-// island in Block C adds the fetch-based prepend path against this same store.
+// flagPost records the viewer's flag — the wall's only report control. Your
+// own post is a no-op (the wall doesn't self-report). The flagger's current
+// tier rides the flag and the store applies the hiding rules: a FlagTier+
+// flag hides alone, anyone else needs FlagQuorum distinct flags to agree. If
+// this flag took the post down, the focused card collapses to the one-line
+// notice; otherwise only the control goes quiet — no counts, no progress bar,
+// a member never learns what their flag did.
+func (a *app) flagPost(c *beach.Ctx) (beach.Patches, error) {
+	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
+	idStr := c.Param("id")
+	handle, _, _ := a.acct(c)
+	p, ok := a.store.get(c.Context(), id)
+	if !ok {
+		// gone or already hidden — show what the wall now shows: nothing
+		return beach.Patches{{Fragment: hushedCard(idStr), Target: "p" + idStr, Mode: beach.PatchOuter}}, nil
+	}
+	if p.Author != "" && p.Author == handle {
+		return beach.Patches{}, nil
+	}
+	tier := a.tierOf(a.rep.score(handle))
+	hidden, _ := a.store.flag(c.Context(), id, voterKey(handle), tier, a.cfg.FlagTier, a.cfg.FlagQuorum)
+	a.track(c.R, "flag", handle, id)
+	if hidden {
+		return beach.Patches{{Fragment: hushedCard(idStr), Target: "p" + idStr, Mode: beach.PatchOuter}}, nil
+	}
+	return beach.Patches{{Fragment: flaggedControl(idStr), Target: "flag-" + idStr, Mode: beach.PatchOuter}}, nil
+}
+
+// uploadImage handles the plain multipart upload form (and the camera island's
+// fetch, which posts the same field): validate it's an image, hand the bytes to
+// storeImage (Cloudflare Images when wired, the file store otherwise — media.go),
+// append an image post, and 303 back to the wall (a real navigation — no
+// Datastar, CSP-clean).
 func (a *app) uploadImage(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(8 << 20); err != nil { // 8 MiB cap
 		http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -377,18 +499,19 @@ func (a *app) uploadImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key := "posts/" + randHex() + extFor(ct)
-	if _, err := a.files.Put(r.Context(), key, f, ct); err != nil {
+	mediaURL, cfID, err := a.storeImage(r.Context(), f, ct)
+	if err != nil {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-	url, _ := a.files.URL(r.Context(), key)
 	author, _, _ := a.acct(&beach.Ctx{W: w, R: r})
-	if _, err := a.store.addImage(r.Context(), url, "", author, clientMeta(r)); err != nil {
+	p, err := a.store.addImage(r.Context(), mediaURL, cfID, author, clientMeta(r))
+	if err != nil {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 	a.rep.emit("post", author)
+	a.track(r, "post_image", author, p.ID)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 

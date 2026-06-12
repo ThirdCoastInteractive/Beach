@@ -29,6 +29,25 @@ services:
       timeout: 5s
       retries: 10
 
+  # The observation store behind /admin/analytics. Internal-only, like
+  # postgres; drop this service (and CLICKHOUSE_DSN below) and the app runs
+  # with analytics off.
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8-alpine
+    environment:
+      CLICKHOUSE_DB: hush
+      # The image ships `default` locked to container-localhost; this makes the
+      # entrypoint regenerate that user with open networks so the app can reach
+      # it across the (internal-only) compose network with the passwordless DSN.
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    volumes: [chdata:/var/lib/clickhouse]
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   hush:
     build:
       context: ../..
@@ -40,10 +59,20 @@ services:
       PORT: "8080"
       # Reached by service name on the internal network; never published to host.
       DATABASE_URL: postgres://beach:beach@postgres:5432/hush?sslmode=disable
+      CLICKHOUSE_DSN: clickhouse://default:@clickhouse:9000/hush
+      # Links inside outgoing email (verification, invites) are built on this.
+      HUSH_BASE_URL: http://localhost:${PORT:-8080}
+      # Email is log-only by default (sends print to the app log). For real
+      # delivery set a transport — and an admin inbox for application notices:
+      # HUSH_ADMIN_EMAIL: admin@example.com
+      # MAIL_FROM_ADDR: hush@example.com
+      # MAILGUN_KEY: ...
+      # MAILGUN_DOMAIN: ...
     networks: [internal]
     ports: ["${PORT:-8080}:8080"]
     depends_on:
       postgres: { condition: service_healthy }
+      clickhouse: { condition: service_healthy }
     restart: unless-stopped
 
 networks:
@@ -51,3 +80,4 @@ networks:
 
 volumes:
   pgdata:
+  chdata:

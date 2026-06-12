@@ -90,8 +90,10 @@ templ backToWall() {
 // homePage is the wall: the centered header + composer, then the full-bleed
 // gapless grid. Tiles are real links — opening a post is a navigation (the
 // browser owns push/pop state), and the cross-document View Transition morphs
-// the clicked square into its feed card.
-templ homePage(posts []Post, handle string, canPost bool, admin bool, tier int, openLeft int) {
+// the clicked square into its feed card. A method on *app — like every view
+// that renders post images — so it can resolve each post's image source
+// through the media helpers (media.go).
+templ (a *app) homePage(posts []Post, handle string, canPost bool, admin bool, tier int, openLeft int) {
 	@shell("hush") {
 		@accountStrip(handle, admin, tier)
 		<div class="hush-top">
@@ -107,12 +109,12 @@ templ homePage(posts []Post, handle string, canPost bool, admin bool, tier int, 
 				<p class="hush-sub hush-gateline">posting is invite-only — <a class="hush-link" href="/apply">apply</a> or <a class="hush-link" href="/login">sign in</a>.</p>
 			}
 		</div>
-		@grid(posts)
+		@a.grid(posts)
 	}
 }
 
-// accountStrip is the top-right account line: who you are, the admin queue
-// link, and log out. No score, no tier — standing is never printed; the
+// accountStrip is the top-right account line: who you are, the admin links,
+// and log out. No score, no tier — standing is never printed; the
 // profile link simply appearing IS how you learn you've reached tier 1.
 // Empty when signed out (the gate line carries the call to action) or in
 // database-less open mode.
@@ -126,7 +128,11 @@ templ accountStrip(handle string, admin bool, tier int) {
 			}
 			if admin {
 				{ " · " }
+				<a class="hush-link" href="/admin">admin</a>
+				{ " · " }
 				<a class="hush-link" href="/admin/queue">queue</a>
+				{ " · " }
+				<a class="hush-link" href="/admin/analytics">analytics</a>
 			}
 			{ " · " }
 			<a class="hush-link" href="/logout">log out</a>
@@ -157,11 +163,12 @@ templ composer() {
 }
 
 // grid is the full #hush-grid wall. It doubles as the fragment the home
-// handler patches on a Datastar request.
-templ grid(posts []Post) {
+// handler patches on a Datastar request. Tiles get the thumb source — the
+// square-crop Cloudflare variant when the image has one.
+templ (a *app) grid(posts []Post) {
 	<div id="hush-grid" class="hush-grid">
 		for _, p := range posts {
-			@tile(p)
+			@tile(p, a.postThumbURL(p))
 		}
 	</div>
 }
@@ -170,11 +177,11 @@ templ grid(posts []Post) {
 // becomes a live view-transition-name while the tile holds focus (i.e. it was
 // just clicked), so navigating morphs exactly this square into the focused
 // card. A text tile's BodyHTML is already sanitized by renderPost; an image
-// tile renders the stored object's URL.
-templ tile(p Post) {
+// tile renders thumbURL, the caller-resolved square source (postThumbURL).
+templ tile(p Post, thumbURL string) {
 	if p.Kind == "image" {
 		<a class="hush-tile hush-tile--image" style={ postStyle(p) } data-vt={ vtName(p) } href={ postHref(p.ID) }>
-			<img src={ p.ImageURL } alt="" loading="lazy"/>
+			<img src={ thumbURL } alt="" loading="lazy"/>
 		</a>
 	} else {
 		<a class="hush-tile hush-tile--text" style={ postStyle(p) } data-vt={ vtName(p) } href={ postHref(p.ID) }>
@@ -233,7 +240,7 @@ templ reactions(p Post, canPost bool, myVote int8) {
 // timeline is reachable from any post without a single control. The only
 // other affordance is the title, which is the way back to the wall — that and
 // the browser's own back button.
-templ feedPage(newer []Post, focused Post, older []Post, moreNewer bool, moreOlder bool, canPost bool, myVote int8, handle string, admin bool, tier int) {
+templ (a *app) feedPage(newer []Post, focused Post, older []Post, moreNewer bool, moreOlder bool, canPost bool, myVote int8, flagState string, handle string, admin bool, tier int) {
 	@shell("hush — post #" + strconv.FormatInt(focused.ID, 10)) {
 		@accountStrip(handle, admin, tier)
 		<header class="hush-head hush-head--feed">
@@ -244,11 +251,11 @@ templ feedPage(newer []Post, focused Post, older []Post, moreNewer bool, moreOld
 				@moreSentinel("newer", newer[0].ID)
 			}
 			for _, p := range newer {
-				@feedCard(p, "hush-above")
+				@a.feedCard(p, "hush-above")
 			}
-			@focusedCard(focused, canPost, myVote)
+			@a.focusedCard(focused, canPost, myVote, flagState)
 			for _, p := range older {
-				@feedCard(p, "hush-below")
+				@a.feedCard(p, "hush-below")
 			}
 			if moreOlder {
 				@moreSentinel("older", older[len(older)-1].ID)
@@ -259,15 +266,45 @@ templ feedPage(newer []Post, focused Post, older []Post, moreNewer bool, moreOld
 
 // focusedCard is the expanded post at the center of its feed page: media,
 // meta, the thumbs. Nothing else — no thread, no reply box; the wall doesn't
-// talk back. Its id is the link fragment that lands the browser here.
-templ focusedCard(p Post, canPost bool, myVote int8) {
+// talk back. Its id is the link fragment that lands the browser here. The
+// meta line carries the one moderation affordance members get: the quiet
+// flag control — live for members who haven't flagged ("live"), inert once
+// they have ("done"), absent on their own posts ("").
+templ (a *app) focusedCard(p Post, canPost bool, myVote int8, flagState string) {
 	{{ id := strconv.FormatInt(p.ID, 10) }}
 	<article id={ "p" + id } class="hush-fcard hush-fcard--focused" style={ vtStyle(p, "") }>
-		@cardMedia(p)
-		<div class="hush-card-meta">
-			{ "#" + id + " · " + p.CreatedAt.Format("Jan 2 · 15:04") }
+		@cardMedia(p, a.postImageURL(p))
+		<div class="hush-card-meta hush-card-meta--focused">
+			<span>{ "#" + id + " · " + p.CreatedAt.Format("Jan 2 · 15:04") }</span>
+			if flagState == "live" {
+				@flagControl(id)
+			} else if flagState == "done" {
+				@flaggedControl(id)
+			}
 		</div>
 		@reactions(p, canPost, myVote)
+	</article>
+}
+
+// flagControl is the report control: a dim text button in the focused card's
+// meta line, members only. No counts, no ceremony — clicking it posts the
+// flag and the control comes back as flaggedControl, whatever the flag did.
+templ flagControl(id string) {
+	<button id={ "flag-" + id } class="hush-flag" data-on:click={ "@post('/p/" + id + "/flag')" }>flag</button>
+}
+
+// flaggedControl is flagControl after the click: inert, done. Same id, so the
+// flag handler outer-morphs one into the other and a member flags once.
+templ flaggedControl(id string) {
+	<span id={ "flag-" + id } class="hush-flag hush-flag--done">flagged</span>
+}
+
+// hushedCard is what a focused card becomes when flags take its post down
+// mid-view: the content is gone, a one-line notice in its place. Same article
+// id, so the patch lands where the card stood.
+templ hushedCard(id string) {
+	<article id={ "p" + id } class="hush-fcard hush-fcard--focused">
+		<div class="hush-hushed">hushed.</div>
 	</article>
 }
 
@@ -276,10 +313,10 @@ templ focusedCard(p Post, canPost bool, myVote int8) {
 // Unlike grid tiles, feed cards are named unconditionally: most of them exist
 // on the next post's page too, so a feed→feed navigation morphs them to their
 // new positions — the feed reads as sliding, not reloading.
-templ feedCard(p Post, side string) {
+templ (a *app) feedCard(p Post, side string) {
 	{{ id := strconv.FormatInt(p.ID, 10) }}
 	<a id={ "p" + id } class="hush-fcard" style={ vtStyle(p, side) } href={ postHref(p.ID) }>
-		@cardMedia(p)
+		@cardMedia(p, a.postImageURL(p))
 		<div class="hush-card-meta">
 			{ "#" + id + " · " + p.CreatedAt.Format("Jan 2 · 15:04") }
 		</div>
@@ -297,18 +334,18 @@ templ moreSentinel(dir string, cursor int64) {
 // feedBatch is what a sentinel becomes: the next cards in display order with
 // the follow-up sentinel on the outward side, under a display:contents wrapper
 // (the patch needs one root; layout never sees it).
-templ feedBatch(dir string, posts []Post, more bool) {
+templ (a *app) feedBatch(dir string, posts []Post, more bool) {
 	<div class="hush-batch">
 		if dir == "newer" {
 			if more {
 				@moreSentinel("newer", posts[0].ID)
 			}
 			for _, p := range posts {
-				@feedCard(p, "hush-above")
+				@a.feedCard(p, "hush-above")
 			}
 		} else {
 			for _, p := range posts {
-				@feedCard(p, "hush-below")
+				@a.feedCard(p, "hush-below")
 			}
 			if more {
 				@moreSentinel("older", posts[len(posts)-1].ID)
@@ -317,12 +354,13 @@ templ feedBatch(dir string, posts []Post, more bool) {
 	</div>
 }
 
-// cardMedia is a post's hero in the feed: the image, or the text on the
+// cardMedia is a post's hero in the feed: the image — imgURL, the
+// caller-resolved full-size source (postImageURL) — or the text on the
 // post's own computed color.
-templ cardMedia(p Post) {
+templ cardMedia(p Post, imgURL string) {
 	if p.Kind == "image" {
 		<div class="hush-card-media hush-card-media--image">
-			<img src={ p.ImageURL } alt=""/>
+			<img src={ imgURL } alt=""/>
 		</div>
 	} else {
 		<div class="hush-card-media hush-card-media--text" style={ tileBG(p) }>
@@ -350,7 +388,7 @@ templ notFoundPage() {
 // no number anywhere ever says how you're doing; what you see is what has
 // unlocked (the page itself, the DM line, the invite allowance). The wall
 // stays anonymous, so this is the one place a handle is shown with anything.
-templ profilePage(handle string, tier int, posts int, panel invitePanel) {
+templ profilePage(handle string, tier int, posts int, panel invitePanel, email emailSection, own bool) {
 	@shell("hush — " + handle) {
 		<div class="hush-top">
 			<header class="hush-head">
@@ -359,17 +397,52 @@ templ profilePage(handle string, tier int, posts int, panel invitePanel) {
 			<div class="hush-profile">
 				<div class="hush-stat"><span class="hush-stat-n">{ strconv.Itoa(posts) }</span> posts</div>
 			</div>
-			if tier < 2 {
-				<p class="hush-sub">DMs unlock as your standing rises.</p>
-			} else {
-				<p class="hush-sub">DMs unlocked.</p>
+			// the DM line is standing made legible — owner's eyes only
+			if own {
+				if tier < 2 {
+					<p class="hush-sub">DMs unlock as your standing rises.</p>
+				} else {
+					<p class="hush-sub">DMs unlocked.</p>
+				}
 			}
 			if panel.Show {
 				@invitesSection(panel)
 			}
+			if email.Show {
+				@emailSettings(email)
+			}
 			@backToWall()
 		</div>
 	}
+}
+
+// emailSettings is the profile's quiet email section, owner's eyes only: the
+// masked address with its verification state (resend while unverified), or an
+// add form when nothing is on file. The same /email/set form changes an
+// existing address — a change restarts verification.
+templ emailSettings(es emailSection) {
+	<section class="hush-email">
+		<h2 class="hush-invites-title">email</h2>
+		if es.Masked == "" {
+			<p class="hush-sub">no address on file — verifying one helps your standing. never shown to anyone.</p>
+		} else if es.Verified {
+			<p class="hush-sub"><span class="hush-email-addr">{ es.Masked }</span>{ " · verified" }</p>
+		} else {
+			<p class="hush-sub"><span class="hush-email-addr">{ es.Masked }</span>{ " · unverified" }</p>
+			<form method="post" action="/email/resend" class="hush-email-resend">
+				<button class="hush-post hush-post--ghost" type="submit">resend verification</button>
+			</form>
+		}
+		<form method="post" action="/email/set" class="hush-email-form">
+			if es.Masked == "" {
+				<input class="hush-input" type="email" name="email" placeholder="you@example.com" autocomplete="email" required/>
+				<button class="hush-post hush-post--ghost" type="submit">add</button>
+			} else {
+				<input class="hush-input" type="email" name="email" placeholder="change address" autocomplete="email" required/>
+				<button class="hush-post hush-post--ghost" type="submit">change</button>
+			}
+		</form>
+	</section>
 }
 
 // invitesSection is the invite panel on your own profile: the throttle math
@@ -393,6 +466,10 @@ templ invitesSection(panel invitePanel) {
 			<form method="post" action="/invites" class="hush-invite-mint">
 				<button class="hush-post hush-post--ghost" type="submit">mint an invite</button>
 			</form>
+			<form method="post" action="/invites" class="hush-invite-mint hush-invite-mint--send">
+				<input class="hush-input" type="email" name="email" placeholder="their email" aria-label="email the invite to someone" required/>
+				<button class="hush-post hush-post--ghost" type="submit">mint &amp; send</button>
+			</form>
 		} else {
 			<p class="hush-hint">no invites available — your chain has to earn them.</p>
 		}
@@ -410,6 +487,7 @@ templ registerFormPage(left int, errMsg string) {
 		<form method="post" action="/register" class="hush-form">
 			<input class="hush-input" type="text" name="handle" placeholder="handle" autocomplete="username" required/>
 			<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="new-password" required/>
+			<input class="hush-input" type="email" name="email" placeholder="email (optional — never shown)" autocomplete="email"/>
 			<div class="hush-form-row">
 				<a class="hush-link" href="/login">already in? sign in →</a>
 				<button class="hush-post" type="submit">claim</button>
@@ -428,6 +506,7 @@ templ inviteFormPage(code string, errMsg string) {
 		<form method="post" action={ "/invite/" + code } class="hush-form">
 			<input class="hush-input" type="text" name="handle" placeholder="handle" autocomplete="username" required/>
 			<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="new-password" required/>
+			<input class="hush-input" type="email" name="email" placeholder="email (optional — never shown)" autocomplete="email"/>
 			<div class="hush-form-row">
 				<a class="hush-link" href="/login">already in? sign in →</a>
 				<button class="hush-post" type="submit">join</button>
@@ -502,11 +581,15 @@ templ composePage() {
 // applyFormPage is the signup application form: a handle, a password, 3–5
 // lines about what you want to post, and an optional photo. Submitting creates
 // a pending application an admin reviews.
-templ applyFormPage() {
+templ applyFormPage(errMsg string) {
 	@formPage("apply to post") {
+		if errMsg != "" {
+			<p class="hush-note">{ errMsg }</p>
+		}
 		<form method="post" action="/apply" enctype="multipart/form-data" class="hush-form">
 			<input class="hush-input" type="text" name="handle" placeholder="handle" autocomplete="username" required/>
 			<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="new-password" required/>
+			<input class="hush-input" type="email" name="email" placeholder="email (optional — never shown)" autocomplete="email"/>
 			<textarea class="hush-input" name="pitch" rows="4" placeholder="what do you want to post? (3–5 lines)" required></textarea>
 			<label class="hush-hint">a photo of you (optional)</label>
 			<input class="hush-file" type="file" name="photo" accept="image/*"/>
@@ -561,8 +644,8 @@ templ adminQueuePage(apps []application) {
 templ appCard(ap application) {
 	{{ id := strconv.FormatInt(ap.ID, 10) }}
 	<div class="hush-appcard">
-		if ap.PhotoKey != "" {
-			<img class="hush-appphoto" src={ "/files/" + ap.PhotoKey } alt=""/>
+		if ap.PhotoURL != "" {
+			<img class="hush-appphoto" src={ ap.PhotoURL } alt=""/>
 		}
 		<div class="hush-apphandle">{ ap.Handle }</div>
 		<div class="hush-apppitch">{ ap.Pitch }</div>

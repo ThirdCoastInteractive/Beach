@@ -186,6 +186,14 @@ func (s *pgStore) flag(ctx context.Context, postID int64, flagger string, flagge
 	return hidden, fresh
 }
 
+// flagOf reports whether flagger already flagged postID.
+func (s *pgStore) flagOf(ctx context.Context, postID int64, flagger string) bool {
+	var ok bool
+	_ = s.pool.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM hush_flags WHERE post_id = $1 AND flagger = $2)`, postID, flagger).Scan(&ok)
+	return ok
+}
+
 func (s *pgStore) hide(ctx context.Context, id int64, by string) error {
 	tag, err := s.pool.Exec(ctx,
 		`UPDATE hush_posts SET hidden_at = now(), hidden_by = $2 WHERE id = $1 AND hidden_at IS NULL`, id, by)

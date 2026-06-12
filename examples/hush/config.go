@@ -29,6 +29,15 @@ type config struct {
 	// email address. HUSH_EMAIL_POINTS, default 2.
 	EmailPoints float64
 
+	// InviteBase is a tier-1 member's starting invite allowance; the chain
+	// score moves it from there (see inviteAllowance). HUSH_INVITE_BASE,
+	// default 3.
+	InviteBase int
+
+	// InviteMax caps the allowance however beloved the chain — nobody mints
+	// the whole site. HUSH_INVITE_MAX, default 6.
+	InviteMax int
+
 	// OpenSlots opens the first N registrations with no review (the
 	// switch-on-later mode); once spent, the application queue resumes.
 	// HUSH_OPEN_SLOTS, default 0 (queue + invites only).
@@ -51,6 +60,8 @@ func loadConfig() config {
 		FlagTier:    envInt("HUSH_FLAG_TIER", 1),
 		FlagQuorum:  envInt("HUSH_FLAG_QUORUM", 3),
 		EmailPoints: envFloat("HUSH_EMAIL_POINTS", 2),
+		InviteBase:  envInt("HUSH_INVITE_BASE", 3),
+		InviteMax:   envInt("HUSH_INVITE_MAX", 6),
 		OpenSlots:   envInt("HUSH_OPEN_SLOTS", 0),
 		AdminEmail:  os.Getenv("HUSH_ADMIN_EMAIL"),
 		BaseURL:     envStr("HUSH_BASE_URL", "http://localhost:8080"),

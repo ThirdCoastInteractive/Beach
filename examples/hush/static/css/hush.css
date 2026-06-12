@@ -447,6 +447,33 @@ html:active-view-transition-type(backwards)::view-transition-old(root) {
 .hush-stat { text-align: center; color: rgba(255, 255, 255, 0.6); font-size: 0.85rem; }
 .hush-stat-n { display: block; font-size: 2rem; font-weight: 600; color: #fff; }
 
+/* ── flagging — the quiet report control on a focused card. dim text in the
+   meta line, no counts; clicked once it reads "flagged" and goes inert. a
+   post the flags take down collapses to the one-line hushed notice. ──────── */
+.hush-card-meta--focused {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+}
+.hush-flag {
+  margin-left: auto;
+  padding: 0;
+  font: inherit;
+  font-size: 0.75rem;
+  text-transform: lowercase;
+  color: rgba(255, 255, 255, 0.3);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+button.hush-flag:hover { color: rgba(255, 255, 255, 0.7); }
+.hush-flag--done { cursor: default; }
+.hush-hushed {
+  padding: 2.5rem 0;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.45);
+}
+
 /* the invite panel (your own profile, tier 1+) */
 .hush-invites {
   max-width: 420px;
@@ -479,4 +506,191 @@ html:active-view-transition-type(backwards)::view-transition-old(root) {
 .hush-invite-used { color: rgba(255, 255, 255, 0.6); white-space: nowrap; }
 .hush-invite-open { color: rgba(255, 255, 255, 0.4); white-space: nowrap; }
 .hush-invite-mint { margin-top: 1rem; }
+
+/* mint & send: the optional email beside the plain mint button */
+.hush-invite-mint--send {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+.hush-invite-mint--send .hush-input {
+  flex: 1;
+  min-width: 0;
+  min-height: auto;
+  font-size: 0.85rem;
+}
+.hush-invite-mint--send .hush-post { white-space: nowrap; }
+
+/* the profile's quiet email section — masked even for its owner */
+.hush-email {
+  max-width: 420px;
+  margin: 2rem auto 0;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  text-align: center;
+}
+.hush-email-addr { font-family: ui-monospace, monospace; color: #fff; }
+.hush-email-resend { margin-top: 0.75rem; }
+.hush-email-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+.hush-email-form .hush-input {
+  flex: 1;
+  min-width: 0;
+  min-height: auto;
+  font-size: 0.85rem;
+}
+.hush-email-form .hush-post { white-space: nowrap; }
+
+/* ── admin — the pages with eyes (admin.go / adminviews.templ). same black
+   and white, but nothing is withheld: scores, tiers, chains, counts, IPs,
+   geo, user agents all print. wide column, dense tables. ─────────────────── */
+.hush-adm {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2.5rem 1rem 3rem;
+}
+.hush-adm .hush-head { margin-bottom: 1rem; }
+.hush-adm-nav {
+  display: flex;
+  justify-content: center;
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+.hush-adm-here { font-size: 0.82rem; color: rgba(255, 255, 255, 0.4); }
+.hush-adm-empty { text-align: center; }
+
+/* the hub: each number is a door into its section */
+.hush-adm-stats {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2.5rem;
+  margin: 2rem 0;
+}
+.hush-adm-stat { text-decoration: none; }
+.hush-adm-stat:hover { color: #fff; }
+
+/* dense tables (posts browser, member ledger) */
+.hush-adm-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+.hush-adm-table th,
+.hush-adm-table td {
+  padding: 0.45rem 0.55rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.hush-adm-table th {
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.4);
+}
+.hush-adm-content { max-width: 280px; overflow-wrap: anywhere; }
+.hush-adm-thumb { display: block; width: 48px; height: 48px; object-fit: cover; }
+.hush-adm-ua {
+  max-width: 200px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: rgba(255, 255, 255, 0.5);
+}
+.hush-adm-dim { color: rgba(255, 255, 255, 0.5); }
+.hush-adm-badge {
+  padding: 0.05rem 0.35rem;
+  font-size: 0.7rem;
+  color: #000;
+  background: #fff;
+}
+
+/* moderation rulings: small quiet ghosts at table density */
+.hush-adm-actions { display: flex; gap: 0.4rem; }
+.hush-post--mini {
+  padding: 0.15rem 0.55rem;
+  font-size: 0.72rem;
+  color: #fff;
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.hush-post--mini:hover { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.5); }
+
+/* the posts browser's filter row */
+.hush-adm-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.25rem;
+}
+.hush-adm-in {
+  flex: 0 1 220px;
+  min-height: auto;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.82rem;
+}
+
+/* review cards: the flagged post rendered whole, then the rulings */
+.hush-revcard {
+  max-width: 640px;
+  margin: 0 auto 1.25rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.hush-adm-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.82rem;
+}
+.hush-adm-meta,
+.hush-adm-flags {
+  margin-bottom: 0.6rem;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.5);
+  overflow-wrap: anywhere;
+}
+.hush-adm-flags { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.hush-revcard .hush-adm-actions { justify-content: flex-end; }
+
+/* ── admin analytics (/admin/analytics). The chart widgets ride the
+   framework's dash-widget styling (app.css); these rules style only the page
+   grid and the two tables — dense, monochrome, made for reading IPs. ──────── */
+.hush-anl { max-width: 1080px; }
+.hush-anl-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+.hush-anl-scroll { height: 100%; overflow: auto; }
+.hush-anl-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: ui-monospace, monospace;
+  font-size: 0.72rem;
+  color: #fff;
+}
+.hush-anl-table th,
+.hush-anl-table td {
+  padding: 0.3rem 0.55rem;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.hush-anl-table th {
+  position: sticky; /* headers hold while the tail scrolls */
+  top: 0;
+  background: #000;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  color: rgba(255, 255, 255, 0.6);
+}
+.hush-anl-num { text-align: right; font-variant-numeric: tabular-nums; }
+.hush-anl-empty { color: rgba(255, 255, 255, 0.4); }
 

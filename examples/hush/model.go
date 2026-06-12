@@ -10,15 +10,16 @@ import (
 
 // Post is one tile on the wall. A text post carries sanitized BodyHTML (from
 // renderPost — never raw user input); an image post carries ImageURL, the public
-// URL its bytes were stored at via storage.Store (plus CFImageID once uploads
-// move to Cloudflare Images). Hidden, FlagCount, and Meta exist for moderation —
-// admin eyes only; templates never render them.
+// URL its bytes were stored at, plus CFImageID when the upload went through
+// Cloudflare Images (the postImageURL/postThumbURL helpers in media.go pick
+// the right source per surface). Hidden, FlagCount, and Meta exist for
+// moderation — admin eyes only; templates never render them.
 type Post struct {
 	ID        int64
 	Kind      string // "text" | "image"
 	BodyHTML  string // text posts
 	ImageURL  string // image posts
-	CFImageID string // image posts, Cloudflare Images id ("" until that phase)
+	CFImageID string // image posts, Cloudflare Images id ("" when stored via files)
 	Author    string // handle that posted it (for Repute scoring; never shown — the wall is anon)
 	Hidden    bool   // moderated off the wall; permalink 404s for non-admins
 	FlagCount int    // filled on admin reads
@@ -62,6 +63,9 @@ type wall interface {
 	// alone, quorum flags hide by agreement. hidden reports the post's state
 	// after the flag.
 	flag(ctx context.Context, postID int64, flagger string, flaggerTier int, instaTier, quorum int) (hidden bool, fresh bool)
+	// flagOf reports whether flagger already flagged postID — the control
+	// renders inert for them across reloads, not just in the immediate patch.
+	flagOf(ctx context.Context, postID int64, flagger string) bool
 	// hide takes a post off the wall, recording who did it.
 	hide(ctx context.Context, id int64, by string) error
 	// restore puts a hidden post back and clears its flags — the admin has
@@ -279,6 +283,14 @@ func (s *memStore) flag(_ context.Context, postID int64, flagger string, flagger
 	}
 	_, nowHidden := s.hidden[postID]
 	return nowHidden, fresh
+}
+
+// flagOf reports whether flagger already flagged postID.
+func (s *memStore) flagOf(_ context.Context, postID int64, flagger string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	_, ok := s.flags[postID][flagger]
+	return ok
 }
 
 func (s *memStore) hide(_ context.Context, id int64, by string) error {

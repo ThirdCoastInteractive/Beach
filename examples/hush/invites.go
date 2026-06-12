@@ -19,27 +19,21 @@ import (
 	"github.com/ThirdCoastInteractive/the-beach/passwords"
 )
 
-// The invite throttle. A tier-1 member starts with inviteBase codes; every two
-// points of chain standing buys another, every two lost burns one. Hard-capped
-// so a beloved chain can't mint the whole site.
-const (
-	inviteBase = 3
-	inviteMax  = 6
-)
-
 // inviteAllowance is the total number of codes a member may have minted, given
-// their tier and chain standing. Below tier 1 nobody invites; a chain at
-// −2·inviteBase zeroes it — the throttle.
-func inviteAllowance(tier int, chain float64) int {
+// their tier and chain standing. A tier-1 member starts with cfg.InviteBase
+// codes; every two points of chain standing buys another, every two lost burns
+// one — a chain at −2·base zeroes it. Hard-capped at cfg.InviteMax so a
+// beloved chain can't mint the whole site. Below tier 1 nobody invites.
+func (a *app) inviteAllowance(tier int, chain float64) int {
 	if tier < 1 {
 		return 0
 	}
-	n := inviteBase + int(chain)/2
+	n := a.cfg.InviteBase + int(chain)/2
 	if n < 0 {
 		n = 0
 	}
-	if n > inviteMax {
-		n = inviteMax
+	if n > a.cfg.InviteMax {
+		n = a.cfg.InviteMax
 	}
 	return n
 }
@@ -180,10 +174,33 @@ func (a *app) doRegister(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		_, _ = a.pool.Exec(ctx, `DELETE FROM hush_signups WHERE handle = $1 AND via = 'open'`, handle)
-		http.Redirect(w, r, "/apply?err=taken", http.StatusSeeOther)
+		// tell the truth about which rule bit: a weak password is not a
+		// taken handle
+		http.Redirect(w, r, "/apply?err="+signupErrCode(err), http.StatusSeeOther)
 		return
 	}
+	a.attachEmail(ctx, handle, r.FormValue("email"))
+	a.track(r, "register", handle, 0)
 	a.signIn(w, r, handle, password)
+}
+
+// signupErrCode maps an account-creation failure onto the form's ?err code.
+func signupErrCode(err error) string {
+	if errors.Is(err, passwords.ErrPasswordTooShort) {
+		return "weak"
+	}
+	return "taken"
+}
+
+// signupErrMsg renders the form banner for a signup ?err code.
+func signupErrMsg(code string) string {
+	switch code {
+	case "weak":
+		return "password too short — 8 characters minimum."
+	case "taken":
+		return "that handle is taken — try another."
+	}
+	return ""
 }
 
 // invitePage renders the redemption form for a live code, or a notice for a
@@ -200,11 +217,7 @@ func (a *app) invitePage(c *beach.Ctx) (beach.View, error) {
 	if usedBy != nil {
 		return beach.View{Page: noticePage("that invite was already used.", "ask your friend for another.")}, nil
 	}
-	errMsg := ""
-	if c.Query("err") == "taken" {
-		errMsg = "that handle is taken — try another."
-	}
-	return beach.View{Page: inviteFormPage(c.Param("code"), errMsg)}, nil
+	return beach.View{Page: inviteFormPage(c.Param("code"), signupErrMsg(c.Query("err")))}, nil
 }
 
 // doRedeem turns a live invite into an account: claim the code atomically,
@@ -240,29 +253,38 @@ func (a *app) doRedeem(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		_, _ = a.pool.Exec(ctx, `UPDATE hush_invites SET used_by = NULL, used_at = NULL WHERE code = $1`, code)
-		http.Redirect(w, r, "/invite/"+code+"?err=taken", http.StatusSeeOther)
+		http.Redirect(w, r, "/invite/"+code+"?err="+signupErrCode(err), http.StatusSeeOther)
 		return
 	}
 	_, _ = a.pool.Exec(ctx, `INSERT INTO hush_signups (handle, via) VALUES ($1, 'invite')`, handle)
 	a.addChain(handle, inviter)
+	a.attachEmail(ctx, handle, r.FormValue("email"))
+	a.track(r, "redeem", handle, 0)
 	a.signIn(w, r, handle, password)
 }
 
 // doMint mints one invite code if the member's allowance has room, then 303s
-// back to their profile, where the list lives.
+// back to their profile, where the list lives. An optional email form value is
+// the "mint & send" path: the fresh code goes straight out as an invite link.
 func (a *app) doMint(w http.ResponseWriter, r *http.Request) {
 	handle, canPost, _ := a.acct(&beach.Ctx{W: w, R: r})
 	if a.authn == nil || handle == "" || !canPost {
 		http.NotFound(w, r)
 		return
 	}
+	_ = r.ParseForm()
 	ctx := r.Context()
 	tier := a.tierOf(a.rep.score(handle))
-	allowance := inviteAllowance(tier, a.rep.chainScore(handle))
+	allowance := a.inviteAllowance(tier, a.rep.chainScore(handle))
 	var minted int
 	_ = a.pool.QueryRow(ctx, `SELECT count(*) FROM hush_invites WHERE inviter = $1`, handle).Scan(&minted)
 	if minted < allowance {
-		_, _ = a.pool.Exec(ctx, `INSERT INTO hush_invites (code, inviter) VALUES ($1, $2)`, randHex(), handle)
+		code := randHex()
+		if _, err := a.pool.Exec(ctx, `INSERT INTO hush_invites (code, inviter) VALUES ($1, $2)`, code, handle); err == nil {
+			if email := normalizeEmail(r.FormValue("email")); email != "" {
+				a.enqueueMail(ctx, email, "invite", inviteEmail(a.cfg.BaseURL+"/invite/"+code))
+			}
+		}
 	}
 	http.Redirect(w, r, "/u/"+handle, http.StatusSeeOther)
 }
@@ -273,7 +295,7 @@ func (a *app) invitesFor(ctx context.Context, handle string, tier int) invitePan
 	if a.pool == nil || tier < 1 {
 		return invitePanel{}
 	}
-	allowance := inviteAllowance(tier, a.rep.chainScore(handle))
+	allowance := a.inviteAllowance(tier, a.rep.chainScore(handle))
 	rows, err := a.pool.Query(ctx,
 		`SELECT code, COALESCE(used_by, '') FROM hush_invites WHERE inviter = $1 ORDER BY created_at`, handle)
 	if err != nil {
