@@ -4,6 +4,11 @@ go 1.26.1
 
 require github.com/ThirdCoastInteractive/the-beach v0.0.0
 
+// templ compiles views.templ to views_templ.go (`make gen` runs
+// `go tool templ generate`). The module is already in the mirrored require
+// block below; this directive makes its CLI a Go tool of this module.
+tool github.com/a-h/templ/cmd/templ
+
 // Local development against this the-beach checkout. The stamped app builds and
 // runs against the framework sources in the repo, no network fetch required.
 replace github.com/ThirdCoastInteractive/the-beach => {{.ReplacePath}}

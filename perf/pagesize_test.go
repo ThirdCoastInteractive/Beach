@@ -8,76 +8,23 @@ import (
 	"testing"
 
 	beach "github.com/ThirdCoastInteractive/the-beach"
-	"github.com/ThirdCoastInteractive/the-beach/datastar"
-	"github.com/ThirdCoastInteractive/the-beach/ui"
-	"github.com/ThirdCoastInteractive/the-beach/ui/driftwood"
 )
 
-// newApp builds a database-less beach.App with the driftwood kit — the same
-// configuration cmd/demo and examples/driftbottle use. It is the real render
-// path: routes go through the full middleware stack and PageFunc adapter, so the
-// measured bytes are exactly what the framework writes on the wire.
+// newApp builds a database-less beach.App — the same configuration the example
+// apps use. It is the real render path: routes go through the full middleware
+// stack and PageFunc adapter, so the measured bytes are exactly what the
+// framework writes on the wire. The pages themselves are the templ components
+// in pages.templ.
 func newApp() *beach.App {
-	return beach.New(beach.Config{
-		Service: "perf",
-		Kit:     beach.KitStatic("driftwood"),
-	})
+	return beach.New(beach.Config{Service: "perf"})
 }
 
-// demoHome reconstructs cmd/demo's home page body: the example apps' handlers
-// live in package main (cross-main import is awkward), so the gate rebuilds the
-// representative driftwood page through the live kit — heading, a panel card with
-// an action button, and a live region — wrapped in the same driftwood shell. If
-// the real handler grows, this page grows with the same components, so the gate
-// stays representative of an actual above-the-fold home page.
 func demoHome(c *beach.Ctx) (beach.View, error) {
-	kit := c.Kit()
-	heading := kit.Layout().PageHeading(ui.PageHeadingProps{
-		Title:    "the-beach",
-		Subtitle: "SSR + Datastar, no database, live over SSE.",
-	})
-	card := kit.Layout().Card(ui.CardProps{Surface: ui.SurfacePanel, Heading: "Tick"},
-		kit.Buttons().Button(ui.ButtonProps{
-			Label:    "Increment",
-			Role:     ui.RoleAccent,
-			LeadIcon: "plus",
-			Attrs:    datastar.Attrs{datastar.OnClick("@post('/inc')")},
-		}),
-	)
-	body := kit.Layout().Container(ui.ContainerProps{
-		Attrs: datastar.Attrs{datastar.On("load", "@get('/live')")},
-	}, heading, card)
-	page := driftwood.Page(driftwood.PageProps{
-		Title:       "the-beach demo",
-		Description: "A database-less the-beach showcase.",
-	}, body)
-	return beach.View{Page: page}, nil
+	return beach.View{Page: demoPage()}, nil
 }
 
-// driftbottleHome reconstructs examples/driftbottle's home page body: the page
-// heading plus the lobby's "find a stranger" container, in the driftwood shell —
-// the same shape srv.indexPage renders on navigation.
 func driftbottleHome(c *beach.Ctx) (beach.View, error) {
-	kit := c.Kit()
-	heading := kit.Layout().PageHeading(ui.PageHeadingProps{
-		Title:    "driftbottle",
-		Subtitle: "You're about to talk to a complete stranger. Be kind.",
-	})
-	lobby := kit.Layout().Card(ui.CardProps{Surface: ui.SurfacePanel, Heading: "Stranger chat"},
-		kit.Buttons().Button(ui.ButtonProps{
-			Label: "Talk to a stranger",
-			Role:  ui.RoleAccent,
-			Attrs: datastar.Attrs{datastar.OnClick("@post('/start')")},
-		}),
-	)
-	body := kit.Layout().Container(ui.ContainerProps{
-		Attrs: datastar.Attrs{datastar.On("load", "@get('/events')")},
-	}, heading, lobby)
-	page := driftwood.Page(driftwood.PageProps{
-		Title:       "driftbottle — talk to a stranger",
-		Description: "Anonymous, ephemeral stranger chat. No accounts, no history.",
-	}, body)
-	return beach.View{Page: page}, nil
+	return beach.View{Page: driftbottlePage()}, nil
 }
 
 // TestHomePagesUnder14KB is the page-size gate: every example app's home route

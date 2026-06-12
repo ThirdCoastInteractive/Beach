@@ -8,9 +8,10 @@
 //	beach ecs gen [--file F]      generate Go components from components.beach.yaml
 //	beach i18n [--write]          verify (or write) the i18n catalog from source
 //
-// `beach new` writes a complete, compiling the-beach app: a main.go shaped like
-// cmd/demo (driftwood kit, one page, one Datastar action, one SSE fragment), a
-// Makefile, sqlc.yaml (apigen plugin registered),
+// `beach new` writes a complete, compiling the-beach app: wiring in main.go
+// (one page, one Datastar action, one SSE fragment), driftwood markup in
+// views.templ (plus its committed views_templ.go compile output), a Makefile,
+// sqlc.yaml (apigen plugin registered),
 // docker-compose.yml (Postgres up, ClickHouse commented out), an .env template,
 // and a go.mod with a local `replace` so the stamped app builds against this
 // checkout without network access.

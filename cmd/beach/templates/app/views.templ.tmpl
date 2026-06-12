@@ -1,0 +1,45 @@
+// views.templ is the app's entire markup: the full document for GET / and the
+// live fragment every SSE patch morphs. Driftwood components are called
+// directly (@driftwood.Card{...} with children); wiring stays in main.go.
+// Compile with `make gen` (go tool templ generate) after editing.
+package main
+
+import (
+	"time"
+
+	"github.com/ThirdCoastInteractive/the-beach/datastar"
+	"github.com/ThirdCoastInteractive/the-beach/ui/driftwood"
+)
+
+// index is the complete document for GET /: driftwood page chrome around the
+// live Tick card. The container fires @get('/live') on load so the live region
+// starts streaming the moment the page lands.
+templ index(count int64) {
+	@driftwood.Page(driftwood.PageProps{Title: appName, Description: "A the-beach skeleton app."}) {
+		@driftwood.Container(driftwood.ContainerProps{Attrs: datastar.Attrs{datastar.On("load", "@get('/live')")}}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{
+				Title:    appName,
+				Subtitle: "SSR + Datastar, no database, live over SSE.",
+			})
+			@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Tick"}) {
+				@live(count)
+				@driftwood.Button(driftwood.ButtonProps{
+					Label:    "Increment",
+					Role:     driftwood.RoleAccent,
+					LeadIcon: "plus",
+					Attrs:    datastar.Attrs{datastar.OnClick("@post('/inc')")},
+				})
+			}
+		}
+	}
+}
+
+// live is the live region: a fixed id="live" wrapper showing the server clock
+// and the current counter. The ticker, the action, and the stream catch-up all
+// re-render this one component and morph it in place by its own id.
+templ live(count int64) {
+	<div id={ liveTarget }>
+		<p>Server time: <strong>{ time.Now().Format("15:04:05") }</strong></p>
+		<p>Increments: <strong>{ count }</strong></p>
+	</div>
+}
