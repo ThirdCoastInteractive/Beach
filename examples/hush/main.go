@@ -7,10 +7,11 @@
 //	go build -o bin/hush ./examples/hush
 //	PORT=8080 ./bin/hush
 //
-// Then open http://localhost:8080/. This is Block A — the board skeleton: an
-// in-memory wall of text posts with the 512-character limited-markdown text path
-// (bold, italics, lists). No database required; storage, the WebGPU camera, the
-// signup gate, and Repute scoring arrive in later blocks.
+// Then open http://localhost:8080/. The wall itself is in-memory (text posts
+// through the 512-character limited-markdown text path, image posts through
+// local file storage); the signup gate — applications, accounts, RBAC,
+// sessions — needs Postgres and switches on with DATABASE_URL. The /compose
+// page hosts the WebGPU camera island, and Repute scores posting activity.
 package main
 
 import (
@@ -31,9 +32,8 @@ import (
 	"github.com/ThirdCoastInteractive/the-beach/auth"
 	"github.com/ThirdCoastInteractive/the-beach/session"
 	"github.com/ThirdCoastInteractive/the-beach/storage"
-	_ "github.com/ThirdCoastInteractive/the-beach/ui/driftwood" // registers the "driftwood" kit (serves /static/css/app.css)
+	"github.com/ThirdCoastInteractive/the-beach/ui/specimen"
 
-	"github.com/a-h/templ"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -87,7 +87,6 @@ func main() {
 		Service: "hush",
 		Release: a.release,
 		Static:  sub,
-		Kit:     beach.KitStatic("driftwood"),
 		Logger:  logger,
 	}
 
@@ -136,6 +135,13 @@ func (a *app) routes(app *beach.App) {
 	app.Page("/apply", a.applyPage)
 	app.Page("/login", a.loginPage)
 	app.Page("/u/{handle}", a.profileView)
+
+	// The framework's living showcase — every driftwood component and chart
+	// type with sample data — mounted so a hush checkout doubles as a styling
+	// reference.
+	app.Page("/specimen", func(c *beach.Ctx) (beach.View, error) {
+		return beach.View{Page: specimen.Page()}, nil
+	})
 
 	// Posting is gated on the "post" permission when the gate (DB) is on; without
 	// a DB there's no principal and the wall is open.
@@ -207,7 +213,7 @@ func (a *app) postView(c *beach.Ctx) (beach.View, error) {
 // back out. SSE both ways — open and close.
 func (a *app) closeSheet(c *beach.Ctx) (beach.View, error) {
 	return beach.View{
-		Fragment:       templ.Raw(`<div id="hush-sheet"></div>`),
+		Fragment:       sheetHost(),
 		Target:         "hush-sheet",
 		Mode:           beach.PatchOuter,
 		ViewTransition: true,
@@ -250,7 +256,7 @@ func (a *app) home(c *beach.Ctx) (beach.View, error) {
 	score := a.rep.score(handle)
 	return beach.View{
 		Page:     homePage(posts, handle, canPost, admin, score, tierOf(score)),
-		Fragment: gridFragment(posts),
+		Fragment: grid(posts),
 		Target:   "hush-grid",
 	}, nil
 }

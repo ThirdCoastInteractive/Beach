@@ -10,7 +10,6 @@ import (
 	"github.com/ThirdCoastInteractive/the-beach/passwords"
 	"github.com/ThirdCoastInteractive/the-beach/pg"
 	"github.com/ThirdCoastInteractive/the-beach/session"
-	"github.com/a-h/templ"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -148,25 +147,20 @@ func (a *app) acct(c *beach.Ctx) (handle string, canPost, admin bool) {
 	return "", false, false
 }
 
-// loginPage renders the sign-in form (plain POST → 303), or a notice without a DB.
+// loginPage maps the ?err code to a banner message and renders the sign-in
+// form (loginFormPage in pages.templ), or a notice without a DB.
 func (a *app) loginPage(c *beach.Ctx) (beach.View, error) {
 	if a.authn == nil {
 		return beach.View{Page: noticePage("sign-in needs the database.", "set DATABASE_URL to enable accounts.")}, nil
 	}
-	errBanner := ""
+	errMsg := ""
 	switch c.Query("err") {
 	case "1":
-		errBanner = `<p class="hush-note">invalid handle or password.</p>`
+		errMsg = "invalid handle or password."
 	case "locked":
-		errBanner = `<p class="hush-note">account locked. try again later.</p>`
+		errMsg = "account locked. try again later."
 	}
-	form := errBanner +
-		`<form method="post" action="/login" class="hush-form">` +
-		`<input class="hush-input" type="text" name="username" placeholder="handle" autocomplete="username" required>` +
-		`<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="current-password" required>` +
-		`<div class="hush-form-row"><a class="hush-link" href="/apply">need an account? apply →</a>` +
-		`<button class="hush-post" type="submit">sign in</button></div></form>`
-	return beach.View{Page: formPage("sign in", templ.Raw(form))}, nil
+	return beach.View{Page: loginFormPage(errMsg)}, nil
 }
 
 // doLogin is a plain form POST: authenticate, set the session cookie, 303 home.

@@ -1,0 +1,444 @@
+// hush's views, as templ components. The handlers (main.go, apply.go, auth.go)
+// stay plain Go and call these with data; everything that emits markup lives
+// here.
+package main
+
+import "strconv"
+
+// tileBG is the per-tile inline background — the one genuinely per-instance
+// style in hush. colorFor's output is a fixed-format oklch() string derived
+// from a content hash (no user input reaches it), so bypassing templ's CSS
+// property sanitizer — which predates oklch() — is safe.
+func tileBG(p Post) templ.SafeCSS {
+	return templ.SafeCSS("background: " + colorFor(p))
+}
+
+// openSheet is a tile's click expression: clear any stale reply, then stream
+// the sheet in (the View Transition does the slide; see the /p/{id} handler).
+func openSheet(id int64) string {
+	return "$reply = ''; @get('/p/" + strconv.FormatInt(id, 10) + "')"
+}
+
+// shell is the full hush document. hush is the custom-layout example, so it
+// ships its own page shell rather than the driftwood one: it links the
+// framework stylesheet (so dw-* surfaces still resolve) AND its own hush.css,
+// keeps the theme class on <html> for no pop-in, and defers Datastar per the
+// no-blocking law. No inline script — the strict CSP forbids it.
+templ shell(title string) {
+	<!DOCTYPE html>
+	<html lang="en" class="dw-root">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title }</title>
+			<link rel="stylesheet" href="/static/css/app.css"/>
+			<link rel="stylesheet" href="/static/css/hush.css"/>
+			<script type="module" src="/static/js/datastar.js" defer></script>
+		</head>
+		<body class="dw-body hush-body">
+			{ children... }
+		</body>
+	</html>
+}
+
+// backToWall is the "← back to the wall" escape hatch every secondary page ends with.
+templ backToWall() {
+	<p class="hush-back"><a class="hush-link" href="/">← back to the wall</a></p>
+}
+
+// homePage is the wall: a centered header + composer, the full-bleed gapless
+// grid, and the slide-in detail sheet. The whole page shares the `reply`
+// Datastar signal backing every card's comment box; clicking a tile resets it
+// and fetches the card into the sheet over SSE.
+templ homePage(posts []Post, handle string, canPost bool, admin bool, score float64, tier int) {
+	@shell("hush") {
+		<div data-signals="{reply: ''}">
+			@accountStrip(handle, admin, score, tier)
+			<div class="hush-top">
+				<header class="hush-head">
+					<h1 class="hush-title">hush</h1>
+					<p class="hush-sub">a quiet wall — post into it.</p>
+				</header>
+				if canPost {
+					@composer()
+				} else {
+					<p class="hush-sub hush-gateline">posting is invite-only — <a class="hush-link" href="/apply">apply</a> or <a class="hush-link" href="/login">sign in</a>.</p>
+				}
+			</div>
+			@grid(posts)
+			@sheetHost()
+		</div>
+	}
+}
+
+// accountStrip is the top-right account line: who you are, the admin queue
+// link, and log out. Empty when signed out (the gate line carries the call to
+// action) or in database-less open mode.
+templ accountStrip(handle string, admin bool, score float64, tier int) {
+	if handle != "" {
+		<div class="hush-acct">
+			you are <strong>{ handle }</strong>
+			{ " · " }
+			<span class="hush-score">{ "score " + strconv.Itoa(int(score+0.5)) + " · tier " + strconv.Itoa(tier) }</span>
+			if tier >= 1 {
+				{ " · " }
+				<a class="hush-link" href={ "/u/" + handle }>profile</a>
+			}
+			if admin {
+				{ " · " }
+				<a class="hush-link" href="/admin/queue">queue</a>
+			}
+			{ " · " }
+			<a class="hush-link" href="/logout">log out</a>
+		</div>
+	}
+}
+
+// composer is the post box: a textarea bound to the `body` signal and a post
+// button that fires @post('/posts'). No <form> — a bare button avoids needing
+// a submit-prevent modifier, and Datastar carries the signal as JSON. The
+// image upload below it IS a plain multipart form (303 back to the wall) — no
+// Datastar, no inline script, CSP-clean; the camera island adds the
+// fetch-based prepend path.
+templ composer() {
+	<div class="hush-compose">
+		<textarea id="hush-body" name="body" class="hush-input" data-bind:body aria-label="compose a post" placeholder="say something — **bold**, *italics*, - lists"></textarea>
+		<div class="hush-compose-row">
+			<span class="hush-hint">bold · italics · lists · 512 characters</span>
+			<button class="hush-post" data-on:click="@post('/posts')">post</button>
+		</div>
+		<div id="hush-note" class="hush-note" aria-live="polite"></div>
+		<form class="hush-upload" method="post" action="/upload" enctype="multipart/form-data">
+			<input type="file" id="hush-image" name="image" accept="image/*" class="hush-file"/>
+			<button class="hush-post hush-post--ghost" type="submit">upload image</button>
+			<a class="hush-link hush-cam-link" href="/compose">or open the camera →</a>
+		</form>
+	</div>
+}
+
+// grid is the full #hush-grid wall. It doubles as the fragment the home
+// handler patches on a Datastar request.
+templ grid(posts []Post) {
+	<div id="hush-grid" class="hush-grid">
+		for _, p := range posts {
+			@tile(p)
+		}
+	</div>
+}
+
+// tile is one square. Clicking it opens the sheet and streams the post's
+// detail card in. A text tile's BodyHTML is already sanitized by renderPost;
+// an image tile renders the stored object's URL.
+templ tile(p Post) {
+	if p.Kind == "image" {
+		<div class="hush-tile hush-tile--image" style={ tileBG(p) } data-on:click={ openSheet(p.ID) } role="button" tabindex="0">
+			<img src={ p.ImageURL } alt="" loading="lazy"/>
+		</div>
+	} else {
+		<div class="hush-tile hush-tile--text" style={ tileBG(p) } data-on:click={ openSheet(p.ID) } role="button" tabindex="0">
+			<div class="hush-tile-body">
+				@templ.Raw(p.BodyHTML)
+			</div>
+		</div>
+	}
+}
+
+// sheetHost is the empty sheet mount on the wall. Clicking a tile streams a
+// sheet into it inside a View Transition, so it slides in from the edge over
+// the (undimmed) wall; closing patches this empty host back (PatchOuter),
+// sliding the sheet out. SSE both ways — open and close.
+templ sheetHost() {
+	<div id="hush-sheet"></div>
+}
+
+// voteControl is the upvote affordance in a post card. With canPost the arrow
+// is a live @post button; otherwise it's a read-only count. The fragment IS
+// #vote-<id>, so the vote handler morphs it by id (PatchOuter — inner mode
+// would nest #vote-<id> inside itself).
+templ voteControl(id int64, count int, canPost bool) {
+	{{ idStr := strconv.FormatInt(id, 10) }}
+	<div id={ "vote-" + idStr } class="hush-vote">
+		if canPost {
+			<button class="hush-vote-btn" data-on:click={ "@post('/p/" + idStr + "/vote')" }>▲</button>
+		} else {
+			<span class="hush-vote-btn hush-vote-btn--off">▲</span>
+		}
+		<span class="hush-vote-count">{ strconv.Itoa(count) }</span>
+	</div>
+}
+
+// cardInner is the shared body of a post's detail view — the media, meta, the
+// comment thread, and the reply box. Both the slide-in sheet and the permalink
+// page wrap this.
+templ cardInner(p Post, comments []Comment, canPost bool) {
+	{{ id := strconv.FormatInt(p.ID, 10) }}
+	if p.Kind == "image" {
+		<div class="hush-card-media hush-card-media--image">
+			<img src={ p.ImageURL } alt=""/>
+		</div>
+	} else {
+		// The card's hero uses the post's own computed color.
+		<div class="hush-card-media hush-card-media--text" style={ tileBG(p) }>
+			<div class="hush-card-text">
+				@templ.Raw(p.BodyHTML)
+			</div>
+		</div>
+	}
+	<div class="hush-card-meta">
+		<a class="hush-link" href={ "/p/" + id }>{ "#" + id }</a>
+		{ " · " + p.CreatedAt.Format("Jan 2 · 15:04") }
+	</div>
+	@voteControl(p.ID, p.Votes, canPost)
+	<section class="hush-comments" id={ "comments-" + id }>
+		for _, cm := range comments {
+			@comment(cm)
+		}
+	</section>
+	if canPost {
+		@commentComposer(id)
+	} else {
+		<p class="hush-sub"><a class="hush-link" href="/login">sign in</a> to reply.</p>
+	}
+}
+
+// comment is one reply. Like a post, its BodyHTML is sanitized by renderPost —
+// never raw input.
+templ comment(c Comment) {
+	<div class="hush-comment">
+		<div class="hush-comment-body">
+			@templ.Raw(c.BodyHTML)
+		</div>
+	</div>
+}
+
+// commentComposer is the reply box, bound to the shared `reply` signal.
+templ commentComposer(id string) {
+	<div class="hush-reply">
+		<textarea id="hush-reply" name="reply" class="hush-reply-input" data-bind:reply aria-label="reply" placeholder="reply…"></textarea>
+		<div class="hush-reply-row">
+			<span class="hush-hint">bold · italics · lists</span>
+			<button class="hush-post" data-on:click={ "@post('/p/" + id + "/comments')" }>reply</button>
+		</div>
+		<div id={ "reply-note-" + id } class="hush-note"></div>
+	</div>
+}
+
+// sheetCard is the fragment streamed into #hush-sheet when a tile is clicked.
+// The outer .hush-sheet carries the view-transition-name, so patching it in
+// (or out, on close) slides it from the edge. Close is an SSE round-trip that
+// empties the host.
+templ sheetCard(p Post, comments []Comment, canPost bool) {
+	<div class="hush-sheet">
+		<article class="hush-card hush-card--sheet">
+			<button class="hush-card-close" data-on:click="@get('/sheet/close')" aria-label="close">×</button>
+			@cardInner(p, comments, canPost)
+		</article>
+	</div>
+}
+
+// postPage is the permalink: the same card centered on its own page, reachable
+// by navigating straight to /p/{id} (or the #id link in the card meta).
+templ postPage(p Post, comments []Comment, canPost bool) {
+	@shell("hush — post #" + strconv.FormatInt(p.ID, 10)) {
+		<div data-signals="{reply: ''}">
+			<div class="hush-top">
+				@backToWall()
+				<article class="hush-card hush-card--page">
+					@cardInner(p, comments, canPost)
+				</article>
+			</div>
+		</div>
+	}
+}
+
+// notFoundPage is shown when a permalink points at a post that doesn't exist.
+templ notFoundPage() {
+	@shell("hush — not found") {
+		<div class="hush-top">
+			<header class="hush-head">
+				<h1 class="hush-title">hush</h1>
+				<p class="hush-sub">that post is gone.</p>
+			</header>
+			@backToWall()
+		</div>
+	}
+}
+
+// profilePage is the tier-1 reward: a member's standing and post count. The
+// wall stays anonymous, so this is the one place a handle and score are shown
+// together.
+templ profilePage(handle string, score float64, tier int, posts int) {
+	@shell("hush — " + handle) {
+		<div class="hush-top">
+			<header class="hush-head">
+				<h1 class="hush-title">{ handle }</h1>
+				<p class="hush-sub">{ "tier " + strconv.Itoa(tier) }</p>
+			</header>
+			<div class="hush-profile">
+				<div class="hush-stat"><span class="hush-stat-n">{ strconv.Itoa(int(score + 0.5)) }</span> score</div>
+				<div class="hush-stat"><span class="hush-stat-n">{ strconv.Itoa(posts) }</span> posts</div>
+			</div>
+			if tier < 2 {
+				<p class="hush-sub">{ "reach tier 2 (score " + strconv.Itoa(int(tier2Score)) + ") to unlock DMs." }</p>
+			} else {
+				<p class="hush-sub">DMs unlocked.</p>
+			}
+			@backToWall()
+		</div>
+	}
+}
+
+// noticePage is a centered one-line message page (e.g. "application submitted").
+templ noticePage(title string, sub string) {
+	@shell("hush") {
+		<div class="hush-top">
+			<header class="hush-head">
+				<h1 class="hush-title">hush</h1>
+				<p class="hush-sub">{ title }</p>
+				if sub != "" {
+					<p class="hush-sub">{ sub }</p>
+				}
+			</header>
+			@backToWall()
+		</div>
+	}
+}
+
+// formPage centers a form (login, apply) under the hush header.
+templ formPage(title string) {
+	@shell("hush — " + title) {
+		<div class="hush-top">
+			<header class="hush-head">
+				<h1 class="hush-title">hush</h1>
+				<p class="hush-sub">{ title }</p>
+			</header>
+			<div class="hush-formwrap">
+				{ children... }
+			</div>
+			@backToWall()
+		</div>
+	}
+}
+
+// composePage hosts the WebGPU camera island. It is the dedicated client-JS
+// page — a canvas the camera renders into through a WGSL filter pipeline, and
+// a capture button that posts the filtered still. The script is an external
+// module (CSP: script-src 'self'); the page degrades to the wall's plain
+// upload without WebGPU.
+templ composePage() {
+	@shell("hush — capture") {
+		<div class="hush-top">
+			<header class="hush-head">
+				<h1 class="hush-title">hush</h1>
+				<p class="hush-sub">capture something — filtered, on-device.</p>
+			</header>
+			<div class="hush-cam">
+				<canvas id="cam-canvas" class="cam-canvas" width="720" height="720"></canvas>
+				<div class="cam-controls">
+					<select id="cam-filter" class="cam-filter" aria-label="filter">
+						<option value="none">none</option>
+						<option value="noir">noir</option>
+						<option value="bleach">bleach</option>
+						<option value="dream">dream</option>
+					</select>
+					<button id="cam-shoot" class="hush-post" type="button">capture</button>
+				</div>
+				<p id="cam-status" class="cam-status" aria-live="polite"></p>
+			</div>
+			@backToWall()
+		</div>
+		<script type="module" src="/static/js/camera.js"></script>
+	}
+}
+
+// applyFormPage is the signup application form: a handle, a password, 3–5
+// lines about what you want to post, and an optional photo. Submitting creates
+// a pending application an admin reviews.
+templ applyFormPage() {
+	@formPage("apply to post") {
+		<form method="post" action="/apply" enctype="multipart/form-data" class="hush-form">
+			<input class="hush-input" type="text" name="handle" placeholder="handle" autocomplete="username" required/>
+			<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="new-password" required/>
+			<textarea class="hush-input" name="pitch" rows="4" placeholder="what do you want to post? (3–5 lines)" required></textarea>
+			<label class="hush-hint">a photo of you (optional)</label>
+			<input class="hush-file" type="file" name="photo" accept="image/*"/>
+			<div class="hush-form-row">
+				<a class="hush-link" href="/login">already approved? sign in →</a>
+				<button class="hush-post" type="submit">apply</button>
+			</div>
+		</form>
+	}
+}
+
+// loginFormPage is the sign-in form (plain POST → 303). A non-empty errMsg is
+// the failed-attempt banner above the form.
+templ loginFormPage(errMsg string) {
+	@formPage("sign in") {
+		if errMsg != "" {
+			<p class="hush-note">{ errMsg }</p>
+		}
+		<form method="post" action="/login" class="hush-form">
+			<input class="hush-input" type="text" name="username" placeholder="handle" autocomplete="username" required/>
+			<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="current-password" required/>
+			<div class="hush-form-row">
+				<a class="hush-link" href="/apply">need an account? apply →</a>
+				<button class="hush-post" type="submit">sign in</button>
+			</div>
+		</form>
+	}
+}
+
+// adminQueuePage lists pending applications with approve/reject controls
+// (admin only).
+templ adminQueuePage(apps []application) {
+	@shell("hush — queue") {
+		<div class="hush-top">
+			<header class="hush-head">
+				<h1 class="hush-title">hush</h1>
+				<p class="hush-sub">pending applications</p>
+			</header>
+			@backToWall()
+			for _, ap := range apps {
+				@appCard(ap)
+			}
+			if len(apps) == 0 {
+				<p class="hush-sub">nothing pending.</p>
+			}
+		</div>
+	}
+}
+
+// appCard is one pending application: the optional photo, the handle, the
+// pitch, and the decide buttons.
+templ appCard(ap application) {
+	{{ id := strconv.FormatInt(ap.ID, 10) }}
+	<div class="hush-appcard">
+		if ap.PhotoKey != "" {
+			<img class="hush-appphoto" src={ "/files/" + ap.PhotoKey } alt=""/>
+		}
+		<div class="hush-apphandle">{ ap.Handle }</div>
+		<div class="hush-apppitch">{ ap.Pitch }</div>
+		<div class="hush-form-row">
+			@decideForm(id, "reject")
+			@decideForm(id, "approve")
+		</div>
+	</div>
+}
+
+// decideForm posts one admin decision (approve or reject) for an application.
+templ decideForm(id string, action string) {
+	<form method="post" action="/admin/decide">
+		<input type="hidden" name="id" value={ id }/>
+		<input type="hidden" name="action" value={ action }/>
+		if action == "approve" {
+			<button class="hush-post" type="submit">approve</button>
+		} else {
+			<button class="hush-post hush-post--ghost" type="submit">reject</button>
+		}
+	</form>
+}
+
+// note renders the composer's status line. An empty message clears it.
+templ note(msg string) {
+	{ msg }
+}

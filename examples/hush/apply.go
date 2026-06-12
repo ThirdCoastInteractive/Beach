@@ -7,12 +7,19 @@ import (
 
 	beach "github.com/ThirdCoastInteractive/the-beach"
 	"github.com/ThirdCoastInteractive/the-beach/passwords"
-	"github.com/a-h/templ"
 )
 
-// applyPage renders the signup application form: a handle, a password, 3–5 lines
-// about what you want to post, and an optional photo. Submitting creates a
-// pending application an admin reviews. Without a DB there are no accounts.
+// application is one pending signup application, as the admin queue shows it.
+type application struct {
+	ID       int64
+	Handle   string
+	Pitch    string
+	PhotoKey string
+}
+
+// applyPage routes to the application form (applyFormPage in pages.templ): a
+// notice without a DB, the submitted notice after a successful POST, the form
+// otherwise.
 func (a *app) applyPage(c *beach.Ctx) (beach.View, error) {
 	if a.authn == nil {
 		return beach.View{Page: noticePage("applications need the database.", "set DATABASE_URL to enable the gate.")}, nil
@@ -20,15 +27,7 @@ func (a *app) applyPage(c *beach.Ctx) (beach.View, error) {
 	if c.Query("ok") == "1" {
 		return beach.View{Page: noticePage("application submitted.", "an admin will review it. you'll be able to sign in once approved.")}, nil
 	}
-	form := `<form method="post" action="/apply" enctype="multipart/form-data" class="hush-form">` +
-		`<input class="hush-input" type="text" name="handle" placeholder="handle" autocomplete="username" required>` +
-		`<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="new-password" required>` +
-		`<textarea class="hush-input" name="pitch" rows="4" placeholder="what do you want to post? (3–5 lines)" required></textarea>` +
-		`<label class="hush-hint">a photo of you (optional)</label>` +
-		`<input class="hush-file" type="file" name="photo" accept="image/*">` +
-		`<div class="hush-form-row"><a class="hush-link" href="/login">already approved? sign in →</a>` +
-		`<button class="hush-post" type="submit">apply</button></div></form>`
-	return beach.View{Page: formPage("apply to post", templ.Raw(form))}, nil
+	return beach.View{Page: applyFormPage()}, nil
 }
 
 // doApply handles the application form: validate, hash the chosen password, stash
@@ -73,7 +72,8 @@ func (a *app) doApply(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/apply?ok=1", http.StatusSeeOther)
 }
 
-// queuePage lists pending applications with approve/reject controls (admin only).
+// queuePage loads the pending applications and hands them to adminQueuePage
+// (admin only).
 func (a *app) queuePage(c *beach.Ctx) (beach.View, error) {
 	if a.authn == nil {
 		return beach.View{Page: noticePage("the queue needs the database.", "")}, nil
@@ -85,38 +85,18 @@ func (a *app) queuePage(c *beach.Ctx) (beach.View, error) {
 	}
 	defer rows.Close()
 
-	var b strings.Builder
-	b.WriteString(`<div class="hush-top"><header class="hush-head"><h1 class="hush-title">hush</h1>`)
-	b.WriteString(`<p class="hush-sub">pending applications</p></header>`)
-	b.WriteString(`<p class="hush-back"><a class="hush-link" href="/">← back to the wall</a></p>`)
-
-	n := 0
+	var apps []application
 	for rows.Next() {
-		var id int64
-		var handle, pitch, photo string
-		if err := rows.Scan(&id, &handle, &pitch, &photo); err != nil {
+		var ap application
+		if err := rows.Scan(&ap.ID, &ap.Handle, &ap.Pitch, &ap.PhotoKey); err != nil {
 			return beach.View{}, err
 		}
-		n++
-		idStr := strconv.FormatInt(id, 10)
-		b.WriteString(`<div class="hush-appcard">`)
-		if photo != "" {
-			b.WriteString(`<img class="hush-appphoto" src="/files/` + templ.EscapeString(photo) + `" alt="">`)
-		}
-		b.WriteString(`<div class="hush-apphandle">` + templ.EscapeString(handle) + `</div>`)
-		b.WriteString(`<div class="hush-apppitch">` + templ.EscapeString(pitch) + `</div>`)
-		b.WriteString(`<div class="hush-form-row">`)
-		b.WriteString(`<form method="post" action="/admin/decide"><input type="hidden" name="id" value="` + idStr + `">` +
-			`<input type="hidden" name="action" value="reject"><button class="hush-post hush-post--ghost" type="submit">reject</button></form>`)
-		b.WriteString(`<form method="post" action="/admin/decide"><input type="hidden" name="id" value="` + idStr + `">` +
-			`<input type="hidden" name="action" value="approve"><button class="hush-post" type="submit">approve</button></form>`)
-		b.WriteString(`</div></div>`)
+		apps = append(apps, ap)
 	}
-	if n == 0 {
-		b.WriteString(`<p class="hush-sub">nothing pending.</p>`)
+	if err := rows.Err(); err != nil {
+		return beach.View{}, err
 	}
-	b.WriteString(`</div>`)
-	return beach.View{Page: shell("hush — queue", templ.Raw(b.String()))}, nil
+	return beach.View{Page: adminQueuePage(apps)}, nil
 }
 
 // doDecide approves (creates the user + member role from the application) or
