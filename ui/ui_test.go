@@ -32,7 +32,7 @@ func TestDeferReservesSpaceAndWiresGet(t *testing.T) {
 				`id="trade-history"`,
 				`height:24rem`,
 				`width:100%`,
-				`data-on:intersect="@get(&#39;/wallet/history&#39;)"`,
+				`data-on-intersect="@get(&#39;/wallet/history&#39;)"`,
 				`aria-busy="true"`,
 			},
 		},

@@ -47,7 +47,7 @@ templ Defer(p DeferProps) {
 		if p.OnLoad {
 			data-init={ deferGet(p) }
 		} else {
-			data-on:intersect={ deferGet(p) }
+			data-on-intersect={ deferGet(p) }
 		}
 	></div>
 }
