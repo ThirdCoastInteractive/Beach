@@ -7,11 +7,12 @@
 //	go build -o bin/hush ./examples/hush
 //	PORT=8080 ./bin/hush
 //
-// Then open http://localhost:8080/. The wall itself is in-memory (text posts
-// through the 512-character limited-markdown text path, image posts through
-// local file storage); the signup gate — applications, accounts, RBAC,
-// sessions — needs Postgres and switches on with DATABASE_URL. The /compose
-// page hosts the WebGPU camera island, and Repute scores posting activity.
+// Then open http://localhost:8080/. Without DATABASE_URL the wall runs open
+// and in-memory (text posts through the 512-character limited-markdown text
+// path, image posts through local file storage); with it, both the wall and
+// the signup gate — applications, accounts, RBAC, sessions — live in Postgres.
+// The /compose page hosts the WebGPU camera island, and Repute scores posting
+// activity.
 package main
 
 import (
@@ -44,12 +45,13 @@ var staticFS embed.FS
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-// app holds the wired dependencies the handlers close over. The post wall stays
-// in-memory (like pantry's domain data); the signup gate — applications, accounts,
-// roles, sessions — is Postgres-backed when DATABASE_URL is set. Without a DB the
-// app runs open: anyone can post, there's no gate.
+// app holds the wired dependencies the handlers close over. With DATABASE_URL
+// set, the wall and the signup gate — applications, accounts, roles, sessions —
+// are Postgres-backed (pgStore); without it the app runs open and in-memory
+// (memStore): anyone can post, there's no gate.
 type app struct {
-	store    *store
+	cfg      config
+	store    wall
 	files    *storage.Local
 	rep      *reputation
 	authn    *auth.Authenticator
@@ -57,12 +59,10 @@ type app struct {
 	pool     *pgxpool.Pool
 	release  bool
 
-	// The signup modes beyond the queue (see invites.go). openSlots is
-	// HUSH_OPEN_SLOTS; chains is the in-memory invite graph (invitee → inviter),
-	// hydrated from hush_invites at boot.
-	openSlots int
-	chainMu   sync.Mutex
-	chains    map[string]string
+	// The invite graph (invitee → inviter), in-memory, hydrated from
+	// hush_invites at boot — the chain echoes read it on every vote.
+	chainMu sync.Mutex
+	chains  map[string]string
 }
 
 func main() {
@@ -78,8 +78,9 @@ func main() {
 		log.Fatalf("hush: static sub-fs: %v", err)
 	}
 
-	// Local file store under the OS temp dir, served at /files. Ephemeral to match
-	// the in-memory posts; Block D swaps in a persistent backend alongside Postgres.
+	// Local file store under the OS temp dir, served at /files. Ephemeral — a
+	// Postgres-persisted wall can outlive these bytes; Cloudflare Images
+	// (cf_image_id on hush_posts) is the durable image path, a later phase.
 	filesDir := os.Getenv("HUSH_FILES_DIR")
 	if filesDir == "" {
 		filesDir = filepath.Join(os.TempDir(), "hush-files")
@@ -89,11 +90,8 @@ func main() {
 		log.Fatalf("hush: file store: %v", err)
 	}
 
-	a := &app{store: newStore(), files: files, rep: newReputation(), release: os.Getenv("RELEASE") != ""}
-	// HUSH_OPEN_SLOTS=N opens the first N registrations with no review — the
-	// switch-on-later mode. Unset/0 keeps the application queue as the only door
-	// (besides invites).
-	a.openSlots, _ = strconv.Atoi(os.Getenv("HUSH_OPEN_SLOTS"))
+	a := &app{cfg: loadConfig(), files: files, release: os.Getenv("RELEASE") != ""}
+	a.rep = newReputation(a.cfg)
 
 	cfg := beach.Config{
 		Service: "hush",
@@ -102,8 +100,9 @@ func main() {
 		Logger:  logger,
 	}
 
-	// Optional Postgres: enables the signup gate (applications, accounts, RBAC,
-	// sessions). Without it the wall runs open and database-less.
+	// Optional Postgres: the wall persists and the signup gate (applications,
+	// accounts, RBAC, sessions) switches on. Without it the wall runs open and
+	// database-less.
 	ctx := context.Background()
 	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
 		pool, perr := openPool(ctx, dsn)
@@ -115,7 +114,12 @@ func main() {
 				logger.Error("hush: migrate failed; running database-less", "err", err)
 				pool.Close()
 				a.pool = nil
+			} else if wallStore, werr := newPGStore(ctx, pool); werr != nil {
+				logger.Error("hush: wall init failed; running database-less", "err", werr)
+				pool.Close()
+				a.pool = nil
 			} else {
+				a.store = wallStore
 				a.sessions = session.NewStore(pool, session.Config{CookieName: sessionCookie})
 				a.authn = auth.NewAuthenticator(pool, a.sessions, auth.LockoutConfig{})
 				cfg.Sessions = a.sessions
@@ -123,12 +127,19 @@ func main() {
 				if err := a.seedAdmin(ctx); err != nil {
 					logger.Error("hush: seed admin failed", "err", err)
 				}
+				// chains feed the replay's echoes, so hydrate them first
 				if err := a.hydrateChains(ctx); err != nil {
 					logger.Error("hush: hydrate invite chains failed", "err", err)
 				}
-				logger.Info("hush: database mode (gate enabled)", "login", "admin / password", "openSlots", a.openSlots)
+				if err := a.replayReputation(ctx); err != nil {
+					logger.Error("hush: reputation replay failed", "err", err)
+				}
+				logger.Info("hush: database mode (gate enabled)", "login", "admin / password", "openSlots", a.cfg.OpenSlots)
 			}
 		}
+	}
+	if a.store == nil {
+		a.store = newMemStore()
 	}
 
 	beachApp := beach.New(cfg)
@@ -206,7 +217,7 @@ func (a *app) profileView(c *beach.Ctx) (beach.View, error) {
 	handle := c.Param("handle")
 	me, _, _ := a.acct(c)
 	score := a.rep.score(handle)
-	tier := tierOf(score)
+	tier := a.tierOf(score)
 	if handle == me && tier < 1 {
 		return beach.View{Page: noticePage("your profile is locked.",
 			"post things people like.")}, nil
@@ -215,7 +226,7 @@ func (a *app) profileView(c *beach.Ctx) (beach.View, error) {
 	if handle == me {
 		panel = a.invitesFor(c.Context(), handle, tier)
 	}
-	return beach.View{Page: profilePage(handle, tier, a.store.countByAuthor(handle), panel)}, nil
+	return beach.View{Page: profilePage(handle, tier, a.store.countByAuthor(c.Context(), handle), panel)}, nil
 }
 
 // The feed renders feedSpan neighbors each way up front — enough that the top
@@ -233,16 +244,16 @@ const (
 // newer neighbors rendered above it.
 func (a *app) postView(c *beach.Ctx) (beach.View, error) {
 	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	p, ok := a.store.get(id)
+	p, ok := a.store.get(c.Context(), id)
 	if !ok {
 		return beach.View{Page: notFoundPage(), Status: http.StatusNotFound}, nil
 	}
-	newer, moreNewer := a.store.neighbors(id, true, feedSpan)
-	older, moreOlder := a.store.neighbors(id, false, feedSpan)
+	newer, moreNewer := a.store.neighbors(c.Context(), id, true, feedSpan)
+	older, moreOlder := a.store.neighbors(c.Context(), id, false, feedSpan)
 	handle, canPost, admin := a.acct(c)
-	myVote := a.store.voteOf(id, voterKey(handle))
+	myVote := a.store.voteOf(c.Context(), id, voterKey(handle))
 	return beach.View{
-		Page: feedPage(newer, p, older, moreNewer, moreOlder, canPost, myVote, handle, admin, tierOf(a.rep.score(handle))),
+		Page: feedPage(newer, p, older, moreNewer, moreOlder, canPost, myVote, handle, admin, a.tierOf(a.rep.score(handle))),
 	}, nil
 }
 
@@ -265,7 +276,7 @@ func (a *app) feedMore(newer bool) beach.PageFunc {
 	}
 	return func(c *beach.Ctx) (beach.View, error) {
 		cursor, _ := strconv.ParseInt(c.R.URL.Query().Get("cursor"), 10, 64)
-		posts, more := a.store.neighbors(cursor, newer, feedChunk)
+		posts, more := a.store.neighbors(c.Context(), cursor, newer, feedChunk)
 		return beach.View{
 			Fragment: feedBatch(dir, posts, more),
 			Target:   "feed-" + dir,
@@ -276,10 +287,10 @@ func (a *app) feedMore(newer bool) beach.PageFunc {
 
 // home renders the wall on navigation and patches the grid on a Datastar request.
 func (a *app) home(c *beach.Ctx) (beach.View, error) {
-	posts := a.store.list()
+	posts := a.store.list(c.Context())
 	handle, canPost, admin := a.acct(c)
 	return beach.View{
-		Page:     homePage(posts, handle, canPost, admin, tierOf(a.rep.score(handle)), a.openLeft(c.Context())),
+		Page:     homePage(posts, handle, canPost, admin, a.tierOf(a.rep.score(handle)), a.openLeft(c.Context())),
 		Fragment: grid(posts),
 		Target:   "hush-grid",
 	}, nil
@@ -306,7 +317,10 @@ func (a *app) createPost(c *beach.Ctx) (beach.Patches, error) {
 	}
 
 	author, _, _ := a.acct(c)
-	p := a.store.add("text", bodyHTML, author)
+	p, err := a.store.add(c.Context(), "text", bodyHTML, author, clientMeta(c.R))
+	if err != nil {
+		return nil, err
+	}
 	a.rep.emit("post", author)
 	return beach.Patches{
 		{Fragment: tile(p), Target: "hush-grid", Mode: beach.PatchPrepend, Signals: map[string]string{"body": ""}},
@@ -323,7 +337,7 @@ func (a *app) votePost(c *beach.Ctx) (beach.Patches, error) {
 	handle, _, _ := a.acct(c)
 	voter := voterKey(handle)
 	up := c.R.URL.Query().Get("dir") != "down"
-	p, ok := a.store.vote(id, voter, up)
+	p, ok := a.store.vote(c.Context(), id, voter, up)
 	if ok {
 		kind, chainKind := "like", "chain-like"
 		if !up {
@@ -338,7 +352,7 @@ func (a *app) votePost(c *beach.Ctx) (beach.Patches, error) {
 	// Outer morph: the fragment IS #vote-<id>, so replace the element by its id
 	// (inner mode would nest #vote-<id> inside itself). voteOf (not the ok flag)
 	// styles the control, so a repeat click still shows the original mark.
-	return beach.Patches{{Fragment: reactions(p, true, a.store.voteOf(id, voter)), Target: "vote-" + c.Param("id"), Mode: beach.PatchOuter}}, nil
+	return beach.Patches{{Fragment: reactions(p, true, a.store.voteOf(c.Context(), id, voter)), Target: "vote-" + c.Param("id"), Mode: beach.PatchOuter}}, nil
 }
 
 // uploadImage handles the plain multipart upload form: validate it's an image,
@@ -370,7 +384,10 @@ func (a *app) uploadImage(w http.ResponseWriter, r *http.Request) {
 	}
 	url, _ := a.files.URL(r.Context(), key)
 	author, _, _ := a.acct(&beach.Ctx{W: w, R: r})
-	a.store.addImage(url, author)
+	if _, err := a.store.addImage(r.Context(), url, "", author, clientMeta(r)); err != nil {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
 	a.rep.emit("post", author)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }

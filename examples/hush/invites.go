@@ -101,12 +101,12 @@ func (a *app) inviterOf(handle string) string {
 // openLeft counts the unclaimed open-registration seats — 0 when the mode is
 // off (HUSH_OPEN_SLOTS unset), the seats are spent, or there is no database.
 func (a *app) openLeft(ctx context.Context) int {
-	if a.pool == nil || a.openSlots <= 0 {
+	if a.pool == nil || a.cfg.OpenSlots <= 0 {
 		return 0
 	}
 	var used int
 	_ = a.pool.QueryRow(ctx, `SELECT count(*) FROM hush_signups WHERE via='open'`).Scan(&used)
-	if left := a.openSlots - used; left > 0 {
+	if left := a.cfg.OpenSlots - used; left > 0 {
 		return left
 	}
 	return 0
@@ -168,7 +168,7 @@ func (a *app) doRegister(w http.ResponseWriter, r *http.Request) {
 	tag, err := a.pool.Exec(ctx,
 		`INSERT INTO hush_signups (handle, via)
 		 SELECT $1, 'open' WHERE (SELECT count(*) FROM hush_signups WHERE via = 'open') < $2`,
-		handle, a.openSlots)
+		handle, a.cfg.OpenSlots)
 	if err != nil || tag.RowsAffected() == 0 {
 		http.Redirect(w, r, "/apply", http.StatusSeeOther) // seats gone (or mode off)
 		return
@@ -257,7 +257,7 @@ func (a *app) doMint(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	tier := tierOf(a.rep.score(handle))
+	tier := a.tierOf(a.rep.score(handle))
 	allowance := inviteAllowance(tier, a.rep.chainScore(handle))
 	var minted int
 	_ = a.pool.QueryRow(ctx, `SELECT count(*) FROM hush_invites WHERE inviter = $1`, handle).Scan(&minted)
