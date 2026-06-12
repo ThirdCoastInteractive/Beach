@@ -55,7 +55,8 @@ const (
 	SizeLg Size = "lg"
 )
 
-// Ratio names an aspect-ratio token (--aspect-ratio-*) for the media box.
+// Ratio names an aspect-ratio step for the media box, mapped to a dw-aspect-*
+// class in app.css.
 type Ratio string
 
 const (

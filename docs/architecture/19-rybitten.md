@@ -79,52 +79,42 @@ hex := rybitten.Hexes(pal)                     // []string of "#rrggbb"
 
 ## Theming the framework
 
-The framework themes through CSS variables: `chart/*` reads
-`var(--chart-qualitative-N)`, and the `driftwood` kit's accent compiles (via
-Tailwind `@apply sky-*`) to `var(--color-sky-N)`. Both are repainted from a gamut
-by two emitters:
+The framework themes through CSS variables: `chart/*` reads the 15 series tokens
+`--color-series-a…o` ([06-ui.md](06-ui.md#tokens)). Two emitters turn a gamut into
+that vocabulary:
 
 | Function | Emits |
 | --- | --- |
-| `CSSVars(g Gamut, count int)` | A `:root` block of `--chart-qualitative-1…count` from the gamut's hue wheel. |
-| `AccentVars(g Gamut)` | `:root` overrides for `--color-sky-*` (see `SkyStops`), sampled from the gamut's blue axis. |
+| `SeriesVars(g Gamut)` | A `:root` block defining `--color-series-a…o` (`SeriesCount` = 15) from the gamut's hue wheel, with a provenance comment, ready to paste into `input.css`. |
+| `Series(g Gamut, n int)` | The same colors as values (`[]RGB`) — for server-side swatches and image rendering. The specimen's gamut preview uses it. |
 
-The accent override works because driftwood's `@apply` rules compile to
-`var(--color-sky-N)`, and an **unlayered `:root` beats Tailwind's `@layer theme`**
-in the cascade — so the override wins with no markup change.
+**The current default is the `munsell` gamut.** Its `SeriesVars` output lives in
+[`internal/view/css/input.css`](../../internal/view/css/input.css) `:root`, built
+into the served `app.css`; the `--color-accent*` tokens are a munsell teal picked
+by hand in the same sheet. The eight alternate `[data-chart-theme]` palettes (plus
+a munsell one) redefine the series tokens per scope — the
+[chart toolbar's](14-analytics.md#the-client-interaction-layer) Theme control swaps
+that attribute. Role tokens (`--color-good`/`--color-warn`/`--color-bad`/
+`--color-info`) are deliberately left alone — green still means good.
 
-**The current default is the `munsell` gamut.** Its blocks live in
-[`internal/view/css/input.css`](../../internal/view/css/input.css) (the
-`--chart-qualitative-*` values and the `--color-sky-*` accent overrides), built
-into the served `app.css`. Semantic tokens (`--success`/`--warning`/`--error`/
-`--info`) are deliberately left alone — green still means success.
+Chart SVG text is themed in the same sheet (the `.cbar-label`/`.cbar-value` and
+`.cline-*` rules from the Atlas port): the SVGs carry no color of their own, so
+without those rules their text falls back to black and vanishes on the dark
+surface.
 
-Chart SVG text is themed in the same sheet (`.chart-axis`, `.chart-label`,
-`.chart-value`, `.chart-gauge-value`, `.chart-kpi-*`): the SVGs carry no color of
-their own, so without these rules their text falls back to black and vanishes on
-the dark surface.
+### Choosing and swapping a gamut
 
-### Swapping the gamut
+The [specimen page](16-components.md#the-specimen) (mounted at `/specimen` by every
+example app) renders the **gamut preview** — each gamut's series palette on the
+framework's dark surface — so a palette is chosen by eye, in context. To swap:
+call `SeriesVars` with the chosen key (a three-line scratch `main` does it),
+paste the block over the `--color-series-*` values in `input.css` `:root`, and
+rebuild the sheet:
 
-Pick a key, regenerate both blocks, rebuild `app.css`:
-
-```sh
-go run ./cmd/gamuts -css <key>      # paste over the --chart-qualitative block
-go run ./cmd/gamuts -accent <key>   # paste over the --color-sky-* block
-npx @tailwindcss/cli -i internal/view/css/input.css -o internal/view/static/css/app.css
+```go
+fmt.Print(rybitten.SeriesVars(rybitten.Cubes["ippsketch"]))
 ```
 
-## cmd/gamuts — the picker
-
-[`cmd/gamuts`](../../cmd/gamuts/main.go) is a small reusable dev tool:
-
 ```sh
-go run ./cmd/gamuts                 # serve the gallery at http://localhost:7777
-go run ./cmd/gamuts -css munsell    # print the chart-token :root block
-go run ./cmd/gamuts -accent munsell # print the --color-sky-* accent block
+make css   # npx @tailwindcss/cli -i internal/view/css/input.css -o internal/view/static/css/app.css
 ```
-
-The gallery renders every gamut on the framework's dark surface — its smooth hue
-wheel, the 12 qualitative series colors, and the eight named cube corners — so a
-palette is chosen by eye, in context. There is a `.claude/launch.json` config
-(`gamuts`) for the preview harness.

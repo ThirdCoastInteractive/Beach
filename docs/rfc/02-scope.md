@@ -10,8 +10,8 @@
 | `config`              | Declarative env-var loading: `env:` struct tags, `A\|B` fallbacks, modifier flags, `MustLoad`                                                                                                                            |
 | `pg`                  | Pool wrapper, advisory-lock migrations, `InTx`, and `Listen`/`Notify` with reconnect/backoff                                                                                                                             |
 | `datastar`            | Typed `data-*` attribute builders — the only sanctioned way to emit Datastar attributes                                                                                                                                  |
-| `ui`                  | The UI toolkit: `Kit` component interface and registry, the Stellar token system, icon API, `Defer` lazy sections, the performance laws                                                                                  |
-| `chart`               | Server-rendered SVG charts: 18 types of pure-Go geometry plus templ components, token-themed, accessible, animated over SSE with zero client-side rendering                                                              |
+| `ui`                  | The UI toolkit: `Kit` component interface and registry, the Stellar token system *[superseded: no Kit interface — one kit, `ui/driftwood`, direct templ components on Tailwind v4 + `rybitten` tokens]*, icon API, `Defer` lazy sections, the performance laws |
+| `chart`               | Server-rendered SVG charts: 18 *[now 22]* types of pure-Go geometry plus templ components, token-themed, accessible, animated over SSE with zero client-side rendering *[a client interaction layer (tooltips/hovers/toolbar) was later added as progressive enhancement]* |
 | `ch`                  | ClickHouse: native-protocol client, goose migrations, generic buffered `Batcher` ingest, typed query helpers                                                                                                             |
 | `i18n`                | Flat-key translation catalog, per-locale JSON, literal-only `T(ctx, key)`, locale-resolution middleware                                                                                                                  |
 | `hub`                 | Topic registry with per-connection buffered fan-out, drop-on-full, ticker producers                                                                                                                                      |
@@ -33,6 +33,8 @@ These are framework law, enforced by the type system, the App builder, or
   a producer publishing on an interval. There is no second mental model.
 - **Kit registration is mandatory.** The App builder refuses to start without a
   registered UI kit — component lookup can never silently fall through.
+  *[Retired with the Kit interface: components are direct Go calls now, so a
+  missing component is a compile error — stronger than the rule it replaces.]*
 - **One identity type.** The session's user data and the request's principal are
   one struct with derived views, never parallel copies.
 - **CSP is built, not pasted.** `beach.CSP` presets with env awareness; no

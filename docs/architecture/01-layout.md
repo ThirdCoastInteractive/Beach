@@ -30,11 +30,12 @@ the-beach/                module github.com/ThirdCoastInteractive/the-beach
 ├── config/               env-tag struct loader, MustLoad
 ├── pg/                   pool, advisory-lock Migrate, InTx, Listen/Notify
 ├── datastar/             typed data-* attribute builders (the only sanctioned way)
-├── ui/                   UI toolkit: Kit interface, registry, tokens, icons,
-│   │                     Defer (lazy sections), the performance laws
-│   └── driftwood/        minimal reference kit
-├── chart/                SSR SVG charts: 22 types, pure-Go geometry + templ
-│                         components, token-themed
+├── ui/                   UI toolkit: Icon + Defer (.templ), the performance laws
+│   ├── driftwood/        the kit — exported package-level templ components
+│   └── specimen/         the living showcase page (tokens, icons, components,
+│                         gamut preview, chart gallery)
+├── chart/                SSR SVG charts, one package: 22 types of pure-Go
+│                         geometry (.go) + templ render (.templ), token-themed
 ├── ch/                   ClickHouse: client, goose migrations, generic Batcher
 │                         ingest, query→chart helpers
 ├── hub/                  topic registry, per-connection fan-out, ticker producers
@@ -50,16 +51,19 @@ the-beach/                module github.com/ThirdCoastInteractive/the-beach
 ├── internal/             private cross-package helpers (flate writer pooling,
 │                         vet analyzer internals) — not importable externally
 ├── cmd/
-│   ├── beach/            CLI: beach new / vet / ecs gen
-│   │   └── skeleton/     embedded app template stamped by `beach new`
+│   ├── beach/            CLI: beach new / ecs gen / i18n
+│   │   └── templates/    embedded app template stamped by `beach new`
+│   ├── beach-vet/        the lint analyzers as a CI gate
 │   └── beach-apigen/     sqlc process plugin: SQL annotations → routes, handler
 │                         stubs, NOTIFY plumbing (hypermedia-only)
-├── examples/             the validation trio (15-examples.md), each shaped
+├── examples/             the four validation apps (15-examples.md), each shaped
 │   ├── boardwalk/        exactly like a consuming app:
 │   │                     Monopoly-style real-estate game — the sim/ecs showcase
 │   ├── driftbottle/      Omegle-style stranger chat — the hub/SSE showcase,
 │   │                     hosts the 5k fan-out benchmark
-│   └── pantry/           at-home grocery ERP — the apigen/auth/ch/chart showcase
+│   ├── pantry/           at-home grocery ERP — the apigen/auth/ch/chart showcase
+│   └── hush/             gated anonymous board — custom layout + client-JS
+│                         island, storage + Repute (18-hush.md)
 └── docs/
 ```
 
@@ -82,13 +86,16 @@ the web packages; the root `beach` package is what an app touches first.
 
 ## What a consuming app looks like
 
-Each app in `examples/` is this exact shape:
+Each app in `examples/` is this exact shape (what `beach new` stamps):
 
 ```
 myapp/
-├── cmd/<service>/         main.go (≈40 lines), handler/, tmpl/{layout,page,ui}/, static/, js/
+├── main.go                wiring: beach.Config, routes, handlers
+├── views.templ            every view, as templ components over driftwood
+├── views_templ.go         committed templ output (make gen regenerates)
 ├── internal/db/           sqlc-generated + sql/{migrations,queries}/ + sqlc.yaml
 ├── components.beach.yaml  ECS component schema (if the app uses sim)
-├── Makefile               gen / vet / up / logs / down (stamped by beach new)
+├── Makefile               gen (templ + css + sqlc + ecs gen) / vet / up / build
+├── go.mod                 with a `tool` directive for templ
 └── docker-compose.yml     postgres + services
 ```

@@ -18,11 +18,17 @@ summarized here.
 | boardwalk | `sim`/`ecs` realtime | `ecs.Store` in a sim loop | none (in-memory) |
 | driftbottle | `hub`/SSE fan-out | in-process maps | none (ephemeral) |
 | pantry | `apigen`/`auth`/analytics | Postgres (or in-memory) | Postgres |
-| hush | custom layout + client JS | Postgres + `storage` | Postgres + object store |
+| hush | custom layout + client JS | in-memory wall; Postgres gate + `storage` | Postgres (gate), object store (media) |
 
 A rule every app obeys, learned the hard way: **a rendered page is not a working
 feature.** Each is verified in a real browser (chrome-devtools/playwright)
 clicking the actual flows, not just compiling and serving a 200.
+
+Two things every app shares: views are `.templ` components (`views.templ` /
+hush's `pages.templ`, compiled by `make gen`, generated output committed), and
+each mounts the framework's [specimen](16-components.md#the-specimen) at
+`/specimen` — the component/token/chart gallery rides the examples instead of a
+dedicated demo binary.
 
 ---
 
@@ -40,17 +46,19 @@ purpose: it isolates the sim/hub story with nothing else in the way.
 h := hub.New()
 s := sim.New(sim.Config{TickRate: 20, ProjectRate: 20, Hub: h})
 game := NewGame(s)
-app := beach.New(beach.Config{Service: "boardwalk", Kit: beach.KitStatic("driftwood"), Hub: h})
+app := beach.New(beach.Config{Service: "boardwalk", Hub: h})
 go game.Run(ctx)
 ```
 
 | Method | Path | Shape | Role |
 | --- | --- | --- | --- |
-| GET | `/` | PageFunc | full board page + `data-init` to open both streams |
+| GET | `/` | PageFunc | full board page + `data-init` to open the three streams |
 | POST | `/join` | ActionFunc | claim a seat, set `bw_seat` cookie, re-open the hand stream |
 | POST | `/roll` | ActionFunc | roll command → toast feedback |
 | GET | `/board` | StreamFunc | subscribe every connection to topic `board` |
 | GET | `/hand` | StreamFunc | subscribe a seated player to `user:<seat>`; spectators to nothing |
+| GET | `/race` | StreamFunc | subscribe every connection to the shared cash-race topic |
+| GET | `/specimen` | PageFunc | the framework [specimen](16-components.md#the-specimen) |
 
 The whole "session" is one cookie, `bw_seat`, holding a seat index 0–3. No cookie
 = spectator (`seatFrom` returns −1). No auth package, no login — the demo is
@@ -97,12 +105,20 @@ uses `sim.AskFunc` to run a read-only closure on the loop.
 
 ### Hub topics & projections
 
-Two projections turn store mutations into pushed HTML:
+Two projections turn store mutations into pushed HTML, and a hub ticker drives
+the cash race:
 
-| Projection | Fires on | Topic | Fragment |
+| Producer | Fires on | Topic | Fragment |
 | --- | --- | --- | --- |
-| Board | `Changed[Board]` | `board` (everyone) | `boardFragment` → `#bw-board` |
-| Cash | `Changed[Cash]` | `user:<seat>` (one player) | `handFragment` → `#bw-hand` |
+| Board projection | `Changed[Board]` | `board` (everyone) | `boardFragment` → `#bw-board` |
+| Cash projection | `Changed[Cash]` | `user:<seat>` (one player) | `handFragment` → `#bw-hand` |
+| Race ticker | every second (`hub.Ticker`) | `race` (everyone) | `raceFragment` → `#bw-race` |
+
+The **"Cash race" card** is the [server-animated chart](14-analytics.md) pattern
+live: each second the ticker snapshots the game, `chart.LayoutBarRace` re-ranks
+the bars, and the rendered `BarRaceSVG` fragment is published — CSS transitions
+on the bar geometry tween between frames, the ticker dedupes unchanged frames,
+and no animation code runs on the client.
 
 The shared board (turn banner, 20 tiles with owners/occupants, standings, a
 14-line log) fans to all subscribers; your private hand (cash, your tile, your
@@ -115,10 +131,10 @@ inline script).
 
 ### Rendering
 
-`render.go` builds the two fragments as **hand-written HTML** (`bytes.Buffer`,
-`html.EscapeString` on every name/token), not the templ DSL — templ is used only
-for the page skeleton and the driftwood kit chrome. One `snapshotBoard` read
-feeds both fragments.
+`views.templ` holds every view — the page, `boardFragment`, `handFragment`,
+`raceFragment` — as templ components calling `driftwood` directly
+(`@driftwood.Card(...)`); `views.go` keeps the small data-shaping helpers so the
+templates read as plain markup. One snapshot read feeds all the fragments.
 
 ### Deliberately not there
 
@@ -128,7 +144,8 @@ automatic on landing if you can afford it. The point is the framework, not
 tournament fidelity.
 
 **Validates:** `ecs`, `sim`, the command channel + `Ask`/`AskFunc`, projections,
-hub topics (shared vs per-user), SSE catch-up and re-open.
+hub topics (shared vs per-user), SSE catch-up and re-open, and the
+server-animated chart (`hub.Ticker` + bar race).
 
 ---
 
@@ -157,6 +174,10 @@ type server struct {
 | POST | `/start` | ActionFunc | enter the matchmaking queue |
 | POST | `/say` | ActionFunc | send a message to your partner |
 | POST | `/next` | ActionFunc | leave this partner and re-queue |
+| GET | `/specimen` | PageFunc | the framework [specimen](16-components.md#the-specimen) |
+
+All markup — lobby, waiting, chat, the notices — lives in `views.templ` as templ
+components over `driftwood`.
 
 Identity is one cookie, `db_sid`, a random 128-bit hex id. There is no account,
 no `session.Store`, no login — `sid()` reads the cookie or mints a new id. This is
@@ -268,7 +289,7 @@ resolves a locale into context.
 
 | Method | Path | Shape | Guard |
 | --- | --- | --- | --- |
-| GET | `/`, `/items`, `/locations`, `/lists`, `/login` | PageFunc | — |
+| GET | `/`, `/items`, `/locations`, `/lists`, `/login`, `/specimen` | PageFunc | — |
 | GET | `/widgets/{spend,category,expiry,waste}` | PageFunc | — (deferred) |
 | POST | `/items`, `/locations` | ActionFunc | `app.Can("pantry:write")` when auth is on |
 | POST | `/login` | Raw | — (plain form → 303) |
@@ -319,24 +340,29 @@ not a Datastar action. The session cookie must be set on the response *and* the
 browser must navigate — and the strict CSP forbids the SDK's script-based
 redirect — so a real form post is the right tool ([12-auth.md](12-auth.md)).
 
-### Rendering & the Kit
+### Rendering
 
-`pages.go` renders through the driftwood `Kit`: `shell` (topbar + 4-section
-sidebar, login/logout reflecting `c.User()`), `kit.Layout()` (PageHeading, Card,
-Grid), `kit.Media().Image` (responsive item photos at a fixed `RatioPhoto`, no
-layout shift), `kit.Forms()`, `kit.Data().StackedList`, `kit.Feedback().Alert`.
-Write forms only render when `principalCan(c, "pantry:write")`, so the in-memory
-single-user mode and the authed multi-role mode share one template.
+Markup lives in `views.templ` — `shellView` (topbar + 4-section sidebar,
+login/logout reflecting `c.User()`) and per-page views built from direct
+`driftwood` calls: `PageHeading`, `Card`, `Grid`, `Image` (responsive item
+photos at a fixed `RatioPhoto`, no layout shift), the form components,
+`StackedList`, `Alert`. `pages.go` keeps the handlers that shape data and pick
+the component. Write forms only render when `principalCan(c, "pantry:write")`,
+so the in-memory single-user mode and the authed multi-role mode share one
+template.
 
 ### Analytics — deferred dashboard
 
-`dashboardPage` lays out four cards, each an `ui.Defer{ID, Get: "/widgets/<id>",
-Height}` placeholder. Datastar fetches each widget on intersection and morphs it
-in by id, so the dashboard paints instantly and the charts stream in. The widgets
-render SSR-SVG via the `chart` package: `LayoutLine` (spend, area), `LayoutStackedBar`
-(spend by category), `LayoutCalendarHeatmap` (expiry calendar), `LayoutGauge`
-(waste). In the demo the series are sample data; in a `ch`-backed deployment the
-same `chart.*` calls consume ClickHouse aggregates unchanged
+`dashboardView` lays out four `.dash-widget` cards (the
+[chart-toolbar contract](14-analytics.md#the-client-interaction-layer) — each
+gets live Grid/Legend/Theme/Expand controls), each body a
+`ui.Defer{ID, Get: "/widgets/<id>"}` placeholder with reserved height — zero
+layout shift. Datastar fetches each widget on intersection and morphs it in by
+id; the widget routes return `chart.Chart*Fragment`s carrying the same id:
+`ChartLineFragment` (spend, area), `ChartStackedBarFragment` (by category),
+`ChartCalendarFragment` (expiry), `ChartGaugeFragment` (waste). In the demo the
+series are sample data; in a `ch`-backed deployment the same
+`chart.Layout*` + fragment calls consume ClickHouse aggregates unchanged
 ([14-analytics.md](14-analytics.md)).
 
 ### i18n
@@ -353,8 +379,9 @@ hand-written equivalents stand in as the reference); ClickHouse is not required 
 run (charts use sample data without it).
 
 **Validates:** apigen annotation surface, `auth`/RBAC + the login flow, `session`,
-`pg.Migrate` multi-source, `chart`, `ui` Kit + media components, deferred
-sections, `i18n`, and the DB-optional degrade path.
+`pg.Migrate` multi-source, `chart` fragments + the widget toolbar, `driftwood`
+(incl. media components), deferred sections, `i18n`, and the DB-optional degrade
+path.
 
 ---
 
@@ -364,6 +391,10 @@ The **custom-layout + client-JS showcase**, and the only consumer of `storage`
 and Repute. A curated, anonymous wall of square posts — *hush-hush* by design.
 Full architecture in [18-hush.md](18-hush.md); in brief:
 
+- Views live in `pages.templ` with a **custom shell**: hush links the framework
+  stylesheet plus its own `hush.css`, loads `datastar.js` but deliberately not
+  `chart.js` — the proof that an app can skip the driftwood page chrome (and the
+  chart layer) without losing the framework.
 - A **gapless grid of square tiles** (pure CSS, container-query text scaling) is
   the proof that a custom layout sits cleanly on the SSR core.
 - A **WebGPU camera** is the proof that client-side JS can be an isolated island —

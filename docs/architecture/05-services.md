@@ -62,7 +62,7 @@ A real runtime with mechanical verification, kept deliberately flat:
   nothing: `T` resolves against the default locale and the whole feature is
   inert.
 - **Tooling**: `beach i18n` extracts every `i18n.T` call from templ source and
-  verifies (or `--write`s) the catalog; the `beach vet` analyzer
+  verifies (or `--write`s) the catalog; the `beach-vet` analyzer
   ([10-tooling.md](10-tooling.md)) fails the build on non-literal keys or a stale
   catalog. One key set, mechanically verified — no orphaned translations, no
   untranslated keys discovered in production.

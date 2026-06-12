@@ -16,18 +16,18 @@ app := beach.New(beach.Config{
     Service:  "live",
     Release:  cfg.IsRelease(),
     CSP:      beach.CSPDefault().AllowMedia("https://customer-x.cloudflarestream.com"),
-    Static:   beach.MergedFS(localStatic, sharedStatic),  // service assets over shared
-    Kit:      beach.KitStatic("driftwood"),               // or beach.KitFromDB(q, ttl)
-    Healthz:  beach.HealthzPing(pool),
+    Static:   localStatic,            // overlaid on the framework's embedded assets
+    Sessions: sessions,               // nil = database-less, every principal anonymous
+    Healthz:  func(ctx context.Context) error { return pool.Ping(ctx) },
 })
 
 // Routes register against typed handler shapes (below). Guards make the auth
 // story visible in the route table, not buried inside handlers.
-app.Page("/",                    handler.Live(pool, s))                           // public
-app.Page("/wallet",              handler.Wallet(pool),        beach.Authed())
-app.Action("/coins/purchase/:id", handler.PurchaseCoins(pool, s), beach.Authed())
-app.Stream("/stream",            handler.LiveStream(hubRef, pool), beach.Authed())
-app.Page("/admin/orders",        handler.Orders(pool),        beach.Role("admin"))
+app.Page("/",                      handler.Live(pool, s))                       // public
+app.Page("/wallet",                handler.Wallet(pool),           app.Authed())
+app.Action("/coins/purchase/{id}", handler.PurchaseCoins(pool, s), app.Authed())
+app.Stream("/stream",              handler.LiveStream(hubRef, pool), app.Authed())
+app.Page("/admin/orders",          handler.Orders(pool),           app.Role("admin"))
 app.Raw(http.MethodPost, "/webhooks/stripe", billing.Webhook())  // escape hatch: plain net/http
 
 app.Start(":" + cfg.Port)                                // graceful shutdown inside
@@ -38,16 +38,16 @@ genuinely weird), but the paved road is three typed handler shapes that encode t
 house rules by construction.
 
 Middleware stack, in fixed order: request logger (skips /healthz, /static),
-recover, gzip (skips SSE — see below; SSE gets its own compressor), rate limiter,
-secure headers + CSP, CSRF origin check, kit injection. The builder **refuses to
-start** if no UI kit is registered — component lookup can never silently fall
-through.
+recover, secure headers + CSP, optional session auth (runs when `Config.Sessions`
+is set). Gzip is not middleware — SSE responses compress inside the SSE writer
+(below).
 
-`beach.StaticCache` computes SHA256 ETags for every static file at boot and serves
-with `immutable` Cache-Control and 304s. Asset URLs carry
-`?v=<shortCommit>-<bootTime>`: released binaries get stable commit-based
-versioning, dev rebuilds get unique timestamps, and every deploy busts caches
-without a manifest.
+The static handler computes SHA256 ETags for every file at boot and serves with
+`immutable` Cache-Control and 304s; `Config.Static` is overlaid on the framework's
+embedded tree (`app.css`, the Datastar client, the chart modules) so one `/static`
+prefix serves both. Asset URLs carry a `?v=` version: released binaries get stable
+commit-based versioning, dev rebuilds get boot timestamps, and every deploy busts
+caches without a manifest.
 
 ## Handlers: three typed shapes
 
@@ -59,9 +59,10 @@ comment.
 
 Handlers stay standalone factory functions taking only the deps they need — never
 methods on a server struct. But they return beach types instead of raw
-`http.HandlerFunc`, and take a `*beach.Ctx` that carries the request-scoped kit:
-`c.Kit()`, `c.User()` (set by guards), `c.InTx(fn)`, `beach.Bind[T](c)` for
-validated input binding.
+`http.HandlerFunc`, and take a `*beach.Ctx` carrying the request scope:
+`c.User()` (set by guards), `c.InTx(fn)`, `beach.Bind[T](c)` for validated input
+binding. Views are `.templ` components ([06-ui.md](06-ui.md)) the handler calls
+directly — there is no kit lookup.
 
 ### `beach.PageFunc` — anything you can navigate to
 
@@ -74,8 +75,8 @@ func Wallet(pool *pgxpool.Pool) beach.PageFunc {
         data, err := loadWallet(c, db.New(pool))
         if err != nil { return beach.View{}, err }
         return beach.View{
-            Page:     page.Wallet(c.Kit(), data),    // full document on navigation
-            Fragment: ui.WalletPanel(data),          // patched on Datastar refresh
+            Page:     walletPage(data),     // full document on navigation (.templ)
+            Fragment: walletPanel(data),    // patched on Datastar refresh (.templ)
             Target:   "wallet-panel",
         }, nil
     }
@@ -88,12 +89,12 @@ both ways, so there is nothing for a separate fragment route to do.
 
 `View.Page` is subject to [the 14KB rule](06-ui.md#the-14kb-rule): the compressed
 first response targets the initial TCP congestion window, and anything heavier
-ships as a [deferred section](06-ui.md#deferred-sections-uidefer) whose `@get`
+ships as a [deferred section](06-ui.md#deferred-sections) whose `@get`
 lands back on a `PageFunc` fragment.
 
 ### `beach.ActionFunc` — Datastar-only mutations
 
-Navigation gets a 404; the `Datastar-Request` check, CSRF, and method discipline are
+Navigation gets a 404; the `Datastar-Request` check and method discipline are
 the framework's problem. The handler does the mutation and says what to patch:
 
 ```go
@@ -108,7 +109,7 @@ func PurchaseCoins(pool *pgxpool.Pool, s *sim.Sim) beach.ActionFunc {
         })
         if err != nil { return nil, err }
         s.Send(cmd.ApplyCommitted{User: c.User().ID})
-        return beach.Patches{{Fragment: ui.WalletPanel(bal), Target: "wallet-panel"}}, nil
+        return beach.Patches{{Fragment: walletPanel(bal), Target: "wallet-panel"}}, nil
     }
 }
 ```
@@ -136,15 +137,15 @@ func LiveStream(h *hub.Hub, pool *pgxpool.Pool) beach.StreamFunc {
 
 **Errors are part of the contract.** Handlers return errors, not responses:
 `beach.ErrNotFound`, `beach.ErrForbidden`, and validation errors from `beach.Bind`
-map to the kit's error page on navigation and to a toast/inline-validation patch on
-Datastar requests. One error type, both renderings, no handler ever writes its own
-error HTML.
+map to `driftwood.ErrorPage` on navigation and to a `driftwood.ErrorAlert`
+toast/inline-validation patch on Datastar requests (`render.go`). One error type,
+both renderings, no handler ever writes its own error HTML.
 
-**Guards** (`beach.Authed()`, `beach.Role(...)`, and the permission guard
-`beach.Can("devices:write")` backed by the [principal model](12-auth.md)) wrap
+**Guards** (`app.Authed()`, `app.Role(...)`, and the permission guard
+`app.Can("devices:write")` backed by the [principal model](12-auth.md)) wrap
 session middleware and populate `c.User()` / `c.Principal()`; a `PageFunc` behind a
 guard can assume the user exists. `app.Raw` is the documented escape hatch —
-payment webhooks must mount outside auth so they execute reliably — and `beach vet`
+payment webhooks must mount outside auth so they execute reliably — and `beach-vet`
 flags `http.HandlerFunc` registered anywhere else.
 
 ## SSE compression
@@ -176,6 +177,6 @@ SSE path itself instead of giving it up:
 
 ## datastar (typed builders)
 
-Raw `data-*` strings in templ are a build failure via the `beach vet` analyzer;
+Raw `data-*` strings in templ are a build failure via the `beach-vet` analyzer;
 the typed builders are the only sanctioned way to emit Datastar attributes. Colon
 event syntax (`data-on:click`) is what the builders emit; nobody types it.

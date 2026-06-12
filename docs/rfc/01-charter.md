@@ -9,7 +9,9 @@ Module: `github.com/ThirdCoastInteractive/the-beach`
 
 ## Problem
 
-The stack — Go + net/http + templ + Datastar + Stellar + sqlc + pgx + goose + Postgres
+The stack — Go + net/http + templ + Datastar + Stellar *[since replaced by
+Tailwind v4 + `rybitten` — see the [decisions log](../architecture/11-decisions.md)]*
++ sqlc + pgx + goose + Postgres
 LISTEN/NOTIFY + SSE — is proven in production at real scale: live platforms
 sustaining thousands of concurrent SSE connections, full design-system theming,
 annotation-driven code generation, hardened authentication. But until now it has
@@ -36,7 +38,8 @@ One Go module that provides:
 2. An ECS sim module for hot realtime state, wired into the same SSE/Datastar
    rendering pipeline.
 3. A scaffold (`beach new`) that stamps out a new app with the Makefile, sqlc.yaml,
-   Stellar config, lint guards, and docker-compose shape already correct.
+   Stellar config *[shipped as `views.templ` + a templ-tool go.mod instead]*, lint
+   guards, and docker-compose shape already correct.
 
 A new property should go from `git init` to a styled, SSE-live, DB-backed page in under
 an hour, and inherit every house rule (no pop-in, no blocking, ≤14KB first responses,
@@ -46,7 +49,8 @@ than tribal knowledge.
 ## Non-goals
 
 - Not a general-purpose framework for other people's stacks. It is opinionated to the
-  point of rudeness: net/http, templ, Datastar, Stellar, pgx, sqlc, goose, Postgres.
+  point of rudeness: net/http, templ, Datastar, Stellar *[now Tailwind v4 +
+  `rybitten`]*, pgx, sqlc, goose, Postgres.
   No adapters, no `interface{} Driver` seams.
 - Not an ORM. sqlc stays. Plain SQL stays.
 - The UI is hypermedia or bust: server-rendered HTML over the wire, Datastar for
@@ -60,7 +64,10 @@ than tribal knowledge.
   own programs, decided afterward.
 - Not published. the-beach vendors Datastar Pro and Stellar, which are licensed and
   non-redistributable, so it is a **private module shared across our own apps** — never
-  an open-source release. "Reusable" means reusable by us.
+  an open-source release. "Reusable" means reusable by us. *[Updated 2026-06-12:
+  no licensed asset remains (free Datastar core, locally generated CSS); the
+  module stays private as a product decision — see the
+  [decisions log](../architecture/11-decisions.md).]*
 
 ## Philosophy
 

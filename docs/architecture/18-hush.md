@@ -12,6 +12,13 @@ reputation.
 It exercises two packages the trio doesn't: `storage` (post images + application
 photos) and **Repute** (post scoring, which gates DMs and profiles).
 
+Views live in `pages.templ` behind a **custom shell** (`templ shell`): hush links
+the framework stylesheet (so `dw-*` surfaces still resolve) *and* its own
+`static/css/hush.css`, and loads `datastar.js` but deliberately **not**
+`chart.js` — proof that an app can replace the driftwood page chrome and skip
+the chart interaction layer without losing the framework. The camera island is
+the one other script (`static/js/camera.js`, an external module — CSP-clean).
+
 ## What it is
 
 - The front page is one **gapless grid of square tiles** — every recent post, no
@@ -163,7 +170,7 @@ The count is on stripped plain text, so `**bold**` costs 4 characters, not 8.
 A client-side island that produces a blob and hands it to a normal action.
 Everything around it is SSR; this is the "client JS on top of Beach" showcase.
 
-Pipeline (`examples/hush/static/camera.js`), adapted from the m13 audition
+Pipeline (`examples/hush/static/js/camera.js`), adapted from the m13 audition
 recorder but **still capture, not video, and WebGPU, not WebGL**:
 
 1. `navigator.mediaDevices.getUserMedia({ video })` → hidden `<video>` preview.
@@ -261,6 +268,7 @@ GET  /u/{handle}       page    -- profile, tier-1 gated
 GET  /dm               page    -- conversations                   [tier 2]
 POST /dm/{conv}/say    action  -- message                         [tier 2]
 GET  /files/           raw     -- storage.Local.ServeHTTP (post images, application photos)
+GET  /specimen         page    -- the framework specimen (mounted by every example)
 ```
 
 All actions are `beach.Bind[T]` + `beach.Patches` (Datastar JSON signals), matching

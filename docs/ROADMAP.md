@@ -6,6 +6,12 @@ Serial **blocks** (gates you pass in order), each ending in something you can ru
 or test. Inside each block, **tracks** — subagent-sized chunks that run in parallel. No
 dates; the unit is "a tangible thing works," not time.
 
+> **[2026-06-12]** All six blocks are built. This file is the historical plan;
+> where it names since-superseded designs they are marked inline — Stellar was
+> replaced by Tailwind v4 + `rybitten`, the `ui.Kit` interface was removed in
+> favor of direct `driftwood` templ components, and `chart` grew from 18 to 22
+> types (see the [decisions log](architecture/11-decisions.md)).
+
 ## How to read it
 
 - **Block** = a serial gate. Finish a block's integration before depending on it. Leaf
@@ -28,7 +34,8 @@ subagents there.
 ## Block 0 — done
 
 `config` (tested, zero deps). Stellar tokens generating to
-`internal/view/static/css/stellar.css`. The plan/docs.
+`internal/view/static/css/stellar.css` *[superseded: Tailwind v4 + rybitten now
+generate `app.css` from `internal/view/css/input.css`]*. The plan/docs.
 
 ---
 
@@ -53,7 +60,7 @@ shape); `passwords` + `session` land before `auth`.
 | `chart`                     | 18 SSR SVG types — see sub-fan-out                                                                                                                      | datastar/templ     |
 | `ch`                        | ClickHouse client, `Batcher`, goose-clickhouse migrate                                                                                                  | clickhouse-go      |
 | `i18n`                      | catalog, `T(ctx,key)`, extractor                                                                                                                        | —                  |
-| `ui-contract`               | the `Kit` interface + sub-interfaces + registry + `Defer` + token wiring to Stellar — **no components yet**, just the contract Blocks 2–3 build against | datastar           |
+| `ui-contract`               | the `Kit` interface + sub-interfaces + registry + `Defer` + token wiring to Stellar *[superseded: no Kit interface shipped — driftwood is direct templ components on the Tailwind+rybitten tokens]* | datastar           |
 
 **`ecs` sub-fan-out** (one track each; b/c/d/e/f start once a's `Store` API is signed):
 a. `Store` + entity handles (index+generation) + columnar archetype storage ·
@@ -82,7 +89,7 @@ The root `beach` package, plus just enough kit to render one page.
 | ------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `beach` App builder | middleware stack, healthz, static cache + boot ETags, merged FS, CSP presets, graceful shutdown               |
 | `beach` handlers    | the three shapes + guards + dual-purpose page/fragment branch + the SSE loop runner (over `hub` + `datastar`) |
-| `driftwood` minimal | shell + page + button + one fragment, on Stellar tokens — enough to render the demo                           |
+| `driftwood` minimal | shell + page + button + one fragment, on Stellar tokens *[superseded: Tailwind+rybitten tokens]* — enough to render the demo |
 | demo page           | one page, one Datastar action, one ticking SSE fragment                                                       |
 
 Deps: Block 1 (`datastar`, `hub`, `config`, `session`, `ui-contract`).
@@ -102,8 +109,8 @@ The widest UI fan-out: one subagent per `Kit` sub-interface, all parallel.
 | Track                                                                           | What                                                                                                                                                                                 |
 | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | login flow                                                                      | wire `auth` into a real login/logout UI, two roles, `Can` guards, skeleton migrations                                                                                                |
-| Layout / Nav / Buttons / Forms / Data / Feedback / Overlays / Media / Messaging | **nine parallel tracks** — each builds its Core components in `driftwood` against the `Kit` interface (Overlays uses native `<dialog>`/`popover`; Media uses Stellar aspect/z-index) |
-| specimen                                                                        | `ui.SpecimenPage(kit)` — token sheet, icon grid, every component, all 18 charts; fills in as tracks land                                                                             |
+| Layout / Nav / Buttons / Forms / Data / Feedback / Overlays / Media / Messaging | **nine parallel tracks** — each builds its Core components in `driftwood` against the `Kit` interface *[superseded: as package-level templ components]* (Overlays uses native `<dialog>`/`popover`; Media uses the aspect/z-index tokens) |
+| specimen                                                                        | `ui.SpecimenPage(kit)` *[shipped as `ui/specimen.Page()`]* — token sheet, icon grid, every component, the chart gallery; fills in as tracks land                                     |
 | catalog (marketing + commerce)                                                  | parallel, lower priority; renders in the specimen too                                                                                                                                |
 
 Deps: Block 1 (`auth`, `session`, `chart`, `ui-contract`), Block 2 (`beach`).
@@ -146,7 +153,7 @@ Each app is its own track (each can be several subagents). The falsifiable proof
 
 | Track                | What                                                                                                                        |
 | -------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `cmd/beach` scaffold | `beach new` stamps Makefile, `stellar.config.json`, sqlc.yaml, docker-compose, `.env`, auth migrations, a working page      |
+| `cmd/beach` scaffold | `beach new` stamps Makefile, `stellar.config.json` *[superseded: no Stellar config — views.templ + a templ-tool go.mod instead]*, sqlc.yaml, docker-compose, `.env`, a working page |
 | vet analyzers        | one subagent each: `lint-datastar`, `lint-pgtype`, `lint-uuid`, authz coverage, no-custom-`<script>` (some buildable early) |
 | codegen CLIs         | `beach ecs gen`, `beach i18n` extractor                                                                                     |
 | perf gates           | 14KB perf-history (JSONL in git) + the 5k SSE fan-out benchmark + Playwright smokes                                         |

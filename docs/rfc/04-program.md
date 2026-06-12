@@ -26,13 +26,15 @@ example usage. Order is dependency order, not priority tiers.
    permissions resolved at login, `beach.Can()` guard, skeleton
    users/credentials/sessions/RBAC migrations, and the authz analyzer.
 5. **`ui`** — the toolkit: `Kit` interface and its sub-interfaces, registry, context
-   injection, icon API, the Stellar token system, the performance laws (no pop-in, no
+   injection, icon API, the Stellar token system *[superseded: no Kit interface or
+   registry shipped — `ui/driftwood` is direct templ components on the Tailwind v4 +
+   `rybitten` tokens]*, the performance laws (no pop-in, no
    blocking, the 14KB rule, `ui.Defer` lazy sections), the component catalog — app UI,
    marketing, and commerce, Core (trio-proven) shipping first
    ([architecture/16-components.md](../architecture/16-components.md)) — and `driftwood`:
-   a minimal reference kit implementing the Core catalog, with a specimen page that
+   the kit implementing the Core catalog, with a specimen page (`ui/specimen`) that
    renders it.
-6. **`chart` + `ch`** — the analytics pair: the 18-type SSR SVG chart library
+6. **`chart` + `ch`** — the analytics pair: the 18-type *[now 22]* SSR SVG chart library
    (geometry all at once; live-update wiring and empty/error states land per type
    as the examples render them), and the ClickHouse package (client, goose
    migrations, generic `Batcher` ingest, query→chart helpers, retention as
@@ -46,7 +48,9 @@ example usage. Order is dependency order, not priority tiers.
    helpers, store snapshot/restore.
 9. **`cmd/beach` + `cmd/beach-apigen`** — scaffold CLI and the API generator.
    `beach new <app>` stamps the skeleton: Makefile, sqlc.yaml (with the apigen
-   plugin registered), `stellar.config.json` design tokens, docker-compose
+   plugin registered), `stellar.config.json` design tokens *[superseded:
+   `views.templ` + a templ-tool go.mod; the design system's `app.css` is served
+   by the framework]*, docker-compose
    (Postgres, ClickHouse commented out), .env template, auth migrations +
    a working login, a working page with one SSE fragment. `beach vet` runs the
    analyzers; `beach ecs gen` runs the component codegen; `beach-apigen` turns the

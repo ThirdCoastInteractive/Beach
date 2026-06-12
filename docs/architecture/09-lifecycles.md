@@ -2,9 +2,9 @@
 
 [← docs index](../README.md) · prev: [Sim](08-sim.md) · next: [Tooling & testing](10-tooling.md)
 
-**Page request:** route → guards (session, role) → kit middleware → `PageFunc` →
-`db.New(pool)` → sqlc → `View.Page` rendered (final state, no pop-in) → gzip →
-browser. A Datastar refresh of the same URL takes the same path but the framework
+**Page request:** route → guards (session, role) → `PageFunc` →
+`db.New(pool)` → sqlc → `View.Page` (a templ component) rendered — final state,
+no pop-in → browser. A Datastar refresh of the same URL takes the same path but the framework
 patches `View.Fragment` into `View.Target` instead.
 
 **Datastar action:** `@post('/thing')` → guards → `ActionFunc` (framework already

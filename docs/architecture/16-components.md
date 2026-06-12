@@ -2,10 +2,11 @@
 
 [← docs index](../README.md) · prev: [Example apps](15-examples.md)
 
-[06-ui.md](06-ui.md) defines the *mechanism* — the `ui.Kit` interface, the semantic
-token contract, the performance laws, `ui.Defer`. This doc is the *inventory*: the
-concrete components and layouts a kit provides, and the **specimen** page that renders
-all of them at once.
+[06-ui.md](06-ui.md) defines the *mechanism* — views as templ components, the
+semantic token contract, the performance laws, `ui.Defer`. This doc is the
+*inventory*: the concrete components `ui/driftwood` exports as package-level templ
+functions (`@driftwood.Card(p) { ... }`), and the **specimen** page (`ui/specimen`)
+that renders all of them at once.
 
 ## A comprehensive hypermedia component library
 
@@ -22,9 +23,8 @@ pricing table carries none of the risk of inventing a config system nobody asked
 The catalog is sequenced, not gated. Two markers:
 
 - **Core** — exercised by [boardwalk / driftbottle / pantry](15-examples.md), so it's
-  built and tested first and ships in the `ui` interface + `driftwood` reference kit
-  with the trio. Tagged with the proving app: **B**oardwalk, **D**riftbottle,
-  **P**antry.
+  built and tested first and ships as `driftwood` package-level components with the
+  trio. Tagged with the proving app: **B**oardwalk, **D**riftbottle, **P**antry.
 - **Catalog** — the rest of the library, marketing and commerce included. Provided and
   proven in the [specimen](#the-specimen) (the trio doesn't exercise it, so the specimen
   is its proving ground), built out as the kit fills in. No "an app must ask first" gate.
@@ -38,27 +38,36 @@ composes with [`ui.Defer`](06-ui.md#deferred-sections).
 
 ## The specimen
 
-A page that renders **every component in every state**, plus the token sheet, the icon
-set, and all 22 [`chart`](14-analytics.md) types. Atlas and manifold13 both have one; it
-is the kit's visual contract — open it, see what the kit looks like.
+A page that renders **every component in every state**, plus the token sheet, the
+icon set, the [rybitten](19-rybitten.md) gamut preview, and the chart gallery. Atlas
+and manifold13 both have one; it is the kit's visual contract — open it, see what
+the kit looks like.
 
-One templ page, `ui.SpecimenPage(kit ui.Kit)`, lives in `ui`. It calls every component
-with sample props through the interface, so you render it by passing in whatever kit you
-want to look at — no per-kit copy, no command. Mount it at whatever path you like (the
-skeleton wires `/_specimen`). That's the whole mechanism.
+It lives at `ui/specimen` — one templ page, `specimen.Page()`. Mounting it is one
+route, and **all four example apps mount it at `/specimen`**:
 
-The specimen renders, in order: the **token sheet** (surfaces, ink, edges, roles,
-series a–o), the **icon grid** (every referenced glyph), each **sub-interface** section
-below, then the **chart gallery** (all 22 types with representative data). Because it
-holds everything at once it's deliberately over budget — which makes it the natural
-place to eyeball the [`ui.Defer`](06-ui.md#deferred-sections) skeleton-and-fill.
+```go
+app.Page("/specimen", func(c *beach.Ctx) (beach.View, error) {
+    return beach.View{Page: specimen.Page()}, nil
+})
+```
+
+The specimen renders, in order: the **token sheet** (surfaces, ink, edges, accent,
+roles, series a–o), the **icon grid** (every referenced glyph), the component
+sections below, the **gamut preview** (the rybitten palettes that could repaint the
+series tokens), then the **chart gallery** — all 22 chart types plus a static
+bar-race frame, each wrapped in the `.dash-widget` card structure so the
+[chart toolbar](14-analytics.md#the-client-interaction-layer) (Grid / Legend /
+Theme / Expand) is live on every one. Because it holds everything at once it's
+deliberately over budget — which makes it the natural place to eyeball the
+[`ui.Defer`](06-ui.md#deferred-sections) skeleton-and-fill.
 
 ## The catalog
 
-Organized by `ui.Kit` sub-interface. The existing eight are
-Layout, Buttons, Forms, Feedback, Data, Overlays, Media, Messaging; this doc proposes a
-ninth, **Nav** (navbars, sidebar, tabs, breadcrumbs, pagination — none fit the other
-eight, and every app shell needs them).
+Organized by section, matching `driftwood`'s source files (`layout`, `controls`,
+`data`, `feedback`, `overlays`, `media`, `messaging`, plus the nav components every
+app shell needs). The sections are doc structure, not Go structure — every component
+is a flat package-level templ function.
 
 ### Layout
 
@@ -79,7 +88,7 @@ The page skeleton and the surfaces content sits on.
 
 *Catalog:* three-column (content + right rail), sticky section rails, resizable panes.
 
-### Nav (proposed sub-interface)
+### Nav
 
 | Component       | Variants / states                                          | Proven by |
 | --------------- | ---------------------------------------------------------- | --------- |
@@ -164,8 +173,8 @@ tree / nested list, comparison table, kanban column.
 Open/close is **native** — `<dialog>` for modals, the `popover` attribute + CSS anchor
 positioning for popovers/flyouts/tooltips, `<details>` for disclosure — so an overlay
 works with zero JavaScript. Datastar enters only to **load** a heavy modal or drawer body
-via `@get` (keeping first paint under budget), never to toggle visibility. Stacking uses
-the `--zindex-{drawer,dialog,dropdown,toast,tooltip}` tokens.
+via `@get` (keeping first paint under budget), never to toggle visibility. Stacking
+lives in the kit sheet, not in markup.
 
 | Component           | Variants / states                                      | Proven by |
 | ------------------- | ------------------------------------------------------ | --------- |
@@ -183,8 +192,8 @@ use one, so it's proven in the specimen.
 | Component        | Variants / states                                                                                                                                                        | Proven by |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- |
 | Avatar           | image, initials fallback, status dot, stacked group                                                                                                                      | B, D, P   |
-| Icon             | the `ui.I("gear", ui.Spin)` API + build-time font subsetting                                                                                                             | all       |
-| Aspect-ratio box | reserves a fixed ratio from the `--aspect-ratio-*` tokens (square, widescreen 16:9, landscape 4:3, portrait, …) or arbitrary; the wrapper images and video sit in        | P         |
+| Icon             | the `ui.Icon("gear", ...)` API; Unicode `::before` glyph map (subset icon font planned)                                                                                  | all       |
+| Aspect-ratio box | reserves a fixed ratio via the `dw-aspect-*` classes (square, wide 16:9, photo 4:3, portrait); the wrapper images and video sit in                                       | P         |
 | Image            | responsive (`srcset`/`sizes`, `<picture>` for format + art-direction); `cover`/`contain` fit; lazy below-fold, eager+`fetchpriority` above; skeleton/blur-up placeholder | P         |
 | Figure           | image + caption (`<figure>`/`<figcaption>`)                                                                                                                              | P         |
 | Video            | poster frame; `controls` or muted-loop background; `<track>` captions; `preload="none"` + click/intersection load; responsive                                            | Catalog   |
@@ -211,13 +220,13 @@ components and not raw `<img>`/`<video>` tags.**
   tokens (no hardcoded color); `alt` is required (the props struct makes it
   non-optional); video carries caption `<track>`s and never autoplays with sound.
 
-```go
-@ui.Image(ui.ImageProps{
-    Ratio: ui.RatioPhoto,                     // reserved 4:3 box — no shift
+```templ
+@driftwood.Image(driftwood.ImageProps{
+    Ratio: driftwood.RatioPhoto,              // reserved 4:3 box — no shift
     Src:   "/media/items/oats.avif",
     Set:   "/media/items/oats-640.avif 640w, /media/items/oats-1280.avif 1280w",
     Sizes: "(max-width: 40rem) 100vw, 20rem",
-    Fit:   ui.FitCover,
+    Fit:   driftwood.FitCover,
     Alt:   "Rolled oats, 1kg bag",            // required by the struct
 })
 ```
@@ -247,7 +256,8 @@ deliberately minimal; these round out the messaging set.)
 Server-rendered marketing surfaces — same kit, same tokens, same perf laws. Heavy
 sections (logo clouds, testimonial grids, long pricing tables) are
 [`ui.Defer`](06-ui.md#deferred-sections) below the fold; media uses the
-[aspect-ratio image](#media) so nothing shifts. Validated in the [specimen](#the-specimen).
+[aspect-ratio image](#media) so nothing shifts. Catalog tier — not yet built; the
+[specimen](#the-specimen) is the proving ground when it lands.
 
 | Component            | Includes                                                                   |
 | -------------------- | -------------------------------------------------------------------------- |
@@ -276,7 +286,8 @@ A storefront in hypermedia: the cart re-renders server-side on `@post`, filters 
 `@get` query params, quickviews are `@get` fragments in a modal — there is no
 client-side cart or product store ([the one boundary](#the-one-boundary-hypermedia)).
 Product imagery is the [aspect-ratio image](#media); grids and galleries are `ui.Defer`.
-Validated in the [specimen](#the-specimen).
+Catalog tier — not yet built; the [specimen](#the-specimen) is the proving ground
+when it lands.
 
 | Component           | Includes                                           |
 | ------------------- | -------------------------------------------------- |

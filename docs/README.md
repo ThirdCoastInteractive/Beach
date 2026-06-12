@@ -6,10 +6,13 @@ Stack: net/http · templ · Datastar (free core) · Tailwind v4 + rybitten · pg
 LISTEN/NOTIFY · SSE · custom `ecs` engine. The module root is the framework's
 front door: `import beach "github.com/ThirdCoastInteractive/the-beach"`.
 
-**Status:** all six [roadmap](ROADMAP.md) blocks built. 28 packages, ~24.7k LOC, `go
-build/vet/test ./...` green; the root `beach` package, the `driftwood` kit, `sim`,
-`chart`, the `rybitten` color package, `apigen`, the scaffold/lint/perf tooling, and
-all the example apps compile, test, and serve. Known rough edges are tracked in [17-gaps.md](architecture/17-gaps.md).
+**Status:** all six [roadmap](ROADMAP.md) blocks built. 29 packages, ~24.5k LOC
+(excluding generated templ output), `make build/vet/test` green; the root `beach`
+package, the `driftwood` kit (every view a generated `.templ` component), `sim`,
+`chart` (geometry + templ render + the client interaction layer), the `rybitten`
+color package, `apigen`, the scaffold/lint/perf tooling, and all four example apps
+compile, test, and serve — each mounting the `ui/specimen` showcase at `/specimen`.
+Known rough edges are tracked in [17-gaps.md](architecture/17-gaps.md).
 The RFC and architecture docs are the design of record.
 
 ## The realtime spine
@@ -51,8 +54,8 @@ flowchart BT
     config["config"]
     pg["pg<br/>pool, migrate, InTx,<br/>Listen/Notify"]
     datastar["datastar"]
-    ui["ui + driftwood kit"]
-    chart["chart<br/>SSR SVG"]
+    ui["ui (Icon, Defer)<br/>+ driftwood kit + specimen"]
+    chart["chart<br/>geometry + templ render<br/>22 types, one package"]
     rybitten["rybitten<br/>RYB color, gamuts<br/>standalone, zero deps"]
     ch["ch<br/>ClickHouse"]
     i18n["i18n"]
@@ -64,14 +67,15 @@ flowchart BT
     auth["auth<br/>principal, guards, login"]
     ecs["ecs<br/>standalone, zero deps"]
     sim["sim"]
-    app(["your app<br/>handlers / tmpl / internal/db"])
+    app(["your app<br/>handlers / views.templ / internal/db"])
     other(["other Go projects<br/>games / sims / tools"])
 
     ui --> datastar
-    chart --> datastar
+    ui --> chart
+    ui --> rybitten
+    ch --> chart
     beach --> ui
     beach --> datastar
-    beach --> config
     beach --> session
     beach --> hub
     beach --> auth
@@ -93,12 +97,12 @@ flowchart BT
     app --> pg
     app --> config
     other --> ecs
-    rybitten -. "CSS tokens (offline)" .-> chart
-    rybitten -. "accent (offline)" .-> ui
+    rybitten -. "SeriesVars → --color-series-* (offline)" .-> chart
 ```
 
-(Dotted edges are not Go imports: `rybitten` generates the CSS variables that
-`chart` and the `driftwood` accent consume at runtime — see
+(The dotted edge is not a Go import: `rybitten.SeriesVars` generates the
+`--color-series-*` CSS variables in `input.css` that `chart` consumes at runtime;
+the solid `ui --> rybitten` edge is the specimen's gamut preview — see
 [19 — rybitten](architecture/19-rybitten.md).)
 
 ## RFC — the why and the what
@@ -119,20 +123,20 @@ flowchart BT
 | [3 — HTTP layer](architecture/03-http.md)               | Root `beach` package: App builder, handler shapes, guards, SSE gzip                      |
 | [4 — Hub](architecture/04-hub.md)                       | Topic fan-out, render-once-per-topic, tickers                                            |
 | [5 — Cache, session, i18n](architecture/05-services.md) | Snapshot/keyed caches, NOTIFY invalidation, Postgres sessions, i18n                      |
-| [6 — UI toolkit](architecture/06-ui.md)                 | Kits, tokens, no pop-in, no blocking, the 14KB rule, deferred sections                   |
+| [6 — UI toolkit](architecture/06-ui.md)                 | Views as templ, the driftwood kit, tokens, no pop-in, no blocking, the 14KB rule, deferred sections |
 | [7 — ECS engine](architecture/07-ecs.md)                | The custom standalone engine: schema, Store, change ticks                                |
 | [8 — Sim](architecture/08-sim.md)                       | The boundary, tick loop, projections, persistence lanes                                  |
 | [9 — Lifecycles](architecture/09-lifecycles.md)         | Page / action / stream / external write, end to end                                      |
-| [10 — Tooling & testing](architecture/10-tooling.md)    | `beach new` / `beach vet` / `beach ecs gen` / `beach i18n`, test doctrine                |
+| [10 — Tooling & testing](architecture/10-tooling.md)    | `beach new` / `beach ecs gen` / `beach i18n` / `beach-vet`, test doctrine                |
 | [11 — Decisions log](architecture/11-decisions.md)      | Every load-bearing choice and why                                                        |
 | [12 — Auth](architecture/12-auth.md)                    | argon2id passwords, login flow, principal/RBAC, guards                                   |
 | [13 — API codegen](architecture/13-apigen.md)           | `beach-apigen`: six SQL annotations → routes, handlers, NOTIFY (hypermedia-only)         |
-| [14 — Analytics](architecture/14-analytics.md)          | `chart` (SSR SVG, 18 types) + `ch` (ClickHouse client, batcher, migrations)              |
-| [15 — Example apps](architecture/15-examples.md)        | boardwalk (sim), driftbottle (hub), pantry (apigen+analytics), hush (custom layout/storage) |
-| [16 — Component catalog](architecture/16-components.md) | The concrete component/layout inventory by Kit sub-interface, and the specimen page      |
+| [14 — Analytics](architecture/14-analytics.md)          | `chart` (one package: geometry + templ render, 22 types, fragments, the client interaction layer) + `ch` (ClickHouse client, batcher, migrations, query→chart adapters) |
+| [15 — Example apps](architecture/15-examples.md)        | boardwalk (sim + live bar race), driftbottle (hub), pantry (apigen+analytics), hush (custom layout/storage) |
+| [16 — Component catalog](architecture/16-components.md) | The concrete driftwood component inventory, and the `ui/specimen` page every example mounts |
 | [17 — Gaps](architecture/17-gaps.md)                    | Framework rough edges the example apps surfaced, with proposed fixes                     |
 | [18 — hush](architecture/18-hush.md)                    | Gated anon board: custom gapless grid, WebGPU camera island, `storage` + Repute scoring  |
-| [19 — rybitten](architecture/19-rybitten.md)            | RYB color model port, 36 gamut presets, palette generation, charts+accent retheming, `cmd/gamuts` |
+| [19 — rybitten](architecture/19-rybitten.md)            | RYB color model port, 36 gamut presets, `SeriesVars` → the `--color-series-*` tokens, the specimen gamut preview |
 
 ## Reading paths
 

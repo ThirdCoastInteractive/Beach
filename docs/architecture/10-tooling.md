@@ -4,17 +4,21 @@
 
 ## `cmd/beach` and the skeleton
 
-`beach new <app>` stamps: Makefile (`help` default; `setup` with pinned tool versions
-— `@latest` drift between machines is a documented sin; coupled `gen` =
-sqlc + `beach ecs gen` (the kit CSS, `app.css`, is generated and served by the framework — no per-app CSS build); `vet` = gen + analyzers + `go vet`;
-`up`/`logs`/`down`; `start-db`/`stop-db` with the "never rm-db to fix migrations"
-warning), sqlc.yaml (pgtype purge + domain-ID override examples, apigen plugin
-registered), docker-compose (Postgres, ClickHouse
-commented out), `.env` template, auth migrations + a working login, and a `cmd/app`
-with one page, one Datastar action, one SSE fragment — proving the whole pipe on
-first `make up`.
+`beach new <app>` stamps a complete, compiling app: `main.go` (one page, one
+Datastar action, one SSE fragment — proving the whole pipe on first `make up`),
+`views.templ` with its committed `views_templ.go` compile output, a Makefile
+(`help` default; `gen` = `go tool templ generate` + the optional per-app `css`
+build + sqlc + `beach ecs gen`, each skipping cleanly when absent; `vet` = gen +
+`go vet`; `up`/`down`; `start-db`/`stop-db` with the "never rm-db to fix
+migrations" warning), a `go.mod` carrying the templ `tool` directive and a local
+`replace` so the app builds against this checkout without network access,
+sqlc.yaml (apigen plugin registered), docker-compose (Postgres, ClickHouse
+commented out), an `.env` template, and the i18n `catalog.json` + `locales/`.
+The framework's design-system `app.css` is generated and served by the
+framework; the stamped `css` target exists for an app's *own* extra sheet.
 
-`beach vet` runs the analyzers:
+The lint analyzers live in `lint/` and run via `cmd/beach-vet` (exits non-zero
+on any finding, so it slots into `make vet` and CI):
 
 - raw Datastar attribute strings and `templ.Attributes{}` literals — typed
   builders are the only sanctioned way
@@ -44,9 +48,9 @@ statically.
 handler stubs, and NOTIFY plumbing. `beach i18n` extracts and verifies the
 translation catalog ([05-services.md](05-services.md#i18n)).
 
-Verification pipeline is framework doctrine, stamped into the skeleton's CLAUDE.md:
-`make gen` → `make vet` → `make up` → browser check (no console errors, change
-visible, no 404s). A task is not complete until every step passes.
+Verification pipeline is framework doctrine, stamped into the skeleton Makefile's
+header: `make gen` → `make vet` → `make up` → browser check (no console errors,
+change visible, no 404s). A task is not complete until every step passes.
 
 ## Testing & performance doctrine
 
