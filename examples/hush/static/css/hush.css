@@ -1,0 +1,431 @@
+/* hush — the custom layout. Black and white chrome; the only color on the page
+   is each post's own deterministic tile (see colorFor in Go). No border radius
+   anywhere — hard edges, gapless squares. Loaded after the kit's app.css. */
+
+.hush-body {
+  margin: 0;
+  background: #000;
+  color: #fff;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* header + composer stay centered; the grid below goes full-bleed */
+.hush-top {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 2.5rem 1rem 1.75rem;
+}
+
+.hush-head {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+.hush-title {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: 0.32em;
+  text-transform: lowercase;
+}
+.hush-sub {
+  margin: 0.35rem 0 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.9rem;
+}
+
+/* composer */
+.hush-compose {
+  max-width: 640px;
+  margin: 0 auto 2rem;
+}
+.hush-input {
+  width: 100%;
+  min-height: 92px;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 0.75rem;
+  font: inherit;
+  line-height: 1.5;
+  color: #fff;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 0;
+}
+.hush-input::placeholder { color: rgba(255, 255, 255, 0.35); }
+.hush-input:focus { outline: none; border-color: #fff; }
+
+.hush-compose-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+}
+.hush-hint { color: rgba(255, 255, 255, 0.4); font-size: 0.78rem; }
+
+/* primary button: white on black, inverted */
+.hush-post {
+  padding: 0.45rem 1.15rem;
+  font: inherit;
+  text-transform: lowercase;
+  color: #000;
+  background: #fff;
+  border: 1px solid #fff;
+  border-radius: 0;
+  cursor: pointer;
+}
+.hush-post:hover { background: #d6d6d6; border-color: #d6d6d6; }
+
+.hush-note {
+  min-height: 1rem;
+  margin-top: 0.4rem;
+  color: #fff;
+  font-size: 0.8rem;
+}
+
+/* image upload row */
+.hush-upload {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+.hush-file {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.5);
+}
+.hush-file::file-selector-button {
+  margin-right: 0.6rem;
+  padding: 0.35rem 0.8rem;
+  font: inherit;
+  font-size: 0.8rem;
+  color: #fff;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 0;
+  cursor: pointer;
+}
+.hush-file::file-selector-button:hover { background: rgba(255, 255, 255, 0.1); }
+
+/* ghost button: outline only */
+.hush-post--ghost {
+  color: #fff;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+.hush-post--ghost:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.4); }
+
+.hush-link {
+  color: #fff;
+  text-decoration: none;
+  font-size: 0.82rem;
+}
+.hush-link:hover { text-decoration: underline; }
+.hush-cam-link { margin-left: auto; }
+
+/* the gapless square wall — full bleed, at most 4 columns.
+   max(25%, 280px) as the track floor means 4 columns can't be exceeded (a 5th
+   would need a 5th 25% slot), and below ~1120px the 280px floor drops it to 3/2/1. */
+.hush-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(max(25%, 280px), 1fr));
+  gap: 0;
+  width: 100%;
+}
+.hush-tile {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  cursor: pointer;
+  /* background is set inline per-post (colorFor) */
+}
+.hush-tile img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.45s cubic-bezier(0.16, 0.84, 0.34, 1);
+}
+.hush-tile--image:hover img { transform: scale(1.05); }
+.hush-tile:hover { box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.6); }
+.hush-tile:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 3px #000;
+}
+
+/* text tiles fill the square; the body scales to the tile via container queries.
+   Tiles are bright, so text is black. */
+.hush-tile--text {
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  text-align: center;
+  color: #000;
+  container-type: inline-size;
+}
+.hush-tile-body {
+  font-size: clamp(1rem, 7cqi, 1.7rem);
+  line-height: 1.35;
+}
+.hush-tile-body p { margin: 0.3em 0; }
+.hush-tile-body ul,
+.hush-tile-body ol {
+  margin: 0.3em 0;
+  padding-left: 1.2em;
+  text-align: left;
+}
+
+/* camera page */
+.hush-cam {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+.cam-canvas {
+  width: 100%;
+  max-width: 520px;
+  aspect-ratio: 1 / 1;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+.cam-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.cam-filter {
+  padding: 0.4rem 0.7rem;
+  font: inherit;
+  text-transform: lowercase;
+  color: #fff;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 0;
+}
+.cam-status {
+  min-height: 1.1rem;
+  margin: 0;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.82rem;
+}
+.hush-back { text-align: center; margin-top: 1.5rem; }
+
+/* account strip + gate */
+.hush-acct {
+  padding: 0.6rem 1rem;
+  text-align: right;
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+.hush-acct strong { color: #fff; font-weight: 600; }
+.hush-gateline { margin-top: 1rem; }
+
+/* forms (login, apply) */
+.hush-formwrap { max-width: 420px; margin: 0 auto; }
+.hush-form { display: flex; flex-direction: column; gap: 0.75rem; }
+.hush-form .hush-input { min-height: auto; }
+.hush-form textarea.hush-input { min-height: 96px; resize: vertical; }
+.hush-form-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 0.25rem;
+}
+
+/* admin queue cards */
+.hush-appcard {
+  max-width: 480px;
+  margin: 0 auto 1rem;
+  padding: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.hush-appphoto {
+  display: block;
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  margin-bottom: 0.6rem;
+}
+.hush-apphandle { font-weight: 600; font-size: 1.05rem; }
+.hush-apppitch {
+  margin: 0.35rem 0 0.75rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  white-space: pre-wrap;
+}
+.hush-appcard .hush-form-row { justify-content: flex-end; }
+
+/* ── the detail sheet — a fresh page that slides in from the edge, on top of
+   the (undimmed) wall. No backdrop. The slide is a CSS View Transition: the
+   sheet carries view-transition-name, and the patch that adds/removes it runs
+   inside document.startViewTransition (beach View.ViewTransition). ─────────── */
+.hush-sheet {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 50;
+  height: 100%;
+  width: min(640px, 100%);
+  overflow-y: auto;
+  background: #000;
+  border-left: 1px solid rgba(255, 255, 255, 0.18);
+  view-transition-name: hush-sheet;
+}
+
+/* the wall underneath is unchanged between states — don't animate root */
+::view-transition-old(root),
+::view-transition-new(root) { animation: none; }
+
+::view-transition-old(hush-sheet),
+::view-transition-new(hush-sheet) {
+  animation-duration: 0.38s;
+  animation-timing-function: cubic-bezier(0.16, 0.84, 0.34, 1);
+}
+@keyframes hush-sheet-in { from { transform: translateX(100%); } }
+@keyframes hush-sheet-out { to { transform: translateX(100%); } }
+::view-transition-new(hush-sheet) { animation-name: hush-sheet-in; }
+::view-transition-old(hush-sheet) { animation-name: hush-sheet-out; }
+
+/* ── post detail card (shared by drawer + permalink page) ─────────────────── */
+.hush-card {
+  position: relative;
+  padding: 1.25rem;
+}
+.hush-card--page {
+  max-width: 560px;
+  margin: 0 auto;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.hush-card-close {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  width: 2rem;
+  height: 2rem;
+  font-size: 1.3rem;
+  line-height: 1;
+  color: #fff;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+}
+.hush-card-close:hover { background: rgba(255, 255, 255, 0.12); }
+
+.hush-card-media {
+  margin-bottom: 0.9rem;
+  overflow: hidden;
+}
+.hush-card-media--image img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.hush-card-media--text {
+  display: grid;
+  place-items: center;
+  min-height: 220px;
+  padding: 1.5rem;
+  text-align: center;
+  color: #000;
+  font-size: 1.4rem;
+  line-height: 1.4;
+  /* background is set inline per-post (colorFor) */
+}
+.hush-card-text p { margin: 0.3em 0; }
+.hush-card-text ul,
+.hush-card-text ol { text-align: left; margin: 0.3em 0; padding-left: 1.2em; }
+
+.hush-card-meta {
+  margin-bottom: 0.75rem;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.8rem;
+}
+
+/* upvote control */
+.hush-vote {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+}
+.hush-vote-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  font-size: 0.9rem;
+  color: #000;
+  background: #fff;
+  border: 1px solid #fff;
+  border-radius: 0;
+  cursor: pointer;
+}
+.hush-vote-btn:hover { background: #d6d6d6; }
+.hush-vote-btn--off { color: rgba(255, 255, 255, 0.6); background: transparent; border-color: rgba(255, 255, 255, 0.3); cursor: default; }
+.hush-vote-count { font-size: 1rem; font-weight: 600; }
+
+/* account score chip + profile */
+.hush-score { color: rgba(255, 255, 255, 0.85); }
+.hush-profile {
+  display: flex;
+  justify-content: center;
+  gap: 2.5rem;
+  margin: 1.5rem 0;
+}
+.hush-stat { text-align: center; color: rgba(255, 255, 255, 0.6); font-size: 0.85rem; }
+.hush-stat-n { display: block; font-size: 2rem; font-weight: 600; color: #fff; }
+
+/* comments thread */
+.hush-comments {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.hush-comment {
+  padding: 0.6rem 0.8rem;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  /* each appended comment eases in */
+  animation: hush-rise 0.3s cubic-bezier(0.16, 0.84, 0.34, 1) both;
+}
+@keyframes hush-rise {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.hush-comment-body { font-size: 0.92rem; line-height: 1.45; }
+.hush-comment-body p { margin: 0.2em 0; }
+.hush-comment-body ul,
+.hush-comment-body ol { margin: 0.2em 0; padding-left: 1.2em; }
+
+.hush-reply { margin-top: 0.5rem; }
+.hush-reply-input {
+  width: 100%;
+  min-height: 64px;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 0.6rem;
+  font: inherit;
+  line-height: 1.45;
+  color: #fff;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 0;
+}
+.hush-reply-input::placeholder { color: rgba(255, 255, 255, 0.35); }
+.hush-reply-input:focus { outline: none; border-color: #fff; }
+.hush-reply-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 0.5rem;
+}

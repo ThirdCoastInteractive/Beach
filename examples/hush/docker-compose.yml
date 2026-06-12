@@ -1,0 +1,53 @@
+name: hush
+
+# Standalone runner for the hush example (gated anon board + Repute scoring).
+#
+#   docker compose build --ssh default     # Repute is a private module — see note
+#   docker compose up                       →  http://localhost:8080  (admin / password)
+#
+# Postgres is internal-only (no host port mapping); only the app is published.
+# Without DATABASE_URL the app runs open/database-less, but the signup gate and
+# accounts need Postgres.
+#
+# NOTE: hush depends on the private module github.com/ThirdCoastInteractive/Repute,
+# so the image build needs git access to it. Build with BuildKit SSH forwarding —
+# `docker compose build --ssh default` — and the shared Dockerfile forwards the
+# agent + GOPRIVATE to `go mod download`. (The other three examples build with no
+# extra flags.)
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: beach
+      POSTGRES_PASSWORD: beach
+      POSTGRES_DB: hush
+    volumes: [pgdata:/var/lib/postgresql/data]
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U beach -d hush"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  hush:
+    build:
+      context: ../..
+      args:
+        APP: hush
+        GOPRIVATE: github.com/ThirdCoastInteractive
+      ssh: [default] # forward the SSH agent so go can fetch the private Repute module
+    environment:
+      PORT: "8080"
+      # Reached by service name on the internal network; never published to host.
+      DATABASE_URL: postgres://beach:beach@postgres:5432/hush?sslmode=disable
+    networks: [internal]
+    ports: ["${PORT:-8080}:8080"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+
+networks:
+  internal: { driver: bridge }
+
+volumes:
+  pgdata:
