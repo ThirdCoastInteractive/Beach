@@ -12,6 +12,7 @@ import (
 	"hash/fnv"
 	"io/fs"
 	"runtime/debug"
+	"sort"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -37,6 +38,20 @@ func MustPool(ctx context.Context, dsn string) *pgxpool.Pool {
 // migrationsDir is the conventional embed directory name for goose migrations.
 const migrationsDir = "migrations"
 
+// versionTable derives a stable, per-source goose version-table name from a
+// migration source's filenames. Distinct sources (different file sets) get
+// distinct tables, so they can share one database without their version
+// sequences colliding; the same source always resolves to the same table.
+func versionTable(fsys fs.FS) string {
+	names, _ := fs.Glob(fsys, migrationsDir+"/*.sql")
+	sort.Strings(names)
+	h := fnv.New32a()
+	for _, n := range names {
+		_, _ = h.Write([]byte(n))
+	}
+	return fmt.Sprintf("goose_db_version_%08x", h.Sum32())
+}
+
 // Migrate drives goose through the pool, serialized by a pg_advisory_lock keyed
 // off the app's module path so N containers can boot concurrently without racing
 // the schema. It returns early when the schema is already current and never
@@ -50,6 +65,14 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool, migrationsFS fs.FS) error 
 	}
 	goose.SetBaseFS(migrationsFS)
 	defer goose.SetBaseFS(nil)
+
+	// Each migration source tracks its version in its own table, so independent
+	// sources applied to the same database (e.g. the framework's session/auth
+	// migrations plus an app's schema) don't collide on goose's single global
+	// version sequence — without this, the second source is skipped as "already
+	// at version N".
+	goose.SetTableName(versionTable(migrationsFS))
+	defer goose.SetTableName("goose_db_version")
 
 	db := stdlib.OpenDBFromPool(pool)
 	defer db.Close()
