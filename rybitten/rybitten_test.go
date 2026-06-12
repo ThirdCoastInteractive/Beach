@@ -191,12 +191,45 @@ func TestPalette(t *testing.T) {
 	}
 }
 
-func TestCSSVars(t *testing.T) {
-	css := CSSVars(Cubes["itten"], 12)
-	if !regexp.MustCompile(`--chart-qualitative-12:\s*#[0-9a-f]{6};`).MatchString(css) {
-		t.Errorf("CSSVars missing 12th token:\n%s", css)
+func TestSeries(t *testing.T) {
+	g := Cubes["munsell"]
+	pal := Series(g, SeriesCount)
+	if len(pal) != SeriesCount {
+		t.Fatalf("len=%d want %d", len(pal), SeriesCount)
 	}
+	// Series is the values-side twin of SeriesVars: same sampler, same colors.
+	ref := QualitativePalette(g.Cube, SeriesCount)
+	for i := range pal {
+		if !closeRGB(pal[i], ref[i]) {
+			t.Errorf("Series[%d]=%v != QualitativePalette %v", i, pal[i], ref[i])
+		}
+	}
+	if Series(g, 0) != nil {
+		t.Error("Series(n=0) should be nil")
+	}
+}
+
+func TestSeriesVars(t *testing.T) {
+	css := SeriesVars(Cubes["munsell"])
 	if !regexp.MustCompile(`(?s):root \{.*\}`).MatchString(css) {
-		t.Errorf("CSSVars not a :root block:\n%s", css)
+		t.Fatalf("SeriesVars not a :root block:\n%s", css)
+	}
+	// All 15 letter slots present, a through o, each a hex color.
+	for i := 0; i < SeriesCount; i++ {
+		re := regexp.MustCompile(`--color-series-` + string(rune('a'+i)) + `:\s*#[0-9a-f]{6};`)
+		if !re.MatchString(css) {
+			t.Errorf("SeriesVars missing --color-series-%c:\n%s", 'a'+i, css)
+		}
+	}
+	if regexp.MustCompile(`--color-series-p`).MatchString(css) {
+		t.Errorf("SeriesVars emitted a 16th slot:\n%s", css)
+	}
+	// Tokens carry the gamut's colors in wheel order.
+	hexes := Hexes(Series(Cubes["munsell"], SeriesCount))
+	if !regexp.MustCompile(`--color-series-a:\s*` + hexes[0]).MatchString(css) {
+		t.Errorf("series-a is not the first wheel sample %s:\n%s", hexes[0], css)
+	}
+	if !regexp.MustCompile(`--color-series-o:\s*` + hexes[14]).MatchString(css) {
+		t.Errorf("series-o is not the last wheel sample %s:\n%s", hexes[14], css)
 	}
 }

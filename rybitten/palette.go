@@ -59,49 +59,30 @@ func Hexes(colors []RGB) []string {
 	return out
 }
 
-// SkyStops are the Tailwind --color-sky-* stops the driftwood kit actually
-// consumes for its accent, paired with the lightness used to sample each from a
-// gamut. Light→dark, matched loosely to Tailwind's own sky ramp so contrast
-// relationships on the dark surface survive the swap.
-var SkyStops = []struct {
-	Stop  int
-	Light float64
-}{
-	{300, 0.82}, {400, 0.66}, {500, 0.55}, {600, 0.45}, {950, 0.14},
+// SeriesCount is how many series slots the framework's CSS token vocabulary
+// defines: --color-series-a through --color-series-o, one per letter.
+const SeriesCount = 15
+
+// Series samples n colors from the gamut's hue wheel with the qualitative
+// defaults — the same colors [SeriesVars] emits when n is [SeriesCount]. Use it
+// when the palette is needed as values (image rendering, server-side swatches)
+// rather than as CSS.
+func Series(g Gamut, n int) []RGB {
+	return QualitativePalette(g.Cube, n)
 }
 
-// AccentVars renders :root overrides for the --color-sky-* stops in [SkyStops],
-// sampling the gamut's blue axis (hue 240, full saturation) at each stop's
-// lightness. Because driftwood's @apply rules compile to var(--color-sky-N), and
-// an unlayered :root beats Tailwind's @layer theme, these repaint every sky-*
-// accent in the kit with no markup change.
-func AccentVars(g Gamut) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "/* accent ← rybitten gamut %q (%s) blue axis */\n", g.Key, g.Title)
-	b.WriteString(":root {\n")
-	for _, s := range SkyStops {
-		c := RYBHSL2RGB([3]float64{240, 1, s.Light}, g.Cube, true)
-		fmt.Fprintf(&b, "  --color-sky-%d: %s;\n", s.Stop, c.Hex())
-	}
-	b.WriteString("}\n")
-	return b.String()
-}
-
-// CSSVars renders a :root block defining --chart-qualitative-1…count from the
-// gamut's hue wheel, ready to drop into the framework's CSS so charts (and any
-// token consumer) repaint in this gamut. A provenance comment names the source.
-// count is clamped to at least 1.
-func CSSVars(g Gamut, count int) string {
-	if count < 1 {
-		count = 1
-	}
-	pal := QualitativePalette(g.Cube, count)
+// SeriesVars renders a :root block defining the framework's chart series tokens
+// --color-series-a…--color-series-o from the gamut's hue wheel, ready to drop
+// into input.css so charts repaint in this gamut. A provenance comment names
+// the source.
+func SeriesVars(g Gamut) string {
+	pal := Series(g, SeriesCount)
 	var b strings.Builder
 	fmt.Fprintf(&b, "/* %s — %s (%d). Generated from rybitten gamut %q. */\n",
 		g.Title, g.Author, g.Year, g.Key)
 	b.WriteString(":root {\n")
 	for i, c := range pal {
-		fmt.Fprintf(&b, "  --chart-qualitative-%d: %s;\n", i+1, c.Hex())
+		fmt.Fprintf(&b, "  --color-series-%c: %s;\n", 'a'+i, c.Hex())
 	}
 	b.WriteString("}\n")
 	return b.String()
