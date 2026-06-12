@@ -10,7 +10,7 @@
 //
 // `beach new` writes a complete, compiling the-beach app: a main.go shaped like
 // cmd/demo (driftwood kit, one page, one Datastar action, one SSE fragment), a
-// Makefile, stellar.config.json, sqlc.yaml (apigen plugin registered),
+// Makefile, sqlc.yaml (apigen plugin registered),
 // docker-compose.yml (Postgres up, ClickHouse commented out), an .env template,
 // and a go.mod with a local `replace` so the stamped app builds against this
 // checkout without network access.

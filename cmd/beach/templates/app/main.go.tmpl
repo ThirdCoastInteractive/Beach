@@ -16,9 +16,7 @@ package main
 import (
 	"bytes"
 	"context"
-	"embed"
 	"io"
-	"io/fs"
 	"log"
 	"log/slog"
 	"os"
@@ -33,13 +31,6 @@ import (
 	"github.com/ThirdCoastInteractive/the-beach/ui/driftwood"
 	"github.com/a-h/templ"
 )
-
-// staticFS holds the assets the page needs: the generated Stellar stylesheet
-// (served at /static/css/stellar.css) and the Datastar client the driftwood
-// shell loads from /static/js/datastar.js.
-//
-//go:embed static
-var staticFS embed.FS
 
 // liveTopic is the single hub topic the clock ticker publishes to and the page's
 // stream subscribes to.
@@ -61,18 +52,13 @@ func main() {
 		addr = ":" + p
 	}
 
-	sub, err := fs.Sub(staticFS, "static")
-	if err != nil {
-		log.Fatalf("{{.App}}: static sub-fs: %v", err)
-	}
-
 	// The hub backs the SSE stream; a Ticker fans a freshly rendered clock
-	// fragment to every subscriber once a second.
+	// fragment to every subscriber once a second. The framework serves the kit's
+	// app.css and the Datastar client from its own static tree.
 	h := hub.New()
 
 	app := beach.New(beach.Config{
 		Service: "{{.App}}",
-		Static:  sub,
 		Kit:     beach.KitStatic("driftwood"),
 		Hub:     h,
 		Logger:  logger,

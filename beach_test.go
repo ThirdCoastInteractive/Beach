@@ -65,7 +65,7 @@ func TestStartRefusesWithoutKit(t *testing.T) {
 func TestStaticServesWithETag(t *testing.T) {
 	_, h := testApp(t)
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/static/css/stellar.css", nil))
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/static/css/app.css", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("static status = %d, want 200", rec.Code)
 	}
@@ -81,7 +81,7 @@ func TestStaticServesWithETag(t *testing.T) {
 	}
 
 	// Conditional request returns 304.
-	req := httptest.NewRequest(http.MethodGet, "/static/css/stellar.css", nil)
+	req := httptest.NewRequest(http.MethodGet, "/static/css/app.css", nil)
 	req.Header.Set("If-None-Match", etag)
 	rec2 := httptest.NewRecorder()
 	h.ServeHTTP(rec2, req)
@@ -101,8 +101,8 @@ func TestStaticMissingIs404(t *testing.T) {
 
 func TestAssetURLBusts(t *testing.T) {
 	a, _ := testApp(t)
-	url := a.AssetURL("css/stellar.css")
-	if !strings.HasPrefix(url, "/static/css/stellar.css?v=") {
+	url := a.AssetURL("css/app.css")
+	if !strings.HasPrefix(url, "/static/css/app.css?v=") {
 		t.Fatalf("asset url = %q, want versioned /static path", url)
 	}
 }

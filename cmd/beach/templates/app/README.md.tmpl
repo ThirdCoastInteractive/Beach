@@ -13,7 +13,7 @@ Increment button mutates server state and patches the same fragment.
 
 ## The verification pipeline (framework doctrine)
 
-    make gen           # stellar build + sqlc + beach ecs gen
+    make gen           # sqlc + beach ecs gen
     make vet           # gen, then go vet ./...
     make up            # build + run
 
@@ -23,8 +23,8 @@ is not complete until every step passes.
 ## Layout
 
 - `main.go` — the App: page, action, SSE stream.
-- `static/` — vendored `stellar.css` and `datastar.js` (no external CDNs).
-- `stellar.config.json` — design tokens; `stellar build` regenerates the CSS.
+- the kit's `app.css` (Tailwind) and the Datastar client are served by the
+  framework — no per-app CSS to vendor, and no external CDNs.
 - `sqlc.yaml` — DB codegen with the `beach-apigen` plugin registered.
 - `docker-compose.yml` — Postgres (ClickHouse commented out).
 - `components.beach.yaml` — optional ECS component schema for `beach ecs gen`.

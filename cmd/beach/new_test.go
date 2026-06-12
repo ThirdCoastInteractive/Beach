@@ -25,15 +25,12 @@ func TestNewStampsBuildableSkeleton(t *testing.T) {
 		"Makefile",
 		"sqlc.yaml",
 		"docker-compose.yml",
-		"stellar.config.json",
 		".env",
 		".gitignore",
 		"README.md",
 		"components.beach.yaml",
 		"catalog.json",
 		filepath.Join("locales", "en-US.json"),
-		filepath.Join("static", "css", "stellar.css"),
-		filepath.Join("static", "js", "datastar.js"),
 	}
 	for _, rel := range want {
 		p := filepath.Join(app, rel)
