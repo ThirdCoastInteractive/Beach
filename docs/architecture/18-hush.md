@@ -4,15 +4,20 @@
 
 A fourth example app under `examples/hush`. The other three validate the
 framework's core; hush validates that you can build **custom layouts and
-client-side JS on top of a normal Beach app** without fighting the SSR grain. It
-is a curated, anonymous content board — *hush-hush* by design: a gapless wall of
-square posts, gated signup with manual approval, and feature tiers unlocked by
-reputation.
+client-side JS on top of a normal Beach app** without fighting the SSR grain —
+and, as of Block G, that a Beach app can carry a **full production build-out**:
+Postgres-backed content, community moderation, transactional email, ClickHouse
+analytics, and Cloudflare media. It is a curated, anonymous content board —
+*hush-hush* by design: a gapless wall of square posts, gated signup with manual
+approval, and feature tiers unlocked by reputation.
 
-It exercises two packages the trio doesn't: `storage` (post images + application
-photos) and **Repute** (post scoring, which gates DMs and profiles).
+It exercises the packages the trio doesn't: `storage` (Local, R2 via
+`storage/s3`, and `storage/cfimages`), `mailer` (the outbox's transport),
+`ch` (the analytics firehose + admin charts), and **Repute** (post scoring,
+which gates profiles and invites).
 
-Views live in `pages.templ` behind a **custom shell** (`templ shell`): hush links
+Views live in `pages.templ` (plus `adminviews.templ`, `analyticsviews.templ`,
+and `emails.templ`) behind a **custom shell** (`templ shell`): hush links
 the framework stylesheet (so `dw-*` surfaces still resolve) *and* its own
 `static/css/hush.css`, and loads `datastar.js` but deliberately **not**
 `chart.js` — proof that an app can replace the driftwood page chrome and skip
@@ -32,13 +37,18 @@ the one other script (`static/js/camera.js`, an external module — CSP-clean).
   left (the switch-on-later mode — once spent, the queue resumes); or you redeem
   a member's **invite link**, which makes your inviter's reputation answer for
   yours.
-- A new account can **only post**. DMs and profile customization unlock as your
-  **Repute** score rises. Reputation does real work: it's the gate.
+- A new account can **only post**. The profile (and with it the invite mint)
+  unlocks as your **Repute** score rises. Reputation does real work: it's the
+  gate.
 - Text posts are **512 plain characters**, with a deliberately tiny markdown
   subset — bold, italics, lists. Nothing that controls layout.
 - Image posts come from a **WebGPU camera**: open the camera, the live preview
   runs through WGSL filter shaders, you grab the filtered frame. Or upload an
   image and run it through the same shaders.
+- The community moderates itself by **flagging** — quietly. A flag from a
+  trusted member hides a post alone; the untrusted crowd hides one by
+  agreement. What a flag did is never shown; the admin suite is where hidden
+  posts go to be judged.
 
 ## What it showcases (and validates)
 
@@ -46,111 +56,179 @@ the one other script (`static/js/camera.js`, an external module — CSP-clean).
 | --- | --- |
 | Custom layout on the SSR core | the gapless square grid — pure CSS, zero JS, container-query text scaling |
 | Client-side JS as an island | the WebGPU camera: an isolated client that produces a blob and hands it to a normal action; everything else is SSR |
-| `storage.Store` | post images and application photos via `Put`/`URL`/`ServeHTTP`, swappable Local↔R2 |
-| Repute | event-sourced post scoring; score reads gate `app.Can("dm")` / `app.Can("profile:edit")` |
+| `storage.Store` | post images and application photos via `Put`/`URL`/`ServeHTTP`, swappable Local↔R2 (`storage/s3`) by env alone |
+| `storage/cfimages` | image posts upload to Cloudflare Images and render resized variants, falling back to the file store when unconfigured |
+| `mailer` + an outbox | transactional email as Postgres rows, pumped through whatever transport the env supports (Mailgun → SMTP → log) |
+| `ch` | the `hush_events` firehose, batched in off the request path, aggregated into deferred admin chart widgets |
+| Repute | event-sourced post scoring; score reads gate the profile and throttle invites |
 | `auth` gating | application → approval → user; tiered capabilities behind `app.Can` guards |
 | `beach.Bind` / Patches / hub | every action is JSON-signal bound; new tiles arrive over SSE |
 
 ## Data model
 
+In database mode (`DATABASE_URL` set) everything lives in Postgres — the wall
+included. The schema lands in four migrations (`examples/hush/migrations`),
+each shape shown here as the code reads it:
+
 ```sql
--- The gate. One row per signup request.
-applications (
-  id          uuid primary key,
-  handle      text unique not null,   -- desired anon handle
-  pitch       text not null,          -- 3-5 lines: what you want to post
-  photo_key   text not null,          -- storage.Store key, submitted proof
-  status      text not null,          -- pending | approved | rejected
-  created_at  timestamptz not null,
-  decided_at  timestamptz,
-  decided_by  uuid                    -- admin user id
+-- 00001: the gate. One pending row per signup request; the chosen password is
+-- held hashed until approval creates the auth user from it.
+-- 00004 added email: an optional contact — where the decision notice goes,
+-- and the address that follows an approved applicant in. Admin eyes only.
+hush_applications (
+  id            bigserial primary key,
+  handle        text not null,
+  pitch         text not null,                     -- 3-5 lines: what you want to post
+  password_hash text not null,
+  photo_key     text not null default '',          -- storage key; resolved to a URL at read time
+  email         text not null default '',
+  status        text not null default 'pending',   -- pending | approved | rejected
+  created_at    timestamptz not null default now(),
+  decided_at    timestamptz
 );
 
--- Users exist only after approval. auth owns this table; hush references it.
--- Anonymous by default: a handle and nothing that identifies a person.
-users (
-  id          uuid primary key,
-  handle      text unique not null,
-  created_at  timestamptz not null
+-- users / roles / sessions: the framework's auth + session migrations own
+-- these tables; hush references members by username (the handle).
+
+-- 00003: the wall. body_html is already sanitized (renderPost) — never raw
+-- user input. ip/country/city/user_agent are the capture-time Meta (meta.go):
+-- they ride every row for moderation, and templates never render them — the
+-- wall stays anonymous. hidden_at is the moderation switch: a hidden post
+-- stays (with its flags) for admin review, invisible to everyone else;
+-- hidden_by records who threw it ('flags' for the community).
+hush_posts (
+  id          bigserial primary key,               -- monotonic: doubles as the feed cursor
+  kind        text not null,                       -- text | image
+  body_html   text not null default '',
+  media_url   text not null default '',
+  cf_image_id text not null default '',            -- Cloudflare Images id; '' when stored via files
+  author      text not null default '',            -- handle; '' in database-less open mode
+  ip          text not null default '',
+  country     text not null default '',
+  city        text not null default '',
+  user_agent  text not null default '',
+  created_at  timestamptz not null default now(),
+  hidden_at   timestamptz,
+  hidden_by   text not null default ''
+);
+-- index (hidden_at, id DESC): the wall's one read shape — visible, newest first
+
+-- One reaction per voter per post, the first is final — the PK is the rule
+-- (INSERT ... ON CONFLICT DO NOTHING makes a repeat click a no-op).
+hush_reactions (
+  post_id    bigint not null references hush_posts on delete cascade,
+  voter      text not null,
+  weight     smallint not null,                    -- +1 / -1
+  created_at timestamptz not null default now(),
+  primary key (post_id, voter)
 );
 
-posts (
-  id           uuid primary key,
-  author_id    uuid not null references users,
-  kind         text not null,         -- text | image
-  body_md      text,                  -- raw markdown (<=512 plain chars)
-  body_html    text,                  -- rendered + sanitized, cached
-  media_key    text,                  -- storage.Store key for image posts
-  created_at   timestamptz not null,
-  score_cached double precision not null default 0  -- Repute, denormalized for ORDER BY
+-- One flag per flagger per post. flagger_tier is captured at flag time — what
+-- the hiding rules actually weighed (see Flagging).
+hush_flags (
+  post_id      bigint not null references hush_posts on delete cascade,
+  flagger      text not null,
+  flagger_tier int not null default 0,
+  created_at   timestamptz not null default now(),
+  primary key (post_id, flagger)
 );
 
--- hush's domain table for votes: a real row with the one-vote-per-user rule.
--- Also the trigger to emit a Repute event (see below).
-post_votes (
-  id         bigserial primary key,
-  post_id    uuid not null references posts,
-  voter_id   uuid not null references users,
-  weight     smallint not null,       -- +1 / -1
-  created_at timestamptz not null,
-  unique (post_id, voter_id)
+-- A member's optional email: set, verified by tokened link, worth
+-- HUSH_EMAIL_POINTS of author standing once verified_at is stamped. The token
+-- is stored as its sha256 — the cleartext only ever lives in the email itself.
+hush_member_emails (
+  user_id           bigint primary key references users on delete cascade,
+  email             text not null,
+  verify_token_hash bytea,
+  verified_at       timestamptz,
+  updated_at        timestamptz not null default now()
 );
 
--- DMs. Unlocked at tier 2.
-conversations ( id uuid primary key, a_id uuid, b_id uuid, created_at timestamptz );
-messages      ( id uuid primary key, conversation_id uuid, sender_id uuid, body text, created_at timestamptz );
+-- Transactional mail as data: handlers insert, the pump claims pending rows by
+-- next_attempt_at and delivers with backoff (see Email).
+hush_outbox (
+  id              bigserial primary key,
+  to_email        text not null,
+  subject         text not null,
+  text_body       text not null default '',
+  html_body       text not null default '',
+  template_key    text not null default '',        -- verify | invite | application-* (for reading the table)
+  status          text not null default 'pending', -- pending | sent | failed
+  attempts        int  not null default 0,
+  next_attempt_at timestamptz not null default now(),
+  last_error      text not null default '',
+  created_at      timestamptz not null default now(),
+  sent_at         timestamptz
+);
+-- index (status, next_attempt_at): the pump's read shape
 
--- Invites (built, 00002): one row per minted code. The inviter→used_by edge is
--- the chain-reputation graph; counting a member's rows enforces the allowance.
+-- 00002: invites — one row per minted code. The inviter→used_by edge is the
+-- chain-reputation graph; counting a member's rows enforces the allowance.
 hush_invites ( code text primary key, inviter text, created_at timestamptz,
                used_by text, used_at timestamptz );
 
--- Signups ledger (built, 00002): accounts created outside the admin queue, so
--- the open-registration cap can count what it has spent.
-hush_signups ( id bigserial primary key, handle text, via text, created_at timestamptz );
+-- 00002: signups ledger — accounts created outside the admin queue, so the
+-- open-registration cap can count what it has spent.
+hush_signups ( id bigserial primary key, handle text, via text, -- open | invite
+               created_at timestamptz );
 ```
 
-`post_votes` is hush's domain table — it owns the "one vote per user per post"
-constraint. **Repute owns the math** on its own append-only log
-(`eventsource/pg`): on each vote insert and each post create, hush also calls
-`eng.Apply(...)`. `score_cached` is Repute's answer folded back onto the post row
-so the grid orders tiles without asking the engine per tile.
+Both backends implement one `wall` interface (model.go): `memStore` keeps the
+database-less mode alive (zero setup, like boardwalk — posts, reactions, and
+flags in maps), `pgStore` (pgstore.go) is the production path. The interface
+is the moderation surface too: `flag`/`hide`/`restore`/`purge` plus the admin
+reads (`flagged`, `adminList`) sit alongside `list`/`get`/`neighbors`, and the
+visible reads all exclude hidden posts — moderated content simply isn't on the
+wall, and its permalink reads as not found.
+
+`hush_reactions` owns the "one reaction per voter per post" rule (the PK).
+**Repute owns the math**, but the engine stays in-memory: there is no
+`score_cached` column and no score-ordered query, because the wall is
+chronological and every score is hidden. Instead the wall's history *is* the
+event log — at boot, `replayReputation` (pgstore.go) re-emits every post,
+every reaction (with its chain echo), and every verified email into a fresh
+engine, so scores survive restarts without a second store.
 
 ## Repute wiring
 
-One engine per process, installed at boot over the same pool:
+One engine per process, built at boot (reputation.go) and wrapped in a mutex —
+the engine is single-goroutine, hush's handlers aren't:
 
 ```go
-eng := repute.New(
-    []repute.Scorer{
-        scorers.Participation{}, // rewards posting at all — unlocks tier 1
-        scorers.WeightedWin{},   // up/down votes as wins/losses
-    },
-    repute.WithDecay(...),       // recent activity weighted heavier
-    repute.WithStore(pgsource),  // eventsource/pg over the app pool
-)
+eng := repute.New([]repute.Scorer{
+    scorers.Participation{Track: authorTrack, Kinds: []string{"post"}, Points: 1},
+    scorers.Participation{Track: authorTrack, Kinds: []string{"like"}, Points: 2},
+    scorers.Participation{Track: authorTrack, Kinds: []string{"dislike"}, Points: -2},
+    scorers.Participation{Track: authorTrack, Kinds: []string{"email-verified"}, Points: cfg.EmailPoints},
+    scorers.Participation{Track: chainTrack, Kinds: []string{"chain-like"}, Points: 1},
+    scorers.Participation{Track: chainTrack, Kinds: []string{"chain-dislike"}, Points: -1},
+})
 ```
 
-Three event kinds, all on track `author`:
+Four event kinds on the `author` track:
 
-- `"post"` — emitted on create. Feeds Participation: you reach tier 1 just by
+- `"post"` — emitted on create (text or image). You earn standing just by
   contributing.
-- `"like"` / `"dislike"` — emitted on each `post_votes` insert by `weight`
-  (+1 → like, −1 → dislike). A 👎 scores negative, so standing tracks the
-  author's like/dislike ratio, not raw volume.
+- `"like"` / `"dislike"` — emitted per fresh `hush_reactions` row. A 👎 scores
+  negative, so standing tracks the author's like/dislike ratio, not raw volume.
+- `"email-verified"` — a one-time bump worth `HUSH_EMAIL_POINTS` when a
+  member's address confirms (see Email). A reachable member is worth more than
+  an anonymous drive-by.
 
-Score for gating comes from `eng.Leaderboard("author", asOf)` → the author's
-reputation vector. Tiers:
+Score for gating is `eng.Score(actor, track, now)` via `rep.score(handle)`;
+`tierOf(score)` maps it against the env thresholds:
 
 | Tier | Reached when | Capability |
 | --- | --- | --- |
 | 0 | account approved | post only |
-| 1 | score ≥ `T1` | customize profile (the custom-layout showcase) |
-| 2 | score ≥ `T2` | DMs |
+| 1 | score ≥ `HUSH_TIER1` (default 3) | profile unlocks; invite minting; one flag hides alone (default `HUSH_FLAG_TIER`) |
+| 2 | score ≥ `HUSH_TIER2` (default 8) | reserved — DMs are the designed-but-unbuilt extension |
 
-Gating is a `func (a *app) tier(ctx, userID) int` helper backing
-`app.Can("profile:edit")` and `app.Can("dm")` guards — the same `app.Can` seam
-the pantry uses, so the capability story stays visible in the route table.
+**Every score is hidden** on member-facing surfaces. Standing surfaces only as
+what has unlocked: the profile link appearing in the account strip is tier 1
+announcing itself, and the invite allowance quietly grows or shrinks with the
+chain. The numbers themselves print in exactly one place — the admin member
+ledger.
 
 ### Chain reputation — invites answer for their invitees
 
@@ -165,15 +243,191 @@ allowance = clamp(inviteBase + chain/2, 0, inviteMax)   // base 3, max 6
 
 Invite shitheads and your allowance dries up; invite people whose posts land
 and it grows. The math lives in `inviteAllowance` (invites.go), the echo in
-`votePost`, and the edges in `hush_invites` — Postgres-persistent, hydrated
-into memory at boot, so chains survive restarts even while scores (in-memory,
-like the wall) reset. One hop for now; propagating a decayed echo further up
-the chain is the obvious extension.
+`votePost` (and in the boot replay), and the edges in `hush_invites` —
+hydrated into the in-memory graph at boot (`hydrateChains`), then replayed
+through the engine with everything else, so both the edges *and* the scores
+survive restarts. One hop for now; propagating a decayed echo further up the
+chain is the obvious extension.
 
-`T1`, `T2`, and the decay half-life are config. Repute's go.mod is local and
-unpublished like the-beach, so hush's go.mod carries
-`replace github.com/ThirdCoastInteractive/Repute => ../../../repute` (or an
-absolute dev path).
+Repute is a normal (private) module dependency —
+`github.com/ThirdCoastInteractive/Repute` in the root go.mod; building it
+needs `GOPRIVATE=…,github.com/ThirdCoastInteractive`.
+
+## Flagging
+
+The wall's only report control: a dim `flag` button on the focused feed card,
+members only, your own post a no-op (the wall doesn't self-report). One flag
+per flagger per post — the `hush_flags` PK — and the flagger's *current tier*
+is captured on the row, because tier is what the hiding rules weigh:
+
+- a flag from tier ≥ `HUSH_FLAG_TIER` (default 1) **insta-hides** — trusted
+  members moderate alone;
+- `HUSH_FLAG_QUORUM` (default 3) flags of any tier hide by **agreement** —
+  the untrusted crowd needs to concur.
+
+Hidden means *gone* for non-admins: not on the wall, not in the feed, the
+permalink 404s. If your flag took the post down, the focused card collapses to
+a one-line `hushed.` notice; otherwise only the control goes inert
+(`flagged`). No counts, no progress bar — **a member never learns what their
+flag did**. Hiding is reversible by design: the post keeps its row, its flags,
+and its capture meta for admin review, where the ruling is `restore` (back on
+the wall, flags cleared so they can't re-hide it) or `purge` (the row deleted
+outright, reactions and flags cascading with it). Admins can also `hide`
+directly from the browser pages — same switch, their handle in `hidden_by`
+instead of `'flags'`.
+
+## Admin
+
+The pages with eyes (admin.go, views in adminviews.templ): everything the
+member-facing wall refuses to print — scores, tiers, chains, vote counts, IPs,
+geo, user agents — is laid out here, every route behind `app.Can("admin")`.
+Without a database they degrade to a notice, like the rest of the gate.
+
+- **`/admin` — the hub.** Four numbers, each a way into its section: pending
+  applications, flagged-or-hidden posts, total posts, members.
+- **`/admin/queue` — the application queue.** Each pending application in
+  full — handle, pitch, the photo resolved from its storage key — with
+  approve/reject forms posting to `/admin/decide`.
+- **`/admin/review` — the moderation queue.** Every hidden or flagged post
+  rendered whole (the admin judges the actual content, not a snippet), with
+  its capture meta, who flagged it and at what tier, and the rulings: restore
+  or purge.
+- **`/admin/posts` — the everything browser.** The newest 500 posts including
+  hidden ones, one dense row each: id, kind, a 90-char snippet, author,
+  IP / geo (Cloudflare's country+city headers) / user agent, the 👍/👎 tallies
+  members never see, hidden state, and inline hide/restore/purge. Exact-match
+  `?author=` and `?ip=` filters narrow the window, and moderating a row 303s
+  back to the same filtered view.
+- **`/admin/members` — the member ledger.** Every account with the real
+  numbers: roles, author score, tier, chain score, post count, email (masked
+  nowhere here) + verified state, invites minted/redeemed, last-seen IP.
+- **`/admin/analytics` — the dashboard** (see Analytics).
+
+One shared admin chrome (`adminPage` + `adminNav`) strings the sections
+together. The moderation action all the forms post to is `/admin/moderate`;
+its `back` parameter is clamped to `/admin*` paths so the form can't be used
+to redirect off-site. There is no outbox page yet — failed mail parks in
+`hush_outbox` with its `last_error` for an admin to read in SQL.
+
+## Email
+
+Optional everywhere, by policy: every signup door (apply, open registration,
+invite redemption) takes an optional address, the profile can add or change
+one, and a bad address is quietly dropped (`normalizeEmail`) — never an error
+a user has to see. Addresses are never shown publicly; even the masked form
+(`m***@example.com`) only renders on its owner's profile.
+
+**Verification** (verify.go): attaching an address stores it unverified with a
+fresh 32-byte token and queues a verification mail; the table keeps only the
+token's sha256, so a leaked dump verifies nobody. `GET /email/verify/{token}`
+matches the hash against *unverified* rows only — a link works exactly once —
+stamps `verified_at`, and emits `"email-verified"` into the author track,
+worth `HUSH_EMAIL_POINTS` of standing (the one-use UPDATE is also what keeps
+the live emit from double-counting; boot replay re-emits from `verified_at`
+rows instead). Changing an address always restarts verification, and the
+profile offers a resend.
+
+**The outbox** (outbox.go): transactional email as data. Handlers never block
+on SMTP — they `enqueue` a row into `hush_outbox`, best-effort by design
+(every email hush sends is a courtesy; a queue failure logs and the request
+proceeds). A process-lifetime pump ticks every 5s and drains batches of 10
+inside a transaction: `FOR UPDATE SKIP LOCKED` is the claim, so a second
+instance pumping the same table skips past in-flight rows instead of
+double-sending, and a crashed send is just a row still pending. A failed send
+backs off at `1m · 2^attempts`, capped at an hour, until the eighth failure
+parks the row as `failed`. Boot's reputation replay never enqueues, so a
+restart sends nothing twice.
+
+**The transport** (the framework's `mailer` package): `mailer.New(ConfigFromEnv())`
+picks the strongest the env supports — the Mailgun API when `MAILGUN_KEY` +
+`MAILGUN_DOMAIN` are set, plain SMTP when `SMTP_HOST` is, and a `LogMailer`
+otherwise, so the dev default "delivers" to the terminal and the flows work on
+a fresh checkout. Each message carries a canonical text body plus an HTML half
+built from templ components (emails.templ, the white shell; emails.go pairs
+them), with absolute links built on `HUSH_BASE_URL`.
+
+What sends mail:
+
+| Event | To | Template key |
+| --- | --- | --- |
+| address attached (signup or profile) / resend | the member | `verify` |
+| application submitted | `HUSH_ADMIN_EMAIL` (if set) | `application-received` |
+| application approved | the applicant (if they gave an address) — with a sign-in link, and a verify link riding along while the address is unverified | `application-approved` |
+| application rejected | the applicant (if they gave an address) | `application-rejected` |
+| invite minted with the "mint & send" email field | the invitee — the code as its one-use redemption link | `invite` |
+
+## Analytics
+
+ClickHouse is the wall's **observation store** (analytics.go): Postgres holds
+the posts and the gate (the system of record), ClickHouse holds the firehose —
+one append-only row per thing that happened. Entirely optional: no
+`CLICKHOUSE_DSN` means a nil conn, a no-op batcher, and a dashboard page that
+says so instead of charting — analytics off is a configuration, not an error.
+(A set-but-*wrong* DSN panics at boot — `ch.MustConn` — but a failed ClickHouse
+migration degrades to off rather than killing the wall.)
+
+The wiring is the `ch` package end to end: `ch.MustConn` opens the conn,
+`ch.Migrate` runs `chmigrations/` (goose, same workflow as Postgres), and a
+`ch.Batcher[event]` buffers rows into batched inserts off the request path —
+`track()` is fire-and-forget and nil-safe, so the wall runs identically with
+analytics off. One table:
+
+```sql
+hush_events (
+  ts      DateTime,
+  kind    LowCardinality(String),
+  handle  String,         -- '' for anonymous views
+  post_id Int64,          -- 0 when no post is involved
+  ip      String, country LowCardinality(String), city String, ua String,
+  path    String
+) ENGINE = MergeTree ORDER BY (kind, ts)   -- per-kind day buckets read a contiguous range
+```
+
+Emitted kinds: `view_wall`, `view_post`, `post_text`, `post_image`, `vote_up`,
+`vote_down`, `flag`, `apply`, `register`, `redeem`, `login_ok`, `login_fail`,
+`logout`. The IP/geo/UA on each row mirror the moderation Meta on posts —
+admin eyes only, like everything here (`login_fail` keeps the attempted
+handle: brute-force runs show up as one handle hammered from one IP).
+
+`/admin/analytics` is a grid of **deferred widgets** — the pantry dashboard
+pattern: each card reserves its height and `ui.Defer` `@get`s its fragment on
+intersection, so the ClickHouse aggregates never block first paint. The
+widgets (each its own admin-guarded fragment route): events per day (14d,
+line), posts per day and votes per day (14d, bars), top countries (30d, bars —
+Cloudflare's `CF-IPCountry`, blank in dev), top IPs (30d, a table — the labels
+are the data, read down into a blocklist), and the raw tail of the last 100
+events. Charts ride `ch.Rows` → `ch.ToLineSeriesData`/`ToHBarSeries` → the
+`chart` package's templ fragments; only the two tables are hush's own CSS.
+
+## Media
+
+Two independent env-driven decisions (media.go), both optional — with nothing
+set, files live in a local temp dir served at `/files` and image posts are raw
+stored bytes, exactly the database-less developer experience:
+
+- **The file store** is Cloudflare R2 via `storage/s3` when all four `R2_*`
+  variables are set — `PublicBaseURL` from `R2_PUBLIC_URL` makes `URL()` pure
+  string concatenation against the bucket's custom domain; unset means
+  presigned one-hour links, which still work. Otherwise it's `storage.Local`
+  under `HUSH_FILES_DIR` (default: OS temp). Application photos and
+  non-Cloudflare image posts flow through it either way, behind the same
+  `storage.Store` interface.
+- **Cloudflare Images** (`storage/cfimages`) exists when the three
+  `CF_IMAGES_*` variables are set; nil means image posts go through the file
+  store. When wired, `storeImage` uploads the bytes there and the post row
+  keeps both the image id and the full variant's delivery URL (a stable
+  fallback even if the client is later unwired). Variants are dashboard-side
+  config: `CF_IMAGES_VARIANT` (default `public`) is the full-size source feed
+  cards render, `CF_IMAGES_THUMB` (default `thumb`, a ~600px square crop) is
+  what grid tiles use — Cloudflare resizes server-side, so the wall stops
+  shipping full-size images into 180px squares. `postImageURL`/`postThumbURL`
+  recompute delivery URLs from the id at render time, so a variant rename in
+  the env applies to old posts too; posts without a `cf_image_id` fall back to
+  their stored URL, and the tile's `object-fit` crops locally.
+
+The `/files/` route is only mounted when the store is `*storage.Local` — R2
+URLs are absolute, pointing at the bucket's public/custom domain (or
+presigned), so there is nothing for the app to serve.
 
 ## The text path — 512 plain chars, tiny markdown
 
@@ -219,9 +473,9 @@ recorder but **still capture, not video, and WebGPU, not WebGL**:
    0.9)` of the filtered canvas. The shader already modified the frame live, so
    the filtered canvas *is* the modified still — no post-step. This is "capture
    the raw image, then modify": modification happens in the live pipeline.
-4. Upload: `POST /posts` hands the blob to a normal action →
-   `store.Put(ctx, "posts/<id>.jpg", blob, "image/jpeg")` → the tile renders from
-   `store.URL(...)`.
+4. Upload: `POST /upload` hands the blob to a normal action → `storeImage`
+   (Cloudflare Images when wired, the file store otherwise) → the tile renders
+   from the thumb variant or the stored URL.
 
 The **upload-and-edit** path feeds an uploaded file into the *same* WebGPU
 pipeline as a texture, so camera and editor share one set of WGSL shaders — one
@@ -267,10 +521,10 @@ Opening a post is a **real navigation**: every tile links to `/p/{id}#p{id}`,
 so the browser owns push/pop state — back pops you to the grid, forward
 replays, and permalinks are just URLs. The post's page is a single centered
 **feed**: the focused post expanded into its detail card — media, meta, the
-thumbs, and nothing else; **there are no replies**, a post stands alone and
-the only answer the wall allows is a thumb — with its **time-ordered
-neighbors** around it, newer above, older below, newest-first all the way
-down. The link's `#p{id}`
+thumbs and the flag control, and nothing else; **there are no replies**, a
+post stands alone and the only answers the wall allows are a thumb and a flag
+— with its **time-ordered neighbors** around it, newer above, older below,
+newest-first all the way down. The link's `#p{id}`
 fragment lands the viewport on the focused card even with newer neighbors
 rendered above it (native scroll-to-fragment, no script). The user is on
 rails: neighbor cards are links to their own pages, the title is the way back
@@ -311,31 +565,83 @@ graceful degradation, no error.
 ## Routes
 
 ```
-GET  /                 grid    -- gapless square grid, scored + recent
-GET  /apply            page    -- claim-a-seat form while open seats remain; else the application form
-POST /apply            action  -- write applications row (status=pending)
-POST /register         action  -- claim one open seat (HUSH_OPEN_SLOTS), create account, sign in
-GET  /invite/{code}    page    -- redemption form for a live code; notice for spent/unknown
-POST /invite/{code}    action  -- redeem: claim code, create account, record chain edge, sign in
-POST /invites          action  -- mint one code (member, inside the chain-throttled allowance)
-GET  /admin/queue      page    -- pending applications            [admin]
-POST /admin/decide     action  -- approve → create user; or reject [admin]
-GET  /compose          page    -- markdown box OR camera/upload
-GET  /p/{id}           page    -- the feed, focused on one post (neighbors both ways)
-GET  /feed/newer       frag    -- next feed batch above cursor (intersect sentinel only)
-GET  /feed/older       frag    -- next feed batch below cursor (intersect sentinel only)
-POST /p/{id}/vote      action  -- record a 👍/👎 (?dir=up|down), emit Repute "like"/"dislike", outer-morph your mark
-POST /posts            action  -- bind, render+count, store, emit Repute "post"
-GET  /u/{handle}       page    -- profile, tier-1 gated
-GET  /dm               page    -- conversations                   [tier 2]
-POST /dm/{conv}/say    action  -- message                         [tier 2]
-GET  /files/           raw     -- storage.Local.ServeHTTP (post images, application photos)
-GET  /specimen         page    -- the framework specimen (mounted by every example)
+GET  /                            grid    -- gapless square grid, chronological
+GET  /compose                     page    -- the WebGPU camera/upload island
+GET  /p/{id}                      page    -- the feed, focused on one post (neighbors both ways)
+GET  /feed/newer                  frag    -- next feed batch above cursor (intersect sentinel only)
+GET  /feed/older                  frag    -- next feed batch below cursor (intersect sentinel only)
+POST /posts                       action  -- bind, render+count, store, emit Repute "post"    [post]
+POST /p/{id}/vote                 action  -- 👍/👎 (?dir=up|down), Repute + chain echo        [post]
+POST /p/{id}/flag                 action  -- record a flag, apply the hiding rules            [post]
+POST /upload                      raw     -- multipart image (form or camera blob), 303 home  [post]
+
+GET  /apply                       page    -- claim-a-seat form while open seats remain; else the application form
+POST /apply                       raw     -- write the pending application (photo + optional email)
+POST /register                    raw     -- claim one open seat (HUSH_OPEN_SLOTS), create account, sign in
+GET  /invite/{code}               page    -- redemption form for a live code; notice for spent/unknown
+POST /invite/{code}               raw     -- redeem: claim code, create account, record chain edge, sign in
+POST /invites                     raw     -- mint one code (allowance-throttled; optional mint & send) [post]
+GET  /login, POST /login          page/raw-- plain-form sign in (303, CSP-clean)
+GET  /logout                      raw     -- revoke session, clear cookie
+
+GET  /u/{handle}                  page    -- profile, tier-1 gated; own profile carries invites + email
+GET  /email/verify/{token}        page    -- the one-use verification link (public — it arrives by mail)
+POST /email/set                   raw     -- add/change your address (session checked inside)
+POST /email/resend                raw     -- fresh token + verification mail for an unverified address
+
+GET  /admin                       page    -- the hub: four numbers                            [admin]
+GET  /admin/queue                 page    -- pending applications                             [admin]
+POST /admin/decide                raw     -- approve → create user (+ mail); or reject (+ mail) [admin]
+GET  /admin/review                page    -- hidden/flagged posts in full, restore or purge   [admin]
+GET  /admin/posts                 page    -- everything browser (?author= &ip=), meta + tallies [admin]
+GET  /admin/members               page    -- member ledger: the real numbers                  [admin]
+POST /admin/moderate              raw     -- hide / restore / purge, 303 back within /admin   [admin]
+GET  /admin/analytics             page    -- the dashboard of deferred widgets                [admin]
+GET  /admin/analytics/{events,posts,votes,countries,ips,recent}
+                                  frag    -- one widget each, live ClickHouse queries         [admin]
+
+GET  /files/                      raw     -- storage.Local.ServeHTTP (Local store only; R2 URLs are absolute)
+GET  /specimen                    page    -- the framework specimen (mounted by every example)
 ```
 
-All actions are `beach.Bind[T]` + `beach.Patches` (Datastar JSON signals), matching
-the pantry corrections. Guards are `app.Can(...)` at registration so the
-capability story reads off the route table.
+`[post]` and `[admin]` are `app.Can(...)` guards, attached at registration so
+the capability story reads off the route table — and only attached in database
+mode: without `DATABASE_URL` there is no principal, the wall is open, and the
+admin pages degrade to a notice. Actions are `beach.Bind[T]` + `beach.Patches`
+(Datastar JSON signals); the auth, signup, email, and admin forms are plain
+POSTs that 303 (CSP-clean, no Datastar dependency).
+
+## Config
+
+Everything tunable is env, read once at boot into `a.cfg` (config.go) or wired
+by the package that owns it; `.env.example` mirrors this table.
+
+| Variable | Meaning |
+| --- | --- |
+| `PORT` | listen port (default 8080) |
+| `DATABASE_URL` | Postgres DSN; unset = open, in-memory, no gate |
+| `CLICKHOUSE_DSN` | ClickHouse DSN for the observation store; unset = analytics off (set-but-wrong panics at boot) |
+| `HUSH_OPEN_SLOTS` | open the first N registrations with no review; once spent the queue resumes (default 0) |
+| `HUSH_TIER1` | author score that unlocks tier 1, the profile (default 3) |
+| `HUSH_TIER2` | author score that unlocks tier 2 (default 8) |
+| `HUSH_EMAIL_POINTS` | author standing granted for a verified email (default 2) |
+| `HUSH_FLAG_TIER` | tier whose single flag insta-hides a post (default 1) |
+| `HUSH_FLAG_QUORUM` | how many tier-0 flags hide a post by agreement (default 3) |
+| `HUSH_BASE_URL` | absolute origin for links inside outgoing email (default `http://localhost:8080`) |
+| `HUSH_ADMIN_EMAIL` | where new-application notices go; unset = no admin mail |
+| `HUSH_FILES_DIR` | Local file-store root when R2 is unset (default: under the OS temp dir) |
+| `MAIL_FROM_NAME` / `MAIL_FROM_ADDR` | the From header on outgoing mail |
+| `MAILGUN_KEY` / `MAILGUN_DOMAIN` | Mailgun API transport — the strongest, picked first |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` | plain SMTP transport (port defaults to 587); with no transport set, the log mailer prints sends to the app log |
+| `R2_ENDPOINT` | the bucket's S3 API host, no scheme (`accountid.r2.cloudflarestorage.com`) |
+| `R2_BUCKET` | bucket name; one store per bucket |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | R2 API token key pair — all four R2_* set switches the file store to R2 |
+| `R2_PUBLIC_URL` | public/custom-domain base for stable URLs; unset = presigned 1h links |
+| `CF_IMAGES_ACCOUNT_ID` | Cloudflare account id — all three CF_IMAGES_* set routes image posts through Cloudflare Images |
+| `CF_IMAGES_TOKEN` | API token with Cloudflare Images edit permission |
+| `CF_IMAGES_HASH` | delivery hash, the first path segment of imagedelivery.net URLs |
+| `CF_IMAGES_VARIANT` | full-size variant feed cards render (default `public`) |
+| `CF_IMAGES_THUMB` | square-crop variant grid tiles render (default `thumb`) |
 
 ## Build blocks
 
@@ -343,13 +649,14 @@ Gated like the [roadmap](../ROADMAP.md): each block ends in something you can ru
 and test in a real browser (compiling and serving 200 is not done).
 
 **Block A — board skeleton. ✅ built.** In-memory post store (database-less, like
-boardwalk — zero setup to run; Postgres lands with the gate in Block D). The
-gapless grid renders, seeded with a few posts. The text path (`renderPost`) is
-wired into `POST /posts`, which prepends the new tile and clears the composer.
-The composer lives inline on `/` (the dedicated `/compose` route is reserved for
-the camera/upload island in Block C). ◆ Gate (verified in-browser): post text and
-watch it appear as a square tile; bold/italics/lists render; the 512-character
-limit and the empty post are both rejected with an inline notice.
+boardwalk — zero setup to run; Postgres landed with the gate in Block D and took
+the wall itself in Block G). The gapless grid renders, seeded with a few posts.
+The text path (`renderPost`) is wired into `POST /posts`, which prepends the new
+tile and clears the composer. The composer lives inline on `/` (the dedicated
+`/compose` route hosts the camera/upload island from Block C). ◆ Gate (verified
+in-browser): post text and watch it appear as a square tile; bold/italics/lists
+render; the 512-character limit and the empty post are both rejected with an
+inline notice.
 
 **Block B — storage + images. ✅ built.** `storage.Local` rooted under the OS temp
 dir, served at `/files` via `ServeHTTP`. Image posts come from a plain multipart
@@ -374,15 +681,14 @@ row + local credential + `member` role, or reject. Plain-form `/login` /
 `/logout` (303, CSP-clean). Posting (`/posts`, `/upload`, voting) is guarded by
 `app.Can("post")`; the composer only renders for users who hold it,
 and an account strip shows who you are + the admin queue link. Seeds an
-`admin / password` account. The post wall itself stays in-memory (like pantry's
-domain data) — persisting posts to Postgres is the remaining follow-up. ◆ Gate
-(verified in-browser): logged-out wall is read-only with an invite prompt → apply
-as `moth` → sign in as `admin`, approve in the queue → sign out, sign in as `moth`
-→ post lands on the wall.
+`admin / password` account. The post wall itself stayed in-memory through this
+block — Block G moved it to Postgres. ◆ Gate (verified in-browser): logged-out
+wall is read-only with an invite prompt → apply as `moth` → sign in as `admin`,
+approve in the queue → sign out, sign in as `moth` → post lands on the wall.
 
 **Block E — Repute + tiers. ✅ built (verified against Postgres).** Repute is a
 normal dependency (`github.com/ThirdCoastInteractive/Repute`, private). A
-mutex-wrapped engine with three `Participation` scorers folds `post` (+1),
+mutex-wrapped engine with `Participation` scorers folds `post` (+1),
 `like` (+2), and `dislike` (−2) events onto an `author` track — a post credits
 its author, a 👍 credits the post's author, a 👎 dings them, so standing tracks
 the like/dislike ratio rather than raw volume. `reputation.score(handle)` reads
@@ -393,12 +699,12 @@ counts and no ratio, ever; the only readable state is your own mark, which
 inverts once you've reacted (one reaction per user, the first is final;
 outer-morph). The wall is chronological. Standing surfaces only as **what has
 unlocked**: the profile link appearing in the account strip is tier 1
-announcing itself, the tier-1 profile (`/u/{handle}`) shows a post count and
-the DM line, and the invite allowance quietly grows or shrinks with the chain.
-The engine is in-memory (matching the in-memory wall); the `eventsource/pg`
-adapter is the persistent path once posts move to Postgres. ◆ Gate (verified
-in-browser): sign in as `moth`, post (score 1), get 👍'd (score 3) → tier 1 →
-the profile link appears and `/u/moth` renders.
+announcing itself, the tier-1 profile (`/u/{handle}`) shows a post count, and
+the invite allowance quietly grows or shrinks with the chain. The engine is
+in-memory; since Block G it replays the wall's Postgres history at boot, so
+scores survive restarts. ◆ Gate (verified in-browser): sign in as `moth`,
+post (score 1), get 👍'd (score 3) → tier 1 → the profile link appears and
+`/u/moth` renders.
 
 **Block F — the other doors: open seats, invites, chain reputation. ✅ built
 (verified against Postgres).** `HUSH_OPEN_SLOTS=N` opens the first N
@@ -417,15 +723,44 @@ shown — the shrinking allowance is how you find out); `gull` claims the last
 seat, `/apply` falls back to the application form, and the spent invite link
 reports itself used.
 
+**Block G — production: postgres wall + flags + admin + email + analytics +
+media. ✅ built (verified against Postgres + ClickHouse).** The remaining
+follow-ups, landed as one build-out. The wall moves to Postgres (`pgStore`
+behind the same `wall` interface; posts, reactions, capture meta, and hidden
+state in `hush_posts`/`hush_reactions`, Repute replayed from that history at
+boot). Community flagging with the tier/quorum hiding rules and the silent
+member-side UX. The admin suite: hub, review, the everything browser with
+IP/geo/UA and vote tallies, the member ledger with the real numbers, and the
+analytics dashboard. Optional member emails with one-use sha256-tokened
+verification feeding `HUSH_EMAIL_POINTS` into the author track, delivered
+through the `hush_outbox` queue (SKIP LOCKED claims, doubling backoff, failed
+after 8) over the env-picked mailer transport. ClickHouse event tracking
+behind `CLICKHOUSE_DSN` with deferred chart widgets. And production media: R2
+via `storage/s3` and Cloudflare Images variants, both env-switched with clean
+local fallbacks. ◆ Gate (verified in-browser, against the docker-compose
+Postgres + ClickHouse): a restart keeps the wall, the reactions, and the
+tiers; a tier-1 flag hides a post instantly (permalink 404s, the card reads
+"hushed.") and three tier-0 flags hide one by agreement; `/admin/review`
+restores it back onto the wall (flags cleared) and purge deletes outright;
+`/admin/posts` filters by author/IP and shows the tallies, `/admin/members`
+shows scores/tiers/chains/emails; applying with an address sends the admin
+notice and approval sends the welcome + verify link (log mailer in dev — the
+mail prints), the verify link bumps standing exactly once and the second click
+says so; the analytics dashboard charts the session's views/posts/votes and
+lists the source IPs.
+
 Each block is verified in a real browser before the next — the lesson from the
 trio: a rendered page is not a working feature.
 
 ## Running it
 
 Locally (`go run`): copy `examples/hush/.env.example` to `.env` and point
-`DATABASE_URL` at a Postgres (or unset it to run open/database-less). Building the
-private Repute dep needs `GOPRIVATE=…,github.com/ThirdCoastInteractive`. Or use
-the self-contained `examples/hush/docker-compose.yml` — `docker compose build
---ssh default && docker compose up` (the SSH agent is forwarded so the image build
-can fetch Repute; see the [Dockerfile](../../Dockerfile)). Each example carries its
-own `docker-compose.yml` + `.env.example`.
+`DATABASE_URL` at a Postgres (or unset it to run open/database-less);
+optionally point `CLICKHOUSE_DSN` at a ClickHouse for the analytics dashboard.
+Building the private Repute dep needs
+`GOPRIVATE=…,github.com/ThirdCoastInteractive`. Or use the self-contained
+`examples/hush/docker-compose.yml` — `docker compose build --ssh default &&
+docker compose up` (the SSH agent is forwarded so the image build can fetch
+Repute; see the [Dockerfile](../../Dockerfile)) — which runs Postgres and
+ClickHouse internal-only alongside the app, mail on the log transport. Each
+example carries its own `docker-compose.yml` + `.env.example`.
