@@ -69,12 +69,16 @@ func (sp streamPatcher) Patch(p Patch) error {
 	if p.Fragment == nil {
 		return nil
 	}
-	return sp.sse.PatchElementTempl(p.Fragment, patchOptions(p.Target, p.Mode)...)
+	opts := patchOptions(p.Target, p.Mode)
+	if p.ViewTransition {
+		opts = append(opts, sdk.WithViewTransitions())
+	}
+	return sp.sse.PatchElementTempl(p.Fragment, opts...)
 }
 
 // patchOptions builds the SDK patch options for a target id and mode.
 func patchOptions(target string, mode PatchMode) []sdk.PatchElementOption {
-	opts := make([]sdk.PatchElementOption, 0, 2)
+	opts := make([]sdk.PatchElementOption, 0, 3)
 	if target != "" {
 		opts = append(opts, sdk.WithSelector("#"+target))
 	}

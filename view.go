@@ -31,6 +31,11 @@ type View struct {
 	// Status overrides the HTTP status for the navigation branch (e.g. 404 for a
 	// not-found page rendered as a real page). Zero means 200.
 	Status int
+
+	// ViewTransition, on the Datastar branch, applies the patch inside the browser
+	// View Transitions API (document.startViewTransition), so CSS
+	// ::view-transition-* rules animate the change. No effect on navigation.
+	ViewTransition bool
 }
 
 // PatchMode selects how a fragment is merged into the DOM. It mirrors the
@@ -73,6 +78,10 @@ type Patch struct {
 	// Signals, when non-nil, JSON-marshals to a data-signals patch sent alongside
 	// the element patch (e.g. to clear a form's input signals after a submit).
 	Signals any
+
+	// ViewTransition applies this patch inside the browser View Transitions API
+	// so CSS ::view-transition-* rules animate the change.
+	ViewTransition bool
 }
 
 // Patches is the return type of an ActionFunc: an ordered list of DOM patches

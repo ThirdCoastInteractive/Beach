@@ -82,7 +82,7 @@ func (a *App) streamView(c *Ctx, view View) {
 	}
 	sse := datastar.NewSSE(c.W, c.R, datastar.WithCompression(a.cfg.SSECompression))
 	sp := streamPatcher{sse: sse}
-	if err := sp.Patch(Patch{Fragment: frag, Target: view.Target, Mode: view.Mode}); err != nil {
+	if err := sp.Patch(Patch{Fragment: frag, Target: view.Target, Mode: view.Mode, ViewTransition: view.ViewTransition}); err != nil {
 		a.log.Error("fragment patch", "path", c.R.URL.Path, "err", err)
 	}
 }
