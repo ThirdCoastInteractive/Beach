@@ -7,7 +7,7 @@ import (
 )
 
 // roleClass maps a semantic Role to a driftwood modifier class. The class —
-// not the Go code — binds to a Stellar palette in driftwood.css.
+// not the Go code — binds to the design palette in app.css.
 func roleClass(prefix string, r ui.Role) string {
 	if r == ui.RoleNeutral {
 		return ""
@@ -26,6 +26,9 @@ func sizeClass(prefix string, s ui.Size) string {
 
 func (Kit) Button(p ui.ButtonProps, inner ...templ.Component) templ.Component {
 	cls := "dw-btn" + roleClass("dw-btn", p.Role) + sizeClass("dw-btn", p.Size)
+	if p.Hazard {
+		cls += " dw-btn-hazard"
+	}
 	typ := p.Type
 	if typ == "" {
 		typ = "button"
@@ -161,6 +164,9 @@ func (Kit) TextInput(p ui.TextInputProps) templ.Component {
 	}
 	if p.Name != "" {
 		a += ` name="` + esc(p.Name) + `"`
+		// Bind to a same-named Datastar signal so a form @post submits the value
+		// (Datastar posts signals, not raw form fields).
+		a += " " + datastar.Bind(p.Name).String()
 	}
 	if p.Value != "" {
 		a += ` value="` + esc(p.Value) + `"`
@@ -206,6 +212,9 @@ func (Kit) Textarea(p ui.TextareaProps) templ.Component {
 	}
 	if p.Name != "" {
 		a += ` name="` + esc(p.Name) + `"`
+		// Bind to a same-named Datastar signal so a form @post submits the value
+		// (Datastar posts signals, not raw form fields).
+		a += " " + datastar.Bind(p.Name).String()
 	}
 	if p.Rows > 0 {
 		a += ` rows="` + itoa(p.Rows) + `"`
@@ -239,6 +248,9 @@ func (Kit) Select(p ui.SelectProps) templ.Component {
 	}
 	if p.Name != "" {
 		a += ` name="` + esc(p.Name) + `"`
+		// Bind to a same-named Datastar signal so a form @post submits the value
+		// (Datastar posts signals, not raw form fields).
+		a += " " + datastar.Bind(p.Name).String()
 	}
 	if p.Error {
 		a += ` aria-invalid="true"`
@@ -273,6 +285,9 @@ func (Kit) Checkbox(p ui.CheckboxProps) templ.Component {
 	}
 	if p.Name != "" {
 		a += ` name="` + esc(p.Name) + `"`
+		// Bind to a same-named Datastar signal so a form @post submits the value
+		// (Datastar posts signals, not raw form fields).
+		a += " " + datastar.Bind(p.Name).String()
 	}
 	if p.Value != "" {
 		a += ` value="` + esc(p.Value) + `"`
@@ -314,6 +329,9 @@ func (Kit) Toggle(p ui.ToggleProps) templ.Component {
 	}
 	if p.Name != "" {
 		a += ` name="` + esc(p.Name) + `"`
+		// Bind to a same-named Datastar signal so a form @post submits the value
+		// (Datastar posts signals, not raw form fields).
+		a += " " + datastar.Bind(p.Name).String()
 	}
 	if p.Checked {
 		a += " checked"

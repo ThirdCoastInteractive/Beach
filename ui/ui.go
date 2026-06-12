@@ -8,7 +8,7 @@
 // templ or with plain Go closures (templ.ComponentFunc) interchangeably.
 //
 // Kits never hardcode color, type, space, motion, or depth: those come from
-// Stellar (Datastar Pro) as CSS variables — a panel is background:
+// CSS variables — a panel is background:
 // var(--neutral-2), its ink var(--neutral-2-on); overlays stack on
 // var(--zindex-dialog); and so on. The markup these interfaces produce
 // references those tokens directly, never a literal hex/OKLCH.

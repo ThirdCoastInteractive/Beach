@@ -22,9 +22,7 @@ package main
 import (
 	"bytes"
 	"context"
-	"embed"
 	"io"
-	"io/fs"
 	"log"
 	"log/slog"
 	"math"
@@ -41,13 +39,6 @@ import (
 	"github.com/a-h/templ"
 )
 
-// staticFS holds the assets the page needs: the generated Stellar stylesheet
-// (served at /static/css/stellar.css per framework convention) and the Datastar
-// client the driftwood shell loads from /static/js/datastar.js.
-//
-//go:embed static
-var staticFS embed.FS
-
 const (
 	// raceTopic is the hub topic the ticker publishes frames to and the page's
 	// stream subscribes to.
@@ -63,7 +54,7 @@ const (
 // row) changes over time while its element id stays put.
 var labels = []string{
 	"Driftwood",
-	"Stellar",
+	"Sim",
 	"Datastar",
 	"Hub",
 	"ECS",
@@ -83,16 +74,10 @@ func main() {
 		addr = ":" + p
 	}
 
-	sub, err := fs.Sub(staticFS, "static")
-	if err != nil {
-		log.Fatalf("barrace: static sub-fs: %v", err)
-	}
-
 	h := hub.New()
 
 	app := beach.New(beach.Config{
 		Service: "barrace",
-		Static:  sub,
 		Kit:     beach.KitStatic("driftwood"),
 		Hub:     h,
 		Logger:  logger,
@@ -201,7 +186,7 @@ func raceFragment(n int64) templ.Component {
 // transitions the SVG geometry properties the server changes each frame. Modern
 // browsers animate the presentation attributes x/y/width/height as CSS
 // properties, so morphing a rect to a new geometry tweens instead of snapping.
-// Durations and easings come from Stellar tokens only.
+// Durations and easings come from design tokens only.
 const raceStyle = `<style>
 .br-wrap .chart rect,
 .br-wrap .chart text {

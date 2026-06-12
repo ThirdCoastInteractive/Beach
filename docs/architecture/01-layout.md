@@ -4,7 +4,7 @@
 
 ## Stack contract
 
-net/http (Go 1.22 ServeMux) · templ · Datastar (Go SDK `starfederation/datastar-go`) · Stellar (CSS vars + esbuild) ·
+net/http (Go 1.22 ServeMux) · templ · Datastar (Go SDK `starfederation/datastar-go` + free client core) · Tailwind v4 + rybitten (CSS custom properties) ·
 pgx/v5 + pgxpool · sqlc · goose · Postgres (LISTEN/NOTIFY) ·
 custom `ecs` engine (no third-party ECS). Go 1.26+.
 
@@ -88,7 +88,6 @@ Each app in `examples/` is this exact shape:
 myapp/
 ├── cmd/<service>/         main.go (≈40 lines), handler/, tmpl/{layout,page,ui}/, static/, js/
 ├── internal/db/           sqlc-generated + sql/{migrations,queries}/ + sqlc.yaml
-├── stellar.config.json    design tokens → internal/view/static/css/stellar.css (vendored, served)
 ├── components.beach.yaml  ECS component schema (if the app uses sim)
 ├── Makefile               gen / vet / up / logs / down (stamped by beach new)
 └── docker-compose.yml     postgres + services

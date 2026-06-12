@@ -20,7 +20,7 @@ func render(t *testing.T, c templ.Component) string {
 }
 
 // noColorLiteral fails if the markup carries a hardcoded color (the kit must
-// reference Stellar tokens only). Markup never legitimately contains "color:#"
+// reference design tokens only). Markup never legitimately contains "color:#"
 // or "background:#".
 func noColorLiteral(t *testing.T, name, out string) {
 	t.Helper()
@@ -124,8 +124,7 @@ func TestPageShell(t *testing.T) {
 	for _, want := range []string{
 		"<!DOCTYPE html>",
 		`<html lang="en" class="dw-root">`,
-		`<link rel="stylesheet" href="/static/css/stellar.css">`,
-		`href="/static/css/driftwood.css"`,
+		`<link rel="stylesheet" href="/static/css/app.css">`,
 		`<title>Home</title>`,
 		"hello",
 		"</html>",

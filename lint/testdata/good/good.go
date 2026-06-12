@@ -10,7 +10,7 @@ import (
 // Datastar attributes go through the typed builders, never raw strings.
 var attr = datastar.OnClick("@post('/x')")
 
-// Colors come from Stellar tokens; a var(--token, #fallback) shape is allowed.
+// Colors come from design tokens; a var(--token, #fallback) shape is allowed.
 const swatch = `<span style="color:var(--accent)">hi</span>`
 const swatchFallback = `<rect fill="var(--chart-grid, #000000)"/>`
 

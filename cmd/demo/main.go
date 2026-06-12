@@ -16,9 +16,7 @@ package main
 import (
 	"bytes"
 	"context"
-	"embed"
 	"io"
-	"io/fs"
 	"log"
 	"log/slog"
 	"os"
@@ -33,15 +31,6 @@ import (
 	"github.com/ThirdCoastInteractive/the-beach/ui/driftwood"
 	"github.com/a-h/templ"
 )
-
-// staticFS holds the two assets the page needs: the generated Stellar stylesheet
-// (served at /static/css/stellar.css per the framework convention) and the
-// Datastar client the driftwood shell loads from /static/js/datastar.js. The kit
-// also links /static/css/driftwood.css; it is optional cosmetic polish and 404s
-// harmlessly when absent.
-//
-//go:embed static
-var staticFS embed.FS
 
 // liveTopic is the single hub topic the clock ticker publishes to and the page's
 // stream subscribes to.
@@ -63,20 +52,14 @@ func main() {
 		addr = ":" + p
 	}
 
-	// The demo's own static tree (stellar.css + datastar.js), rooted so that
-	// "css/stellar.css" resolves directly under /static.
-	sub, err := fs.Sub(staticFS, "static")
-	if err != nil {
-		log.Fatalf("demo: static sub-fs: %v", err)
-	}
-
 	// The hub backs the SSE stream; a Ticker fans a freshly rendered clock
-	// fragment to every subscriber once a second.
+	// fragment to every subscriber once a second. The framework serves the kit's
+	// app.css and the Datastar client from its own static tree, so the demo wires
+	// no static FS of its own.
 	h := hub.New()
 
 	app := beach.New(beach.Config{
 		Service: "demo",
-		Static:  sub,
 		Kit:     beach.KitStatic("driftwood"),
 		Hub:     h,
 		Logger:  logger,
@@ -154,7 +137,7 @@ func indexPage(c *beach.Ctx) (beach.View, error) {
 // specimenPage renders the toolkit specimen through the active driftwood kit:
 // ui.SpecimenPage builds the page body (token sheet, icon grid, every Core
 // component, and the 18-chart gallery), and the driftwood shell wraps it with the
-// /static/css/stellar.css link. It is intentionally over the 14KB budget — the
+// /static/css/app.css link. It is intentionally over the 14KB budget — the
 // specimen exists to show everything at once, not to ship to users.
 func specimenPage(c *beach.Ctx) (beach.View, error) {
 	kit := c.Kit()

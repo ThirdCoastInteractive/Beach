@@ -17,11 +17,11 @@ import (
 //
 // It returns the page BODY as a templ.Component (not a full document): ui cannot
 // import the driftwood shell without an import cycle, so the caller wraps the
-// result in its kit's Page shell (which links /static/css/stellar.css). Sections
+// result in its kit's Page shell (which links /static/css/app.css). Sections
 // render in order: a token sheet (palette swatches proving -on contrast), an icon
 // grid, every Core component in representative states, then the 18-chart gallery.
 //
-// Everything cosmetic comes from Stellar CSS variables via inline style only
+// Everything cosmetic comes from CSS variables via inline style only
 // (var(--neutral-1..12)/-on/-dim, var(--primary-*) … var(--named-info-*),
 // var(--chart-qualitative-*)); no hex/OKLCH literal appears here.
 func SpecimenPage(kit Kit) templ.Component {
@@ -47,7 +47,7 @@ func SpecimenPage(kit Kit) templ.Component {
 // step, and a strong step — enough to prove the ramp and its -on ink contrast.
 var paletteTones = []int{2, 6, 9, 11}
 
-// palettes is every Stellar palette the rules sanction for swatching.
+// palettes is every design palette the rules sanction for swatching.
 var palettes = []struct{ name, label string }{
 	{"neutral", "Neutral"},
 	{"primary", "Primary"},
@@ -69,7 +69,7 @@ func specimenTokenSheet(kit Kit) templ.Component {
 		for _, n := range paletteTones {
 			tone := p.name + "-" + strconv.Itoa(n)
 			style := "background:var(--" + tone + ");color:var(--" + tone + "-on);" +
-				"padding:.6rem .5rem;border-radius:var(--radius-2,.4rem);" +
+				"padding:.6rem .5rem;" +
 				"flex:1 1 0;text-align:center;font-size:var(--font-size-0,.85rem);"
 			swatches = append(swatches, rawEl("div", style, "Aa "+strconv.Itoa(n)))
 		}
@@ -112,7 +112,7 @@ func specimenIconGrid(kit Kit) templ.Component {
 	for _, n := range names {
 		cell := wrapEl("div",
 			"display:flex;flex-direction:column;align-items:center;gap:.35rem;"+
-				"padding:.6rem;border:1px solid var(--neutral-6);border-radius:var(--radius-2,.4rem);"+
+				"padding:.6rem;border:1px solid var(--neutral-6);"+
 				"background:var(--neutral-2);color:var(--neutral-2-on);"+
 				"font-size:var(--font-size--1,.75rem);",
 			I(n, IconSize(SizeLg), IconLabel(n)),
@@ -194,6 +194,10 @@ func specimenButtons(kit Kit) templ.Component {
 			{Label: "Delete", Icon: "trash"},
 		},
 	})
+
+	// Hazard is the texture encoding axis: diagonal warning stripes mark an
+	// irreversible/destructive action independent of color.
+	btns = append(btns, b.Button(ButtonProps{Label: "Delete everything", Hazard: true, LeadIcon: "trash"}))
 
 	row := wrap("display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;", btns...)
 	row2 := wrapEl("div", "display:flex;flex-wrap:wrap;gap:1rem;align-items:center;margin-top:.75rem;",
@@ -406,7 +410,7 @@ func specimenGallery(kit Kit) templ.Component {
 			"margin:0 0 .4rem;font-size:var(--font-size-0,.95rem);color:var(--neutral-12);", it.Title)
 		svg := rawHTML(string(it.SVG))
 		cell := wrapEl("div",
-			"padding:.75rem;border:1px solid var(--neutral-6);border-radius:var(--radius-2,.4rem);"+
+			"padding:.75rem;border:1px solid var(--neutral-6);"+
 				"background:var(--neutral-1);color:var(--neutral-1-on);overflow:hidden;",
 			title, svg)
 		cells = append(cells, cell)
@@ -423,7 +427,7 @@ func specimenGallery(kit Kit) templ.Component {
 // --- local render helpers ----------------------------------------------------
 //
 // These mirror noop.go's el/txt but take an inline style string (the sanctioned
-// way to reach a Stellar variable from this catalog file without a kit class).
+// way to reach a design token from this catalog file without a kit class).
 
 // styledEl renders a tag with an inline style attribute and inner components.
 func styledEl(tag, style string, inner ...templ.Component) templ.Component {

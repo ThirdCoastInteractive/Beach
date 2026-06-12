@@ -18,7 +18,7 @@ import (
 var staticEmbedFS embed.FS
 
 // embeddedStatic returns the embedded internal/view/static tree, rooted so that
-// "css/stellar.css" resolves directly (the embed.FS keeps the full path prefix).
+// "css/app.css" resolves directly (the embed.FS keeps the full path prefix).
 func embeddedStatic() fs.FS {
 	sub, err := fs.Sub(staticEmbedFS, "internal/view/static")
 	if err != nil {

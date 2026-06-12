@@ -12,7 +12,7 @@ import (
 // minimum markup needed to prove the toolkit compiles and renders. It is NOT a
 // real theme — ui/driftwood is the reference kit, and apps bring their own. The
 // no-op exists so ui builds and tests standalone (and so a missing kit in a test
-// has something to fall back to). Its markup still references Stellar tokens and
+// has something to fall back to). Its markup still references design tokens and
 // never a hardcoded color.
 type noopKit struct{}
 
@@ -145,6 +145,9 @@ func (noopKit) Button(p ButtonProps, inner ...templ.Component) templ.Component {
 	}
 	if p.Size != "" {
 		cls += " ui-btn-" + string(p.Size)
+	}
+	if p.Hazard {
+		cls += " ui-btn-hazard"
 	}
 	attrs := withAttrs(p.Attrs)
 	typ := p.Type

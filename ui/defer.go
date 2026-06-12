@@ -21,8 +21,8 @@ import (
 // pixels. Anything bigger than the 14KB budget, or an expensive query that
 // shouldn't block first paint, becomes a Defer.
 //
-// The skeleton background uses a Stellar surface token (var(--neutral-2)), never
-// a hardcoded color.
+// The skeleton background comes from the kit's `.ui-defer` class (a surface
+// color in the kit stylesheet), never a hardcoded color in the markup.
 func Defer(p DeferProps) templ.Component {
 	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
 		width := p.Width
@@ -31,7 +31,7 @@ func Defer(p DeferProps) templ.Component {
 		}
 		// The reserved box: inline style carries only dimensions (instance data),
 		// while color/radius/animation come from the .ui-defer class the kit's
-		// CSS styles against Stellar tokens.
+		// CSS styles against design tokens.
 		style := "height:" + html.EscapeString(p.Height) +
 			";width:" + html.EscapeString(width) + ";"
 

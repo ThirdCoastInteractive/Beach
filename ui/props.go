@@ -8,7 +8,7 @@ import (
 // Props structs are immutable by convention: build one, pass it, never mutate.
 // Each may carry an optional datastar.Attrs for server round-trips only.
 
-// Surface names a Stellar surface a component renders on. The kit maps each to a
+// Surface names a a design surface a component renders on. The kit maps each to a
 // background token (e.g. SurfacePanel -> var(--neutral-2)) and its matching
 // -on ink; callers never write a color literal.
 type Surface string
@@ -20,7 +20,7 @@ const (
 )
 
 // Role is a semantic accent shared by buttons, badges, and alerts. It selects a
-// Stellar palette (--primary-*, --error-*, ...), never a literal color.
+// design palette (--primary-*, --error-*, ...), never a literal color.
 type Role string
 
 const (
@@ -34,7 +34,7 @@ const (
 	RoleNeutral Role = ""
 )
 
-// Size is a Stellar fluid-scale step (--size-*) shared across controls.
+// Size is a a fluid-scale step (--size-*) shared across controls.
 type Size string
 
 const (
@@ -43,7 +43,7 @@ const (
 	SizeLg Size = "lg"
 )
 
-// Ratio names a Stellar aspect ratio (--aspect-ratio-*) for the media box.
+// Ratio names a an aspect-ratio token (--aspect-ratio-*) for the media box.
 type Ratio string
 
 const (
@@ -64,7 +64,7 @@ const (
 // --- Layout ---
 
 type ContainerProps struct {
-	MaxWidth string // Stellar size token name or empty for the default gutter
+	MaxWidth string // a size token name or empty for the default gutter
 	Attrs    datastar.Attrs
 }
 
@@ -188,6 +188,7 @@ type ButtonProps struct {
 	Label    string
 	Role     Role
 	Size     Size
+	Hazard   bool // diagonal warning stripes — texture for irreversible/destructive actions
 	LeadIcon string
 	TailIcon string
 	Loading  string // signal expression that flips the loading state, e.g. "$busy"

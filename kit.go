@@ -31,7 +31,7 @@ func KitInstance(k ui.Kit) KitSelector {
 }
 
 // KitNoop selects the toolkit's built-in no-op kit. It renders the skeleton
-// markup against Stellar tokens and is meant for tests and bring-up, not real
+// markup against design tokens and is meant for tests and bring-up, not real
 // apps.
 func KitNoop() KitSelector {
 	return func() ui.Kit { return ui.NoopKit() }

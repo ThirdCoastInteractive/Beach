@@ -13,15 +13,12 @@ type PageProps struct {
 	Lang        string // <html lang>, defaults to "en"
 	Description string // optional meta description
 	BodyClass   string // optional extra class on <body>
-	Stylesheet  string // override the stellar stylesheet href (default below)
+	Stylesheet  string // override the kit stylesheet href (default below)
 }
 
-// stellarHref is the immutable-cached stylesheet path; the only render-blocking
-// resource (the no-blocking law).
-const stellarHref = "/static/css/stellar.css"
-
-// driftwoodHref is the kit's own stylesheet, layered on top of stellar.css.
-const driftwoodHref = "/static/css/driftwood.css"
+// appHref is the kit's single render-blocking stylesheet: the Tailwind build
+// (reset + the dw-* component classes), served from the framework static tree.
+const appHref = "/static/css/app.css"
 
 // Page renders a complete, server-rendered HTML document around body: the
 // <html> shell with theme-correct surfaces, the Datastar module (deferred), and
@@ -36,7 +33,7 @@ func Page(p PageProps, body ...templ.Component) templ.Component {
 		}
 		sheet := p.Stylesheet
 		if sheet == "" {
-			sheet = stellarHref
+			sheet = appHref
 		}
 
 		head := `<!DOCTYPE html><html lang="` + esc(lang) + `" class="dw-root">` +
@@ -47,10 +44,9 @@ func Page(p PageProps, body ...templ.Component) templ.Component {
 		if p.Description != "" {
 			head += `<meta name="description" content="` + esc(p.Description) + `">`
 		}
-		// The stylesheet is the single render-blocking resource; the kit sheet
-		// follows it. Datastar ships deferred (no-blocking law).
+		// The stylesheet is the single render-blocking resource. Datastar ships
+		// deferred (no-blocking law).
 		head += `<link rel="stylesheet" href="` + esc(sheet) + `">` +
-			`<link rel="stylesheet" href="` + driftwoodHref + `">` +
 			`<script type="module" src="/static/js/datastar.js" defer></script>` +
 			`</head>`
 

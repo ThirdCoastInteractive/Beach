@@ -7,9 +7,9 @@ APP := {{.App}}
 BIN := bin/$(APP)
 
 # beach is this checkout's scaffold CLI, resolved through the local `replace` in
-# go.mod, so `make gen` runs it without a network fetch. stellar/sqlc are looked
-# up on PATH and are no-ops (warn-and-continue) when absent, so `make gen` never
-# hard-fails a fresh clone.
+# go.mod, so `make gen` runs it without a network fetch. sqlc is looked up on
+# PATH and is a no-op (warn-and-continue) when absent, so `make gen` never
+# hard-fails a fresh clone. The kit's CSS (app.css) is served by the framework.
 BEACH := go run github.com/ThirdCoastInteractive/the-beach/cmd/beach
 
 .DEFAULT_GOAL := help
@@ -20,8 +20,7 @@ help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 
-gen: ## Regenerate CSS (stellar), DB code + apigen (sqlc), components (beach ecs gen)
-	@command -v stellar >/dev/null 2>&1 && stellar build || echo "skip: stellar not on PATH"
+gen: ## Regenerate DB code + apigen (sqlc), components (beach ecs gen)
 	@command -v sqlc    >/dev/null 2>&1 && sqlc generate || echo "skip: sqlc not on PATH"
 	@test -f components.beach.yaml && $(BEACH) ecs gen || echo "skip: no components.beach.yaml"
 

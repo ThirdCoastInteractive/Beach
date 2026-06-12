@@ -1,0 +1,352 @@
+@import "tailwindcss";
+
+/* House design law: zero border radius, everywhere. Corners are sharp. Driving
+ * this through the radius token scale (rather than editing every component's
+ * `rounded-*`) means every `rounded-sm/md/lg/xl` and its directional variants
+ * resolve to 0 from one place. The fully-rounded `rounded-full` utility is
+ * hardcoded to infinity and ignores these tokens, so the pill/circle holdouts
+ * (badges, avatars, toggle, progress, dots) are flattened explicitly below. */
+@theme {
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
+}
+
+/* Chart + semantic theming tokens. The chart package references these by name
+ * (var(--chart-qualitative-N), var(--success), ...) so SVGs theme from CSS with
+ * no hardcoded color in Go. Tuned for the dark surface.
+ *
+ * The qualitative series colors and the --color-sky-* accent overrides below are
+ * generated from the RYBitten "munsell" gamut (Munsell Color System, 1905):
+ * `go run ./cmd/gamuts -css munsell` and `-accent munsell`. Regenerate from a
+ * different gamut to repaint both charts and the driftwood accent in one swap.
+ * The accent overrides win because driftwood's @apply sky-* rules compile to
+ * var(--color-sky-N) and this unlayered :root beats Tailwind's @layer theme. */
+:root {
+  --chart-qualitative-1: #b5413c;
+  --chart-qualitative-2: #c9653d;
+  --chart-qualitative-3: #dc893d;
+  --chart-qualitative-4: #e1a547;
+  --chart-qualitative-5: #e5c151;
+  --chart-qualitative-6: #79b562;
+  --chart-qualitative-7: #0daa72;
+  --chart-qualitative-8: #249d8f;
+  --chart-qualitative-9: #3b8fab;
+  --chart-qualitative-10: #5a7899;
+  --chart-qualitative-11: #796186;
+  --chart-qualitative-12: #975161;
+  --chart-diverging-1: #38bdf8;
+  --chart-diverging-2: #60a5fa;
+  --chart-diverging-3: #93c5fd;
+  --chart-diverging-4: #c7d2fe;
+  --chart-diverging-5: #e5e7eb;
+  --chart-diverging-6: #fecaca;
+  --chart-diverging-7: #fca5a5;
+  --chart-diverging-8: #f87171;
+  --chart-diverging-9: #ef4444;
+  --chart-diverging-10: #dc2626;
+  --chart-diverging-11: #b91c1c;
+  --chart-diverging-12: #991b1b;
+  --chart-grid: #3f3f46;
+  --chart-emphasis: #e4e4e7;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --error: #f87171;
+  --info: #60a5fa;
+
+  /* Accent ← munsell blue axis. Repaints every driftwood sky-* accent. */
+  --color-sky-300: #b2c4bd;
+  --color-sky-400: #64a1b1;
+  --color-sky-500: #4091ac;
+  --color-sky-600: #3b8ea8;
+  --color-sky-950: #354b45;
+}
+
+/* the-beach reference kit (driftwood) — Tailwind v4 build.
+ * A dark, dense dashboard theme. Components emit semantic dw-* classes; this
+ * sheet styles them with Tailwind utilities via @apply, so markup stays clean
+ * and the whole kit restyles from one place. Zinc surfaces, sky accent. */
+
+@layer components {
+  /* --- root surfaces ---------------------------------------------------- */
+  .dw-root { color-scheme: dark; }
+  .dw-body { @apply m-0 min-h-screen bg-zinc-950 text-zinc-100 antialiased text-[15px] leading-relaxed; font-family: ui-sans-serif, system-ui, sans-serif; }
+
+  /* --- layout ----------------------------------------------------------- */
+  .dw-container { @apply mx-auto w-full max-w-5xl px-6 py-8; }
+  .dw-page-heading { @apply mb-8; }
+  .dw-page-title { @apply m-0 text-2xl font-bold tracking-tight text-zinc-50; }
+  .dw-page-subtitle { @apply mt-1 text-sm text-zinc-400; }
+  .dw-section-heading { @apply mt-8 mb-3 text-lg font-semibold text-zinc-100; }
+
+  .dw-card { @apply overflow-clip rounded-xl border border-zinc-800 bg-zinc-900 text-zinc-100 shadow-sm; }
+  .dw-surface-well { @apply bg-zinc-950 shadow-none; }
+  .dw-card-head { @apply flex items-center gap-3 border-b border-zinc-800 px-4 py-3; }
+  .dw-card-title { @apply m-0 text-sm font-semibold text-zinc-100; }
+  .dw-card-body { @apply p-4; }
+  .dw-card-head-text { @apply grid gap-0.5; }
+  .dw-card-meta { @apply m-0 text-xs text-zinc-400; }
+  .dw-card-head-action { @apply ms-auto; }
+
+  .dw-divider { @apply my-4 border-0 border-t border-zinc-800; }
+  .dw-divider-labeled { @apply flex items-center gap-3 text-xs text-zinc-500; }
+  .dw-divider-labeled::before, .dw-divider-labeled::after { content: ""; @apply flex-1 border-t border-zinc-800; }
+
+  /* --- nav -------------------------------------------------------------- */
+  .dw-navbar { @apply flex items-center gap-4 border-b border-zinc-800 bg-zinc-900 px-4 py-3 text-zinc-100; }
+  .dw-brand { @apply text-base font-bold text-zinc-50 no-underline; }
+  .dw-navlinks { @apply ms-auto flex gap-1; }
+  .dw-navitem { @apply inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm text-zinc-300 no-underline transition-colors hover:bg-zinc-800 hover:text-zinc-100; }
+  .dw-navitem.is-active { @apply bg-zinc-800 text-sky-400; }
+
+  .dw-breadcrumbs .dw-crumbs { @apply m-0 flex list-none flex-wrap gap-2 p-0 text-xs; }
+  .dw-crumb:not(:last-child)::after { content: "/"; @apply ms-2 text-zinc-600; }
+  .dw-crumb-link { @apply text-sky-400 no-underline hover:underline; }
+  .dw-crumb.is-current { @apply text-zinc-400; }
+
+  .dw-tabs .dw-tab-radio { @apply pointer-events-none absolute opacity-0; }
+  .dw-tablist { @apply flex gap-1 border-b border-zinc-800; }
+  .dw-tab { @apply cursor-pointer border-b-2 border-transparent px-4 py-2 text-sm text-zinc-400 hover:text-zinc-100; }
+  .dw-tabs .dw-tab-radio:checked ~ .dw-tablist label.dw-tab { @apply border-sky-500 text-sky-400; }
+
+  .dw-pagination { @apply flex items-center gap-1; }
+  .dw-page-link { @apply min-w-9 rounded-md px-3 py-2 text-center text-sm text-zinc-200 no-underline hover:bg-zinc-800; }
+  .dw-page-link.is-current { @apply bg-sky-600 text-white; }
+  .dw-page-link.is-disabled { @apply pointer-events-none text-zinc-600; }
+
+  /* --- buttons ---------------------------------------------------------- */
+  .dw-btn { @apply inline-flex cursor-pointer items-center justify-center gap-2 rounded-md border border-transparent bg-zinc-800 px-4 py-2 text-sm font-semibold leading-none text-zinc-100 transition-colors hover:bg-zinc-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500; }
+  .dw-btn[disabled], .dw-btn[aria-busy="true"] { @apply cursor-not-allowed opacity-60; }
+  .dw-btn-accent { @apply bg-sky-600 text-white hover:bg-sky-500; }
+  .dw-btn-good { @apply bg-emerald-600 text-white hover:bg-emerald-500; }
+  .dw-btn-danger { @apply bg-red-600 text-white hover:bg-red-500; }
+  .dw-btn-warn { @apply bg-amber-500 text-zinc-950 hover:bg-amber-400; }
+  .dw-btn-info { @apply bg-blue-600 text-white hover:bg-blue-500; }
+  .dw-btn-ghost { @apply border-sky-600 bg-transparent text-sky-400 hover:bg-sky-950; }
+  .dw-btn-quiet { @apply bg-transparent text-zinc-200 hover:bg-zinc-800; }
+  .dw-btn-sm { @apply px-3 py-1 text-xs; }
+  .dw-btn-lg { @apply px-5 py-3 text-base; }
+  .dw-btn-label { @apply inline-block; }
+  /* Texture axis: diagonal hazard stripes mark irreversible/destructive actions.
+     The stripe layer rides under the label (relative children) so text stays
+     legible; the dark scrim keeps contrast on the high-vis pattern. */
+  .dw-btn-hazard { @apply relative overflow-clip border-zinc-950 text-white text-shadow-sm;
+    background-color: #dc2626;
+    background-image: repeating-linear-gradient(-45deg, transparent 0 14px, rgba(0,0,0,.85) 14px 28px);
+  }
+  .dw-btn-hazard:hover { background-color: #ef4444; }
+  .dw-btn-hazard > * { @apply relative; }
+  .dw-iconbtn { @apply inline-flex size-9 cursor-pointer items-center justify-center rounded-md border border-transparent bg-transparent text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500; }
+  .dw-btngroup { @apply inline-flex; }
+  .dw-btngroup > .dw-btn { @apply rounded-none first:rounded-s-md last:rounded-e-md; }
+  .dw-btngroup > .dw-btn + .dw-btn { @apply border-s border-zinc-700; }
+  .dw-menubtn { @apply relative inline-block; }
+  .dw-menu { @apply z-30 m-0 min-w-44 list-none rounded-md border border-zinc-800 bg-zinc-900 p-1 text-zinc-100 shadow-lg; }
+  .dw-menu:popover-open { @apply absolute inset-auto; }
+  .dw-menu-link { @apply flex w-full cursor-pointer items-center gap-2 rounded-sm border-0 bg-transparent px-3 py-2 text-start text-sm text-zinc-200 no-underline hover:bg-zinc-800; }
+
+  /* --- forms ------------------------------------------------------------ */
+  .dw-form { @apply grid gap-4; }
+  .dw-form.is-twocol .dw-field { @apply grid grid-cols-[minmax(0,12rem)_minmax(0,1fr)] items-start gap-3; }
+  .dw-field { @apply mb-4 flex flex-col gap-1.5; }
+  .dw-label { @apply text-sm font-semibold text-zinc-200; }
+  .dw-help { @apply text-xs text-zinc-400; }
+  .dw-field-error { @apply text-xs text-red-400; }
+  .dw-input, .dw-textarea, .dw-select { @apply w-full rounded-md border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 transition-colors placeholder:text-zinc-500 focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500; }
+  .dw-input.is-error, .dw-textarea.is-error, .dw-select.is-error { @apply border-red-500; }
+  .dw-input[disabled], .dw-textarea[disabled] { @apply bg-zinc-900 text-zinc-500; }
+  .dw-textarea { @apply min-h-24 resize-y; }
+  .dw-inputgroup, .dw-input-group { @apply flex items-stretch; }
+  .dw-inputgroup > .dw-input, .dw-inputgroup > .dw-input-group { @apply flex-1 rounded-e-none; }
+  .dw-inputgroup > .dw-btn { @apply rounded-s-none; }
+  .dw-input-addon { @apply inline-flex items-center border border-zinc-700 bg-zinc-900 px-3 text-sm text-zinc-300; }
+  .dw-select-wrap { @apply relative; }
+  .dw-check, .dw-radio-row, .dw-toggle { @apply flex cursor-pointer items-center gap-2 text-sm; }
+  .dw-checkbox, .dw-radio { @apply size-4 accent-sky-500; }
+  .dw-radiogroup { @apply grid gap-2; }
+  .dw-radiogroup.is-inline { @apply grid-flow-col justify-start gap-4; }
+  .dw-toggle { @apply items-start; }
+  .dw-toggle-input { @apply absolute size-px opacity-0; }
+  .dw-toggle-track { @apply relative h-5 w-9 flex-none rounded-full bg-zinc-700 transition-colors; }
+  .dw-toggle-thumb { @apply absolute start-0.5 top-1/2 size-4 -translate-y-1/2 rounded-full bg-white transition-all; }
+  .dw-toggle-input:checked + .dw-toggle-track { @apply bg-sky-600; }
+  .dw-toggle-input:checked + .dw-toggle-track .dw-toggle-thumb { inset-inline-start: calc(100% - 1.25rem); }
+  .dw-toggle-text { @apply grid gap-0.5; }
+  .dw-toggle-desc { @apply text-xs text-zinc-400; }
+  .dw-formerror { @apply flex gap-3 rounded-md border border-red-900 bg-red-950 px-4 py-3 text-red-200; }
+  .dw-formerror-body { @apply grid gap-1; }
+  .dw-formerror-title { @apply font-bold; }
+  .dw-formerror-list { @apply m-0 ps-4; }
+
+  /* --- data ------------------------------------------------------------- */
+  .dw-table { @apply w-full border-collapse text-sm; }
+  .dw-thead { @apply bg-zinc-900; }
+  .dw-th { @apply border-b border-zinc-800 px-3 py-2.5 text-start font-semibold text-zinc-300; }
+  .dw-th-sort { @apply inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent font-semibold text-inherit; }
+  .dw-td { @apply border-b border-zinc-800 px-3 py-2.5 text-zinc-200; }
+  .dw-tr:hover .dw-td { @apply bg-zinc-900; }
+  .dw-table.is-dense .dw-th, .dw-table.is-dense .dw-td { @apply px-2 py-1.5; }
+  .dw-table-empty { @apply p-6 text-center text-zinc-500; }
+  .dw-stat { @apply m-0 grid gap-1; }
+  .dw-stat-label { @apply text-xs uppercase tracking-wide text-zinc-400; }
+  .dw-stat-value { @apply m-0 text-2xl font-bold leading-none text-zinc-50; }
+  .dw-stat-delta { @apply inline-flex items-center gap-1 text-xs font-semibold; }
+  .dw-delta-up { @apply text-emerald-400; }
+  .dw-delta-down { @apply text-red-400; }
+  .dw-badge { @apply inline-flex items-center gap-1 rounded-full bg-zinc-800 px-2 py-0.5 text-xs font-semibold text-zinc-200; }
+  .dw-badge-dot { @apply size-2 rounded-full bg-current; }
+  .dw-badge-accent { @apply bg-sky-950 text-sky-300; }
+  .dw-badge-good { @apply bg-emerald-950 text-emerald-300; }
+  .dw-badge-danger { @apply bg-red-950 text-red-300; }
+  .dw-badge-warn { @apply bg-amber-950 text-amber-300; }
+  .dw-badge-info { @apply bg-blue-950 text-blue-300; }
+  .dw-desclist { @apply m-0 grid gap-2 gap-x-4; }
+  .dw-desclist.is-twocol { @apply grid-cols-[minmax(0,auto)_minmax(0,1fr)]; }
+  .dw-dt { @apply font-semibold text-zinc-400; }
+  .dw-dd { @apply m-0 text-zinc-100; }
+  .dw-stacked { @apply m-0 list-none p-0; }
+  .dw-row { @apply flex items-center gap-3 border-b border-zinc-800 py-3 last:border-b-0; }
+  .dw-row-media { @apply flex-none; }
+  .dw-row-text { @apply grid min-w-0 flex-1 gap-0.5; }
+  .dw-row-title { @apply m-0 font-semibold text-zinc-100 no-underline; }
+  .dw-row-meta { @apply m-0 text-xs text-zinc-400; }
+  .dw-row-action { @apply ms-auto flex flex-none items-center gap-2; }
+
+  /* --- feedback --------------------------------------------------------- */
+  .dw-alert { @apply flex gap-3 rounded-md border border-zinc-800 bg-zinc-900 px-4 py-3 text-zinc-100; }
+  .dw-alert-icon { @apply flex-none; }
+  .dw-alert-body { @apply grid flex-1 gap-1; }
+  .dw-alert-title { @apply font-bold; }
+  .dw-alert-close { @apply flex-none border-0 bg-transparent text-inherit; }
+  .dw-alert-good { @apply border-emerald-900 bg-emerald-950 text-emerald-200; }
+  .dw-alert-warn { @apply border-amber-900 bg-amber-950 text-amber-200; }
+  .dw-alert-danger { @apply border-red-900 bg-red-950 text-red-200; }
+  .dw-alert-info { @apply border-blue-900 bg-blue-950 text-blue-200; }
+  .dw-empty { @apply grid justify-items-center gap-3 px-4 py-10 text-center text-zinc-500; }
+  .dw-empty-icon { @apply text-4xl; }
+  .dw-spinner { @apply inline-flex; }
+  .dw-spinner.is-block { @apply flex justify-center p-5; }
+  .dw-skeleton, .ui-skeleton, .ui-defer { @apply animate-pulse rounded-md bg-zinc-800; }
+  .dw-toast { @apply z-40 flex items-start gap-3 rounded-md border border-zinc-800 bg-zinc-900 px-4 py-3 text-zinc-100 shadow-lg; }
+  .dw-toast-icon { @apply flex-none; }
+  .dw-toast-body { @apply grid flex-1 gap-0.5; }
+  .dw-toast-title { @apply font-bold; }
+  .dw-toast-msg { @apply m-0 text-sm text-zinc-300; }
+  .dw-toast-close { @apply flex-none border-0 bg-transparent text-inherit; }
+  .dw-toast-good { @apply border-emerald-900 bg-emerald-950 text-emerald-200; }
+  .dw-toast-warn { @apply border-amber-900 bg-amber-950 text-amber-200; }
+  .dw-toast-danger { @apply border-red-900 bg-red-950 text-red-200; }
+  .dw-toast-info { @apply border-blue-900 bg-blue-950 text-blue-200; }
+  .dw-progress { @apply h-2 w-full overflow-hidden rounded-full bg-zinc-800; }
+  .dw-progress-bar { @apply h-full rounded-full bg-sky-500 transition-all; }
+  .dw-progress-good .dw-progress-bar { @apply bg-emerald-500; }
+  .dw-progress-danger .dw-progress-bar { @apply bg-red-500; }
+  .dw-progress-warn .dw-progress-bar { @apply bg-amber-500; }
+  .dw-progress-info .dw-progress-bar { @apply bg-blue-500; }
+  .dw-progress.is-indeterminate .dw-progress-bar { @apply w-2/5 animate-pulse; }
+
+  /* --- overlays --------------------------------------------------------- */
+  .dw-modal { @apply z-50 w-[calc(100%-3rem)] max-w-lg rounded-xl border border-zinc-800 bg-zinc-900 p-0 text-zinc-100 shadow-2xl; }
+  .dw-modal::backdrop { @apply bg-black/60; }
+  .dw-modal-head { @apply flex items-center justify-between border-b border-zinc-800 px-4 py-3; }
+  .dw-modal-title { @apply m-0 text-base font-semibold; }
+  .dw-modal-body { @apply p-4; }
+  .dw-drawer { @apply fixed z-40 m-0 h-screen max-h-screen w-[min(28rem,100vw)] border-0 bg-zinc-900 p-0 text-zinc-100 shadow-2xl; }
+  .dw-drawer-right { @apply inset-y-0 end-0; }
+  .dw-drawer-left { @apply inset-y-0 start-0; }
+  .dw-drawer::backdrop { @apply bg-black/40; }
+  .dw-drawer-head { @apply flex items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3; }
+  .dw-drawer-title { @apply m-0 text-base font-semibold; }
+  .dw-drawer-body { @apply overflow-auto p-4; }
+  .dw-popover { @apply relative inline-block; }
+  .dw-popover-panel { @apply z-30 m-0 min-w-44 rounded-md border border-zinc-800 bg-zinc-900 p-3 text-zinc-100 shadow-lg; }
+  .dw-popover-panel:popover-open { @apply absolute inset-auto; }
+  .dw-tooltip { @apply relative inline-flex; }
+  .dw-tooltip-text { @apply pointer-events-none absolute bottom-full left-1/2 z-50 -translate-x-1/2 -translate-y-1 rounded bg-zinc-100 px-2 py-1 text-xs whitespace-nowrap text-zinc-900 opacity-0 transition-opacity; }
+  .dw-tooltip:hover .dw-tooltip-text, .dw-tooltip:focus-within .dw-tooltip-text { @apply opacity-100; }
+
+  /* --- media ------------------------------------------------------------ */
+  .dw-avatar { @apply relative inline-flex size-9 items-center justify-center overflow-hidden rounded-full bg-zinc-800 font-semibold text-zinc-200; }
+  .dw-avatar-sm { @apply size-7 text-xs; }
+  .dw-avatar-lg { @apply size-12 text-base; }
+  .dw-avatar-img { @apply size-full object-cover; }
+  .dw-avatar-status { @apply absolute bottom-0 right-0 size-2.5 rounded-full border-2 border-zinc-950 bg-zinc-500; }
+  .dw-status-online { @apply bg-emerald-500; }
+  .dw-status-away { @apply bg-amber-500; }
+  .dw-aspect { @apply relative w-full overflow-hidden rounded-md bg-zinc-800; aspect-ratio: 1 / 1; }
+  .dw-aspect-square { aspect-ratio: 1 / 1; }
+  .dw-aspect-wide { aspect-ratio: 16 / 9; }
+  .dw-aspect-photo { aspect-ratio: 4 / 3; }
+  .dw-aspect-portrait { aspect-ratio: 3 / 4; }
+  .dw-img { @apply size-full; }
+  .dw-fit-cover { @apply object-cover; }
+  .dw-fit-contain { @apply object-contain; }
+  .dw-figure { @apply m-0 grid gap-2; }
+  .dw-figcaption { @apply text-xs text-zinc-400; }
+
+  /* --- messaging -------------------------------------------------------- */
+  .dw-msglist { @apply m-0 flex list-none flex-col gap-2 p-3; }
+  .dw-msg { @apply flex max-w-[80%] flex-col gap-0.5 rounded-xl bg-zinc-800 px-3 py-2 text-sm text-zinc-100; }
+  .dw-msg.is-own { @apply self-end bg-sky-600 text-white; }
+  .dw-msg.is-system { @apply max-w-none self-center bg-transparent text-xs italic text-zinc-500; }
+  .dw-msg-author { @apply text-xs font-semibold opacity-80; }
+  .dw-msg-time { @apply text-xs opacity-60; }
+  .dw-composer { @apply flex gap-2 border-t border-zinc-800 p-3; }
+  .dw-composer-input { @apply flex-1 resize-none rounded-xl border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100; }
+  .dw-composer-send { @apply inline-flex w-11 items-center justify-center rounded-xl border-0 bg-sky-600 text-white; }
+  .dw-presence { @apply inline-flex items-center gap-2 rounded-full bg-zinc-900 px-3 py-1 text-xs text-zinc-200; }
+  .dw-presence-dot { @apply size-2 rounded-full bg-zinc-500; }
+  .dw-presence.is-connected .dw-presence-dot, .dw-presence.is-paired .dw-presence-dot { @apply bg-emerald-500; }
+  .dw-presence.is-reconnecting .dw-presence-dot, .dw-presence.is-waiting .dw-presence-dot { @apply bg-amber-500; }
+
+  /* --- shell, grids, split ---------------------------------------------- */
+  .dw-shell { @apply flex min-h-screen flex-col; }
+  .dw-shell-top { @apply sticky top-0 z-10 border-b border-zinc-800 bg-zinc-900 text-zinc-100; }
+  .dw-shell-main { @apply min-w-0 flex-1; }
+  .dw-shell-cols { @apply flex min-h-0 flex-1 items-stretch; }
+  .dw-shell-side { @apply w-64 flex-none border-e border-zinc-800 bg-zinc-900 text-zinc-100; }
+  .dw-grid, .dw-gridlist { @apply grid gap-4; grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr)); }
+  .dw-gridlist { @apply m-0 list-none p-0; }
+  .dw-split { @apply grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]; }
+  .dw-sidebar { @apply grid gap-4 px-3 py-4; }
+  .dw-side-label { @apply mb-1 text-xs uppercase tracking-wider text-zinc-500; }
+  .dw-side-items { @apply m-0 grid list-none gap-1 p-0; }
+  .dw-side-link { @apply flex items-center gap-2 rounded-md px-3 py-2 text-sm text-zinc-200 no-underline hover:bg-zinc-800; }
+  .dw-side-link.is-active { @apply bg-zinc-800 text-sky-400; }
+
+  /* --- demo-specific live region ---------------------------------------- */
+  .dw-live { @apply grid gap-1 text-sm; }
+  .dw-clock { @apply m-0 text-zinc-300; }
+  .dw-count { @apply m-0 text-zinc-300; }
+
+  /* Sharp-corner law, part two: the `rounded-full` holdouts. These use the
+     fully-rounded utility (infinity), which the radius tokens above can't
+     reach, so flatten them here. Placed last in the layer to win on source
+     order. Pills become rectangles; dots/avatars/thumbs become squares. */
+  .dw-badge, .dw-badge-dot,
+  .dw-toggle-track, .dw-toggle-thumb,
+  .dw-progress, .dw-progress-bar,
+  .dw-avatar, .dw-avatar-status,
+  .dw-presence, .dw-presence-dot,
+  .dw-tooltip-text { border-radius: 0; } /* bare `rounded` = 0.25rem, also token-blind */
+
+  /* --- chart SVG text --------------------------------------------------- */
+  /* Charts render as <svg class="chart"> emitting semantic text classes but no
+     color of their own — without these rules the text falls back to black and
+     vanishes on the dark surface. `color` seeds currentColor for marks that use
+     it (e.g. a billboard delta with no up/down tint). chart-kpi-delta keeps its
+     own inline semantic fill, so it is only sized here, never recolored. */
+  .chart { color: var(--color-zinc-300); font-family: ui-sans-serif, system-ui, sans-serif; }
+  .chart-axis { fill: var(--color-zinc-500); font-size: 11px; }
+  .chart-label { fill: var(--color-zinc-300); font-size: 12px; }
+  .chart-value { fill: var(--color-zinc-100); font-size: 12px; font-weight: 600; }
+  .chart-gauge-value { fill: var(--chart-emphasis); font-size: 22px; font-weight: 700; }
+  .chart-kpi-label { fill: var(--color-zinc-400); font-size: 13px; }
+  .chart-kpi-value { fill: var(--chart-emphasis); font-size: 30px; font-weight: 700; }
+  .chart-kpi-delta { font-size: 13px; font-weight: 600; }
+}

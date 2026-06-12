@@ -28,7 +28,7 @@ type iconConfig struct {
 	label string
 }
 
-// Spin animates the icon with Stellar's --anim-duration-*/--anim-ease-* tokens
+// Spin animates the icon with the --anim-duration-*/--anim-ease-* tokens
 // (e.g. a loading gear). It is a presentational state, so it stays pure CSS.
 func Spin(c *iconConfig) { c.spin = true }
 
@@ -70,7 +70,7 @@ func UsedIcons() []string {
 //	ui.I("gear", ui.Spin)
 //
 // It records name for build-time font subsetting and returns a templ.Component.
-// Color, size, and the spin animation come from Stellar tokens via the icon
+// Color, size, and the spin animation come from design tokens via the icon
 // class; nothing is hardcoded.
 func I(name string, opts ...IconOpt) templ.Component {
 	recordIcon(name)

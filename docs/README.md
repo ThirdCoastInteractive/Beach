@@ -2,14 +2,14 @@
 
 A reusable, hypermedia-first, SSR web framework for Go, with a custom entity
 component system for realtime app state.
-Stack: net/http · templ · Datastar · Stellar · pgx · sqlc · goose · Postgres
+Stack: net/http · templ · Datastar (free core) · Tailwind v4 + rybitten · pgx · sqlc · goose · Postgres
 LISTEN/NOTIFY · SSE · custom `ecs` engine. The module root is the framework's
 front door: `import beach "github.com/ThirdCoastInteractive/the-beach"`.
 
-**Status:** all six [roadmap](ROADMAP.md) blocks built. 27 packages, ~24.7k LOC, `go
+**Status:** all six [roadmap](ROADMAP.md) blocks built. 28 packages, ~24.7k LOC, `go
 build/vet/test ./...` green; the root `beach` package, the `driftwood` kit, `sim`,
-`chart`, `apigen`, the scaffold/lint/perf tooling, and all three example apps compile,
-test, and serve. Known rough edges are tracked in [17-gaps.md](architecture/17-gaps.md).
+`chart`, the `rybitten` color package, `apigen`, the scaffold/lint/perf tooling, and
+all the example apps compile, test, and serve. Known rough edges are tracked in [17-gaps.md](architecture/17-gaps.md).
 The RFC and architecture docs are the design of record.
 
 ## The realtime spine
@@ -53,6 +53,7 @@ flowchart BT
     datastar["datastar"]
     ui["ui + driftwood kit"]
     chart["chart<br/>SSR SVG"]
+    rybitten["rybitten<br/>RYB color, gamuts<br/>standalone, zero deps"]
     ch["ch<br/>ClickHouse"]
     i18n["i18n"]
     beach["beach (module root)<br/>App, Ctx, handler shapes"]
@@ -92,7 +93,13 @@ flowchart BT
     app --> pg
     app --> config
     other --> ecs
+    rybitten -. "CSS tokens (offline)" .-> chart
+    rybitten -. "accent (offline)" .-> ui
 ```
+
+(Dotted edges are not Go imports: `rybitten` generates the CSS variables that
+`chart` and the `driftwood` accent consume at runtime — see
+[19 — rybitten](architecture/19-rybitten.md).)
 
 ## RFC — the why and the what
 
@@ -121,9 +128,11 @@ flowchart BT
 | [12 — Auth](architecture/12-auth.md)                    | argon2id passwords, login flow, principal/RBAC, guards                                   |
 | [13 — API codegen](architecture/13-apigen.md)           | `beach-apigen`: six SQL annotations → routes, handlers, NOTIFY (hypermedia-only)         |
 | [14 — Analytics](architecture/14-analytics.md)          | `chart` (SSR SVG, 18 types) + `ch` (ClickHouse client, batcher, migrations)              |
-| [15 — Example apps](architecture/15-examples.md)        | boardwalk (Monopoly/sim), driftbottle (stranger chat/hub), pantry (ERP/apigen+analytics) |
+| [15 — Example apps](architecture/15-examples.md)        | boardwalk (sim), driftbottle (hub), pantry (apigen+analytics), hush (custom layout/storage) |
 | [16 — Component catalog](architecture/16-components.md) | The concrete component/layout inventory by Kit sub-interface, and the specimen page      |
 | [17 — Gaps](architecture/17-gaps.md)                    | Framework rough edges the example apps surfaced, with proposed fixes                     |
+| [18 — hush](architecture/18-hush.md)                    | Gated anon board: custom gapless grid, WebGPU camera island, `storage` + Repute scoring  |
+| [19 — rybitten](architecture/19-rybitten.md)            | RYB color model port, 36 gamut presets, palette generation, charts+accent retheming, `cmd/gamuts` |
 
 ## Reading paths
 
@@ -132,3 +141,4 @@ flowchart BT
 - **Auditing the frontend story?** Architecture 3 → 6 → 16 → 9.
 - **Auditing auth & codegen?** Architecture 12 → 13 → 10.
 - **Building project 1?** Architecture 1 → 2, RFC 4 for scope.
+- **Changing the color palette?** Architecture 19 → 14 (chart theming) → 6 (UI tokens).

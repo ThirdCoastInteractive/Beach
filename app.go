@@ -53,7 +53,7 @@ type Config struct {
 
 	// Static is the filesystem served under /static (with boot-time ETags and
 	// immutable cache headers). When nil, the framework serves the embedded
-	// internal/view/static tree (the Stellar stylesheet and friends).
+	// internal/view/static tree (the kit stylesheet and the Datastar client).
 	Static fs.FS
 
 	// Kit selects the UI kit injected into every request context, surfaced to
@@ -141,22 +141,13 @@ func New(cfg Config) *App {
 	// first request. A nil selector defers to the registered mandatory kit.
 	a.kit = resolveKit(cfg.Kit)
 
-	// Static tree, overlaid in order: the framework's canonical assets (the
-	// generated stellar.css and the Datastar client) always serve and take
-	// precedence, then the app's own static (images, etc.), then the kit's assets
-	// (its stylesheet, via ui.AssetKit). Apps never copy stellar.css/datastar.js —
-	// they get the fresh framework copies here, so a regenerated stylesheet can't
-	// go stale behind a per-app duplicate.
-	layers := []fs.FS{embeddedStatic()}
+	// Static tree, overlaid framework-first: the framework's canonical assets
+	// (the kit's app.css and the Datastar client) always serve and take
+	// precedence, then the app's own static (images, etc.). Apps never copy the
+	// stylesheet or datastar.js — they get the framework copies here.
+	staticFS := fs.FS(embeddedStatic())
 	if cfg.Static != nil {
-		layers = append(layers, cfg.Static)
-	}
-	if ak, ok := a.kit.(ui.AssetKit); ok {
-		layers = append(layers, ak.Assets())
-	}
-	var staticFS fs.FS = layers[0]
-	if len(layers) > 1 {
-		staticFS = overlayFS{layers: layers}
+		staticFS = overlayFS{layers: []fs.FS{embeddedStatic(), cfg.Static}}
 	}
 	sh, err := newStaticHandler(staticFS, cfg.Release)
 	if err != nil {
@@ -183,7 +174,7 @@ func (a *App) Kit() ui.Kit { return a.kit }
 func (a *App) Logger() *slog.Logger { return a.log }
 
 // AssetURL returns the cache-busted URL for a static asset path (e.g.
-// "css/stellar.css" -> "/static/css/stellar.css?v=..."). Templates call this so
+// "css/app.css" -> "/static/css/app.css?v=..."). Templates call this so
 // every deploy busts caches without a manifest.
 func (a *App) AssetURL(path string) string {
 	return a.static.assetURL(path)

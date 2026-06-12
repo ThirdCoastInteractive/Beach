@@ -1,16 +1,16 @@
 // Package driftwood is the-beach's reference ui.Kit — a real, themed
 // implementation of the toolkit (not the bundled NoopKit). It renders clean
 // semantic HTML whose every color, space, radius, and motion value comes from a
-// Stellar CSS variable (var(--neutral-2), var(--primary-6), …); no literal
-// hex/OKLCH ever appears in the markup. The kit's own stylesheet lives at
-// css/driftwood.css and rides on top of the generated stellar.css.
+// CSS custom property (var(--neutral-2), var(--primary-6), …); no literal
+// hex/OKLCH ever appears in the markup. The kit's styles compile into the single
+// generated css/app.css (the Tailwind build: reset, tokens, and the dw-* classes).
 //
 // A kit travels in the request context; driftwood registers itself in init()
 // and an app pulls it in with a side-effect import:
 //
 //	import _ "github.com/ThirdCoastInteractive/the-beach/ui/driftwood"
 //
-// Page renders the <html> shell (stylesheet link to /static/css/stellar.css,
+// Page renders the <html> shell (stylesheet link to /static/css/app.css,
 // theme-correct surfaces) so an app can serve a complete document with the kit.
 package driftwood
 
