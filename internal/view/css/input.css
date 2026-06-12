@@ -904,6 +904,8 @@
 .icon-send::before           { content: "➤"; }
 .icon-skip-forward::before   { content: "⏭\FE0E"; }
 .icon-spinner::before        { content: "◐"; } /* asymmetric, so icon-spin reads */
+.icon-thumb-down::before     { content: "👎\FE0E"; }
+.icon-thumb-up::before       { content: "👍\FE0E"; }
 .icon-trash::before          { content: "🗑\FE0E"; }
 .icon-x::before              { content: "✕"; }
 
