@@ -16,32 +16,42 @@
 // the Board projection fans the fresh board to every connection; a per-player
 // Cash projection updates your private hand on your own user:<seat> topic.
 //
+// The cash race card is the server-animated chart pattern: a hub ticker
+// re-renders the bar-race fragment from the live standings once a second and
+// publishes it when it changed; Datastar morphs the SVG in place and CSS
+// transitions tween the bars. /specimen serves the framework's living
+// component showcase.
+//
 // No database is required to play — persistence lanes are documented in
 // docs/architecture/08-sim.md but the runnable demo is pure in-memory.
 package main
 
 import (
+	"bytes"
 	"context"
-	"io"
 	"log"
 	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
+	"time"
 
 	beach "github.com/ThirdCoastInteractive/the-beach"
-	"github.com/ThirdCoastInteractive/the-beach/datastar"
 	"github.com/ThirdCoastInteractive/the-beach/hub"
 	"github.com/ThirdCoastInteractive/the-beach/sim"
-	"github.com/ThirdCoastInteractive/the-beach/ui"
 	"github.com/ThirdCoastInteractive/the-beach/ui/driftwood"
-	"github.com/a-h/templ"
+	"github.com/ThirdCoastInteractive/the-beach/ui/specimen"
 )
 
 // seatCookie names the cookie that ties a browser to its claimed seat. With no
 // database, this is the whole "session" — a small integer seat index. A browser
 // without it is a spectator.
 const seatCookie = "bw_seat"
+
+// raceTopic is the hub topic the cash-race ticker publishes frames to and the
+// /race stream subscribes to. The race is main-level wiring (a ticker), not a
+// sim projection, so the topic lives here rather than in game.go.
+const raceTopic = "race"
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -65,7 +75,6 @@ func main() {
 
 	app := beach.New(beach.Config{
 		Service: "boardwalk",
-		Kit:     beach.KitStatic("driftwood"),
 		Hub:     h,
 		Logger:  logger,
 	})
@@ -77,13 +86,39 @@ func main() {
 	app.Action("/roll", srv.rollAction)
 	app.Stream("/board", srv.boardStream) // shared board (spectators included)
 	app.Stream("/hand", srv.handStream)   // per-player private hand
+	app.Stream("/race", srv.raceStream)   // shared cash race
+
+	// The living component showcase, mounted so the example doubles as a kit
+	// browser.
+	app.Page("/specimen", func(c *beach.Ctx) (beach.View, error) {
+		return beach.View{Page: specimen.Page()}, nil
+	})
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	go game.Run(ctx)
 
+	// The race ticker is the chart's animation engine: each second it snapshots
+	// the game, re-lays-out the cash race, and publishes the rendered fragment —
+	// but only when the standings actually changed, so idle tables stay silent.
+	// The client does no animation work: Datastar morphs the new SVG in and the
+	// chart CSS transitions tween the geometry.
+	var lastRace []byte
+	go h.Ticker(ctx, raceTopic, time.Second, func() (hub.Event, bool) {
+		snap, err := game.Snapshot(ctx)
+		if err != nil {
+			return hub.Event{}, false
+		}
+		frame := renderToBytes(raceFragment(raceLayout(snap)))
+		if frame == nil || bytes.Equal(frame, lastRace) {
+			return hub.Event{}, false
+		}
+		lastRace = frame
+		return hub.Event{Bytes: frame}, true
+	})
+
 	logger.Info("boardwalk: starting", "addr", addr,
-		"routes", "GET / , POST /join , POST /roll , GET /board , GET /hand , GET /static/...")
+		"routes", "GET / , POST /join , POST /roll , GET /board , GET /hand , GET /race , GET /specimen , GET /static/...")
 	if err := app.Start(addr); err != nil {
 		log.Fatalf("boardwalk: %v", err)
 	}
@@ -109,10 +144,9 @@ func seatFrom(c *beach.Ctx) int {
 }
 
 // indexPage renders the full board page on navigation and patches the board on a
-// Datastar request. The page opens two SSE streams on load: the shared board and
-// (if seated) the private hand.
+// Datastar request. The page opens three SSE streams on load: the shared board,
+// the private hand (if seated), and the cash race.
 func (s *server) indexPage(c *beach.Ctx) (beach.View, error) {
-	kit := c.Kit()
 	seat := seatFrom(c)
 
 	snap, err := s.game.Snapshot(c.Context())
@@ -120,46 +154,16 @@ func (s *server) indexPage(c *beach.Ctx) (beach.View, error) {
 		return beach.View{}, err
 	}
 
-	heading := kit.Layout().PageHeading(ui.PageHeadingProps{
-		Title:    "Boardwalk",
-		Subtitle: "A sim/ecs real-estate game. Roll, move, buy, pay rent — live over SSE.",
-	})
-
-	boardCard := kit.Layout().Card(ui.CardProps{
-		Surface: ui.SurfacePanel,
-		Heading: "Board",
-	}, boardFragment(snap))
-
-	handCard := kit.Layout().Card(ui.CardProps{
-		Surface: ui.SurfaceWell,
-		Heading: "Your hand",
-	}, handFragment(snap, seat))
-
-	// Open the streams on load: board always; hand always (it self-resolves the
-	// spectator case server-side from the cookie).
-	body := kit.Layout().Container(ui.ContainerProps{
-		Attrs: datastar.Attrs{datastar.Init("@get('/board'); @get('/hand')")},
-	},
-		heading,
-		sinks(), // stable #bw-toast and #bw-reload morph targets
-		kit.Layout().Grid(ui.GridProps{Cols: 2}, boardCard, handCard),
-	)
-
-	page := driftwood.Page(driftwood.PageProps{
-		Title:       "Boardwalk — the-beach",
-		Description: "A database-less sim/ecs board game over SSE.",
-	}, body)
-
 	return beach.View{
-		Page:     page,
+		Page:     indexView(snap, seat, raceLayout(snap)),
 		Fragment: boardFragment(snap),
 		Target:   boardTarget,
 	}, nil
 }
 
 // joinAction claims a seat for this browser. It Asks the sim to claim the next
-// open seat, sets the seat cookie, and reloads so the controls switch to "Roll"
-// and the hand stream opens for the new seat.
+// open seat, sets the seat cookie, and patches a data-init element that re-opens
+// the hand stream so the controls switch to "Roll" for the new seat.
 func (s *server) joinAction(c *beach.Ctx) (beach.Patches, error) {
 	if seat := seatFrom(c); seat >= 0 {
 		return beach.Patches{}, nil // already seated
@@ -171,8 +175,8 @@ func (s *server) joinAction(c *beach.Ctx) (beach.Patches, error) {
 	if seat < 0 {
 		// Table full — surface a toast.
 		return beach.Patches{{
-			Fragment: c.Kit().Feedback().Toast(ui.ToastProps{
-				Role: ui.RoleWarn, Title: "Table full", Message: "All seats are taken. Spectate for now.",
+			Fragment: driftwood.Toast(driftwood.ToastProps{
+				Role: driftwood.RoleWarn, Title: "Table full", Message: "All seats are taken. Spectate for now.",
 			}),
 			Target: "bw-toast", Mode: beach.PatchInner,
 		}}, nil
@@ -195,27 +199,6 @@ func (s *server) joinAction(c *beach.Ctx) (beach.Patches, error) {
 	}}, nil
 }
 
-// sinks renders the two always-present morph targets: a toast region for action
-// feedback and the #bw-reopen sink the join action patches a data-init element
-// into to re-open the hand stream. Keeping them in the initial document means
-// action patches always have a stable target.
-func sinks() templ.Component {
-	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
-		_, err := io.WriteString(w, `<div id="bw-toast" class="bw-toast-region" aria-live="polite"></div><div id="bw-reopen" hidden></div>`)
-		return err
-	})
-}
-
-// reopenHand renders a data-init element that re-fires @get('/hand'). Patched
-// into #bw-reopen after a seat claim, it makes Datastar open a fresh hand stream
-// that resubscribes to user:<seat> with the just-set cookie.
-func reopenHand() templ.Component {
-	return templ.ComponentFunc(func(ctx context.Context, w io.Writer) error {
-		_, err := io.WriteString(w, `<div data-init="@get('/hand')"></div>`)
-		return err
-	})
-}
-
 // rollAction rolls for this browser's seat. The Ask returns the outcome; the
 // board/hand projections push the visible state, so the action itself only needs
 // to surface a toast on an invalid move (not your turn, open seat).
@@ -223,8 +206,8 @@ func (s *server) rollAction(c *beach.Ctx) (beach.Patches, error) {
 	seat := seatFrom(c)
 	if seat < 0 {
 		return beach.Patches{{
-			Fragment: c.Kit().Feedback().Toast(ui.ToastProps{
-				Role: ui.RoleInfo, Title: "Spectating", Message: "Take a seat to roll.",
+			Fragment: driftwood.Toast(driftwood.ToastProps{
+				Role: driftwood.RoleInfo, Title: "Spectating", Message: "Take a seat to roll.",
 			}),
 			Target: "bw-toast", Mode: beach.PatchInner,
 		}}, nil
@@ -233,14 +216,14 @@ func (s *server) rollAction(c *beach.Ctx) (beach.Patches, error) {
 	if err != nil {
 		return nil, err
 	}
-	role := ui.RoleGood
+	role := driftwood.RoleGood
 	title := "Rolled"
 	if !res.OK {
-		role = ui.RoleWarn
+		role = driftwood.RoleWarn
 		title = "Hold on"
 	}
 	return beach.Patches{{
-		Fragment: c.Kit().Feedback().Toast(ui.ToastProps{Role: role, Title: title, Message: res.Msg}),
+		Fragment: driftwood.Toast(driftwood.ToastProps{Role: role, Title: title, Message: res.Msg}),
 		Target:   "bw-toast", Mode: beach.PatchInner,
 	}}, nil
 }
@@ -278,6 +261,23 @@ func (s *server) handStream(c *beach.Ctx) (beach.Sub, error) {
 		Topics: topics,
 		CatchUp: func(_ string, p beach.Patcher) error {
 			return p.Patch(beach.Patch{Fragment: handFragment(snap, seat), Target: handTarget})
+		},
+	}, nil
+}
+
+// raceStream is the shared cash-race surface. Catch-up renders the current
+// standings immediately; afterwards the ticker's published frames keep the
+// chart moving (the ticker dedupes, so this catch-up is what a fresh
+// connection sees until the standings change).
+func (s *server) raceStream(c *beach.Ctx) (beach.Sub, error) {
+	snap, err := s.game.Snapshot(c.Context())
+	if err != nil {
+		return beach.Sub{}, err
+	}
+	return beach.Sub{
+		Topics: []string{raceTopic},
+		CatchUp: func(_ string, p beach.Patcher) error {
+			return p.Patch(beach.Patch{Fragment: raceFragment(raceLayout(snap)), Target: raceTarget})
 		},
 	}, nil
 }

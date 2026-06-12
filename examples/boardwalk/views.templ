@@ -1,0 +1,180 @@
+// boardwalk's views, as templ components. The handlers and sim wiring
+// (main.go, game.go) stay plain Go and call these with snapshot data;
+// everything that emits markup lives here. Fragments carry stable DOM ids
+// (views.go) so SSE projections morph them in place.
+package main
+
+import (
+	"fmt"
+
+	"github.com/ThirdCoastInteractive/the-beach/chart"
+	"github.com/ThirdCoastInteractive/the-beach/datastar"
+	"github.com/ThirdCoastInteractive/the-beach/ui/driftwood"
+)
+
+// indexView is the full board page. data-init on the container opens the three
+// SSE streams the moment the page is interactive: the shared board, the private
+// hand (it self-resolves the spectator case server-side), and the cash race.
+templ indexView(snap boardSnapshot, seat int, lay chart.BarRaceLayout) {
+	@driftwood.Page(driftwood.PageProps{
+		Title:       "Boardwalk — the-beach",
+		Description: "A database-less sim/ecs board game over SSE.",
+	}) {
+		@driftwood.Container(driftwood.ContainerProps{
+			Attrs: datastar.Attrs{datastar.Init("@get('/board'); @get('/hand'); @get('/race')")},
+		}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{
+				Title:    "Boardwalk",
+				Subtitle: "A sim/ecs real-estate game. Roll, move, buy, pay rent — live over SSE.",
+			})
+			@sinks()
+			@driftwood.Grid(driftwood.GridProps{Cols: 2}) {
+				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Board"}) {
+					@boardFragment(snap)
+				}
+				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfaceWell, Heading: "Your hand"}) {
+					@handFragment(snap, seat)
+				}
+				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Cash race"}) {
+					@raceFragment(lay)
+				}
+			}
+		}
+	}
+}
+
+// sinks renders the two always-present morph targets: a toast region for action
+// feedback and the #bw-reopen sink the join action patches a data-init element
+// into to re-open the hand stream. Keeping them in the initial document means
+// action patches always have a stable target.
+templ sinks() {
+	<div id="bw-toast" class="bw-toast-region" aria-live="polite"></div>
+	<div id="bw-reopen" hidden></div>
+}
+
+// reopenHand renders a data-init element that re-fires @get('/hand'). Patched
+// into #bw-reopen after a seat claim, it makes Datastar open a fresh hand stream
+// that resubscribes to user:<seat> with the just-set cookie.
+templ reopenHand() {
+	<div data-init="@get('/hand')"></div>
+}
+
+// boardFragment renders the whole shared board surface: the turn banner, the
+// tile ring, the standings, and the log. It carries id=boardTarget so every
+// projection morphs it in place.
+templ boardFragment(snap boardSnapshot) {
+	<div id={ boardTarget } class="bw-board">
+		<p class="bw-turn">
+			Current turn: <strong>{ turnName(snap) }</strong>
+			if snap.board.LastD1 > 0 {
+				<span class="bw-dice">{ fmt.Sprintf("last roll %d + %d", snap.board.LastD1, snap.board.LastD2) }</span>
+			}
+		</p>
+		<div class="bw-tiles">
+			for idx, t := range board {
+				@boardTile(snap, idx, t)
+			}
+		</div>
+		<div class="bw-standings">
+			<h3>Standings</h3>
+			<ul>
+				for _, p := range snap.players {
+					if p.Spec {
+						<li class="bw-open">{ p.Name } <em>open seat</em></li>
+					} else {
+						<li>
+							{ p.Token + " " + p.Name + " — " + dollars(p.Cash) }
+							if p.Seat == snap.board.Turn {
+								<span class="bw-toturn">▶</span>
+							}
+						</li>
+					}
+				}
+			</ul>
+		</div>
+		<div class="bw-log">
+			<h3>Game log</h3>
+			<ol>
+				for _, ln := range snap.board.Log {
+					<li>{ ln }</li>
+				}
+			</ol>
+		</div>
+	</div>
+}
+
+// boardTile is one square of the ring: name, price-or-owner meta for
+// properties, and the tokens currently standing on it.
+templ boardTile(snap boardSnapshot, idx int, t tile) {
+	<div
+		class="bw-tile"
+		if t.Group != "" {
+			style={ groupAccent(t.Group) }
+		}
+	>
+		<div class="bw-tile-name">{ t.Name }</div>
+		if t.Kind == kindProperty {
+			if owner, ok := snap.owners[idx]; ok {
+				<div class="bw-tile-meta">{ "owned " + owner }</div>
+			} else {
+				<div class="bw-tile-meta">{ dollars(t.Price) }</div>
+			}
+		}
+		{{ here := tokensOn(snap, idx) }}
+		if here != "" {
+			<div class="bw-tile-here">{ here }</div>
+		}
+	</div>
+}
+
+// handFragment renders one player's private panel: cash, position, deeds, and
+// the turn control. The seat-claim and Roll controls live here so the SSE
+// stream swaps them with no page reload (and no inline script — the CSP
+// forbids it). Carries id=handTarget.
+templ handFragment(snap boardSnapshot, seat int) {
+	<div id={ handTarget } class="bw-hand">
+		if seat < 0 || seat >= len(snap.players) {
+			<p>Spectating. Join to get a hand.</p>
+			@driftwood.Button(driftwood.ButtonProps{
+				Label: "Take a seat",
+				Role:  driftwood.RoleAccent,
+				Attrs: datastar.Attrs{datastar.OnClick("@post('/join')")},
+			})
+		} else {
+			{{ p := snap.players[seat] }}
+			<h3>{ p.Token + " " + p.Name }</h3>
+			<p class="bw-cash">Cash: <strong>{ dollars(p.Cash) }</strong></p>
+			<p>On: <strong>{ board[p.Square].Name }</strong></p>
+			<h4>Your deeds</h4>
+			<ul class="bw-deeds">
+				{{ deeds := deedsOf(snap, p.Token) }}
+				if len(deeds) == 0 {
+					<li class="bw-muted">none yet</li>
+				}
+				for _, d := range deeds {
+					<li>{ d }</li>
+				}
+			</ul>
+			if snap.board.Turn == seat {
+				@driftwood.Button(driftwood.ButtonProps{
+					Label: "Roll dice",
+					Role:  driftwood.RoleAccent,
+					Attrs: datastar.Attrs{datastar.OnClick("@post('/roll')")},
+				})
+			} else {
+				<p class="bw-muted">Waiting for your turn…</p>
+			}
+		}
+	</div>
+}
+
+// raceFragment is the live cash race: a fixed id=raceTarget wrapper around one
+// bar-race frame. The ticker in main.go re-renders and publishes this whole
+// fragment each tick; Datastar morphs it in place and the chart CSS transition
+// on .race-fill tweens the bar geometry between frames — no client animation
+// code.
+templ raceFragment(lay chart.BarRaceLayout) {
+	<div id={ raceTarget } class="bw-race">
+		@chart.BarRaceSVG(lay)
+	</div>
+}

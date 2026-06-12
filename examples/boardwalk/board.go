@@ -59,19 +59,21 @@ const salary = 200
 // startingCash is each player's opening balance.
 const startingCash = 1500
 
-// groupColor maps a property's group label to a design token used for the
-// board legend swatch (color via token only).
+// groupColor maps a property's group label to a series token used for the
+// board legend swatch (color via token only). The four groups are spread
+// evenly around the 15-step qualitative series palette so they read as
+// distinct hues whatever gamut is active.
 func groupColor(group string) string {
 	switch group {
 	case "teal":
-		return "var(--primary-6)"
+		return "var(--color-series-a)"
 	case "coral":
-		return "var(--error-6)"
+		return "var(--color-series-e)"
 	case "amber":
-		return "var(--warning-6)"
+		return "var(--color-series-i)"
 	case "violet":
-		return "var(--accent-6)"
+		return "var(--color-series-m)"
 	default:
-		return "var(--neutral-6)"
+		return "var(--color-line-strong)"
 	}
 }
