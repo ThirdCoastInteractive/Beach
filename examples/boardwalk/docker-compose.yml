@@ -1,0 +1,17 @@
+name: boardwalk
+
+# Standalone runner for the boardwalk example (in-memory sim/ecs board game).
+#
+#   docker compose up --build      →  http://localhost:8080
+#
+# No database — the whole game lives in the ecs.Store. The image is built from the
+# repo root via the shared Dockerfile (APP build arg).
+services:
+  boardwalk:
+    build:
+      context: ../..
+      args: { APP: boardwalk }
+    environment:
+      PORT: "8080" # in-container listen port (the host port is mapped below)
+    ports: ["${PORT:-8080}:8080"]
+    restart: unless-stopped

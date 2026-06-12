@@ -1,0 +1,59 @@
+name: pantry
+
+# Standalone runner for the pantry example (CRUD / apigen / auth / analytics).
+#
+#   docker compose up --build      →  http://localhost:8080   (admin / password)
+#
+# Postgres and ClickHouse are internal-only (no host port mapping); only the app
+# is published. The image is built from the repo root via the shared Dockerfile.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: beach
+      POSTGRES_PASSWORD: beach
+      POSTGRES_DB: pantry
+    volumes: [pgdata:/var/lib/postgresql/data]
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U beach -d pantry"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    environment:
+      CLICKHOUSE_USER: beach
+      CLICKHOUSE_PASSWORD: beach
+      CLICKHOUSE_DB: beach
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  pantry:
+    build:
+      context: ../..
+      args: { APP: pantry }
+    environment:
+      PORT: "8080"
+      # Reached by service name on the internal network; never published to host.
+      DATABASE_URL: postgres://beach:beach@postgres:5432/pantry?sslmode=disable
+      CLICKHOUSE_DSN: clickhouse://beach:beach@clickhouse:9000/beach
+    networks: [internal]
+    ports: ["${PORT:-8080}:8080"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      clickhouse: { condition: service_healthy }
+    restart: unless-stopped
+
+networks:
+  internal: { driver: bridge }
+
+volumes:
+  pgdata:

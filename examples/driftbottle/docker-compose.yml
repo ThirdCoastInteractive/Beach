@@ -1,0 +1,17 @@
+name: driftbottle
+
+# Standalone runner for the driftbottle example (ephemeral stranger chat).
+#
+#   docker compose up --build      →  http://localhost:8080
+#
+# No database — sessions and the rolling message buffer are in-process only. The
+# image is built from the repo root via the shared Dockerfile (APP build arg).
+services:
+  driftbottle:
+    build:
+      context: ../..
+      args: { APP: driftbottle }
+    environment:
+      PORT: "8080" # in-container listen port (the host port is mapped below)
+    ports: ["${PORT:-8080}:8080"]
+    restart: unless-stopped
