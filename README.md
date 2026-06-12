@@ -16,12 +16,13 @@ spine, package dependencies) and links every sub-document:
 
 - [RFC](docs/rfc/01-charter.md) (4 docs) — charter, scope (packages + framework
   laws), the ECS pitch, program of projects + risks.
-- [Architecture](docs/architecture/01-layout.md) (15 docs) — module layout (per
+- [Architecture](docs/architecture/01-layout.md) (19 docs) — module layout (per
   [go.dev/doc/modules/layout](https://go.dev/doc/modules/layout)), boot spine, the
   root `beach` package + handler shapes, hub, cache/session/i18n, the `ui` toolkit
   (14KB rule, deferred sections), the `ecs` engine, the `sim`, lifecycles, tooling,
   decisions log, auth (argon2id + RBAC), API codegen, analytics (`chart` SSR SVG +
-  `ch` ClickHouse), and the example trio (boardwalk / driftbottle / pantry).
+  `ch` ClickHouse), RYB color & gamut theming (`rybitten` + `cmd/gamuts`), and the
+  example apps (boardwalk / driftbottle / pantry / hush).
 
 ## Branching & releases
 
