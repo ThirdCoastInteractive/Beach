@@ -168,7 +168,6 @@ func (a *app) routes(app *beach.App) {
 		postGuard = append(postGuard, app.Can("post"))
 	}
 	app.Action("/posts", a.createPost, postGuard...)
-	app.Action("/p/{id}/comments", a.addComment, postGuard...)
 	app.Action("/p/{id}/vote", a.votePost, postGuard...)
 	app.Raw(http.MethodPost, "/upload", a.uploadImage, postGuard...)
 
@@ -240,11 +239,10 @@ func (a *app) postView(c *beach.Ctx) (beach.View, error) {
 	}
 	newer, moreNewer := a.store.neighbors(id, true, feedSpan)
 	older, moreOlder := a.store.neighbors(id, false, feedSpan)
-	comments := a.store.listComments(id)
 	handle, canPost, admin := a.acct(c)
 	myVote := a.store.voteOf(id, voterKey(handle))
 	return beach.View{
-		Page: feedPage(newer, p, comments, older, moreNewer, moreOlder, canPost, myVote, handle, admin, tierOf(a.rep.score(handle))),
+		Page: feedPage(newer, p, older, moreNewer, moreOlder, canPost, myVote, handle, admin, tierOf(a.rep.score(handle))),
 	}, nil
 }
 
@@ -274,35 +272,6 @@ func (a *app) feedMore(newer bool) beach.PageFunc {
 			Mode:     beach.PatchReplace,
 		}, nil
 	}
-}
-
-// addComment binds the `reply` signal, renders it through the text path, appends
-// the comment to the thread, and clears the box. An unpostable reply patches the
-// per-card notice.
-func (a *app) addComment(c *beach.Ctx) (beach.Patches, error) {
-	id, _ := strconv.ParseInt(c.Param("id"), 10, 64)
-	if _, ok := a.store.get(id); !ok {
-		return beach.Patches{}, nil
-	}
-	in, err := beach.Bind[struct {
-		Reply string `json:"reply"`
-	}](c)
-	if err != nil {
-		return nil, err
-	}
-	bodyHTML, ok := renderPost(in.Reply)
-	if !ok {
-		msg := "say something first."
-		if strings.TrimSpace(in.Reply) != "" {
-			msg = "too long — 512 characters max."
-		}
-		return beach.Patches{{Fragment: note(msg), Target: "reply-note-" + c.Param("id"), Mode: beach.PatchInner}}, nil
-	}
-	cm := a.store.addComment(id, bodyHTML)
-	return beach.Patches{
-		{Fragment: comment(cm), Target: "comments-" + c.Param("id"), Mode: beach.PatchAppend, Signals: map[string]string{"reply": ""}},
-		{Fragment: note(""), Target: "reply-note-" + c.Param("id"), Mode: beach.PatchInner},
-	}, nil
 }
 
 // home renders the wall on navigation and patches the grid on a Datastar request.

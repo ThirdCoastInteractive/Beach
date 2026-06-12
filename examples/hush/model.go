@@ -20,52 +20,29 @@ type Post struct {
 	CreatedAt time.Time
 }
 
-// Comment is one reply under a post. Like a post, its BodyHTML is sanitized by
-// renderPost — never raw input.
-type Comment struct {
-	ID        int64
-	PostID    int64
-	BodyHTML  string
-	CreatedAt time.Time
-}
-
 // store is the in-memory post wall. Block A runs database-less so the app is
 // explorable with zero setup, like boardwalk; the Postgres-backed store lands
-// with the signup gate (Block D). Posts render newest-first; comments oldest-first
-// under their post.
+// with the signup gate (Block D). Posts render newest-first. There are no
+// replies — a post stands alone; the only answer the wall allows is a thumb.
 type store struct {
 	mu       sync.Mutex
 	posts    []Post
-	comments map[int64][]Comment
 	likes    map[int64]int             // post id → 👍 count
 	dislikes map[int64]int             // post id → 👎 count
 	voters   map[int64]map[string]int8 // post id → handle → reaction (+1/−1; one, final)
 	next     int64
-	nextC    int64
 }
 
 func newStore() *store {
 	s := &store{
-		comments: map[int64][]Comment{},
 		likes:    map[int64]int{},
 		dislikes: map[int64]int{},
 		voters:   map[int64]map[string]int8{},
 		next:     1,
-		nextC:    1,
 	}
 	for _, md := range seedPosts {
 		if html, ok := renderPost(md); ok {
 			s.add("text", html, "")
-		}
-	}
-	// A couple of seed replies so a freshly opened card isn't empty.
-	if first := s.list(); len(first) > 0 {
-		newest := first[0].ID
-		if html, ok := renderPost("*welcome to the wall.*"); ok {
-			s.addComment(newest, html)
-		}
-		if html, ok := renderPost("click anything. it opens."); ok {
-			s.addComment(newest, html)
 		}
 	}
 	return s
@@ -88,26 +65,6 @@ func (s *store) get(id int64) (Post, bool) {
 		}
 	}
 	return Post{}, false
-}
-
-// listComments returns a post's comments (oldest-first) as a copy.
-func (s *store) listComments(postID int64) []Comment {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	src := s.comments[postID]
-	out := make([]Comment, len(src))
-	copy(out, src)
-	return out
-}
-
-// addComment appends a comment to a post and returns it.
-func (s *store) addComment(postID int64, bodyHTML string) Comment {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	cm := Comment{ID: s.nextC, PostID: postID, BodyHTML: bodyHTML, CreatedAt: time.Now()}
-	s.nextC++
-	s.comments[postID] = append(s.comments[postID], cm)
-	return cm
 }
 
 // add appends a text post by author and returns it.

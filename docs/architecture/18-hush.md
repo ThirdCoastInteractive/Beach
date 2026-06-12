@@ -261,14 +261,16 @@ reactions score people (tiers, invite chains), never placement, so a fresh
 post always lands on top. New posts arrive as a prepended tile fragment over
 a hub topic (the boardwalk SSE pattern).
 
-## The feed + comments (✅ built)
+## The feed (✅ built)
 
 Opening a post is a **real navigation**: every tile links to `/p/{id}#p{id}`,
 so the browser owns push/pop state — back pops you to the grid, forward
 replays, and permalinks are just URLs. The post's page is a single centered
-**feed**: the focused post expanded into its detail card (votes, the comment
-thread, the reply box) with its **time-ordered neighbors** around it — newer
-above, older below, newest-first all the way down. The link's `#p{id}`
+**feed**: the focused post expanded into its detail card — media, meta, the
+thumbs, and nothing else; **there are no replies**, a post stands alone and
+the only answer the wall allows is a thumb — with its **time-ordered
+neighbors** around it, newer above, older below, newest-first all the way
+down. The link's `#p{id}`
 fragment lands the viewport on the focused card even with newer neighbors
 rendered above it (native scroll-to-fragment, no script). The user is on
 rails: neighbor cards are links to their own pages, the title is the way back
@@ -305,12 +307,6 @@ coming back. `prefers-reduced-motion` drops it all to an instant swap, and
 browsers without cross-document transitions or typed `attr()` just navigate —
 graceful degradation, no error.
 
-Comments live under the focused card. `POST /p/{id}/comments` binds the
-`reply` signal, runs it through the same `renderPost` text path (512-char
-limited markdown), appends the rendered comment to `#comments-{id}`
-(`PatchAppend`, each new comment eases in via a keyframe), and clears the box
-with a `Signals` patch. In-memory for now; it moves to Postgres with the gate
-in Block D.
 
 ## Routes
 
@@ -328,7 +324,6 @@ GET  /compose          page    -- markdown box OR camera/upload
 GET  /p/{id}           page    -- the feed, focused on one post (neighbors both ways)
 GET  /feed/newer       frag    -- next feed batch above cursor (intersect sentinel only)
 GET  /feed/older       frag    -- next feed batch below cursor (intersect sentinel only)
-POST /p/{id}/comments  action  -- bind reply, render+count, append to thread, clear box
 POST /p/{id}/vote      action  -- record a 👍/👎 (?dir=up|down), emit Repute "like"/"dislike", outer-morph your mark
 POST /posts            action  -- bind, render+count, store, emit Repute "post"
 GET  /u/{handle}       page    -- profile, tier-1 gated
@@ -376,8 +371,8 @@ pantry: set `DATABASE_URL` and the gate turns on; without it the wall runs open.
 (handle, password, pitch, optional photo → `storage`) writes a pending row;
 `/admin/queue` + `/admin/decide` (admin-gated) approve → create an auth `users`
 row + local credential + `member` role, or reject. Plain-form `/login` /
-`/logout` (303, CSP-clean). Posting (`/posts`, `/upload`, comments) is guarded by
-`app.Can("post")`; the composer and reply box only render for users who hold it,
+`/logout` (303, CSP-clean). Posting (`/posts`, `/upload`, voting) is guarded by
+`app.Can("post")`; the composer only renders for users who hold it,
 and an account strip shows who you are + the admin queue link. Seeds an
 `admin / password` account. The post wall itself stays in-memory (like pantry's
 domain data) — persisting posts to Postgres is the remaining follow-up. ◆ Gate

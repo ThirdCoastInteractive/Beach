@@ -216,43 +216,42 @@ templ reactions(p Post, canPost bool, myVote int8) {
 	</div>
 }
 
-// feedPage is a post's page: the focused post expanded (votes, comments, the
-// reply box) with its time-ordered neighbors around it — newer above, older
-// below, newest-first all the way down. Up to feedSpan neighbors render each
-// way; an intersect sentinel past each end pulls the next batch as you scroll,
-// so the whole timeline is reachable from any post without a single control.
-// The only other affordance is the title, which is the way back to the wall —
-// that and the browser's own back button.
-templ feedPage(newer []Post, focused Post, comments []Comment, older []Post, moreNewer bool, moreOlder bool, canPost bool, myVote int8, handle string, admin bool, tier int) {
+// feedPage is a post's page: the focused post expanded (just its media, meta,
+// and the thumbs — there are no replies; a post stands alone) with its
+// time-ordered neighbors around it — newer above, older below, newest-first
+// all the way down. Up to feedSpan neighbors render each way; an intersect
+// sentinel past each end pulls the next batch as you scroll, so the whole
+// timeline is reachable from any post without a single control. The only
+// other affordance is the title, which is the way back to the wall — that and
+// the browser's own back button.
+templ feedPage(newer []Post, focused Post, older []Post, moreNewer bool, moreOlder bool, canPost bool, myVote int8, handle string, admin bool, tier int) {
 	@shell("hush — post #" + strconv.FormatInt(focused.ID, 10)) {
-		<div data-signals="{reply: ''}">
-			@accountStrip(handle, admin, tier)
-			<header class="hush-head hush-head--feed">
-				<h1 class="hush-title"><a class="hush-home" href="/">hush</a></h1>
-			</header>
-			<div class="hush-feed">
-				if moreNewer {
-					@moreSentinel("newer", newer[0].ID)
-				}
-				for _, p := range newer {
-					@feedCard(p)
-				}
-				@focusedCard(focused, comments, canPost, myVote)
-				for _, p := range older {
-					@feedCard(p)
-				}
-				if moreOlder {
-					@moreSentinel("older", older[len(older)-1].ID)
-				}
-			</div>
+		@accountStrip(handle, admin, tier)
+		<header class="hush-head hush-head--feed">
+			<h1 class="hush-title"><a class="hush-home" href="/">hush</a></h1>
+		</header>
+		<div class="hush-feed">
+			if moreNewer {
+				@moreSentinel("newer", newer[0].ID)
+			}
+			for _, p := range newer {
+				@feedCard(p)
+			}
+			@focusedCard(focused, canPost, myVote)
+			for _, p := range older {
+				@feedCard(p)
+			}
+			if moreOlder {
+				@moreSentinel("older", older[len(older)-1].ID)
+			}
 		</div>
 	}
 }
 
 // focusedCard is the expanded post at the center of its feed page: media,
-// meta, the vote control, the comment thread, and the reply box. Its id is
-// the link fragment that lands the browser here.
-templ focusedCard(p Post, comments []Comment, canPost bool, myVote int8) {
+// meta, the thumbs. Nothing else — no thread, no reply box; the wall doesn't
+// talk back. Its id is the link fragment that lands the browser here.
+templ focusedCard(p Post, canPost bool, myVote int8) {
 	{{ id := strconv.FormatInt(p.ID, 10) }}
 	<article id={ "p" + id } class="hush-fcard hush-fcard--focused" style={ vtStyle(p) }>
 		@cardMedia(p)
@@ -260,16 +259,6 @@ templ focusedCard(p Post, comments []Comment, canPost bool, myVote int8) {
 			{ "#" + id + " · " + p.CreatedAt.Format("Jan 2 · 15:04") }
 		</div>
 		@reactions(p, canPost, myVote)
-		<section class="hush-comments" id={ "comments-" + id }>
-			for _, cm := range comments {
-				@comment(cm)
-			}
-		</section>
-		if canPost {
-			@commentComposer(id)
-		} else {
-			<p class="hush-sub"><a class="hush-link" href="/login">sign in</a> to reply.</p>
-		}
 	</article>
 }
 
@@ -333,28 +322,6 @@ templ cardMedia(p Post) {
 			</div>
 		</div>
 	}
-}
-
-// comment is one reply. Like a post, its BodyHTML is sanitized by renderPost —
-// never raw input.
-templ comment(c Comment) {
-	<div class="hush-comment">
-		<div class="hush-comment-body">
-			@templ.Raw(c.BodyHTML)
-		</div>
-	</div>
-}
-
-// commentComposer is the reply box, bound to the shared `reply` signal.
-templ commentComposer(id string) {
-	<div class="hush-reply">
-		<textarea id="hush-reply" name="reply" class="hush-reply-input" data-bind:reply aria-label="reply" placeholder="reply…"></textarea>
-		<div class="hush-reply-row">
-			<span class="hush-hint">bold · italics · lists</span>
-			<button class="hush-post" data-on:click={ "@post('/p/" + id + "/comments')" }>reply</button>
-		</div>
-		<div id={ "reply-note-" + id } class="hush-note"></div>
-	</div>
 }
 
 // notFoundPage is shown when a permalink points at a post that doesn't exist.
