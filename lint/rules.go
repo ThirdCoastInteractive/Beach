@@ -10,13 +10,14 @@ import (
 
 // dataAttrRe matches a Datastar data-* attribute name as it appears in markup:
 // data-on, data-bind, data-signals, data-show, data-text, data-class,
-// data-attr, data-indicator, data-ref, data-computed, data-effect, data-persist,
-// data-model. Both colon (data-on:click) and dash (data-on-load) spellings are
-// caught. The boundary requires the token to start an attribute (preceded by a
-// quote, whitespace, '<', or start-of-string) so we don't trip on unrelated
-// substrings.
+// data-attr, data-indicator, data-ref, data-computed, data-effect. Both colon
+// (data-on:click) and dash (data-on-load) spellings are caught. The boundary
+// requires the token to start an attribute (preceded by a quote, whitespace,
+// '<', or start-of-string) so we don't trip on unrelated substrings. The set is
+// the free Datastar core plugins only — Pro-only attrs (data-persist, …) are
+// not shipped, so app code can't lean on them.
 var dataAttrRe = regexp.MustCompile(
-	`(^|[\s"'<` + "`" + `])data-(on|bind|signals|show|text|class|attr|indicator|ref|computed|effect|persist|model)\b`)
+	`(^|[\s"'<` + "`" + `])data-(on|bind|signals|show|text|class|attr|indicator|ref|computed|effect)\b`)
 
 // ruleRawDatastar flags string literals containing raw Datastar data-* attribute
 // markup outside the sanctioned framework path. The datastar package (the typed
@@ -96,7 +97,7 @@ var hexColorRe = regexp.MustCompile(`#([0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]
 var oklchRe = regexp.MustCompile(`\boklch\(`)
 
 // ruleHardcodedColor flags hex or oklch() colors baked into string literals.
-// Colors must come from Stellar tokens via var(--*) so theming stays centralized.
+// Colors must come from design tokens via var(--*) so theming stays centralized.
 // The chart package legitimately composes var(--*) fallbacks and is allowed to
 // reference raw colors only as the currentColor fallback, so we still scan it —
 // genuine hex there is a real finding.
@@ -105,7 +106,7 @@ func ruleHardcodedColor(fc *fileCtx, out *[]Finding) {
 		return // the analyzer's own color regexes are not markup
 	}
 	fc.stringLits2(func(val string, line int) {
-		// A literal that already routes through a Stellar token on this line is
+		// A literal that already routes through a design token on this line is
 		// fine even if it also carries a hex fallback inside the var(): that is
 		// the sanctioned var(--token, #fallback) shape. Only flag when there is
 		// no var(--) token anchoring the color.
@@ -114,7 +115,7 @@ func ruleHardcodedColor(fc *fileCtx, out *[]Finding) {
 				File:    fc.path,
 				Line:    line,
 				Rule:    "hardcoded-color",
-				Message: "hardcoded hex color in a string literal; use a Stellar token via var(--token)",
+				Message: "hardcoded hex color in a string literal; use a design token via var(--token)",
 			})
 			return
 		}
@@ -123,7 +124,7 @@ func ruleHardcodedColor(fc *fileCtx, out *[]Finding) {
 				File:    fc.path,
 				Line:    line,
 				Rule:    "hardcoded-color",
-				Message: "hardcoded oklch() color in a string literal; use a Stellar token via var(--token)",
+				Message: "hardcoded oklch() color in a string literal; use a design token via var(--token)",
 			})
 		}
 	})
