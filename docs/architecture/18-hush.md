@@ -103,7 +103,7 @@ hush_posts (
   body_html   text not null default '',
   media_url   text not null default '',
   cf_image_id text not null default '',            -- Cloudflare Images id; '' when stored via files
-  author      text not null default '',            -- handle; '' in database-less open mode
+  author      text not null default '',            -- handle; '' for the boot seed posts
   ip          text not null default '',
   country     text not null default '',
   city        text not null default '',
@@ -178,14 +178,13 @@ hush_signups ( id bigserial primary key, handle text, via text, -- open | invite
 hush_settings ( key text primary key, value text, updated_at timestamptz );
 ```
 
-Both backends implement one `wall` interface (model.go): `memStore` keeps the
-database-less mode alive (zero setup, like boardwalk — posts, reactions, and
-flags in maps), `pgStore` (pgstore.go) is the production path. The interface
-is the moderation surface too: `flag`/`hide`/`restore`/`purge` plus the admin
-reads (`flagged`, `adminList`) sit alongside `list`/`get`/`neighbors`, and the
-visible reads all exclude both hidden and purged posts — moderated content
-simply isn't on the wall, and its permalink reads as not found, while the row
-survives for the admin browser.
+The store is `pgStore` (pgstore.go) — the only one; hush requires a database,
+so there is no in-memory mode to abstract over. It is the moderation surface
+too: `flag`/`hide`/`restore`/`purge` plus the admin reads (`flagged`,
+`adminList`) sit alongside `list`/`get`/`neighbors`, and the visible reads all
+exclude both hidden and purged posts — moderated content simply isn't on the
+wall, and its permalink reads as not found, while the row survives for the
+admin browser.
 
 `hush_reactions` owns the "one reaction per voter per post" rule (the PK).
 **Repute owns the math**, but the engine stays in-memory: there is no
@@ -290,7 +289,6 @@ instead of `'flags'`.
 The pages with eyes (admin.go, views in adminviews.templ): everything the
 member-facing wall refuses to print — scores, tiers, chains, vote counts, IPs,
 geo, user agents — is laid out here, every route behind `app.Can("admin")`.
-Without a database they degrade to a notice, like the rest of the gate.
 
 - **`/admin` — the hub.** Four numbers, each a way into its section: pending
   applications, flagged-or-hidden posts, total posts, members.
@@ -417,7 +415,7 @@ events. Charts ride `ch.Rows` → `ch.ToLineSeriesData`/`ToHBarSeries` → the
 
 Two independent env-driven decisions (media.go), both optional — with nothing
 set, files live in a local temp dir served at `/files` and image posts are raw
-stored bytes, exactly the database-less developer experience:
+stored bytes (ephemeral in a container, so configure R2 for anything you keep):
 
 - **The file store** is Cloudflare R2 via `storage/s3` when all four `R2_*`
   variables are set — `PublicBaseURL` from `R2_PUBLIC_URL` makes `URL()` pure
@@ -629,11 +627,9 @@ GET  /specimen                    page    -- the framework specimen (mounted by 
 ```
 
 `[post]` and `[admin]` are `app.Can(...)` guards, attached at registration so
-the capability story reads off the route table — and only attached in database
-mode: without `DATABASE_URL` there is no principal, the wall is open, and the
-admin pages degrade to a notice. Actions are `beach.Bind[T]` + `beach.Patches`
-(Datastar JSON signals); the auth, signup, email, and admin forms are plain
-POSTs that 303 (CSP-clean, no Datastar dependency).
+the capability story reads off the route table. Actions are `beach.Bind[T]` +
+`beach.Patches` (Datastar JSON signals); the auth, signup, email, and admin
+forms are plain POSTs that 303 (CSP-clean, no Datastar dependency).
 
 ## Config
 
@@ -645,14 +641,14 @@ base/cap, open slots, admin email) lives in the `hush_settings` table
 (settings.go), edited at `/admin/settings` with **no restart** — held behind an
 atomic pointer (`a.live()`) so the hot-path reads stay lock-free. The `HUSH_*`
 policy vars below only **seed** that table on first boot; after that the
-database is authoritative (in database-less mode they are the live values). The
+database is authoritative. The
 split is "how to reach the world and score reputation" (env) vs "how the gate
 behaves" (DB).
 
 | Variable | Meaning |
 | --- | --- |
 | `PORT` | listen port (default 8080) |
-| `DATABASE_URL` | Postgres DSN; unset = open, in-memory, no gate |
+| `DATABASE_URL` | Postgres DSN; **required** — unset or unreachable is fatal at boot (compose sets it from the credentials) |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | compose-only: the credentials the postgres service is created with and that compose's built `DATABASE_URL` uses (defaults `beach`/`beach`/`hush`) |
 | `CLICKHOUSE_DSN` | ClickHouse DSN for the observation store; unset = analytics off (set-but-wrong panics at boot) |
 | `HUSH_EMAIL_POINTS` | author standing granted for a verified email (default 2); env-only, baked into the Repute engine at boot |
@@ -707,8 +703,8 @@ mode still works). ◆ Gate (verified in-browser): file mode grades a synthesize
 image through `noir` and the grayscale grainy result lands on the wall;
 presets and sliders change the rendered pixels live.
 
-**Block D — the gate. ✅ built (verified against Postgres).** DB-optional, like
-pantry: set `DATABASE_URL` and the gate turns on; without it the wall runs open.
+**Block D — the gate. ✅ built (verified against Postgres).** Postgres-backed
+(at this block the DB was optional; it is now required — see Running it).
 `hush_applications` migration + the framework's session/auth migrations. `/apply`
 (handle, password, pitch, optional photo → `storage`) writes a pending row;
 `/admin/queue` + `/admin/decide` (admin-gated) approve → create an auth `users`
@@ -814,7 +810,7 @@ which talks to its own server with no host to name.
 
 The image build needs git access to the private Repute module — BuildKit SSH
 forwarding (`--ssh default`) hands the agent and `GOPRIVATE` to `go mod
-download`; see the [Dockerfile](../../Dockerfile). The wall still degrades to an
-open in-memory mode if it boots without a database, but the stack always gives
-it one; with `RELEASE` set, a missing or unreachable database at boot is fatal,
-so a production wall never quietly runs open.
+download`; see the [Dockerfile](../../Dockerfile). hush **requires** its
+database: a missing or unreachable Postgres at boot is fatal, with no in-memory
+fallback — a hush with no database is a hush with no gate. The stack always
+provides one; set `RELEASE` in production to flip session cookies to Secure.
