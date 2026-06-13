@@ -2,19 +2,19 @@
 // anonymous content board rendered as a gapless wall of square tiles. See
 // docs/architecture/18-hush.md for the full plan.
 //
-// Run it:
+// Run it as a container stack — the app, its Postgres, and its ClickHouse,
+// only the web port published:
 //
-//	go build -o bin/hush ./examples/hush
-//	PORT=8080 ./bin/hush
+//	cd examples/hush
+//	cp .env.example .env                  # then edit it (secrets)
+//	docker compose build --ssh default    # Repute is a private module
+//	docker compose up                     # → http://localhost:8080
 //
-// Then open http://localhost:8080/. Without DATABASE_URL the wall runs open
-// and in-memory (text posts through the 512-character limited-markdown text
-// path, image posts through local file storage); with it, both the wall and
-// the signup gate — applications, accounts, RBAC, sessions — live in Postgres.
-// Production media is env-driven too (media.go): R2_* swaps the file store
-// for Cloudflare R2, CF_IMAGES_* routes image posts through Cloudflare
-// Images. The /compose page hosts the WebGPU camera island, and Repute
-// scores posting activity.
+// Config arrives entirely from the container environment (compose's env_file +
+// environment): the wall and the signup gate — applications, accounts, RBAC,
+// sessions — live in Postgres; analytics in ClickHouse; media in Cloudflare R2
+// + Images when configured, a local temp dir otherwise. The /compose page
+// hosts the WebGPU camera island, and Repute scores posting activity.
 package main
 
 import (
@@ -27,7 +27,6 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -36,7 +35,6 @@ import (
 	beach "github.com/ThirdCoastInteractive/the-beach"
 	"github.com/ThirdCoastInteractive/the-beach/auth"
 	"github.com/ThirdCoastInteractive/the-beach/ch"
-	beachcfg "github.com/ThirdCoastInteractive/the-beach/config"
 	"github.com/ThirdCoastInteractive/the-beach/mailer"
 	"github.com/ThirdCoastInteractive/the-beach/session"
 	"github.com/ThirdCoastInteractive/the-beach/storage"
@@ -94,13 +92,6 @@ type app struct {
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
-
-	// The .env the README tells you to copy actually loads — from the cwd or
-	// the example dir, whichever exists — and real env always wins over the
-	// file. Without this, a configured DATABASE_URL silently never arrives and
-	// the wall boots open.
-	_ = beachcfg.LoadEnvFile(".env")
-	_ = beachcfg.LoadEnvFile(filepath.Join("examples", "hush", ".env"))
 
 	addr := ":8080"
 	if p := os.Getenv("PORT"); p != "" {

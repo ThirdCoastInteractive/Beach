@@ -3,16 +3,16 @@ name: hush
 # Self-contained hush stack: the app, its Postgres, and its ClickHouse — only
 # the web port is published; the databases are internal-only.
 #
-#   cp .env.docker.example .env             # then edit it (mail keys, secrets)
+#   cp .env.example .env                    # then edit it (mail keys, secrets)
 #   docker compose build --ssh default      # Repute is a private module, see below
 #   docker compose up                       →  http://localhost:8080  (admin / password)
 #
-# The .env (from .env.docker.example) holds only the Postgres credentials, the
-# operator secrets (mail, R2, Cloudflare), and the policy seeds. It carries NO
-# DATABASE_URL or CLICKHOUSE_DSN: the app reaches its database and observation
-# store by SERVICE name, and this file builds those connection strings from the
-# credentials below and the service names — so the database connection is
-# configured in exactly one place, here, not duplicated into the .env.
+# The .env holds only the Postgres credentials, the operator secrets (mail, R2,
+# Cloudflare), and the policy seeds. It carries NO DATABASE_URL or
+# CLICKHOUSE_DSN: the app reaches its database and observation store by SERVICE
+# name, and this file builds those connection strings from the credentials
+# below and the service names — so the database connection is configured in
+# exactly one place, here, not duplicated into the .env.
 #
 # NOTE: hush depends on the private module github.com/ThirdCoastInteractive/Repute,
 # so the image build needs git access to it. Build with BuildKit SSH forwarding —
