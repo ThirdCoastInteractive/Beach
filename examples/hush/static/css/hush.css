@@ -228,33 +228,114 @@
   text-align: left;
 }
 
-/* camera page */
+/* camera page — the shader instrument: canvas, source row, preset rack,
+   grade sliders, shutter. camera.js hides whole rows with [hidden] when
+   webgpu is missing, so [hidden] must beat the display rules below. */
 .hush-cam {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1rem;
 }
+.hush-cam [hidden] { display: none; }
 .cam-canvas {
   width: 100%;
   max-width: 520px;
-  aspect-ratio: 1 / 1;
+  height: auto;
   background: #000;
   border: 1px solid rgba(255, 255, 255, 0.25);
 }
+.cam-sources {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+/* the file input hides behind its label — the label is the whole control */
+.cam-file { display: none; }
+.cam-pick {
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.65);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.cam-pick:hover { color: #fff; }
+/* the preset rack: quiet outlines; the active look inverts */
+.cam-rack {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+  max-width: 520px;
+}
+.cam-preset {
+  padding: 0.3rem 0.65rem;
+  font: inherit;
+  font-size: 0.8rem;
+  text-transform: lowercase;
+  color: rgba(255, 255, 255, 0.65);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 0;
+  cursor: pointer;
+}
+.cam-preset:hover { color: #fff; border-color: rgba(255, 255, 255, 0.5); }
+.cam-preset[aria-pressed="true"] {
+  color: #000;
+  background: #fff;
+  border-color: #fff;
+}
+/* the grade sliders: lowercase labels in a fixed gutter, monochrome ranges */
+.cam-sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  width: 100%;
+  max-width: 520px;
+}
+.cam-slider {
+  display: grid;
+  grid-template-columns: 6.5rem 1fr;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.82rem;
+  text-transform: lowercase;
+  color: rgba(255, 255, 255, 0.65);
+}
+.cam-slider input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 100%;
+  height: 2px;
+  margin: 0;
+  background: rgba(255, 255, 255, 0.3);
+  outline: none;
+}
+.cam-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+}
+.cam-slider input[type="range"]::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  background: #fff;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+}
+.cam-slider input[type="range"]:focus-visible::-webkit-slider-thumb { outline: 1px solid #fff; outline-offset: 2px; }
+.cam-slider input[type="range"]:focus-visible::-moz-range-thumb { outline: 1px solid #fff; outline-offset: 2px; }
 .cam-controls {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-}
-.cam-filter {
-  padding: 0.4rem 0.7rem;
-  font: inherit;
-  text-transform: lowercase;
-  color: #fff;
-  background: #000;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 0;
 }
 .cam-status {
   min-height: 1.1rem;

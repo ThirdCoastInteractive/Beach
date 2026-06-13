@@ -11,11 +11,13 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 // composePage hosts the WebGPU camera island. It is the dedicated client-JS
-// page — a canvas the camera renders into through a WGSL filter pipeline, and
-// a capture button that posts the filtered still. The script is an external
-// module (CSP: script-src 'self'); the page degrades to the wall's plain
-// upload without WebGPU. The § 2257 certification gates the shutter
-// (camera.js reads it) and the server refuses uncertified uploads regardless.
+// page — a canvas fed by either the camera or a picked image file, both
+// through the same one-pass WGSL pipeline, with a rack of nine preset looks
+// and six grade sliders riding on uniforms (camera.js owns all of it). The
+// script is an external module (CSP: script-src 'self'); the page degrades to
+// the wall's plain upload without WebGPU, and to file-only without a webcam.
+// The § 2257 certification gates the shutter (camera.js reads it) and the
+// server refuses uncertified uploads regardless.
 func composePage() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -49,7 +51,7 @@ func composePage() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"hush-top\"><header class=\"hush-head\"><h1 class=\"hush-title\">hush</h1><p class=\"hush-sub\">capture something — filtered, on-device.</p></header><div class=\"hush-cam\"><canvas id=\"cam-canvas\" class=\"cam-canvas\" width=\"720\" height=\"720\"></canvas><div class=\"cam-controls\"><select id=\"cam-filter\" class=\"cam-filter\" aria-label=\"filter\"><option value=\"none\">none</option> <option value=\"noir\">noir</option> <option value=\"bleach\">bleach</option> <option value=\"dream\">dream</option></select> <button id=\"cam-shoot\" class=\"hush-post\" type=\"button\">capture</button></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"hush-top\"><header class=\"hush-head\"><h1 class=\"hush-title\">hush</h1><p class=\"hush-sub\">capture something — filtered, on-device.</p></header><div class=\"hush-cam\"><canvas id=\"cam-canvas\" class=\"cam-canvas\" width=\"720\" height=\"540\"></canvas><div id=\"cam-sources\" class=\"cam-sources\"><button id=\"cam-open\" class=\"hush-post hush-post--ghost\" type=\"button\">open camera</button> <label class=\"cam-pick\" for=\"cam-file\">or run a photo through it</label> <input type=\"file\" id=\"cam-file\" class=\"cam-file\" accept=\"image/*\"></div><div id=\"cam-rack\" class=\"cam-rack\" role=\"group\" aria-label=\"presets\"><button type=\"button\" class=\"cam-preset\" data-preset=\"none\" aria-pressed=\"true\">none</button> <button type=\"button\" class=\"cam-preset\" data-preset=\"noir\" aria-pressed=\"false\">noir</button> <button type=\"button\" class=\"cam-preset\" data-preset=\"bleach\" aria-pressed=\"false\">bleach</button> <button type=\"button\" class=\"cam-preset\" data-preset=\"dream\" aria-pressed=\"false\">dream</button> <button type=\"button\" class=\"cam-preset\" data-preset=\"vhs\" aria-pressed=\"false\">vhs</button> <button type=\"button\" class=\"cam-preset\" data-preset=\"poster\" aria-pressed=\"false\">poster</button> <button type=\"button\" class=\"cam-preset\" data-preset=\"wound\" aria-pressed=\"false\">wound</button> <button type=\"button\" class=\"cam-preset\" data-preset=\"negative\" aria-pressed=\"false\">negative</button> <button type=\"button\" class=\"cam-preset\" data-preset=\"crush\" aria-pressed=\"false\">crush</button></div><div id=\"cam-sliders\" class=\"cam-sliders\"><label class=\"cam-slider\"><span>brightness</span> <input type=\"range\" id=\"cam-brightness\" min=\"-0.5\" max=\"0.5\" step=\"0.01\" value=\"0\"></label> <label class=\"cam-slider\"><span>contrast</span> <input type=\"range\" id=\"cam-contrast\" min=\"0\" max=\"2.5\" step=\"0.01\" value=\"1\"></label> <label class=\"cam-slider\"><span>saturation</span> <input type=\"range\" id=\"cam-saturation\" min=\"0\" max=\"2\" step=\"0.01\" value=\"1\"></label> <label class=\"cam-slider\"><span>temperature</span> <input type=\"range\" id=\"cam-temperature\" min=\"-0.3\" max=\"0.3\" step=\"0.005\" value=\"0\"></label> <label class=\"cam-slider\"><span>grain</span> <input type=\"range\" id=\"cam-grain\" min=\"0\" max=\"1\" step=\"0.01\" value=\"0\"></label> <label class=\"cam-slider\"><span>vignette</span> <input type=\"range\" id=\"cam-vignette\" min=\"0\" max=\"1\" step=\"0.01\" value=\"0\"></label></div><div class=\"cam-controls\"><button id=\"cam-shoot\" class=\"hush-post\" type=\"button\">capture</button></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
