@@ -25,7 +25,7 @@ const (
 // hush sends is a courtesy, so a queue failure logs and the request proceeds —
 // nobody's signup should die because the mail table hiccuped.
 func (a *app) enqueue(ctx context.Context, to, subject, text, html, templateKey string) {
-	if a.pool == nil || to == "" {
+	if to == "" {
 		return
 	}
 	if _, err := a.pool.Exec(ctx,
@@ -41,14 +41,11 @@ func (a *app) enqueueMail(ctx context.Context, to, templateKey string, m *mailer
 	a.enqueue(ctx, to, m.Subject, m.Text, m.HTML, templateKey)
 }
 
-// pumpOutbox is the process-lifetime sender loop, started at boot in database
-// mode. Each tick drains one batch. No clean shutdown is needed — an
-// undelivered row is still pending after a restart — but the context guard
-// stops the goroutine if boot ever grows a lifecycle worth cancelling.
+// pumpOutbox is the process-lifetime sender loop, started at boot. Each tick
+// drains one batch. No clean shutdown is needed — an undelivered row is still
+// pending after a restart — but the context guard stops the goroutine if boot
+// ever grows a lifecycle worth cancelling.
 func (a *app) pumpOutbox(ctx context.Context) {
-	if a.pool == nil || a.mail == nil {
-		return
-	}
 	t := time.NewTicker(outboxEvery)
 	defer t.Stop()
 	for {

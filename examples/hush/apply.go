@@ -22,12 +22,9 @@ type application struct {
 
 // applyPage is the door. While open seats remain (HUSH_OPEN_SLOTS) it renders
 // the claim-a-seat form; once they're spent — or the mode is off — it falls
-// back to the application queue. A notice without a DB, the submitted notice
-// after a successful application POST.
+// back to the application queue. After a successful application POST it shows
+// the submitted notice.
 func (a *app) applyPage(c *beach.Ctx) (beach.View, error) {
-	if a.authn == nil {
-		return beach.View{Page: noticePage("applications need the database.", "set DATABASE_URL to enable the gate.")}, nil
-	}
 	if c.Query("ok") == "1" {
 		return beach.View{Page: noticePage("application submitted.", "an admin will review it. you'll be able to sign in once approved.")}, nil
 	}
@@ -43,10 +40,6 @@ func (a *app) applyPage(c *beach.Ctx) (beach.View, error) {
 // optional email rides the row (where the decision notice goes); the admin
 // hears about the application when HUSH_ADMIN_EMAIL is set.
 func (a *app) doApply(w http.ResponseWriter, r *http.Request) {
-	if a.authn == nil {
-		http.NotFound(w, r)
-		return
-	}
 	if err := r.ParseMultipartForm(8 << 20); err != nil {
 		http.Redirect(w, r, "/apply", http.StatusSeeOther)
 		return
@@ -97,9 +90,6 @@ func (a *app) doApply(w http.ResponseWriter, r *http.Request) {
 // queuePage loads the pending applications and hands them to adminQueuePage
 // (admin only).
 func (a *app) queuePage(c *beach.Ctx) (beach.View, error) {
-	if a.authn == nil {
-		return beach.View{Page: noticePage("the queue needs the database.", "")}, nil
-	}
 	rows, err := a.pool.Query(c.Context(),
 		`SELECT id, handle, pitch, photo_key FROM hush_applications WHERE status = 'pending' ORDER BY created_at`)
 	if err != nil {
@@ -129,10 +119,6 @@ func (a *app) queuePage(c *beach.Ctx) (beach.View, error) {
 // rejects a pending application. Admin only. Either way the applicant hears
 // the decision by mail — if they gave an address.
 func (a *app) doDecide(w http.ResponseWriter, r *http.Request) {
-	if a.authn == nil {
-		http.NotFound(w, r)
-		return
-	}
 	_ = r.ParseForm()
 	id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
 	ctx := r.Context()

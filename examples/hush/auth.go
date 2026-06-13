@@ -15,8 +15,8 @@ import (
 
 const sessionCookie = "hush_session"
 
-// openPool builds a pool and pings it, returning an error (not panicking) so a
-// bad DATABASE_URL degrades to database-less mode instead of crashing.
+// openPool builds a pool and pings it, returning an error so the caller can
+// fail fast on a bad DATABASE_URL.
 func openPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
@@ -97,9 +97,6 @@ func (a *app) seedAdmin(ctx context.Context) error {
 // principalResolver turns a session user id into a Principal with its roles and
 // permissions, wired as cfg.Principals so c.Principal()/Can() work.
 func (a *app) principalResolver(ctx context.Context, userID int64) (*beach.Principal, error) {
-	if a.pool == nil {
-		return nil, nil
-	}
 	var username string
 	if err := a.pool.QueryRow(ctx, `SELECT username FROM users WHERE id = $1`, userID).Scan(&username); err != nil {
 		return nil, err
@@ -135,12 +132,8 @@ func scanStrings(ctx context.Context, pool *pgxpool.Pool, q string, args ...any)
 }
 
 // acct summarizes the viewer: their handle (empty if not signed in), whether they
-// may post, and whether they are an admin. Database-less mode is open: anyone can
-// post (a single-user wall) and there is no admin.
+// may post, and whether they are an admin.
 func (a *app) acct(c *beach.Ctx) (handle string, canPost, admin bool) {
-	if a.authn == nil {
-		return "", true, false
-	}
 	if p, ok := c.Principal(); ok && p != nil {
 		return p.Username, p.Can("post"), p.Can("admin")
 	}
@@ -148,11 +141,8 @@ func (a *app) acct(c *beach.Ctx) (handle string, canPost, admin bool) {
 }
 
 // loginPage maps the ?err code to a banner message and renders the sign-in
-// form (loginFormPage in pages.templ), or a notice without a DB.
+// form (loginFormPage in pages.templ).
 func (a *app) loginPage(c *beach.Ctx) (beach.View, error) {
-	if a.authn == nil {
-		return beach.View{Page: noticePage("sign-in needs the database.", "set DATABASE_URL to enable accounts.")}, nil
-	}
 	errMsg := ""
 	switch c.Query("err") {
 	case "1":
@@ -165,10 +155,6 @@ func (a *app) loginPage(c *beach.Ctx) (beach.View, error) {
 
 // doLogin is a plain form POST: authenticate, set the session cookie, 303 home.
 func (a *app) doLogin(w http.ResponseWriter, r *http.Request) {
-	if a.authn == nil {
-		http.NotFound(w, r)
-		return
-	}
 	_ = r.ParseForm()
 	token, _, _, err := a.authn.Login(r.Context(), r.FormValue("username"), r.FormValue("password"))
 	if err != nil {
@@ -192,10 +178,8 @@ func (a *app) logout(w http.ResponseWriter, r *http.Request) {
 	// Read the handle before the revoke, while the principal still resolves.
 	handle, _, _ := a.acct(&beach.Ctx{W: w, R: r})
 	a.track(r, "logout", handle, 0)
-	if a.sessions != nil {
-		if ck, err := r.Cookie(sessionCookie); err == nil {
-			_ = a.sessions.Revoke(r.Context(), ck.Value)
-		}
+	if ck, err := r.Cookie(sessionCookie); err == nil {
+		_ = a.sessions.Revoke(r.Context(), ck.Value)
 	}
 	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", MaxAge: -1})
 	http.Redirect(w, r, "/", http.StatusSeeOther)

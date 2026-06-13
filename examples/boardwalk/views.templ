@@ -9,6 +9,7 @@ import (
 
 	"github.com/ThirdCoastInteractive/the-beach/chart"
 	"github.com/ThirdCoastInteractive/the-beach/datastar"
+	"github.com/ThirdCoastInteractive/the-beach/ui"
 	"github.com/ThirdCoastInteractive/the-beach/ui/driftwood"
 )
 
@@ -27,6 +28,7 @@ templ indexView(snap boardSnapshot, seat int, lay chart.BarRaceLayout) {
 				Title:    "Boardwalk",
 				Subtitle: "A sim/ecs real-estate game. Roll, move, buy, pay rent — live over SSE.",
 			})
+			<p class="bw-nav"><a href="/stats">View game stats →</a></p>
 			@sinks()
 			@driftwood.Grid(driftwood.GridProps{Cols: 2}) {
 				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Board"}) {
@@ -177,4 +179,40 @@ templ raceFragment(lay chart.BarRaceLayout) {
 	<div id={ raceTarget } class="bw-race">
 		@chart.BarRaceSVG(lay)
 	</div>
+}
+
+// statsPage is the public analytics page: a grid of deferred chart widgets, each
+// a placeholder that @gets its fragment from one of the widget PageFuncs
+// (analytics.go). The rolls/tiles widgets read the ClickHouse firehose; the cash
+// widget reads the live store off the loop. Each placeholder reserves its height
+// so the deferred chart patches in with zero layout shift.
+templ statsPage() {
+	@driftwood.Page(driftwood.PageProps{
+		Title:       "Boardwalk stats — the-beach",
+		Description: "Live and historical analytics over the boardwalk game's action firehose.",
+	}) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{
+				Title:    "Game stats",
+				Subtitle: "Rolls and landings from the ClickHouse firehose; current cash from the live board.",
+			})
+			<p class="bw-nav"><a href="/">← Back to the board</a></p>
+			@driftwood.Grid(driftwood.GridProps{Cols: 2}) {
+				@statWidget("Rolls per day", "anl-rolls", "/stats/rolls", "240px")
+				@statWidget("Busiest tiles", "anl-tiles", "/stats/tiles", "280px")
+				@statWidget("Cash standings", "anl-cash", "/stats/cash", "240px")
+			}
+		}
+	}
+}
+
+// statWidget is one deferred chart card on the stats page. The body reserves its
+// height inline (a per-instance dimension) so the chart patches in with zero
+// layout shift; everything else comes from the deferred fragment.
+templ statWidget(title, id, src, height string) {
+	@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: title}) {
+		<div style={ "height:" + height }>
+			@ui.Defer(ui.DeferProps{ID: id, Get: src, Height: "100%"})
+		</div>
+	}
 }

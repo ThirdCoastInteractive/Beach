@@ -14,6 +14,8 @@ type app struct {
 	Timeout time.Duration `env:"TIMEOUT" default:"5s"`
 }
 
+func setDSN(t *testing.T) { t.Helper(); t.Setenv("POSTGRES_DSN", "postgres://localhost/x") }
+
 func TestLoad_defaultsAndModifiers(t *testing.T) {
 	t.Setenv("POSTGRES_DSN", "postgres://localhost/x") // satisfy the one required field
 	t.Setenv("APP_ENV", "PRODUCTION")                  // ,lower
@@ -88,5 +90,92 @@ func TestLoadEnvFile_doesNotOverrideRealEnv(t *testing.T) {
 func TestLoadEnvFile_missingIsOK(t *testing.T) {
 	if err := LoadEnvFile(filepath.Join(t.TempDir(), "nope.env")); err != nil {
 		t.Errorf("missing file should be nil error, got %v", err)
+	}
+}
+
+type requiredApp struct {
+	Core
+	Token string `env:"API_TOKEN,required"`
+}
+
+func TestLoad_required_unsetIsMissing(t *testing.T) {
+	setDSN(t)
+	if _, err := Load[requiredApp](); err == nil {
+		t.Fatal("expected missing-required error for unset API_TOKEN, got nil")
+	}
+}
+
+func TestLoad_required_emptyIsMissing(t *testing.T) {
+	setDSN(t)
+	t.Setenv("API_TOKEN", "") // present but empty must still fail a required field
+	if _, err := Load[requiredApp](); err == nil {
+		t.Fatal("expected missing-required error for empty API_TOKEN, got nil")
+	}
+}
+
+func TestLoad_required_setSucceeds(t *testing.T) {
+	setDSN(t)
+	t.Setenv("API_TOKEN", "secret")
+	c, err := Load[requiredApp]()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if c.Token != "secret" {
+		t.Errorf("Token: got %q, want secret", c.Token)
+	}
+}
+
+// requiredWithDefault is a contradiction: required AND a default.
+type requiredWithDefault struct {
+	Core
+	X string `env:"X,required" default:"oops"`
+}
+
+func TestLoad_required_withDefaultIsError(t *testing.T) {
+	setDSN(t)
+	t.Setenv("X", "value")
+	if _, err := Load[requiredWithDefault](); err == nil {
+		t.Fatal("expected error for required+default, got nil")
+	}
+}
+
+func TestLoad_float(t *testing.T) {
+	setDSN(t)
+	t.Setenv("RATE", "3.75")
+	c, err := Load[struct {
+		Core
+		Rate float64 `env:"RATE" default:"2.5"`
+	}]()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if c.Rate != 3.75 {
+		t.Errorf("Rate: got %v, want 3.75", c.Rate)
+	}
+}
+
+func TestLoad_float_default(t *testing.T) {
+	setDSN(t)
+	c, err := Load[struct {
+		Core
+		Rate  float64 `env:"RATE" default:"2.5"`
+		Tweak float32 `env:"TWEAK" default:"0.1"`
+	}]()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if c.Rate != 2.5 || c.Tweak != 0.1 {
+		t.Errorf("float defaults: got Rate=%v Tweak=%v", c.Rate, c.Tweak)
+	}
+}
+
+func TestLoad_float_invalid(t *testing.T) {
+	setDSN(t)
+	t.Setenv("RATE", "not-a-number")
+	if _, err := Load[struct {
+		Core
+		Rate float64 `env:"RATE" default:"2.5"`
+	}](); err == nil {
+		t.Fatal("expected parse error for non-numeric float, got nil")
 	}
 }

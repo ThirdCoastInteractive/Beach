@@ -8,12 +8,11 @@
   "nav.login":            { "ref": "Sign in",                 "note": "Topbar link" },
 
   "dash.heading":         { "ref": "Household dashboard",      "note": "Dashboard page title" },
-  "dash.subtitle":        { "ref": "Spend, stock and waste at a glance", "note": "Dashboard subtitle" },
-  "dash.spend":           { "ref": "Spend over time",          "note": "Chart card heading" },
-  "dash.category":        { "ref": "Spend by category",        "note": "Chart card heading" },
+  "dash.subtitle":        { "ref": "Activity, stock and waste at a glance", "note": "Dashboard subtitle" },
+  "dash.spend":           { "ref": "Activity",                 "note": "Chart card heading (items added per day)" },
+  "dash.category":        { "ref": "Inventory by category",    "note": "Chart card heading" },
   "dash.expiry":          { "ref": "Expiry calendar",          "note": "Chart card heading" },
-  "dash.waste":           { "ref": "Food waste",               "note": "Chart card heading" },
-  "dash.sample":          { "ref": "Sample data (no analytics store connected)", "note": "Badge under charts when ch is offline" },
+  "dash.waste":           { "ref": "Spoilage",                 "note": "Chart card heading (expired of total)" },
 
   "items.heading":        { "ref": "Inventory",                "note": "Items page title" },
   "items.subtitle":       { "ref": "%d items on hand",         "note": "Items page subtitle, n items" },
@@ -35,6 +34,5 @@
   "login.heading":        { "ref": "Sign in",                  "note": "Login page title" },
   "login.username":       { "ref": "Username",                 "note": "Login field" },
   "login.password":       { "ref": "Password",                 "note": "Login field" },
-  "login.submit":         { "ref": "Sign in",                  "note": "Login button" },
-  "login.dboff":          { "ref": "Sign-in needs the database. Set DATABASE_URL to enable it.", "note": "Login disabled banner" }
+  "login.submit":         { "ref": "Sign in",                  "note": "Login button" }
 }

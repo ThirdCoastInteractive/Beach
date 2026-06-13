@@ -94,11 +94,10 @@ func (a *app) inviterOf(handle string) string {
 }
 
 // openLeft counts the unclaimed open-registration seats — 0 when the mode is
-// off (the open-slots setting at 0), the seats are spent, or there is no
-// database.
+// off (the open-slots setting at 0) or the seats are spent.
 func (a *app) openLeft(ctx context.Context) int {
 	slots := a.live().OpenSlots
-	if a.pool == nil || slots <= 0 {
+	if slots <= 0 {
 		return 0
 	}
 	var used int
@@ -149,10 +148,6 @@ func (a *app) signIn(w http.ResponseWriter, r *http.Request, handle, password st
 // a single statement (no seat, no row), then the account is created. A taken
 // handle releases the seat and bounces back with the error.
 func (a *app) doRegister(w http.ResponseWriter, r *http.Request) {
-	if a.authn == nil {
-		http.NotFound(w, r)
-		return
-	}
 	_ = r.ParseForm()
 	handle := strings.TrimSpace(r.FormValue("handle"))
 	password := r.FormValue("password")
@@ -216,9 +211,6 @@ func signupErrMsg(code string) string {
 // invitePage renders the redemption form for a live code, or a notice for a
 // spent or unknown one.
 func (a *app) invitePage(c *beach.Ctx) (beach.View, error) {
-	if a.authn == nil {
-		return beach.View{Page: noticePage("invites need the database.", "set DATABASE_URL to enable the gate.")}, nil
-	}
 	var usedBy *string
 	err := a.pool.QueryRow(c.Context(), `SELECT used_by FROM hush_invites WHERE code = $1`, c.Param("code")).Scan(&usedBy)
 	if err != nil {
@@ -234,10 +226,6 @@ func (a *app) invitePage(c *beach.Ctx) (beach.View, error) {
 // create the member, record the chain edge, sign them in. A taken handle
 // releases the claim so the code survives the retry.
 func (a *app) doRedeem(w http.ResponseWriter, r *http.Request) {
-	if a.authn == nil {
-		http.NotFound(w, r)
-		return
-	}
 	_ = r.ParseForm()
 	code := r.PathValue("code")
 	handle := strings.TrimSpace(r.FormValue("handle"))
@@ -283,7 +271,7 @@ func (a *app) doRedeem(w http.ResponseWriter, r *http.Request) {
 // the "mint & send" path: the fresh code goes straight out as an invite link.
 func (a *app) doMint(w http.ResponseWriter, r *http.Request) {
 	handle, canPost, _ := a.acct(&beach.Ctx{W: w, R: r})
-	if a.authn == nil || handle == "" || !canPost {
+	if handle == "" || !canPost {
 		http.NotFound(w, r)
 		return
 	}
@@ -307,7 +295,7 @@ func (a *app) doMint(w http.ResponseWriter, r *http.Request) {
 // invitesFor assembles the profile panel for a member's own profile: chain
 // standing, the allowance after the throttle, and every minted code.
 func (a *app) invitesFor(ctx context.Context, handle string, tier int) invitePanel {
-	if a.pool == nil || tier < 1 {
+	if tier < 1 {
 		return invitePanel{}
 	}
 	allowance := a.inviteAllowance(tier, a.rep.chainScore(handle))

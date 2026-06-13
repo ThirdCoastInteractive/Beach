@@ -27,11 +27,17 @@ ENV GOPRIVATE=${GOPRIVATE} \
     GIT_SSH_COMMAND="ssh -o StrictHostKeyChecking=accept-new"
 RUN git config --global url."git@github.com:".insteadOf "https://github.com/"
 
-COPY go.mod go.sum ./
-RUN --mount=type=ssh go mod download
 COPY . .
 ARG APP=pantry
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/app ./examples/${APP}
+# Only the target app's import graph is compiled, so the three public examples
+# (boardwalk, driftbottle, pantry) pull no private modules and build with no SSH.
+# hush's graph pulls the private Repute module, so build it with `--ssh default`
+# + GOPRIVATE — the ssh mount below forwards the agent. The cache mounts keep the
+# module + build caches warm across builds.
+RUN --mount=type=ssh \
+    --mount=type=cache,target=/go/pkg/mod \
+    --mount=type=cache,target=/root/.cache/go-build \
+    CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/app ./examples/${APP}
 
 FROM gcr.io/distroless/static-debian12:nonroot
 COPY --from=build /out/app /app

@@ -15,7 +15,7 @@ CREATE TABLE hush_posts (
     body_html   text        NOT NULL DEFAULT '',
     media_url   text        NOT NULL DEFAULT '',
     cf_image_id text        NOT NULL DEFAULT '', -- Cloudflare Images id, once uploads move there
-    author      text        NOT NULL DEFAULT '', -- handle; '' in database-less open mode
+    author      text        NOT NULL DEFAULT '', -- member handle; '' for the boot seed posts
     ip          text        NOT NULL DEFAULT '',
     country     text        NOT NULL DEFAULT '',
     city        text        NOT NULL DEFAULT '',

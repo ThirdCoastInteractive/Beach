@@ -6,7 +6,7 @@
 -- from where, with what browser, and when.
 CREATE TABLE hush_agreements (
     id         bigserial   PRIMARY KEY,
-    handle     text        NOT NULL DEFAULT '',  -- '' in database-less open mode
+    handle     text        NOT NULL DEFAULT '',  -- member handle; '' when not signed in
     kind       text        NOT NULL,             -- tos-18 | 2257
     ip         text        NOT NULL DEFAULT '',
     user_agent text        NOT NULL DEFAULT '',

@@ -22,12 +22,8 @@ func agreed(r *http.Request, field string) bool {
 }
 
 // recordAgreement writes one assent row — best-effort, like the rest of the
-// capture trail: a recording failure never blocks the action it witnesses,
-// and database-less mode keeps no records (it keeps no anything).
+// capture trail: a recording failure never blocks the action it witnesses.
 func (a *app) recordAgreement(ctx context.Context, handle, kind string, m Meta) {
-	if a.pool == nil {
-		return
-	}
 	_, _ = a.pool.Exec(ctx,
 		`INSERT INTO hush_agreements (handle, kind, ip, user_agent) VALUES ($1, $2, $3, $4)`,
 		handle, kind, m.IP, m.UA)

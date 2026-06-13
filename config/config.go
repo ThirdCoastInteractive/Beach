@@ -12,8 +12,14 @@
 // env var is set; a field with neither a value nor a default is required, and
 // MustLoad aborts if any required field is unset.
 //
-// Modifiers: lower, upper, trim, trimslash, url (validates the value parses).
-// Supported field kinds: string, bool, the integer kinds, and time.Duration.
+// The `required` modifier makes the requirement explicit and stricter: a
+// `required` field must be present AND non-empty (so an explicit `X=` fails,
+// unlike a bare no-default field). `required` and `default` are mutually
+// exclusive — declaring both is a config error.
+//
+// Modifiers: required, lower, upper, trim, trimslash, url (validates the value
+// parses). Supported field kinds: string, bool, the integer kinds, the float
+// kinds, and time.Duration.
 package config
 
 import (
@@ -86,15 +92,26 @@ func loadStruct(v reflect.Value, missing *[]string) error {
 			continue
 		}
 		names, mods := parseTag(tag)
+		required, mods := splitRequired(mods)
+
+		def, hasDefault := f.Tag.Lookup("default")
+		if required && hasDefault {
+			return fmt.Errorf("config: %s: `required` and `default` are mutually exclusive", f.Name)
+		}
 
 		raw, found := lookup(names)
 		if !found {
-			def, ok := f.Tag.Lookup("default")
-			if !ok {
+			if !hasDefault {
 				*missing = append(*missing, names[0])
 				continue
 			}
 			raw = def
+		}
+		// A required field must be present and non-empty: an explicit `X=` is a
+		// misconfiguration, not an opt-out.
+		if required && raw == "" {
+			*missing = append(*missing, names[0])
+			continue
 		}
 
 		val, err := applyMods(raw, mods)
@@ -106,6 +123,20 @@ func loadStruct(v reflect.Value, missing *[]string) error {
 		}
 	}
 	return nil
+}
+
+// splitRequired pulls the `required` directive out of the modifier list: it is
+// a field-level requirement, not a value transform, so it must not reach
+// applyMods (which would reject it as unknown).
+func splitRequired(mods []string) (required bool, rest []string) {
+	for _, m := range mods {
+		if strings.TrimSpace(m) == "required" {
+			required = true
+			continue
+		}
+		rest = append(rest, m)
+	}
+	return required, rest
 }
 
 func parseTag(tag string) (names, mods []string) {
@@ -177,6 +208,12 @@ func setField(fv reflect.Value, s string) error {
 			return err
 		}
 		fv.SetInt(n)
+	case reflect.Float32, reflect.Float64:
+		fl, err := strconv.ParseFloat(s, 64)
+		if err != nil {
+			return err
+		}
+		fv.SetFloat(fl)
 	default:
 		return fmt.Errorf("unsupported kind %s", fv.Kind())
 	}

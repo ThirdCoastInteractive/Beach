@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
+	"github.com/ThirdCoastInteractive/the-beach/ch"
 	"github.com/ThirdCoastInteractive/the-beach/ecs"
 	"github.com/ThirdCoastInteractive/the-beach/sim"
 )
@@ -39,7 +41,8 @@ type Board struct {
 // Board entity are all created up front so seats can be claimed without any
 // structural mutation racing the loop.
 type Game struct {
-	sim *sim.Sim
+	sim    *sim.Sim
+	events *ch.Batcher[event] // the ClickHouse action firehose (analytics.go)
 
 	mu      sync.Mutex
 	gameEnt ecs.Entity         // carries the Board singleton
@@ -48,12 +51,56 @@ type Game struct {
 	deeds   map[int]ecs.Entity // tile index -> deed entity (properties only)
 }
 
-// NewGame builds the sim, seeds the board entities, registers the projections,
-// and returns the Game. It does not start the loop; call Run.
-func NewGame(s *sim.Sim) *Game {
-	g := &Game{sim: s, deeds: make(map[int]ecs.Entity), seatOf: make(map[ecs.Entity]int)}
+// registerComponents registers every component type with the ecs registry under
+// its stable schema id. Restoring a snapshot (ecs.Load) maps each saved column
+// back to a type by schema id, so the types MUST be registered before the load —
+// otherwise restore fails with "unregistered component". Fresh boots register
+// lazily on the first ecs.Add, but restore happens before any Add, so main calls
+// this up front. Idempotent: re-registering a type is a no-op.
+func registerComponents() {
+	ecs.Register[Board]("boardwalk.Board")
+	ecs.Register[Player]("boardwalk.Player")
+	ecs.Register[Position]("boardwalk.Position")
+	ecs.Register[Cash]("boardwalk.Cash")
+	ecs.Register[TurnOrder]("boardwalk.TurnOrder")
+	ecs.Register[Ownership]("boardwalk.Ownership")
+}
+
+// NewGame builds the Game over the sim's store: it either re-derives the entity
+// handles from a restored snapshot (the store already holds a Board singleton)
+// or seeds a fresh board, then registers the projections. It does not start the
+// loop; call Run. events is the firehose every mutation emits to.
+func NewGame(s *sim.Sim, events *ch.Batcher[event]) *Game {
+	g := &Game{
+		sim:    s,
+		events: events,
+		deeds:  make(map[int]ecs.Entity),
+		seatOf: make(map[ecs.Entity]int),
+	}
 	store := s.Store()
 
+	// A restored store already carries the singleton Board entity; rebuild the
+	// handle maps from it instead of creating fresh entities. A fresh store has
+	// none, so seed.
+	restored := false
+	for range ecs.Query[Board](store) {
+		restored = true
+		break
+	}
+	if restored {
+		g.rebuild(store)
+	} else {
+		g.seed(store)
+	}
+
+	g.registerProjections()
+	return g
+}
+
+// seed creates the initial entities for a fresh game: the singleton Board, the
+// fixed player seats, and one deed per buyable tile. Pre-creating everything up
+// front avoids structural mutation on the hot path.
+func (g *Game) seed(store *ecs.Store) {
 	// The singleton Board entity.
 	g.gameEnt = store.Create()
 	ecs.Add(store, g.gameEnt, Board{
@@ -62,8 +109,7 @@ func NewGame(s *sim.Sim) *Game {
 	})
 
 	// Fixed player seats. Each is a full player entity (Position/Cash/TurnOrder)
-	// flagged as an open Spec seat until claimed. Pre-creating avoids structural
-	// mutation on the hot path.
+	// flagged as an open Spec seat until claimed.
 	tokens := []string{"🦀", "🐚", "⛵", "🏖️"}
 	g.seats = make([]ecs.Entity, maxSeats)
 	for i := 0; i < maxSeats; i++ {
@@ -85,9 +131,34 @@ func NewGame(s *sim.Sim) *Game {
 		ecs.Add(store, e, Ownership{Tile: idx})
 		g.deeds[idx] = e
 	}
+}
 
-	g.registerProjections()
-	return g
+// rebuild re-derives the Game's entity handles from a restored store. The
+// snapshot preserved entity identity, so the restored Ownership.Owner handles
+// still point at the right player entities; we just need to find each handle
+// again. Seats are indexed by TurnOrder.Seat (not iteration order) so seat i is
+// the same player it was before the restore.
+func (g *Game) rebuild(store *ecs.Store) {
+	// The Board singleton is the lone entity carrying a Board component.
+	for e := range ecs.Query[Board](store) {
+		g.gameEnt = e
+		break
+	}
+
+	// Seats, indexed by their stable TurnOrder.Seat.
+	g.seats = make([]ecs.Entity, maxSeats)
+	for e, to := range ecs.Query[TurnOrder](store) {
+		if to.Seat < 0 || to.Seat >= maxSeats {
+			continue
+		}
+		g.seats[to.Seat] = e
+		g.seatOf[e] = to.Seat
+	}
+
+	// Deeds, indexed by the tile they cover.
+	for e, own := range ecs.Query[Ownership](store) {
+		g.deeds[own.Tile] = e
+	}
 }
 
 // registerProjections wires change detection to hub topics. The Board singleton
@@ -135,8 +206,55 @@ func (g *Game) Snapshot(ctx context.Context) (boardSnapshot, error) {
 	})
 }
 
+// snapshotBlob pairs a CBOR store snapshot with the tick it was taken at.
+type snapshotBlob struct {
+	data []byte
+	tick int64
+}
+
+// SaveSnapshot serializes the live store to a CBOR blob on the loop goroutine
+// (via AskFunc, so it never races the loop) and returns it with the current
+// tick. The saveLoop in main.go calls this periodically and persists the result.
+func (g *Game) SaveSnapshot(ctx context.Context) ([]byte, int64, error) {
+	res, err := sim.AskFunc(ctx, g.sim, func(w *sim.World) snapshotBlob {
+		data, serr := w.Store.Save()
+		if serr != nil {
+			return snapshotBlob{}
+		}
+		return snapshotBlob{data: data, tick: int64(w.Tick())}
+	})
+	if err != nil {
+		return nil, 0, err
+	}
+	if res.data == nil {
+		return nil, 0, fmt.Errorf("boardwalk: store save failed")
+	}
+	return res.data, res.tick, nil
+}
+
 // Run drives the sim loop until ctx is cancelled.
 func (g *Game) Run(ctx context.Context) { g.sim.Run(ctx) }
+
+// saveLoop persists a fresh snapshot every 15s until ctx is cancelled. The live
+// game is the in-memory store; this loop keeps Postgres's durable copy current
+// so a restart resumes mid-game. A save failure is logged-by-return — the loop
+// keeps trying on the next tick rather than tearing down the game.
+func saveLoop(ctx context.Context, g *Game, snap snapStore) {
+	t := time.NewTicker(15 * time.Second)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			data, tick, err := g.SaveSnapshot(ctx)
+			if err != nil {
+				continue
+			}
+			_ = snap.save(ctx, data, tick)
+		}
+	}
+}
 
 // touchBoard re-stamps the Board singleton so the next projection pass renders
 // the shared surface. Call from inside a Command's Apply after any change.
@@ -175,6 +293,7 @@ func (c joinCmd) Apply(w *sim.World) {
 			b.Joined++
 			b.Log = appendLog(b.Log, fmt.Sprintf("%s joined as %s.", jp.Name, jp.Token))
 		})
+		c.game.emit(event{Kind: "join", Seat: int32(seat), Token: jp.Token})
 	}
 	c.reply(seat)
 }
@@ -223,11 +342,13 @@ func (c rollCmd) Apply(w *sim.World) {
 	ecs.Set(store, ent, Position{Square: to})
 
 	lines := []string{fmt.Sprintf("%s rolled %d+%d=%d → %s", pl.Token, d1, d2, steps, board[to].Name)}
+	g.emit(event{Kind: "roll", Seat: int32(c.seat), Token: pl.Token, Tile: int32(to), Name: board[to].Name})
 
 	// Passing GO (wrap-around) pays salary.
 	if to < from {
 		addCash(store, ent, salary)
 		lines = append(lines, fmt.Sprintf("%s passed GO, collected $%d.", pl.Token, salary))
+		g.emit(event{Kind: "pass_go", Seat: int32(c.seat), Token: pl.Token, Delta: int64(salary)})
 	}
 
 	lines = append(lines, c.resolveTile(w, ent, pl, to)...)
@@ -262,11 +383,13 @@ func (c rollCmd) resolveTile(w *sim.World, ent ecs.Entity, pl Player, to int) []
 	case kindTax:
 		addCash(store, ent, -t.Price)
 		out = append(out, fmt.Sprintf("%s paid $%d %s.", pl.Token, t.Price, t.Name))
+		g.emit(event{Kind: "tax", Seat: int32(c.seat), Token: pl.Token, Tile: int32(to), Name: t.Name, Delta: int64(-t.Price)})
 
 	case kindChance:
 		// Deterministic swing off the sim PRNG: -$60..+$80 in $20 steps.
 		delta := (w.Intn(8) - 3) * 20
 		addCash(store, ent, delta)
+		g.emit(event{Kind: "chance", Seat: int32(c.seat), Token: pl.Token, Tile: int32(to), Name: t.Name, Delta: int64(delta)})
 		if delta >= 0 {
 			out = append(out, fmt.Sprintf("%s drew Chance: +$%d.", pl.Token, delta))
 		} else {
@@ -284,6 +407,7 @@ func (c rollCmd) resolveTile(w *sim.World, ent ecs.Entity, pl Player, to int) []
 				addCash(store, ent, -t.Price)
 				ecs.Set(store, deed, Ownership{Tile: to, Owner: ent})
 				out = append(out, fmt.Sprintf("%s bought %s for $%d.", pl.Token, t.Name, t.Price))
+				g.emit(event{Kind: "buy", Seat: int32(c.seat), Token: pl.Token, Tile: int32(to), Name: t.Name, Delta: int64(-t.Price)})
 			} else {
 				out = append(out, fmt.Sprintf("%s can't afford %s ($%d).", pl.Token, t.Name, t.Price))
 			}
@@ -295,6 +419,7 @@ func (c rollCmd) resolveTile(w *sim.World, ent ecs.Entity, pl Player, to int) []
 			addCash(store, own.Owner, t.Rent)
 			op, _ := ecs.Get[Player](store, own.Owner)
 			out = append(out, fmt.Sprintf("%s paid $%d rent to %s for %s.", pl.Token, t.Rent, op.Token, t.Name))
+			g.emit(event{Kind: "rent", Seat: int32(c.seat), Token: pl.Token, Tile: int32(to), Name: t.Name, Delta: int64(-t.Rent)})
 		}
 	}
 	return out
@@ -330,6 +455,17 @@ func (g *Game) Roll(ctx context.Context, seat int) (rollResult, error) {
 }
 
 // ---- helpers ----
+
+// emit stamps the event with the wall time and hands it to the firehose. Add is
+// non-blocking, so this is safe to call from inside a command's Apply on the
+// loop goroutine. The guard keeps it a no-op if the batcher is somehow unset.
+func (g *Game) emit(e event) {
+	if g.events == nil {
+		return
+	}
+	e.TS = time.Now()
+	g.events.Add(e)
+}
 
 func addCash(store *ecs.Store, e ecs.Entity, delta int) {
 	ecs.Mutate(store, e, func(c *Cash) { c.Amount += delta })

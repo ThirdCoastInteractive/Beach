@@ -2,9 +2,8 @@
 // and the gate (the system of record); ClickHouse holds the firehose — one
 // append-only row per thing that happened (views, posts, votes, signups,
 // logins), batched in off the request path and aggregated into the admin
-// dashboard at /admin/analytics. Everything here is optional: no
-// CLICKHOUSE_DSN means a nil conn, a no-op batcher, and a dashboard page that
-// says so instead of charting.
+// dashboard at /admin/analytics. ClickHouse is required (CLICKHOUSE_DSN), so the
+// firehose is always on.
 package main
 
 import (
@@ -50,13 +49,8 @@ type event struct {
 }
 
 // track records one event off r's request context. Fire-and-forget: Add never
-// blocks, and without a ClickHouse conn the batcher's sink is a no-op — the
-// nil check only spares the work of building the row. handle may be "" (an
-// anonymous view), postID 0 (no post involved).
+// blocks. handle may be "" (an anonymous view), postID 0 (no post involved).
 func (a *app) track(r *http.Request, kind, handle string, postID int64) {
-	if a.events == nil || a.chConn == nil {
-		return
-	}
 	m := clientMeta(r)
 	a.events.Add(event{
 		TS:      time.Now(),
@@ -73,12 +67,8 @@ func (a *app) track(r *http.Request, kind, handle string, postID int64) {
 
 // analyticsPage is the admin dashboard: a grid of deferred widgets, each a
 // placeholder that @gets its fragment from one of the widget PageFuncs below
-// (the pantry dashboard pattern). Without a ClickHouse conn it says so and
-// renders nothing else — analytics off is a configuration, not an error.
+// (the pantry dashboard pattern).
 func (a *app) analyticsPage(c *beach.Ctx) (beach.View, error) {
-	if a.chConn == nil {
-		return beach.View{Page: noticePage("analytics needs CLICKHOUSE_DSN.", "set it to a clickhouse server to turn the firehose on.")}, nil
-	}
 	handle, _, admin := a.acct(c)
 	return beach.View{Page: analyticsView(handle, admin, a.tierOf(a.rep.score(handle)))}, nil
 }

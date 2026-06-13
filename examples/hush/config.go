@@ -1,97 +1,83 @@
 package main
 
 import (
-	"os"
-	"strconv"
+	bcfg "github.com/ThirdCoastInteractive/the-beach/config"
 )
 
-// config is hush's env-driven knobs, read once at boot. Two kinds live here:
-// infrastructure and scoring weights the app reads straight off a.cfg
-// (EmailPoints, BaseURL — set at deploy), and the gate-and-moderation policy
-// (tier thresholds, flag triggers, invite throttle, open slots, admin email),
-// which these values only SEED. That policy then lives in the database and is
-// edited live at /admin/settings; the app reads it through a.live(), never off
-// a.cfg. See settings.go.
+// config is hush's env-driven knobs, loaded once at boot by the framework config
+// loader (bcfg.MustLoad). Three kinds live here:
+//
+//   - Infrastructure the app cannot run without (Postgres via Core.DSN,
+//     ClickHouse, Cloudflare R2 + Images): tagged `required`, so a missing value
+//     aborts boot rather than degrading. There is no in-memory mode — the Beach
+//     stack is Postgres and/or ClickHouse, always.
+//   - Mailer transport (Mailgun or SMTP): the fields are individually optional
+//     because you pick one transport, but main.go requires that AT LEAST ONE is
+//     configured (a hush with no way to send verification/invite mail is broken).
+//   - Scoring weights the app reads straight off a.cfg (EmailPoints, BaseURL),
+//     and the gate-and-moderation policy values (tiers, flag triggers, invite
+//     throttle, open slots, admin email) which these only SEED. That policy then
+//     lives in the database and is edited live at /admin/settings; the app reads
+//     it through a.live(), never off a.cfg. See settings.go.
 type config struct {
-	// Tier1 is the author-track score that unlocks tier 1 (the profile).
-	// HUSH_TIER1, default 3.
-	Tier1 float64
+	bcfg.Core // AppEnv, Port, DSN (POSTGRES_DSN|DATABASE_URL), BaseURL (BASE_URL)
 
-	// Tier2 is the score that unlocks tier 2 (DMs). HUSH_TIER2, default 8.
-	Tier2 float64
+	// ClickHouse is the observation store behind /admin/analytics — required.
+	CHDSN string `env:"CLICKHOUSE_DSN,required"`
 
-	// FlagTier is the tier whose single flag insta-hides a post — trusted
-	// members moderate alone. HUSH_FLAG_TIER, default 1.
-	FlagTier int
+	// Cloudflare R2 — the durable file store for post images and application
+	// photos. All four are required; R2_PUBLIC_URL is optional (unset = presigned
+	// links).
+	R2Endpoint  string `env:"R2_ENDPOINT,required"`
+	R2Bucket    string `env:"R2_BUCKET,required"`
+	R2KeyID     string `env:"R2_ACCESS_KEY_ID,required"`
+	R2Secret    string `env:"R2_SECRET_ACCESS_KEY,required"`
+	R2PublicURL string `env:"R2_PUBLIC_URL,trimslash" default:""`
 
-	// FlagQuorum is how many tier-0 flags it takes to hide a post — the
-	// untrusted crowd moderates by agreement. HUSH_FLAG_QUORUM, default 3.
-	FlagQuorum int
+	// Cloudflare Images — image posts upload here and serve resized variants.
+	// The three credentials are required; the variant names default.
+	CFImagesAccount string `env:"CF_IMAGES_ACCOUNT_ID,required"`
+	CFImagesToken   string `env:"CF_IMAGES_TOKEN,required"`
+	CFImagesHash    string `env:"CF_IMAGES_HASH,required"`
+	CFImagesVariant string `env:"CF_IMAGES_VARIANT" default:"public"`
+	CFImagesThumb   string `env:"CF_IMAGES_THUMB" default:"thumb"`
 
-	// EmailPoints is the author-track reputation granted for verifying an
-	// email address. HUSH_EMAIL_POINTS, default 2.
-	EmailPoints float64
+	// Mailer transport. Individually optional (you configure Mailgun OR SMTP);
+	// main.go fatals if neither is set. See mailer/mailer.go.
+	MailFromName  string `env:"MAIL_FROM_NAME" default:""`
+	MailFromAddr  string `env:"MAIL_FROM_ADDR" default:""`
+	MailgunKey    string `env:"MAILGUN_KEY" default:""`
+	MailgunDomain string `env:"MAILGUN_DOMAIN" default:""`
+	SMTPHost      string `env:"SMTP_HOST" default:""`
+	SMTPPort      string `env:"SMTP_PORT" default:"587"`
+	SMTPUsername  string `env:"SMTP_USERNAME" default:""`
+	SMTPPassword  string `env:"SMTP_PASSWORD" default:""`
 
-	// InviteBase is a tier-1 member's starting invite allowance; the chain
-	// score moves it from there (see inviteAllowance). HUSH_INVITE_BASE,
-	// default 3.
-	InviteBase int
+	// EmailPoints is the author-track reputation granted for verifying an email
+	// address. Baked into the Repute engine at boot, so it stays env.
+	EmailPoints float64 `env:"HUSH_EMAIL_POINTS" default:"2"`
 
-	// InviteMax caps the allowance however beloved the chain — nobody mints
-	// the whole site. HUSH_INVITE_MAX, default 6.
-	InviteMax int
-
-	// OpenSlots opens the first N registrations with no review (the
-	// switch-on-later mode); once spent, the application queue resumes.
-	// HUSH_OPEN_SLOTS, default 0 (queue + invites only).
-	OpenSlots int
-
-	// AdminEmail is where moderation notices go. HUSH_ADMIN_EMAIL, no default.
-	AdminEmail string
-
-	// BaseURL is the site's absolute origin, used to build absolute links in
-	// outgoing emails. HUSH_BASE_URL, default http://localhost:8080.
-	BaseURL string
+	// First-boot policy seeds. These only seed an empty hush_settings table; once
+	// seeded the database is authoritative (edited live at /admin/settings).
+	Tier1      float64 `env:"HUSH_TIER1" default:"3"`
+	Tier2      float64 `env:"HUSH_TIER2" default:"8"`
+	FlagTier   int     `env:"HUSH_FLAG_TIER" default:"1"`
+	FlagQuorum int     `env:"HUSH_FLAG_QUORUM" default:"3"`
+	InviteBase int     `env:"HUSH_INVITE_BASE" default:"3"`
+	InviteMax  int     `env:"HUSH_INVITE_MAX" default:"6"`
+	OpenSlots  int     `env:"HUSH_OPEN_SLOTS" default:"0"`
+	AdminEmail string  `env:"HUSH_ADMIN_EMAIL" default:""`
 }
 
-// loadConfig reads the HUSH_* environment into a config, falling back to the
-// documented defaults on unset or unparseable values.
+// loadConfig loads and validates the environment, aborting the process with the
+// list of missing required variables if the stack is not fully configured.
 func loadConfig() config {
-	return config{
-		Tier1:       envFloat("HUSH_TIER1", 3),
-		Tier2:       envFloat("HUSH_TIER2", 8),
-		FlagTier:    envInt("HUSH_FLAG_TIER", 1),
-		FlagQuorum:  envInt("HUSH_FLAG_QUORUM", 3),
-		EmailPoints: envFloat("HUSH_EMAIL_POINTS", 2),
-		InviteBase:  envInt("HUSH_INVITE_BASE", 3),
-		InviteMax:   envInt("HUSH_INVITE_MAX", 6),
-		OpenSlots:   envInt("HUSH_OPEN_SLOTS", 0),
-		AdminEmail:  os.Getenv("HUSH_ADMIN_EMAIL"),
-		BaseURL:     envStr("HUSH_BASE_URL", "http://localhost:8080"),
-	}
+	return *bcfg.MustLoad[config]()
 }
 
-func envFloat(key string, def float64) float64 {
-	if v := os.Getenv(key); v != "" {
-		if f, err := strconv.ParseFloat(v, 64); err == nil {
-			return f
-		}
-	}
-	return def
-}
-
-func envInt(key string, def int) int {
-	if v := os.Getenv(key); v != "" {
-		if n, err := strconv.Atoi(v); err == nil {
-			return n
-		}
-	}
-	return def
-}
-
-func envStr(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
+// mailerConfigured reports whether at least one mail transport is set — a
+// Mailgun key (with its domain) or an SMTP host. main.go refuses to boot
+// otherwise.
+func (c config) mailerConfigured() bool {
+	return (c.MailgunKey != "" && c.MailgunDomain != "") || c.SMTPHost != ""
 }

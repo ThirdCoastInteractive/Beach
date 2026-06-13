@@ -1,13 +1,28 @@
 // Command driftbottle is an Omegle-style anonymous stranger-chat: the hub/SSE
-// showcase for the-beach. It is fully ephemeral — no database, no accounts, no
-// chat persistence. The only state is in-memory: a per-session cookie identity,
-// a matchmaking queue, and the live pairings. Two waiting strangers are paired
-// onto a private hub topic; a "Next" button tears the pair down and re-queues.
+// fan-out benchmark for the-beach. The LIVE matchmaking and feed stay in memory
+// on the hot path — a per-session cookie identity, a matchmaking queue, and the
+// live pairings — because driftbottle measures fan-out and nothing may sit in
+// the path of a message. Two waiting strangers are paired onto a private hub
+// topic; a "Next" button tears the pair down and re-queues.
 //
-// Run it:
+// Persistence and analytics live entirely OFF the hot path, and both are
+// required to boot: Postgres archives transcripts (a background writer drains a
+// buffered channel of pairings and messages — never read on the hot path) and
+// ClickHouse holds the event firehose (one fire-and-forget row per session,
+// queue, pairing, message, and teardown), aggregated by the public /stats page.
+// A missing Postgres or ClickHouse DSN aborts boot rather than degrading.
 //
-//	go build -o bin/driftbottle ./examples/driftbottle
-//	PORT=8080 ./bin/driftbottle        # or just ./bin/driftbottle to bind :8080
+// Run it as a container stack (the app, its Postgres, and its ClickHouse):
+//
+//	cd examples/driftbottle
+//	cp .env.example .env
+//	docker compose up                  # → http://localhost:8080
+//
+// Run outside compose with both DSNs set:
+//
+//	DATABASE_URL=postgres://user:pass@localhost/driftbottle \
+//	CLICKHOUSE_DSN=clickhouse://default:@localhost:9000/driftbottle \
+//	  go run ./examples/driftbottle
 //
 // Open http://localhost:8080/ in two browsers (or one normal + one private
 // window, so they get distinct session cookies) and watch them get matched.
@@ -25,6 +40,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"embed"
 	"encoding/hex"
 	"log"
 	"log/slog"
@@ -35,10 +51,17 @@ import (
 	"time"
 
 	beach "github.com/ThirdCoastInteractive/the-beach"
+	"github.com/ThirdCoastInteractive/the-beach/ch"
 	"github.com/ThirdCoastInteractive/the-beach/hub"
+	"github.com/ThirdCoastInteractive/the-beach/pg"
 	"github.com/ThirdCoastInteractive/the-beach/ui/specimen"
 	"github.com/a-h/templ"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
 
 const (
 	// cookieName carries the anonymous session id. It is the only identity in the
@@ -70,10 +93,36 @@ const (
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
-	addr := ":8080"
-	if p := os.Getenv("PORT"); p != "" {
-		addr = ":" + p
+	// Load and validate config first: a missing Postgres or ClickHouse DSN aborts
+	// here with the full list, before anything serves. There is no database-less
+	// mode — driftbottle archives transcripts and runs a firehose, both required.
+	conf := loadConfig()
+	addr := ":" + conf.Port
+
+	ctx := context.Background()
+
+	// Postgres: the transcript ARCHIVE (off the hot path). Required — connect and
+	// migrate or die loudly. The live wall never reads these tables; a background
+	// writer drains the persist channel into them.
+	pool, err := openPool(ctx, conf.DSN)
+	if err != nil {
+		log.Fatalf("driftbottle: database connect failed: %v", err)
 	}
+	if err := pg.Migrate(ctx, pool, migrationsFS); err != nil {
+		log.Fatalf("driftbottle: migrate failed: %v", err)
+	}
+
+	// ClickHouse: the event firehose (off the hot path). Required — a bad DSN or
+	// migration is fatal; there is no analytics-off mode. The batcher is
+	// fire-and-forget, so track() never blocks the fan-out path.
+	conn, err := ch.Connect(ctx, conf.CHDSN)
+	if err != nil {
+		log.Fatalf("driftbottle: clickhouse connect failed: %v", err)
+	}
+	if err := ch.Migrate(ctx, conn, chMigrations()); err != nil {
+		log.Fatalf("driftbottle: clickhouse migrate failed: %v", err)
+	}
+	events := ch.NewBatcher[event](conn, "driftbottle_events", ch.Batch{})
 
 	h := hub.New()
 
@@ -88,29 +137,61 @@ func main() {
 		log:      logger,
 		sessions: map[string]*sessionState{},
 		feeds:    map[string][]chatMessage{},
+		pool:     pool,
+		chConn:   conn,
+		events:   events,
+		persist:  make(chan persistOp, 1024),
 	}
+	// The single archive writer: it drains the persist channel and does the
+	// Postgres IO the hot-path handlers deliberately skip.
+	go srv.persistLoop(ctx)
 
 	app.Page("/", srv.indexPage)
 	app.Stream("/events", srv.eventsStream)
 	app.Action("/start", srv.startAction)
 	app.Action("/say", srv.sayAction)
 	app.Action("/next", srv.nextAction)
+	// The public analytics page (analytics.go): aggregates only, no auth —
+	// driftbottle is anonymous. Each widget is a deferred fragment route.
+	app.Page("/stats", srv.statsPage)
+	app.Page("/stats/sessions", anlWidget("anl-sessions", srv.wSessions))
+	app.Page("/stats/pairings", anlWidget("anl-pairings", srv.wPairings))
+	app.Page("/stats/messages", anlWidget("anl-messages", srv.wMessages))
 	// The living component/chart showcase, mounted on every example.
 	app.Page("/specimen", func(c *beach.Ctx) (beach.View, error) {
 		return beach.View{Page: specimen.Page()}, nil
 	})
 
 	logger.Info("driftbottle: starting", "addr", addr,
-		"routes", "GET / , GET /events , POST /start , POST /say , POST /next , GET /specimen , GET /static/...")
+		"routes", "GET / , GET /events , POST /start , POST /say , POST /next , GET /stats , GET /specimen , GET /static/...")
 	if err := app.Start(addr); err != nil {
 		log.Fatalf("driftbottle: %v", err)
 	}
 }
 
+// openPool builds a pgx pool and pings it, returning an error so the caller can
+// log a clear "database connect failed" and exit (boot has no graceful path).
+func openPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		return nil, err
+	}
+	if err := pool.Ping(ctx); err != nil {
+		pool.Close()
+		return nil, err
+	}
+	return pool, nil
+}
+
 // --- server state ------------------------------------------------------------
 
-// server holds all in-memory chat state. Everything is ephemeral: lose the
-// process, lose the conversations — which is the point.
+// server holds the LIVE chat state — all in-memory, on the hot path: lose the
+// process and the live conversations are gone, which is the point of the
+// benchmark. Persistence is strictly off to the side: pool archives transcripts
+// (written only by persistLoop, never read here), chConn/events feed the
+// firehose, and persist is the buffered hand-off to the archive writer. All
+// three may be nil (the unit tests build server without them); track() and
+// enqueuePersist() are no-ops in that state.
 type server struct {
 	hub *hub.Hub
 	log *slog.Logger
@@ -119,6 +200,15 @@ type server struct {
 	waiting  string                   // session id parked in the lobby, or "" if none
 	sessions map[string]*sessionState // every session that has connected
 	feeds    map[string][]chatMessage // pair topic -> rolling message buffer
+
+	// Off-the-hot-path persistence/analytics (analytics.go). pool is the
+	// transcript archive, chConn the ClickHouse handle the /stats widgets query,
+	// events the fire-and-forget firehose batcher, and persist the buffered
+	// channel persistLoop drains into Postgres.
+	pool    *pgxpool.Pool
+	chConn  ch.Conn
+	events  *ch.Batcher[event]
+	persist chan persistOp
 }
 
 // sessionState is one anonymous stranger. partner is the session id of the
@@ -230,6 +320,7 @@ func (s *server) enqueue(id string) {
 		s.waiting = id
 		st.last = ""
 		s.mu.Unlock()
+		s.track(event{Kind: "queued", SID: id}) // parked in the lobby
 		s.publish(id, waitingFragment())
 		return
 	}
@@ -246,6 +337,11 @@ func (s *server) enqueue(id string) {
 	s.mu.Unlock()
 
 	s.log.Info("driftbottle: paired", "pair", pt, "a", short(id), "b", short(other))
+	// Firehose + archive, both off the hot path: one paired row per side and a
+	// pairing archive row. enqueuePersist only queues — no PG IO inline here.
+	s.track(event{Kind: "paired", SID: id, Pair: pt})
+	s.track(event{Kind: "paired", SID: other, Pair: pt})
+	s.enqueuePersist(persistOp{Op: "pair", Pair: pt, A: id, B: other})
 	s.publish(id, chatFragment())
 	s.publish(other, chatFragment())
 }
@@ -270,10 +366,15 @@ func (s *server) teardown(id string) {
 		ps.partner = ""
 		ps.last = id
 	}
-	delete(s.feeds, pairTopic(id, partner))
+	pt := pairTopic(id, partner)
+	delete(s.feeds, pt)
 	s.mu.Unlock()
 
 	s.log.Info("driftbottle: unpaired", "a", short(id), "b", short(partner))
+	// Firehose + archive, off the hot path: an unpaired row and a close-out of the
+	// pairing's archive row (ended_at). enqueuePersist only queues the UPDATE.
+	s.track(event{Kind: "unpaired", SID: id, Pair: pt})
+	s.enqueuePersist(persistOp{Op: "unpair", Pair: pt})
 	s.publish(partner, endedFragment())
 	s.enqueue(partner)
 }
@@ -323,6 +424,12 @@ func (s *server) broadcast(senderID, partner, body string) {
 	copy(snapshot, buf)
 	s.mu.Unlock()
 
+	// Firehose + archive, both off the hot path: a message row on the firehose
+	// and the message text into the transcript archive. The live fan-out below is
+	// what the benchmark measures — neither call here blocks it.
+	s.track(event{Kind: "message", SID: senderID, Pair: pt, Len: uint32(len(body))})
+	s.enqueuePersist(persistOp{Op: "message", Pair: pt, From: senderID, Body: body})
+
 	s.publish(senderID, feedFragment(forViewer(snapshot, senderID)))
 	s.publish(partner, feedFragment(forViewer(snapshot, partner)))
 }
@@ -356,6 +463,7 @@ func (s *server) indexPage(c *beach.Ctx) (beach.View, error) {
 	id, fresh := sid(c)
 	if fresh {
 		setSIDCookie(c, id)
+		s.track(event{Kind: "session", SID: id}) // a new anonymous session minted
 	}
 
 	return beach.View{

@@ -15,10 +15,17 @@ summarized here.
 
 | App | Showcase | State home | Persistence |
 | --- | --- | --- | --- |
-| boardwalk | `sim`/`ecs` realtime | `ecs.Store` in a sim loop | none (in-memory) |
-| driftbottle | `hub`/SSE fan-out | in-process maps | none (ephemeral) |
-| pantry | `apigen`/`auth`/analytics | Postgres (or in-memory) | Postgres |
-| hush | custom layout + client JS | in-memory wall; Postgres gate + `storage` | Postgres (gate), object store (media) |
+| boardwalk | `sim`/`ecs` realtime | `ecs.Store` in a sim loop | Postgres snapshot + ClickHouse firehose |
+| driftbottle | `hub`/SSE fan-out | in-process maps (hot path) | Postgres transcript archive + ClickHouse firehose |
+| pantry | `apigen`/`auth`/analytics | Postgres | Postgres + ClickHouse |
+| hush | custom layout + client JS | Postgres gate + `storage` | Postgres (gate), ClickHouse (analytics), Cloudflare R2/Images (media) |
+
+Every app requires the **Beach stack** — Postgres and/or ClickHouse — and **fails
+to start** if its configured stack is missing. There is no degraded in-memory
+mode: a misconfigured process exits with the list of missing env vars rather than
+serving a crippled version. Where a live in-memory model is the *showcase*
+(boardwalk's `ecs`/`sim`, driftbottle's matchmaking/feed) it stays in memory on
+the hot path, backed by a required Postgres + ClickHouse off the hot path.
 
 A rule every app obeys, learned the hard way: **a rendered page is not a working
 feature.** Each is verified in a real browser (chrome-devtools/playwright)
@@ -36,18 +43,27 @@ dedicated demo binary.
 
 The **`sim`/`ecs` showcase**: a multiplayer, tick-driven board game where the
 entire live slice lives in an `ecs.Store` owned by a single-writer `sim` loop and
-is fanned to every watcher over SSE. **No database** — persistence lanes are
-documented in [08-sim.md](08-sim.md), but the runnable demo is pure in-memory, on
-purpose: it isolates the sim/hub story with nothing else in the way.
+is fanned to every watcher over SSE. The live model stays in memory — that is the
+point, it isolates the sim/hub story — but the app now requires the Beach stack
+and **fails to boot without it**: Postgres holds a periodic CBOR snapshot of the
+whole store (the [snapshot lane](08-sim.md#persistence), restored on boot so a
+restart resumes the game) and ClickHouse holds the event firehose behind `/stats`.
 
 ### Boot & wiring (`main.go`)
 
 ```go
+conf := loadConfig()                 // config.MustLoad: POSTGRES_DSN + CLICKHOUSE_DSN required
+pool := pg.MustPool(ctx, conf.DSN); pg.Migrate(ctx, pool, migrationsFS)
+conn, _ := ch.Connect(ctx, conf.CHDSN); ch.Migrate(ctx, conn, chMigrations())
+events := ch.NewBatcher[event](conn, "boardwalk_events", ch.Batch{})
+
 h := hub.New()
-s := sim.New(sim.Config{TickRate: 20, ProjectRate: 20, Hub: h})
-game := NewGame(s)
+blob, _ := snap.load(ctx)            // restore the saved store if present
+s := sim.New(sim.Config{TickRate: 20, ProjectRate: 20, Hub: h, Store: restoredFrom(blob)})
+game := NewGame(s, events)
 app := beach.New(beach.Config{Service: "boardwalk", Hub: h})
 go game.Run(ctx)
+go saveLoop(ctx, game, snap)         // periodic snapshot upsert to Postgres
 ```
 
 | Method | Path | Shape | Role |
@@ -141,19 +157,28 @@ templates read as plain markup. One snapshot read feeds all the fragments.
 No trade, no auction, no mortgage, no jail rules, no doubles/extra-turn, no
 bankruptcy or win condition (`Board.Over` exists but is never set). Buying is
 automatic on landing if you can afford it. The point is the framework, not
-tournament fidelity.
+tournament fidelity. The persistence is deliberately the snapshot lane only — no
+per-component write-behind mirror tables — because the demo's job is to show the
+lane, not to be the system of record for a game.
 
 **Validates:** `ecs`, `sim`, the command channel + `Ask`/`AskFunc`, projections,
-hub topics (shared vs per-user), SSE catch-up and re-open, and the
-server-animated chart (`hub.Ticker` + bar race).
+hub topics (shared vs per-user), SSE catch-up and re-open, the server-animated
+chart (`hub.Ticker` + bar race), the `sim` snapshot lane (`Store.Save`/restore to
+Postgres), and a `ch` event firehose + `chart` dashboard.
 
 ---
 
 ## `examples/driftbottle` — stranger chat (Omegle-style, text only)
 
-The **`hub`/SSE showcase**: anonymous, ephemeral, no database, no accounts — the
-purest possible test of the hub, matchmaking, and reconnect with nothing else in
-the way. It is the designated host for the fan-out benchmark.
+The **`hub`/SSE showcase**: anonymous, no accounts — the purest possible test of
+the hub, matchmaking, and reconnect with nothing else *on the hot path*. The live
+slice (the waiting queue, the pairings, the rolling feed) stays in process maps;
+that is what makes it the designated fan-out benchmark host — no session
+affinity, no per-message N-fan, **no DB on the hot path**. The app still requires
+the Beach stack and fails to boot without it: Postgres archives transcripts and
+ClickHouse holds the event firehose, both written strictly **off** the hot path
+(a non-blocking `ch.Batcher` and a buffered persist channel drained by one
+goroutine), so the benchmark claim is preserved. `/stats` charts the firehose.
 
 ### Boot & wiring (`main.go`)
 
@@ -248,44 +273,51 @@ catch-up defaulting an unknown session to the lobby.
 
 ### Deliberately not there
 
-No persistence of any message, no presence list beyond the pairing, no group
-chat, and the 5k-connection benchmark harness itself is not checked into the tree
-yet — the app is *built for* it (the architecture above is the proof), but the
-runnable artifact is the chat plus its unit tests.
+No reading of the transcript archive back into the app (Postgres is a write-only
+sink here — the archive is for offline/admin use, never the hot path), no
+presence list beyond the pairing, no group chat, and the 5k-connection benchmark
+harness itself is not checked into the tree yet — the app is *built for* it (the
+architecture above is the proof), but the runnable artifact is the chat plus its
+unit tests.
 
 **Validates:** hub fan-out, `StreamFunc`/`beach.Sub`, catch-up/reconnect,
-matchmaking, anonymous identity, the moderation hooks, signal-clearing patches.
+matchmaking, anonymous identity, the moderation hooks, signal-clearing patches,
+off-hot-path write-behind to Postgres, and a `ch` firehose + `chart` `/stats`.
 
 ---
 
 ## `examples/pantry` — at-home grocery ERP
 
-The **CRUD/`apigen`/`auth`/analytics showcase**: boring in the good way. It is
-the one app that runs **with or without** a database — set `DATABASE_URL` and it
-boots auth + Postgres; unset, it degrades to an in-memory store so the UI is
-always explorable.
+The **CRUD/`apigen`/`auth`/analytics showcase**: boring in the good way. It
+requires the full Beach stack — Postgres (the system of record: inventory, auth,
+sessions) and ClickHouse (the dashboard's activity firehose) — and **fails to
+boot without both**; there is no in-memory mode.
 
 ### Boot & wiring (`main.go`)
 
 ```go
 type app struct {
-    store    *memStore           // in-memory fallback, always present
+    store    *pgStore            // Postgres-backed; the only store
     cat      *i18n.Catalog
-    authn    *auth.Authenticator // nil without a DB
-    sessions *session.Store      // nil without a DB
-    pool     *pgxpool.Pool       // nil without a DB
+    authn    *auth.Authenticator
+    sessions *session.Store
+    pool     *pgxpool.Pool
+    chConn   ch.Conn             // the activity firehose
+    events   *ch.Batcher[event]
     release  bool
 }
 ```
 
-Boot: parse env → `i18n.Load(localesFS, "en-US")` → if `DATABASE_URL` is set,
-`openPool` then `migrate` (three sources: `session.Migrations`, `auth.Migrations`,
-the app's `migrationsFS` — each gets its own goose version table, see
-[02-boot-spine.md](02-boot-spine.md)), build the `session.Store` + `auth.Authenticator`,
+Boot: `config.MustLoad` (Postgres + ClickHouse DSNs required — exits with the
+missing list otherwise) → `i18n.Load(localesFS, "en-US")` → `openPool` then
+`migrate` (three sources: `session.Migrations`, `auth.Migrations`, the app's
+`migrationsFS` — each gets its own goose version table, see
+[02-boot-spine.md](02-boot-spine.md)) → `newPGStore` (idempotently seeds the
+sample inventory on a fresh DB) → build the `session.Store` + `auth.Authenticator`
 and `seedAdmin` (`admin` / a password, role `household-admin` with
-`pantry:read|write|admin`). Any failure degrades cleanly to in-memory mode. The
-finished `beach.Handler()` is wrapped in `cat.Middleware` so every request
-resolves a locale into context.
+`pantry:read|write|admin`) → `ch.Connect` + `ch.Migrate` + the events batcher.
+Any failure is fatal. The finished `beach.Handler()` is wrapped in
+`cat.Middleware` so every request resolves a locale into context.
 
 | Method | Path | Shape | Guard |
 | --- | --- | --- | --- |
@@ -321,10 +353,11 @@ pantry keeps both visible side by side.
 ### Data model
 
 `model.go` defines `Item`, `Location`, `ShoppingList`, `ListItem` and the
-thread-safe `memStore` (seeded with 6 items, 3 locations, 1 list). The migration
-creates soft-deleting (`deleted_at`) tables `pantry_items`, `pantry_locations`,
-`pantry_lists`, `pantry_list_items` plus the framework's auth/session tables, and
-seeds the `household-admin` / `household-member` roles.
+`pgStore` (its `newPGStore` boot-seed inserts 6 items, 3 locations, 1 list when
+`pantry_items` is empty — the idempotent analogue of the old in-memory seed). The
+migration creates soft-deleting (`deleted_at`) tables `pantry_items`,
+`pantry_locations`, `pantry_lists`, `pantry_list_items` plus the framework's
+auth/session tables, and seeds the `household-admin` / `household-member` roles.
 
 ### Request lifecycle (create item)
 
@@ -358,12 +391,15 @@ template.
 gets live Grid/Legend/Theme/Expand controls), each body a
 `ui.Defer{ID, Get: "/widgets/<id>"}` placeholder with reserved height — zero
 layout shift. Datastar fetches each widget on intersection and morphs it in by
-id; the widget routes return `chart.Chart*Fragment`s carrying the same id:
-`ChartLineFragment` (spend, area), `ChartStackedBarFragment` (by category),
-`ChartCalendarFragment` (expiry), `ChartGaugeFragment` (waste). In the demo the
-series are sample data; in a `ch`-backed deployment the same
-`chart.Layout*` + fragment calls consume ClickHouse aggregates unchanged
-([14-analytics.md](14-analytics.md)).
+id; the widget routes (the hush `anlWidget` adapter — a per-request query, not a
+cached fragment) return `chart.Chart*Fragment`s carrying the same id. The data is
+real, split honestly: the **activity** line (`ChartLineFragment`) reads the
+ClickHouse firehose (items added per day, `WITH FILL`); the inventory-derived
+widgets read Postgres, the system of record — **by category**
+(`ChartStackedBarFragment`, one bar per location-kind), **expiry**
+(`ChartCalendarFragment`, per-day `expires_at` counts), **spoilage**
+(`ChartGaugeFragment`, expired ÷ total). CH is the firehose, Postgres is the
+record ([14-analytics.md](14-analytics.md)).
 
 ### i18n
 
@@ -375,13 +411,12 @@ text-heavy app, so it carries the translation story.
 ### Deliberately not there
 
 The apigen *generator* output is not wired into the running routes (the
-hand-written equivalents stand in as the reference); ClickHouse is not required to
-run (charts use sample data without it).
+hand-written equivalents stand in as the reference).
 
 **Validates:** apigen annotation surface, `auth`/RBAC + the login flow, `session`,
-`pg.Migrate` multi-source, `chart` fragments + the widget toolbar, `driftwood`
-(incl. media components), deferred sections, `i18n`, and the DB-optional degrade
-path.
+`pg.Migrate` multi-source, a real `ch` firehose feeding `chart` fragments + the
+widget toolbar, `driftwood` (incl. media components), deferred sections, and
+`i18n`.
 
 ---
 
@@ -401,11 +436,16 @@ Full architecture in [18-hush.md](18-hush.md); in brief:
 - A **WebGPU camera** is the proof that client-side JS can be an isolated island —
   a WGSL filter pipeline that hands a blob to a normal action; everything else
   stays SSR.
-- **`storage.Store`** holds post images and application photos (Local↔R2, one-line
-  swap); **Repute** scores posts and the score gates DMs and profile editing via
-  `app.Can`.
+- **`storage.Store`** (Cloudflare R2) holds application photos and the
+  Cloudflare-Images delivery-URL fallback; image posts upload to **Cloudflare
+  Images**. **Repute** scores posts and the score gates DMs and profile editing
+  via `app.Can`.
 - Gated signup: apply with a photo + pitch, an admin approves, and reputation
   tiers unlock features.
+- **Requires the full stack**: Postgres (gate), ClickHouse (analytics), Cloudflare
+  R2 + Images (media), and a real mail transport (Mailgun or SMTP) — hush adopts
+  the `config` library's `required` env tags and exits with the missing list if
+  any of it is unset. No local-files / log-mailer / analytics-off fallbacks.
 
 Built across five gated blocks (A–E in 18-hush.md), each verified in a real
 browser: the gapless wall + 512-char markdown, `storage` image uploads, the WebGPU
@@ -413,8 +453,9 @@ camera island, the Postgres signup gate, and Repute scoring with tier-gated
 profiles. Each example also ships a self-contained `docker-compose.yml` +
 `.env.example`.
 
-**Validates:** `storage`, Repute, custom layout, a client-JS island, `auth`
-tiers, `beach.Bind`/Patches/hub.
+**Validates:** `storage` (R2) + Cloudflare Images, Repute, custom layout, a
+client-JS island, `auth` tiers, `beach.Bind`/Patches/hub, `mailer`, a `ch`
+firehose + `chart` analytics, and the `config` library's `required` tags.
 
 ---
 
@@ -427,11 +468,11 @@ tiers, `beach.Bind`/Patches/hub.
 | ecs / sim                     |  **●●**   |       ○       |   —    |   —    |
 | auth / passwords              |     —     | ● (anonymous) | **●●** | **●●** |
 | apigen                        |     —     |       —       | **●●** |   ○    |
-| ch / chart                    |     ○     |       —       | **●●** |   —    |
+| ch / chart                    |     ●     |       ●       | **●●** |   ●    |
 | i18n                          |     —     |       —       | **●●** |   ○    |
 | storage                       |     —     |       —       |   —    | **●●** |
 | Repute                        |     —     |       —       |   —    | **●●** |
-| cache / session / pg / config |     ○     |       ○       |   ●    |   ●    |
+| cache / session / pg / config |     ●     |       ●       |   ●    |   ●    |
 
 ●● = the showcase, ● = exercised, ○ = incidental, — = unused (deliberately: not
 every app needs every package, and the examples should prove that too).

@@ -6,19 +6,19 @@
 // full i18n catalog (en-US, es-ES); and the framework's living component
 // showcase mounted at /specimen.
 //
-// Run it:
+// Run it as a container stack — the app, its Postgres, and its ClickHouse:
 //
-//	go build -o bin/pantry ./examples/pantry
-//	PORT=8080 ./bin/pantry
+//	cd examples/pantry
+//	cp .env.example .env
+//	docker compose up                     # → http://localhost:8080
 //
-// Without a database the binary still serves: the dashboard, inventory,
-// locations, and shopping-list pages render from an in-memory store seeded at
-// boot, and the home route needs no DB at all. Set DATABASE_URL to a Postgres
-// DSN to enable auth (login, RBAC-gated writes) and the persistent tables; boot
-// then runs the framework's auth+session migrations and this app's pantry
-// migration.
+// pantry requires the full Beach stack: Postgres is the system of record
+// (inventory, auth + RBAC, sessions) and ClickHouse is the activity firehose
+// behind the dashboard. Both DSNs are required — a missing one aborts boot with
+// the list, there is no database-less mode. Run outside compose with both set:
 //
-//	DATABASE_URL=postgres://user:pass@localhost/pantry PORT=8080 ./bin/pantry
+//	DATABASE_URL=postgres://user:pass@localhost/pantry \
+//	CLICKHOUSE_DSN=clickhouse://default:@localhost:9000/pantry ./bin/pantry
 package main
 
 import (
@@ -33,12 +33,12 @@ import (
 
 	beach "github.com/ThirdCoastInteractive/the-beach"
 	"github.com/ThirdCoastInteractive/the-beach/auth"
+	"github.com/ThirdCoastInteractive/the-beach/ch"
 	"github.com/ThirdCoastInteractive/the-beach/i18n"
 	"github.com/ThirdCoastInteractive/the-beach/passwords"
 	"github.com/ThirdCoastInteractive/the-beach/pg"
 	"github.com/ThirdCoastInteractive/the-beach/session"
 	"github.com/ThirdCoastInteractive/the-beach/ui/specimen"
-	"github.com/a-h/templ"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -54,14 +54,18 @@ var localesFS embed.FS
 
 const sessionCookie = "pantry_session"
 
-// app holds the wired dependencies the handlers close over. authn/sessions/pool
-// are nil when no DATABASE_URL is configured (database-less mode).
+// app holds the wired dependencies the handlers close over. pantry requires the
+// full Beach stack: Postgres (inventory, auth, sessions) and ClickHouse (the
+// activity firehose behind the dashboard) are always present — there is no
+// database-less mode.
 type app struct {
-	store    *memStore
+	store    *pgStore
 	cat      *i18n.Catalog
 	authn    *auth.Authenticator
 	sessions *session.Store
 	pool     *pgxpool.Pool
+	chConn   ch.Conn
+	events   *ch.Batcher[event]
 	release  bool
 }
 
@@ -76,17 +80,16 @@ func (a *app) t(ctx context.Context, key string, args ...any) string {
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
-	addr := ":8080"
-	if p := os.Getenv("PORT"); p != "" {
-		addr = ":" + p
-	}
-
 	sub, err := fs.Sub(staticFS, "static")
 	if err != nil {
 		log.Fatalf("pantry: static sub-fs: %v", err)
 	}
 
-	a := &app{store: newMemStore(), release: os.Getenv("RELEASE") != ""}
+	// Load and validate config first: a missing Postgres or ClickHouse DSN aborts
+	// here with the list, before anything serves. There is no database-less mode.
+	conf := loadConfig()
+	a := &app{release: conf.Production()}
+	addr := ":" + conf.Port
 
 	// i18n catalog from the embedded locale files; falls back to the builtin
 	// default if loading fails (it shouldn't).
@@ -104,31 +107,42 @@ func main() {
 		Logger:  logger,
 	}
 
-	// Optional Postgres: enables auth (login + RBAC) and the persistent schema.
-	// Without it the app runs database-less on the in-memory store.
+	// Postgres is required: it holds inventory, auth (login + RBAC), sessions, and
+	// runs the framework's auth+session migrations plus the pantry schema. Each
+	// step dies loudly rather than degrading.
 	ctx := context.Background()
-	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
-		pool, perr := openPool(ctx, dsn)
-		if perr != nil {
-			logger.Error("pantry: database connect failed; running database-less", "err", perr)
-		} else {
-			a.pool = pool
-			if err := a.migrate(ctx); err != nil {
-				logger.Error("pantry: migrate failed; running database-less", "err", err)
-				pool.Close()
-				a.pool = nil
-			} else {
-				a.sessions = session.NewStore(pool, session.Config{CookieName: sessionCookie})
-				a.authn = auth.NewAuthenticator(pool, a.sessions, auth.LockoutConfig{})
-				cfg.Sessions = a.sessions
-				cfg.Principals = a.principalResolver
-				if err := a.seedAdmin(ctx); err != nil {
-					logger.Error("pantry: seed admin failed", "err", err)
-				}
-				logger.Info("pantry: database mode (auth enabled)", "login", "admin / password")
-			}
-		}
+	pool, err := openPool(ctx, conf.DSN)
+	if err != nil {
+		log.Fatalf("pantry: database connect failed: %v", err)
 	}
+	a.pool = pool
+	if err := a.migrate(ctx); err != nil {
+		log.Fatalf("pantry: migrate failed: %v", err)
+	}
+	store, err := newPGStore(ctx, pool)
+	if err != nil {
+		log.Fatalf("pantry: store init failed: %v", err)
+	}
+	a.store = store
+	a.sessions = session.NewStore(pool, session.Config{CookieName: sessionCookie})
+	a.authn = auth.NewAuthenticator(pool, a.sessions, auth.LockoutConfig{})
+	cfg.Sessions = a.sessions
+	cfg.Principals = a.principalResolver
+	if err := a.seedAdmin(ctx); err != nil {
+		log.Fatalf("pantry: seed admin failed: %v", err)
+	}
+
+	// ClickHouse is required: the activity firehose behind the dashboard's
+	// "Activity" line. A bad DSN or migration is fatal.
+	conn, err := ch.Connect(ctx, conf.ClickhouseDSN)
+	if err != nil {
+		log.Fatalf("pantry: clickhouse connect failed: %v", err)
+	}
+	a.chConn = conn
+	if err := ch.Migrate(ctx, a.chConn, chMigrations()); err != nil {
+		log.Fatalf("pantry: clickhouse migrate failed: %v", err)
+	}
+	a.events = ch.NewBatcher[event](a.chConn, "pantry_events", ch.Batch{})
 
 	beachApp := beach.New(cfg)
 	a.routes(beachApp)
@@ -138,16 +152,15 @@ func main() {
 	// locale (cookie/Accept-Language) onto the context before any page renders.
 	handler := cat.Middleware(beachApp.Handler())
 
-	logger.Info("pantry: starting", "addr", addr, "db", a.pool != nil)
+	logger.Info("pantry: starting", "addr", addr, "login", "admin / password")
 	srv := &http.Server{Addr: addr, Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatalf("pantry: %v", err)
 	}
 }
 
-// openPool builds a pgx pool and pings it, returning an error (rather than
-// panicking like pg.MustPool) so a misconfigured DATABASE_URL degrades to
-// database-less mode instead of crashing the binary.
+// openPool builds a pgx pool and pings it, returning an error so the caller can
+// log a clear "database connect failed" and exit (boot has no graceful path).
 func openPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	pool, err := pgxpool.New(ctx, dsn)
 	if err != nil {
@@ -218,7 +231,7 @@ func (a *app) seedAdmin(ctx context.Context) error {
 // i18n middleware. Writes are guarded by Can("pantry:write"); location deletes
 // would be Can("pantry:admin") — the auth story is visible right here.
 func (a *app) routes(app *beach.App) {
-	// Read pages — all work without a DB.
+	// Read pages.
 	app.Page("/", a.dashboardPage)
 	app.Page("/items", a.itemsPage)
 	app.Page("/locations", a.locationsPage)
@@ -230,19 +243,16 @@ func (a *app) routes(app *beach.App) {
 		return beach.View{Page: specimen.Page()}, nil
 	})
 
-	// Deferred dashboard widgets (fed by sample analytics data).
-	app.Page("/widgets/spend", widgetPage("w-spend", spendWidget))
-	app.Page("/widgets/category", widgetPage("w-category", categoryWidget))
-	app.Page("/widgets/expiry", widgetPage("w-expiry", func() templ.Component { return expiryWidget(a.store.listItems()) }))
-	app.Page("/widgets/waste", widgetPage("w-waste", wasteWidget))
+	// Deferred dashboard widgets — each runs a live query (CH activity firehose +
+	// Postgres inventory) and returns its chart fragment (see dashboard.go).
+	app.Page("/widgets/spend", anlWidget("w-spend", a.wActivity))
+	app.Page("/widgets/category", anlWidget("w-category", a.wCategory))
+	app.Page("/widgets/expiry", anlWidget("w-expiry", a.wExpiry))
+	app.Page("/widgets/waste", anlWidget("w-waste", a.wWaste))
 
-	// Write actions. With auth on (DB mode) they require pantry:write — the auth
-	// story stays visible in the route table. Database-free there is no principal,
-	// so the single local user just manages their own pantry (a home app of one).
-	var write []beach.Guard
-	if a.authn != nil {
-		write = append(write, app.Can("pantry:write"))
-	}
+	// Write actions are guarded by pantry:write — the auth story stays visible in
+	// the route table.
+	write := []beach.Guard{app.Can("pantry:write")}
 	app.Action("/items", a.createItem, write...)
 	app.Action("/locations", a.createLocation, write...)
 
@@ -253,11 +263,8 @@ func (a *app) routes(app *beach.App) {
 
 // principalResolver turns a session user id into a rich auth.Principal by
 // reading roles+permissions back from the RBAC tables. Wired as cfg.Principals
-// when the DB is present, so c.Principal()/Can() work in guards and handlers.
+// so c.Principal()/Can() work in guards and handlers.
 func (a *app) principalResolver(ctx context.Context, userID int64) (*beach.Principal, error) {
-	if a.pool == nil {
-		return nil, nil
-	}
 	var username string
 	if err := a.pool.QueryRow(ctx, `SELECT username FROM users WHERE id = $1`, userID).Scan(&username); err != nil {
 		return nil, err
@@ -294,10 +301,8 @@ func scanStrings(ctx context.Context, pool *pgxpool.Pool, q string, args ...any)
 
 // logout revokes the session and clears the cookie.
 func (a *app) logout(w http.ResponseWriter, r *http.Request) {
-	if a.sessions != nil {
-		if ck, err := r.Cookie(sessionCookie); err == nil {
-			_ = a.sessions.Revoke(r.Context(), ck.Value)
-		}
+	if ck, err := r.Cookie(sessionCookie); err == nil {
+		_ = a.sessions.Revoke(r.Context(), ck.Value)
 	}
 	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", MaxAge: -1})
 	http.Redirect(w, r, "/login", http.StatusSeeOther)

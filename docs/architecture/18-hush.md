@@ -11,8 +11,8 @@ analytics, and Cloudflare media. It is a curated, anonymous content board —
 *hush-hush* by design: a gapless wall of square posts, gated signup with manual
 approval, and feature tiers unlocked by reputation.
 
-It exercises the packages the trio doesn't: `storage` (Local, R2 via
-`storage/s3`, and `storage/cfimages`), `mailer` (the outbox's transport),
+It exercises the packages the trio doesn't: `storage` (R2 via `storage/s3`
+and `storage/cfimages`), `mailer` (the outbox's transport),
 `ch` (the analytics firehose + admin charts), and **Repute** (post scoring,
 which gates profiles and invites).
 
@@ -57,9 +57,9 @@ the one other script (`static/js/camera.js`, an external module — CSP-clean).
 | --- | --- |
 | Custom layout on the SSR core | the gapless square grid — pure CSS, zero JS, container-query text scaling |
 | Client-side JS as an island | the WebGPU camera: an isolated client that produces a blob and hands it to a normal action; everything else is SSR |
-| `storage.Store` | post images and application photos via `Put`/`URL`/`ServeHTTP`, swappable Local↔R2 (`storage/s3`) by env alone |
-| `storage/cfimages` | image posts upload to Cloudflare Images and render resized variants, falling back to the file store when unconfigured |
-| `mailer` + an outbox | transactional email as Postgres rows, pumped through whatever transport the env supports (Mailgun → SMTP → log) |
+| `storage.Store` | post images and application photos via `Put`/`URL`, on Cloudflare R2 (`storage/s3`) |
+| `storage/cfimages` | image posts upload to Cloudflare Images and render resized variants |
+| `mailer` + an outbox | transactional email as Postgres rows, pumped through a required transport the env supplies (Mailgun or SMTP) |
 | `ch` | the `hush_events` firehose, batched in off the request path, aggregated into deferred admin chart widgets |
 | Repute | event-sourced post scoring; score reads gate the profile and throttle invites |
 | `auth` gating | application → approval → user; tiered capabilities behind `app.Can` guards |
@@ -67,9 +67,9 @@ the one other script (`static/js/camera.js`, an external module — CSP-clean).
 
 ## Data model
 
-In database mode (`DATABASE_URL` set) everything lives in Postgres — the wall
-included. The schema lands in four migrations (`examples/hush/migrations`),
-each shape shown here as the code reads it:
+Everything lives in Postgres — the wall included; `DATABASE_URL` is required.
+The schema lands in four migrations (`examples/hush/migrations`), each shape
+shown here as the code reads it:
 
 ```sql
 -- 00001: the gate. One pending row per signup request; the chosen password is
@@ -351,12 +351,12 @@ parks the row as `failed`. Boot's reputation replay never enqueues, so a
 restart sends nothing twice.
 
 **The transport** (the framework's `mailer` package): `mailer.New(ConfigFromEnv())`
-picks the strongest the env supports — the Mailgun API when `MAILGUN_KEY` +
-`MAILGUN_DOMAIN` are set, plain SMTP when `SMTP_HOST` is, and a `LogMailer`
-otherwise, so the dev default "delivers" to the terminal and the flows work on
-a fresh checkout. Each message carries a canonical text body plus an HTML half
-built from templ components (emails.templ, the white shell; emails.go pairs
-them), with absolute links built on `HUSH_BASE_URL`.
+requires a real transport — the Mailgun API when `MAILGUN_KEY` +
+`MAILGUN_DOMAIN` are set, or plain SMTP when `SMTP_HOST` is. Boot fatals if
+neither is configured; there is no log fallback. Each message carries a
+canonical text body plus an HTML half built from templ components
+(emails.templ, the white shell; emails.go pairs them), with absolute links
+built on `BASE_URL`.
 
 What sends mail:
 
@@ -372,17 +372,15 @@ What sends mail:
 
 ClickHouse is the wall's **observation store** (analytics.go): Postgres holds
 the posts and the gate (the system of record), ClickHouse holds the firehose —
-one append-only row per thing that happened. Entirely optional: no
-`CLICKHOUSE_DSN` means a nil conn, a no-op batcher, and a dashboard page that
-says so instead of charting — analytics off is a configuration, not an error.
-(A set-but-*wrong* DSN panics at boot — `ch.MustConn` — but a failed ClickHouse
-migration degrades to off rather than killing the wall.)
+one append-only row per thing that happened. ClickHouse is **required**: a
+missing or unreachable `CLICKHOUSE_DSN` is fatal at boot (`ch.MustConn`). The
+firehose is always on and the analytics dashboard always charts — there is no
+analytics-off mode.
 
 The wiring is the `ch` package end to end: `ch.MustConn` opens the conn,
 `ch.Migrate` runs `chmigrations/` (goose, same workflow as Postgres), and a
 `ch.Batcher[event]` buffers rows into batched inserts off the request path —
-`track()` is fire-and-forget and nil-safe, so the wall runs identically with
-analytics off. One table:
+`track()` is fire-and-forget, off the request path. One table:
 
 ```sql
 hush_events (
@@ -413,33 +411,29 @@ events. Charts ride `ch.Rows` → `ch.ToLineSeriesData`/`ToHBarSeries` → the
 
 ## Media
 
-Two independent env-driven decisions (media.go), both optional — with nothing
-set, files live in a local temp dir served at `/files` and image posts are raw
-stored bytes (ephemeral in a container, so configure R2 for anything you keep):
+Both halves are required (media.go) — there is no local fallback:
 
-- **The file store** is Cloudflare R2 via `storage/s3` when all four `R2_*`
-  variables are set — `PublicBaseURL` from `R2_PUBLIC_URL` makes `URL()` pure
-  string concatenation against the bucket's custom domain; unset means
-  presigned one-hour links, which still work. Otherwise it's `storage.Local`
-  under `HUSH_FILES_DIR` (default: OS temp). Application photos and
-  non-Cloudflare image posts flow through it either way, behind the same
-  `storage.Store` interface.
-- **Cloudflare Images** (`storage/cfimages`) exists when the three
-  `CF_IMAGES_*` variables are set; nil means image posts go through the file
-  store. When wired, `storeImage` uploads the bytes there and the post row
-  keeps both the image id and the full variant's delivery URL (a stable
-  fallback even if the client is later unwired). Variants are dashboard-side
-  config: `CF_IMAGES_VARIANT` (default `public`) is the full-size source feed
-  cards render, `CF_IMAGES_THUMB` (default `thumb`, a ~600px square crop) is
-  what grid tiles use — Cloudflare resizes server-side, so the wall stops
-  shipping full-size images into 180px squares. `postImageURL`/`postThumbURL`
-  recompute delivery URLs from the id at render time, so a variant rename in
-  the env applies to old posts too; posts without a `cf_image_id` fall back to
-  their stored URL, and the tile's `object-fit` crops locally.
+- **The file store** is always Cloudflare R2 via `storage/s3`; all four `R2_*`
+  variables are required. `PublicBaseURL` from `R2_PUBLIC_URL` makes `URL()`
+  pure string concatenation against the bucket's custom domain; unset means
+  presigned one-hour links, which still work. Application photos flow through
+  it, behind the `storage.Store` interface.
+- **Cloudflare Images** (`storage/cfimages`) is required too; the three
+  `CF_IMAGES_*` variables must be set. `storeImage` always uploads the bytes
+  there and the post row keeps both the image id and the full variant's
+  delivery URL (a stable fallback even if the client is later unwired).
+  Variants are dashboard-side config: `CF_IMAGES_VARIANT` (default `public`) is
+  the full-size source feed cards render, `CF_IMAGES_THUMB` (default `thumb`, a
+  ~600px square crop) is what grid tiles use — Cloudflare resizes server-side,
+  so the wall stops shipping full-size images into 180px squares.
+  `postImageURL`/`postThumbURL` recompute delivery URLs from the id at render
+  time, so a variant rename in the env applies to old posts too; posts without
+  a `cf_image_id` fall back to their stored URL, and the tile's `object-fit`
+  crops locally.
 
-The `/files/` route is only mounted when the store is `*storage.Local` — R2
-URLs are absolute, pointing at the bucket's public/custom domain (or
-presigned), so there is nothing for the app to serve.
+R2 URLs are absolute, pointing at the bucket's public/custom domain (or
+presigned), so there is nothing for the app to serve — there is no `/files/`
+route.
 
 ## The text path — 512 plain chars, tiny markdown
 
@@ -497,8 +491,8 @@ capture, not video, and WebGPU, not WebGL**:
 4. **Capture** is `canvas.toBlob('image/jpeg', 0.9)` of the filtered canvas in
    the same frame as a render — the shader already modified the preview, so the
    canvas *is* the modified still. `POST /upload` hands the blob to the normal
-   action → `storeImage` (Cloudflare Images when wired, the file store
-   otherwise) → the tile renders from the thumb variant or the stored URL. The
+   action → `storeImage` (Cloudflare Images) → the tile renders from the thumb
+   variant or the stored URL. The
    § 2257 certification gates the shutter (and the server refuses uncertified
    uploads regardless).
 
@@ -622,7 +616,6 @@ GET  /admin/analytics             page    -- the dashboard of deferred widgets  
 GET  /admin/analytics/{events,posts,votes,countries,ips,recent}
                                   frag    -- one widget each, live ClickHouse queries         [admin]
 
-GET  /files/                      raw     -- storage.Local.ServeHTTP (Local store only; R2 URLs are absolute)
 GET  /specimen                    page    -- the framework specimen (mounted by every example)
 ```
 
@@ -634,8 +627,10 @@ forms are plain POSTs that 303 (CSP-clean, no Datastar dependency).
 ## Config
 
 Two layers. **Infrastructure, secrets, and scoring weights** are env, read once
-at boot into `a.cfg` (config.go); `.env.example` mirrors this table (minus the
-connection strings, which compose builds — see Running it). The
+at boot into `a.cfg` via the framework `config` package's `config.MustLoad`
+(config.go) — fields carry `required` tags, so a missing required var aborts
+boot with the full list, never a degraded mode. `.env.example` mirrors this
+table (minus the connection strings, which compose builds — see Running it). The
 **gate-and-moderation policy** (tier thresholds, flag tier/quorum, invite
 base/cap, open slots, admin email) lives in the `hush_settings` table
 (settings.go), edited at `/admin/settings` with **no restart** — held behind an
@@ -650,25 +645,24 @@ behaves" (DB).
 | `PORT` | listen port (default 8080) |
 | `DATABASE_URL` | Postgres DSN; **required** — unset or unreachable is fatal at boot (compose sets it from the credentials) |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | compose-only: the credentials the postgres service is created with and that compose's built `DATABASE_URL` uses (defaults `beach`/`beach`/`hush`) |
-| `CLICKHOUSE_DSN` | ClickHouse DSN for the observation store; unset = analytics off (set-but-wrong panics at boot) |
+| `CLICKHOUSE_DSN` | ClickHouse DSN for the observation store — **required** (missing or unreachable is fatal at boot) |
 | `HUSH_EMAIL_POINTS` | author standing granted for a verified email (default 2); env-only, baked into the Repute engine at boot |
-| `HUSH_BASE_URL` | absolute origin for links inside outgoing email (default `http://localhost:8080`) |
-| `HUSH_FILES_DIR` | Local file-store root when R2 is unset (default: under the OS temp dir) |
+| `BASE_URL` | absolute origin for links inside outgoing email (default `http://localhost:8080`) |
 | `HUSH_TIER1` / `HUSH_TIER2` | **seed:** author scores that unlock tier 1 (profile + invites) and tier 2 (DMs); defaults 3 / 8 |
 | `HUSH_FLAG_TIER` / `HUSH_FLAG_QUORUM` | **seed:** the tier whose single flag insta-hides, and how many tier-0 flags hide by agreement; defaults 1 / 3 |
 | `HUSH_INVITE_BASE` / `HUSH_INVITE_MAX` | **seed:** a tier-1 member's starting invite allowance and the hard cap; defaults 3 / 6 |
 | `HUSH_OPEN_SLOTS` | **seed:** open the first N registrations with no review; once spent the queue resumes (default 0) |
 | `HUSH_ADMIN_EMAIL` | **seed:** where new-application notices go; blank = no admin mail |
 | `MAIL_FROM_NAME` / `MAIL_FROM_ADDR` | the From header on outgoing mail |
-| `MAILGUN_KEY` / `MAILGUN_DOMAIN` | Mailgun API transport — the strongest, picked first |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` | plain SMTP transport (port defaults to 587); with no transport set, the log mailer prints sends to the app log |
-| `R2_ENDPOINT` | the bucket's S3 API host, no scheme (`accountid.r2.cloudflarestorage.com`) |
-| `R2_BUCKET` | bucket name; one store per bucket |
-| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | R2 API token key pair — all four R2_* set switches the file store to R2 |
+| `MAILGUN_KEY` / `MAILGUN_DOMAIN` | Mailgun API transport — **a transport is required**: either this pair or `SMTP_HOST` (boot fatals if neither is set) |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` | plain SMTP transport (port defaults to 587) — **required** when the Mailgun pair is unset |
+| `R2_ENDPOINT` | the bucket's S3 API host, no scheme (`accountid.r2.cloudflarestorage.com`) — **required** |
+| `R2_BUCKET` | bucket name; one store per bucket — **required** |
+| `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` | R2 API token key pair — **required** |
 | `R2_PUBLIC_URL` | public/custom-domain base for stable URLs; unset = presigned 1h links |
-| `CF_IMAGES_ACCOUNT_ID` | Cloudflare account id — all three CF_IMAGES_* set routes image posts through Cloudflare Images |
-| `CF_IMAGES_TOKEN` | API token with Cloudflare Images edit permission |
-| `CF_IMAGES_HASH` | delivery hash, the first path segment of imagedelivery.net URLs |
+| `CF_IMAGES_ACCOUNT_ID` | Cloudflare account id — **required** |
+| `CF_IMAGES_TOKEN` | API token with Cloudflare Images edit permission — **required** |
+| `CF_IMAGES_HASH` | delivery hash, the first path segment of imagedelivery.net URLs — **required** |
 | `CF_IMAGES_VARIANT` | full-size variant feed cards render (default `public`) |
 | `CF_IMAGES_THUMB` | square-crop variant grid tiles render (default `thumb`) |
 
@@ -766,17 +760,17 @@ analytics dashboard. Optional member emails with one-use sha256-tokened
 verification feeding `HUSH_EMAIL_POINTS` into the author track, delivered
 through the `hush_outbox` queue (SKIP LOCKED claims, doubling backoff, failed
 after 8) over the env-picked mailer transport. ClickHouse event tracking
-behind `CLICKHOUSE_DSN` with deferred chart widgets. And production media: R2
-via `storage/s3` and Cloudflare Images variants, both env-switched with clean
-local fallbacks. ◆ Gate (verified in-browser, against the docker-compose
+through `CLICKHOUSE_DSN` with deferred chart widgets. And production media: R2
+via `storage/s3` and Cloudflare Images variants, both now required (R2 +
+Cloudflare Images), no local fallback. ◆ Gate (verified in-browser, against the docker-compose
 Postgres + ClickHouse): a restart keeps the wall, the reactions, and the
 tiers; a tier-1 flag hides a post instantly (permalink 404s, the card reads
 "hushed.") and three tier-0 flags hide one by agreement; `/admin/review`
 restores it back onto the wall (flags cleared) and purge deletes outright;
 `/admin/posts` filters by author/IP and shows the tallies, `/admin/members`
 shows scores/tiers/chains/emails; applying with an address sends the admin
-notice and approval sends the welcome + verify link (log mailer in dev — the
-mail prints), the verify link bumps standing exactly once and the second click
+notice and approval sends the welcome + verify link (through the configured
+transport), the verify link bumps standing exactly once and the second click
 says so; the analytics dashboard charts the session's views/posts/votes and
 lists the source IPs.
 
@@ -804,13 +798,14 @@ database and observation store by service name, and `docker-compose.yml` builds
 the connection strings from the credentials and the service names
 (`postgres:5432`, `clickhouse:9000`) in its `environment` block, so the database
 connection is configured once, in the compose file, not duplicated into the env.
-`HUSH_BASE_URL` comes from the `.env` (your public origin) or a localhost
+`BASE_URL` comes from the `.env` (your public origin) or a localhost
 default. ClickHouse's healthcheck is `clickhouse-client --query 'SELECT 1'`,
 which talks to its own server with no host to name.
 
 The image build needs git access to the private Repute module — BuildKit SSH
 forwarding (`--ssh default`) hands the agent and `GOPRIVATE` to `go mod
-download`; see the [Dockerfile](../../Dockerfile). hush **requires** its
-database: a missing or unreachable Postgres at boot is fatal, with no in-memory
-fallback — a hush with no database is a hush with no gate. The stack always
-provides one; set `RELEASE` in production to flip session cookies to Secure.
+download`; see the [Dockerfile](../../Dockerfile). hush **requires** its whole
+stack — Postgres, ClickHouse, Cloudflare R2/Images, and a mail transport: a
+missing var aborts boot with the list, with no degraded mode — a hush with no
+database is a hush with no gate. The stack always provides the databases; set
+`RELEASE` in production to flip session cookies to Secure.

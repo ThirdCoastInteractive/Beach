@@ -34,8 +34,7 @@ templ backToWall() {
 // accountStrip is the top-right account line: who you are, the admin links,
 // and log out. No score, no tier — standing is never printed; the
 // profile link simply appearing IS how you learn you've reached tier 1.
-// Empty when signed out (the gate line carries the call to action) or in
-// database-less open mode.
+// Empty when signed out (the gate line carries the call to action).
 templ accountStrip(handle string, admin bool, tier int) {
 	if handle != "" {
 		<div class="hush-acct">

@@ -1,13 +1,29 @@
-// Command boardwalk is a database-less, in-memory showcase of the-beach's
-// sim/ecs stack: a Monopoly-style real-estate game where the whole live slice —
-// player positions, cash, turn order, property ownership — lives in an ecs.Store
-// owned by a single-writer sim loop, mutated by commands, and pushed to every
-// watcher over SSE via hub projections.
+// Command boardwalk is a sim/ecs + persistence + analytics showcase of
+// the-beach's stack: a Monopoly-style real-estate game where the whole live
+// slice — player positions, cash, turn order, property ownership — lives in an
+// ecs.Store owned by a single-writer sim loop, mutated by commands, and pushed
+// to every watcher over SSE via hub projections.
 //
-// Run it:
+// The live model stays purely in-memory: the game runs in the ecs.Store/sim,
+// fast and lock-free. Two persistence lanes sit beside it, and BOTH are required
+// to boot (a missing DSN aborts rather than degrading):
 //
-//	go build -o bin/boardwalk ./examples/boardwalk
-//	PORT=8080 ./bin/boardwalk        # or just ./bin/boardwalk to bind :8080
+//   - Postgres holds a periodic CBOR snapshot of the store (saveLoop, every 15s)
+//     and is restored on boot, so a restart resumes the game mid-play.
+//   - ClickHouse holds the action firehose — one append-only row per join, roll,
+//     buy, rent, tax, chance, and pass-GO — aggregated into the public /stats page.
+//
+// Run it as a container stack — the app, its Postgres, and its ClickHouse:
+//
+//	cd examples/boardwalk
+//	cp .env.example .env
+//	docker compose up                     # → http://localhost:8080
+//
+// Or outside compose with both DSNs set:
+//
+//	DATABASE_URL=postgres://beach:beach@localhost:5432/boardwalk?sslmode=disable \
+//	CLICKHOUSE_DSN=clickhouse://beach:beach@localhost:9000/beach \
+//	go run ./examples/boardwalk
 //
 // Then open http://localhost:8080/. The board renders immediately (spectator
 // stream, unauthenticated). Click "Take a seat" to join, then "Roll" on your
@@ -20,28 +36,33 @@
 // re-renders the bar-race fragment from the live standings once a second and
 // publishes it when it changed; Datastar morphs the SVG in place and CSS
 // transitions tween the bars. /specimen serves the framework's living
-// component showcase.
-//
-// No database is required to play — persistence lanes are documented in
-// docs/architecture/08-sim.md but the runnable demo is pure in-memory.
+// component showcase; /stats serves the analytics dashboard.
 package main
 
 import (
 	"bytes"
 	"context"
+	"embed"
 	"log"
 	"log/slog"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 
 	beach "github.com/ThirdCoastInteractive/the-beach"
+	"github.com/ThirdCoastInteractive/the-beach/ch"
 	"github.com/ThirdCoastInteractive/the-beach/hub"
+	"github.com/ThirdCoastInteractive/the-beach/pg"
 	"github.com/ThirdCoastInteractive/the-beach/sim"
 	"github.com/ThirdCoastInteractive/the-beach/ui/driftwood"
 	"github.com/ThirdCoastInteractive/the-beach/ui/specimen"
 )
+
+//go:embed migrations/*.sql
+var migrationsFS embed.FS
 
 // seatCookie names the cookie that ties a browser to its claimed seat. With no
 // database, this is the whole "session" — a small integer seat index. A browser
@@ -56,22 +77,63 @@ const raceTopic = "race"
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
-	addr := ":8080"
-	if p := os.Getenv("PORT"); p != "" {
-		addr = ":" + p
-	}
+	// Load and validate config first: a missing Postgres or ClickHouse DSN aborts
+	// here with the list, before anything serves. There is no database-less mode —
+	// both stores are required to boot.
+	conf := loadConfig()
+	addr := ":" + conf.Port
+
+	// Register component types under their stable schema ids before anything
+	// touches the store — snapshot restore (ecs.Load, below) resolves saved
+	// columns by schema id and must find the types already registered.
+	registerComponents()
+
+	// A signal-aware context so a clean shutdown (Ctrl-C / SIGTERM) cancels the
+	// game loop, the race ticker, and the save loop together.
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
 
 	h := hub.New()
 
-	// The sim hosts the game. ProjectRate is bumped so a roll's board update fans
-	// out promptly; the game is event-driven (rolls), not continuous, so the tick
-	// rate only bounds how fast a command is picked up.
-	s := sim.New(sim.Config{
-		TickRate:    20,
-		ProjectRate: 20,
-		Hub:         h,
-	})
-	game := NewGame(s)
+	// Postgres is required: it holds the periodic snapshot of the live store and
+	// is restored on boot. Each step dies loudly rather than degrading.
+	pool := pg.MustPool(ctx, conf.DSN)
+	if err := pg.Migrate(ctx, pool, migrationsFS); err != nil {
+		log.Fatalf("boardwalk: migrate failed: %v", err)
+	}
+	snap := snapStore{pool: pool}
+
+	// ClickHouse is required: the action firehose behind /stats. A bad DSN or
+	// migration is fatal — there is no analytics-off mode.
+	conn, err := ch.Connect(ctx, conf.CHDSN)
+	if err != nil {
+		log.Fatalf("boardwalk: clickhouse connect failed: %v", err)
+	}
+	if err := ch.Migrate(ctx, conn, chMigrations()); err != nil {
+		log.Fatalf("boardwalk: clickhouse migrate failed: %v", err)
+	}
+	events := ch.NewBatcher[event](conn, "boardwalk_events", ch.Batch{})
+
+	// Restore the live store from the latest snapshot if one exists; a fresh
+	// database (no snapshot row) starts a new game. The sim hosts the game.
+	// ProjectRate is bumped so a roll's board update fans out promptly; the game
+	// is event-driven (rolls), not continuous, so the tick rate only bounds how
+	// fast a command is picked up.
+	blob, err := snap.load(ctx)
+	if err != nil {
+		log.Fatalf("boardwalk: snapshot load failed: %v", err)
+	}
+	simCfg := sim.Config{TickRate: 20, ProjectRate: 20, Hub: h}
+	if blob != nil {
+		restored, rerr := sim.RestoreStore(blob)
+		if rerr != nil {
+			log.Fatalf("boardwalk: snapshot restore failed: %v", rerr)
+		}
+		simCfg.Store = restored
+		logger.Info("boardwalk: restored from snapshot")
+	}
+	s := sim.New(simCfg)
+	game := NewGame(s, events)
 
 	app := beach.New(beach.Config{
 		Service: "boardwalk",
@@ -79,7 +141,7 @@ func main() {
 		Logger:  logger,
 	})
 
-	srv := &server{game: game}
+	srv := &server{game: game, chConn: conn}
 
 	app.Page("/", srv.indexPage)
 	app.Action("/join", srv.joinAction)
@@ -88,15 +150,27 @@ func main() {
 	app.Stream("/hand", srv.handStream)   // per-player private hand
 	app.Stream("/race", srv.raceStream)   // shared cash race
 
+	// The public analytics page (analytics.go): the dashboard plus its deferred
+	// widget fragments. The rolls/tiles widgets aggregate the ClickHouse firehose;
+	// the cash widget reads the live store off the loop.
+	app.Page("/stats", func(c *beach.Ctx) (beach.View, error) {
+		return beach.View{Page: statsPage()}, nil
+	})
+	app.Page("/stats/rolls", anlWidget("anl-rolls", srv.anlRolls))
+	app.Page("/stats/tiles", anlWidget("anl-tiles", srv.anlTiles))
+	app.Page("/stats/cash", anlWidget("anl-cash", srv.anlCash))
+
 	// The living component showcase, mounted so the example doubles as a kit
 	// browser.
 	app.Page("/specimen", func(c *beach.Ctx) (beach.View, error) {
 		return beach.View{Page: specimen.Page()}, nil
 	})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	go game.Run(ctx)
+
+	// Keep the durable copy current: snapshot the live store to Postgres every
+	// 15s so a restart resumes the game mid-play.
+	go saveLoop(ctx, game, snap)
 
 	// The race ticker is the chart's animation engine: each second it snapshots
 	// the game, re-lays-out the cash race, and publishes the rendered fragment —
@@ -105,11 +179,11 @@ func main() {
 	// chart CSS transitions tween the geometry.
 	var lastRace []byte
 	go h.Ticker(ctx, raceTopic, time.Second, func() (hub.Event, bool) {
-		snap, err := game.Snapshot(ctx)
+		bs, err := game.Snapshot(ctx)
 		if err != nil {
 			return hub.Event{}, false
 		}
-		frame := renderToBytes(raceFragment(raceLayout(snap)))
+		frame := renderToBytes(raceFragment(raceLayout(bs)))
 		if frame == nil || bytes.Equal(frame, lastRace) {
 			return hub.Event{}, false
 		}
@@ -118,16 +192,18 @@ func main() {
 	})
 
 	logger.Info("boardwalk: starting", "addr", addr,
-		"routes", "GET / , POST /join , POST /roll , GET /board , GET /hand , GET /race , GET /specimen , GET /static/...")
+		"routes", "GET / , POST /join , POST /roll , GET /board , GET /hand , GET /race , GET /stats , GET /specimen , GET /static/...")
 	if err := app.Start(addr); err != nil {
 		log.Fatalf("boardwalk: %v", err)
 	}
 }
 
-// server holds the handler dependencies (the game). Handlers are methods only to
-// share the single game pointer; they take *beach.Ctx like any beach handler.
+// server holds the handler dependencies: the game (live model + Snapshot) and
+// the ClickHouse connection the /stats widgets query. Handlers are methods only
+// to share these; they take *beach.Ctx like any beach handler.
 type server struct {
-	game *Game
+	game   *Game
+	chConn ch.Conn
 }
 
 // seatFrom reads the browser's claimed seat from its cookie, or -1 (spectator).

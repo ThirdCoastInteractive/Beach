@@ -3,8 +3,7 @@
 // agents) is laid out here, behind app.Can("admin"): the hub (/admin), the
 // moderation review (/admin/review), the everything browser (/admin/posts),
 // and the member ledger (/admin/members). The views live in adminviews.templ.
-// All of these read across hush's Postgres tables, so without a database they
-// degrade to a notice, like /admin/queue.
+// All of these read across hush's Postgres tables.
 package main
 
 import (
@@ -28,9 +27,6 @@ type adminStats struct {
 
 // adminHub is /admin: the four numbers and the way into each section.
 func (a *app) adminHub(c *beach.Ctx) (beach.View, error) {
-	if a.pool == nil {
-		return beach.View{Page: noticePage("admin needs the database.", "set DATABASE_URL to enable the gate.")}, nil
-	}
 	ctx := c.Context()
 	var st adminStats
 	_ = a.pool.QueryRow(ctx, `SELECT count(*) FROM hush_applications WHERE status = 'pending'`).Scan(&st.Pending)
@@ -53,9 +49,6 @@ type flagRow struct {
 // adminReview is the moderation queue: every hidden or flagged post in full —
 // the wall's flagged read, plus who flagged each one out of hush_flags.
 func (a *app) adminReview(c *beach.Ctx) (beach.View, error) {
-	if a.pool == nil {
-		return beach.View{Page: noticePage("review needs the database.", "set DATABASE_URL to enable the gate.")}, nil
-	}
 	ctx := c.Context()
 	posts := a.store.flagged(ctx)
 	flaggers := map[int64][]flagRow{}
@@ -84,9 +77,6 @@ type voteCount struct{ Up, Down int }
 // newest-first, with optional exact-match ?author= and ?ip= filters applied
 // here in the handler (the store read stays one shape).
 func (a *app) adminPosts(c *beach.Ctx) (beach.View, error) {
-	if a.pool == nil {
-		return beach.View{Page: noticePage("the post browser needs the database.", "set DATABASE_URL to enable the gate.")}, nil
-	}
 	ctx := c.Context()
 	author := strings.TrimSpace(c.Query("author"))
 	ip := strings.TrimSpace(c.Query("ip"))
@@ -143,9 +133,6 @@ type memberRow struct {
 // and optional email, then filled in from the per-author aggregates (posts,
 // last-seen IP, invites) and the in-memory Repute scores.
 func (a *app) adminMembers(c *beach.Ctx) (beach.View, error) {
-	if a.pool == nil {
-		return beach.View{Page: noticePage("the member ledger needs the database.", "set DATABASE_URL to enable the gate.")}, nil
-	}
 	ctx := c.Context()
 	rows, err := a.pool.Query(ctx,
 		`SELECT u.username,
@@ -228,10 +215,6 @@ func (a *app) adminMembers(c *beach.Ctx) (beach.View, error) {
 // filters intact). Anything outside /admin falls back to review, so the form
 // can't be used to redirect off-site.
 func (a *app) doModerate(w http.ResponseWriter, r *http.Request) {
-	if a.authn == nil {
-		http.NotFound(w, r)
-		return
-	}
 	_ = r.ParseForm()
 	id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
 	ctx := r.Context()
@@ -252,13 +235,8 @@ func (a *app) doModerate(w http.ResponseWriter, r *http.Request) {
 }
 
 // adminSettings is /admin/settings: the live gate-and-moderation policy as an
-// editable form. Without a database the policy comes from the environment and
-// can't be persisted, so it shows the notice the other admin pages do.
+// editable form.
 func (a *app) adminSettings(c *beach.Ctx) (beach.View, error) {
-	if a.pool == nil {
-		return beach.View{Page: noticePage("settings need the database.",
-			"in database-less mode the policy comes from the environment.")}, nil
-	}
 	return beach.View{Page: adminSettingsPage(a.live(), c.Query("saved") == "1")}, nil
 }
 
@@ -266,10 +244,6 @@ func (a *app) adminSettings(c *beach.Ctx) (beach.View, error) {
 // change takes effect on the next request, no restart. A field that won't
 // parse keeps its current value rather than resetting to zero.
 func (a *app) doSaveSettings(w http.ResponseWriter, r *http.Request) {
-	if a.authn == nil {
-		http.NotFound(w, r)
-		return
-	}
 	_ = r.ParseForm()
 	ls := a.live()
 	ls.Tier1 = formFloat(r, "tier1", ls.Tier1)
@@ -317,9 +291,6 @@ type mailRow struct {
 // hush_outbox, newest first — failed sends are otherwise invisible outside
 // the process log.
 func (a *app) adminOutbox(c *beach.Ctx) (beach.View, error) {
-	if a.pool == nil {
-		return beach.View{Page: noticePage("the outbox needs the database.", "set DATABASE_URL to enable the gate.")}, nil
-	}
 	rows, err := a.pool.Query(c.Context(),
 		`SELECT id, to_email, subject, template_key, status, attempts, last_error,
 		        to_char(created_at, 'Mon DD HH24:MI'), coalesce(to_char(sent_at, 'Mon DD HH24:MI'), '')
@@ -373,7 +344,7 @@ func snippet(bodyHTML string) string {
 	return plain
 }
 
-// authorLabel names a row's author; open-mode and seed posts have none.
+// authorLabel names a row's author; seed posts have none.
 func authorLabel(author string) string {
 	if author == "" {
 		return "anon"

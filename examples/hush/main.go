@@ -13,8 +13,9 @@
 // Config arrives entirely from the container environment (compose's env_file +
 // environment): the wall and the signup gate — applications, accounts, RBAC,
 // sessions — live in Postgres; analytics in ClickHouse; media in Cloudflare R2
-// + Images when configured, a local temp dir otherwise. The /compose page
-// hosts the WebGPU camera island, and Repute scores posting activity.
+// + Images. All of it is required — a missing variable aborts boot rather than
+// degrading. The /compose page hosts the WebGPU camera island, and Repute
+// scores posting activity.
 package main
 
 import (
@@ -53,14 +54,14 @@ var migrationsFS embed.FS
 // app holds the wired dependencies the handlers close over. The wall and the
 // whole gate — applications, accounts, roles, sessions, the live policy — are
 // Postgres-backed (store, a *pgStore); a database is required, there is no
-// in-memory mode. files and images are the media wiring (media.go): Local or R2
-// behind the Store interface, plus the optional Cloudflare Images client image
-// posts route through.
+// in-memory mode. files and images are the media wiring (media.go): the R2
+// object store behind the Store interface, plus the Cloudflare Images client
+// image posts route through. Both are required.
 type app struct {
 	cfg      config
 	store    *pgStore
-	files    storage.Store
-	images   *cfimages.Client // nil = image posts go through files
+	files    storage.Store    // R2 object store (post images, application photos)
+	images   *cfimages.Client // Cloudflare Images — image posts route through it
 	rep      *reputation
 	mail     mailer.Mailer
 	authn    *auth.Authenticator
@@ -79,8 +80,7 @@ type app struct {
 	imgVariant string
 	imgThumb   string
 
-	// The observation store (analytics.go). chConn is nil without a
-	// CLICKHOUSE_DSN — analytics off — and events is then a no-op batcher.
+	// The observation store (analytics.go) — required, always live.
 	chConn ch.Conn
 	events *ch.Batcher[event]
 
@@ -93,17 +93,16 @@ type app struct {
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
-	addr := ":8080"
-	if p := os.Getenv("PORT"); p != "" {
-		addr = ":" + p
-	}
-
 	sub, err := fs.Sub(staticFS, "static")
 	if err != nil {
 		log.Fatalf("hush: static sub-fs: %v", err)
 	}
 
+	// Load and validate config first: a missing required variable (Postgres,
+	// ClickHouse, Cloudflare R2/Images) aborts here with the full list, before
+	// anything serves. There is no degraded mode — the Beach stack is required.
 	a := &app{cfg: loadConfig(), release: os.Getenv("RELEASE") != ""}
+	addr := ":" + a.cfg.Port
 	// Publish the env-seeded policy before anything serves, so a.live() is safe
 	// everywhere; database mode reseeds + loads the authoritative table below.
 	seed := settingsSeed(a.cfg)
@@ -115,9 +114,22 @@ func main() {
 		log.Fatalf("hush: media: %v", err)
 	}
 	a.rep = newReputation(a.cfg)
-	// The strongest transport the MAIL_/MAILGUN_/SMTP_ env supports; with none
-	// of it set, a LogMailer — outbox sends print to this terminal.
-	a.mail = mailer.New(mailer.ConfigFromEnv())
+	// A real mail transport is required: a hush that can't send verification or
+	// invite mail is broken, not degraded. Build the strongest transport the
+	// configured Mailgun/SMTP credentials support; fatal if neither is set.
+	if !a.cfg.mailerConfigured() {
+		log.Fatal("hush: no mail transport configured (set MAILGUN_KEY+MAILGUN_DOMAIN or SMTP_HOST; see mailer/mailer.go)")
+	}
+	a.mail = mailer.New(mailer.Config{
+		FromName:      a.cfg.MailFromName,
+		FromAddr:      a.cfg.MailFromAddr,
+		MailgunKey:    a.cfg.MailgunKey,
+		MailgunDomain: a.cfg.MailgunDomain,
+		SMTPHost:      a.cfg.SMTPHost,
+		SMTPPort:      a.cfg.SMTPPort,
+		SMTPUsername:  a.cfg.SMTPUsername,
+		SMTPPassword:  a.cfg.SMTPPassword,
+	})
 
 	cfg := beach.Config{
 		Service: "hush",
@@ -132,11 +144,7 @@ func main() {
 	// a hush with no gate, and that is never what you want running. Each step
 	// below dies loudly rather than degrading.
 	ctx := context.Background()
-	dsn := os.Getenv("DATABASE_URL")
-	if dsn == "" {
-		log.Fatal("hush: DATABASE_URL is required (run the docker compose stack; see docs/architecture/18-hush.md)")
-	}
-	pool, err := openPool(ctx, dsn)
+	pool, err := openPool(ctx, a.cfg.DSN)
 	if err != nil {
 		log.Fatalf("hush: database connect failed: %v", err)
 	}
@@ -170,34 +178,27 @@ func main() {
 	}
 	logger.Info("hush: ready", "login", "admin / password", "openSlots", a.live().OpenSlots)
 
-	// The outbox pump — transactional email leaves the process only here, and
-	// only in database mode (the queue is a table). Boot's reputation replay
-	// never enqueues, so a restart sends nothing twice.
-	if a.pool != nil && a.mail != nil {
-		go a.pumpOutbox(ctx)
-	}
+	// The outbox pump — transactional email leaves the process only here (the
+	// queue is a table). Boot's reputation replay never enqueues, so a restart
+	// sends nothing twice.
+	go a.pumpOutbox(ctx)
 
-	// Optional ClickHouse: the observation store behind /admin/analytics. An
-	// empty CLICKHOUSE_DSN returns a nil conn — analytics off; track() and the
-	// batcher are nil-safe, so the wall runs identically either way. A bad DSN
-	// or migration also degrades to off rather than killing the wall.
-	if chDSN := os.Getenv("CLICKHOUSE_DSN"); chDSN != "" {
-		if conn, cerr := ch.Connect(ctx, chDSN); cerr != nil {
-			logger.Error("hush: clickhouse connect failed; analytics off", "err", cerr)
-		} else {
-			a.chConn = conn
-		}
+	// ClickHouse: the observation store behind /admin/analytics — required, like
+	// Postgres. A bad DSN or migration is fatal; there is no analytics-off mode.
+	conn, err := ch.Connect(ctx, a.cfg.CHDSN)
+	if err != nil {
+		log.Fatalf("hush: clickhouse connect failed: %v", err)
 	}
+	a.chConn = conn
 	if err := ch.Migrate(ctx, a.chConn, chMigrations()); err != nil {
-		logger.Error("hush: clickhouse migrate failed; analytics off", "err", err)
-		a.chConn = nil
+		log.Fatalf("hush: clickhouse migrate failed: %v", err)
 	}
 	a.events = ch.NewBatcher[event](a.chConn, "hush_events", ch.Batch{})
 
 	beachApp := beach.New(cfg)
 	a.routes(beachApp)
 
-	logger.Info("hush: starting", "addr", addr, "db", a.pool != nil)
+	logger.Info("hush: starting", "addr", addr)
 	if err := beachApp.Start(addr); err != nil {
 		log.Fatalf("hush: %v", err)
 	}
@@ -227,12 +228,9 @@ func (a *app) routes(app *beach.App) {
 		return beach.View{Page: specimen.Page()}, nil
 	})
 
-	// Posting is gated on the "post" permission when the gate (DB) is on; without
-	// a DB there's no principal and the wall is open.
-	var postGuard []beach.Guard
-	if a.authn != nil {
-		postGuard = append(postGuard, app.Can("post"))
-	}
+	// Posting is gated on the "post" permission — the gate is always on (Postgres
+	// is required), so every write route carries the guard.
+	postGuard := []beach.Guard{app.Can("post")}
 	app.Action("/posts", a.createPost, postGuard...)
 	app.Action("/p/{id}/vote", a.votePost, postGuard...)
 	app.Action("/p/{id}/flag", a.flagPost, postGuard...)
@@ -241,10 +239,7 @@ func (a *app) routes(app *beach.App) {
 	// Admin: the application queue, plus the suite (admin.go) — the hub, the
 	// moderation review, the everything browser, the member ledger, and the
 	// one moderation action their forms post to.
-	var adminGuard []beach.Guard
-	if a.authn != nil {
-		adminGuard = append(adminGuard, app.Can("admin"))
-	}
+	adminGuard := []beach.Guard{app.Can("admin")}
 	app.Page("/admin/queue", a.queuePage, adminGuard...)
 	app.Raw(http.MethodPost, "/admin/decide", a.doDecide, adminGuard...)
 	app.Page("/admin", a.adminHub, adminGuard...)
@@ -260,18 +255,15 @@ func (a *app) routes(app *beach.App) {
 
 	// Admin analytics (analytics.go): the dashboard page plus its deferred
 	// widget fragments — every route behind the same admin guard, since the
-	// charts and tables show everything the wall hides. Registered only when
-	// the gate exists at all: in database-less mode adminGuard would be empty,
-	// and an unguarded IP firehose is not a degraded mode, it's a leak.
-	if a.authn != nil {
-		app.Page("/admin/analytics", a.analyticsPage, adminGuard...)
-		app.Page("/admin/analytics/events", anlWidget("anl-events", a.anlEvents), adminGuard...)
-		app.Page("/admin/analytics/posts", anlWidget("anl-posts", a.anlPosts), adminGuard...)
-		app.Page("/admin/analytics/votes", anlWidget("anl-votes", a.anlVotes), adminGuard...)
-		app.Page("/admin/analytics/countries", anlWidget("anl-countries", a.anlCountries), adminGuard...)
-		app.Page("/admin/analytics/ips", anlWidget("anl-ips", a.anlIPs), adminGuard...)
-		app.Page("/admin/analytics/recent", anlWidget("anl-recent", a.anlRecent), adminGuard...)
-	}
+	// charts and tables show everything the wall hides (an unguarded IP firehose
+	// would be a leak).
+	app.Page("/admin/analytics", a.analyticsPage, adminGuard...)
+	app.Page("/admin/analytics/events", anlWidget("anl-events", a.anlEvents), adminGuard...)
+	app.Page("/admin/analytics/posts", anlWidget("anl-posts", a.anlPosts), adminGuard...)
+	app.Page("/admin/analytics/votes", anlWidget("anl-votes", a.anlVotes), adminGuard...)
+	app.Page("/admin/analytics/countries", anlWidget("anl-countries", a.anlCountries), adminGuard...)
+	app.Page("/admin/analytics/ips", anlWidget("anl-ips", a.anlIPs), adminGuard...)
+	app.Page("/admin/analytics/recent", anlWidget("anl-recent", a.anlRecent), adminGuard...)
 
 	// Application + auth (plain form posts → 303).
 	app.Raw(http.MethodPost, "/apply", a.doApply)
@@ -290,12 +282,6 @@ func (a *app) routes(app *beach.App) {
 	app.Page("/invite/{code}", a.invitePage)
 	app.Raw(http.MethodPost, "/invite/{code}", a.doRedeem)
 	app.Raw(http.MethodPost, "/invites", a.doMint, postGuard...)
-
-	// Only the local store needs an app route to serve its bytes — R2 URLs are
-	// absolute, pointing at the bucket's public/custom domain (or presigned).
-	if local, ok := a.files.(*storage.Local); ok {
-		app.Raw(http.MethodGet, "/files/", http.StripPrefix("/files/", local).ServeHTTP)
-	}
 }
 
 // compose serves the WebGPU camera page.
@@ -366,8 +352,8 @@ func (a *app) postView(c *beach.Ctx) (beach.View, error) {
 	}, nil
 }
 
-// voterKey is the one-reaction-per-person key: the handle, or "anon" in
-// database-less open mode (a single-user wall).
+// voterKey is the one-reaction-per-person key: the member's handle, or "anon"
+// for a not-signed-in viewer.
 func voterKey(handle string) string {
 	if handle == "" {
 		return "anon"

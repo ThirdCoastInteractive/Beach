@@ -35,8 +35,7 @@ services:
       retries: 10
 
   # The observation store behind /admin/analytics. Internal-only, like
-  # postgres; drop this service (and CLICKHOUSE_DSN below) and the app runs
-  # with analytics off.
+  # postgres, and required: hush will not boot without it.
   clickhouse:
     image: clickhouse/clickhouse-server:24.8-alpine
     environment:
@@ -68,14 +67,14 @@ services:
     # policy seeds — rides in from .env (copied from .env.docker.example).
     env_file: [.env]
     # The connection strings are built here, from the credentials and the
-    # service names, so they live in one place and never localhost. HUSH_BASE_URL
+    # service names, so they live in one place and never localhost. BASE_URL
     # takes the .env value when set (your public origin), else a localhost
     # default for a kick-the-tires run.
     environment:
       PORT: "8080"
       DATABASE_URL: postgres://${POSTGRES_USER:-beach}:${POSTGRES_PASSWORD:-beach}@postgres:5432/${POSTGRES_DB:-hush}?sslmode=disable
       CLICKHOUSE_DSN: clickhouse://default:@clickhouse:9000/hush
-      HUSH_BASE_URL: ${HUSH_BASE_URL:-http://localhost:8080}
+      BASE_URL: ${BASE_URL:-http://localhost:8080}
     networks: [internal]
     ports: ["${PORT:-8080}:8080"]
     depends_on:

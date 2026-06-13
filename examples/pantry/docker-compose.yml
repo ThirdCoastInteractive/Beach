@@ -2,21 +2,25 @@ name: pantry
 
 # Standalone runner for the pantry example (CRUD / apigen / auth / analytics).
 #
+#   cp .env.example .env           # then edit it (the passwords)
 #   docker compose up --build      →  http://localhost:8080   (admin / password)
 #
-# Postgres and ClickHouse are internal-only (no host port mapping); only the app
-# is published. The image is built from the repo root via the shared Dockerfile.
+# Postgres (system of record: inventory, auth, sessions) and ClickHouse (the
+# dashboard's activity firehose) are required; both are internal-only (no host
+# port mapping), only the app is published. Connection strings are built here
+# from the credentials in .env and the service names. The image is built from
+# the repo root via the shared Dockerfile.
 services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: beach
-      POSTGRES_PASSWORD: beach
-      POSTGRES_DB: pantry
+      POSTGRES_USER: ${POSTGRES_USER:-beach}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-beach}
+      POSTGRES_DB: ${POSTGRES_DB:-pantry}
     volumes: [pgdata:/var/lib/postgresql/data]
     networks: [internal]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U beach -d pantry"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-beach} -d ${POSTGRES_DB:-pantry}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -24,11 +28,12 @@ services:
   clickhouse:
     image: clickhouse/clickhouse-server:24.8
     environment:
-      CLICKHOUSE_USER: beach
-      CLICKHOUSE_PASSWORD: beach
-      CLICKHOUSE_DB: beach
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-beach}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-beach}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-pantry}
     ulimits:
       nofile: { soft: 262144, hard: 262144 }
+    volumes: [chdata:/var/lib/clickhouse]
     networks: [internal]
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8123/ping"]
@@ -43,8 +48,8 @@ services:
     environment:
       PORT: "8080"
       # Reached by service name on the internal network; never published to host.
-      DATABASE_URL: postgres://beach:beach@postgres:5432/pantry?sslmode=disable
-      CLICKHOUSE_DSN: clickhouse://beach:beach@clickhouse:9000/beach
+      DATABASE_URL: postgres://${POSTGRES_USER:-beach}:${POSTGRES_PASSWORD:-beach}@postgres:5432/${POSTGRES_DB:-pantry}?sslmode=disable
+      CLICKHOUSE_DSN: clickhouse://${CLICKHOUSE_USER:-beach}:${CLICKHOUSE_PASSWORD:-beach}@clickhouse:9000/${CLICKHOUSE_DB:-pantry}
     networks: [internal]
     ports: ["${PORT:-8080}:8080"]
     depends_on:
@@ -57,3 +62,4 @@ networks:
 
 volumes:
   pgdata:
+  chdata:

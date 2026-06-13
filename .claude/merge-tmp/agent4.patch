@@ -1,0 +1,1132 @@
+diff --git a/examples/hush/.env.example b/examples/hush/.env.example
+index 9edda10..deb4c99 100644
+--- a/examples/hush/.env.example
++++ b/examples/hush/.env.example
+@@ -9,3 +9,22 @@ DATABASE_URL=postgres://beach:beach@localhost:5432/hush?sslmode=disable
+ # Open the first N registrations with no review (the switch-on-later mode);
+ # once spent, the application queue resumes. Unset/0 = queue + invites only.
+ #HUSH_OPEN_SLOTS=50
++
++# Cloudflare R2 file store — set all four and files (application photos,
++# non-Cloudflare-Images post images) live in the bucket instead of a local
++# temp dir. Leave unset for local dev.
++#R2_ENDPOINT=accountid.r2.cloudflarestorage.com   # the bucket's S3 API host (no scheme)
++#R2_BUCKET=hush                                   # bucket name; one store per bucket
++#R2_ACCESS_KEY_ID=                                # R2 API token key pair (dashboard -> R2 -> API tokens)
++#R2_SECRET_ACCESS_KEY=
++#R2_PUBLIC_URL=https://files.example.com          # public/custom-domain base for stable URLs; unset = presigned 1h links
++
++# Cloudflare Images — set all three and image posts upload there instead of
++# the file store, served resized from imagedelivery.net. The variants are
++# created in the CF dashboard: "public" full-size, "thumb" a square crop
++# (~600px, fit: cover) for the grid tiles.
++#CF_IMAGES_ACCOUNT_ID=                            # account id (dashboard -> images -> overview)
++#CF_IMAGES_TOKEN=                                 # api token with Cloudflare Images edit permission
++#CF_IMAGES_HASH=                                  # delivery hash, the first path segment of imagedelivery.net urls
++#CF_IMAGES_VARIANT=public                         # full-size variant feed cards render (default "public")
++#CF_IMAGES_THUMB=thumb                            # square-crop variant grid tiles render (default "thumb")
+diff --git a/examples/hush/apply.go b/examples/hush/apply.go
+index d7d981c..5453dee 100644
+--- a/examples/hush/apply.go
++++ b/examples/hush/apply.go
+@@ -10,11 +10,14 @@ import (
+ )
+ 
+ // application is one pending signup application, as the admin queue shows it.
++// The row stores the photo's storage key; PhotoURL is resolved from it at read
++// time, so the queue renders correctly whichever store holds the bytes (a
++// local /files path, an R2 public URL, or a presigned link).
+ type application struct {
+ 	ID       int64
+ 	Handle   string
+ 	Pitch    string
+-	PhotoKey string
++	PhotoURL string
+ }
+ 
+ // applyPage is the door. While open seats remain (HUSH_OPEN_SLOTS) it renders
+@@ -96,9 +99,13 @@ func (a *app) queuePage(c *beach.Ctx) (beach.View, error) {
+ 	var apps []application
+ 	for rows.Next() {
+ 		var ap application
+-		if err := rows.Scan(&ap.ID, &ap.Handle, &ap.Pitch, &ap.PhotoKey); err != nil {
++		var photoKey string
++		if err := rows.Scan(&ap.ID, &ap.Handle, &ap.Pitch, &photoKey); err != nil {
+ 			return beach.View{}, err
+ 		}
++		if photoKey != "" {
++			ap.PhotoURL, _ = a.files.URL(c.Context(), photoKey)
++		}
+ 		apps = append(apps, ap)
+ 	}
+ 	if err := rows.Err(); err != nil {
+diff --git a/examples/hush/main.go b/examples/hush/main.go
+index 46bfd48..0ec5079 100644
+--- a/examples/hush/main.go
++++ b/examples/hush/main.go
+@@ -11,8 +11,10 @@
+ // and in-memory (text posts through the 512-character limited-markdown text
+ // path, image posts through local file storage); with it, both the wall and
+ // the signup gate — applications, accounts, RBAC, sessions — live in Postgres.
+-// The /compose page hosts the WebGPU camera island, and Repute scores posting
+-// activity.
++// Production media is env-driven too (media.go): R2_* swaps the file store
++// for Cloudflare R2, CF_IMAGES_* routes image posts through Cloudflare
++// Images. The /compose page hosts the WebGPU camera island, and Repute
++// scores posting activity.
+ package main
+ 
+ import (
+@@ -25,7 +27,6 @@ import (
+ 	"log/slog"
+ 	"net/http"
+ 	"os"
+-	"path/filepath"
+ 	"strconv"
+ 	"strings"
+ 	"sync"
+@@ -34,6 +35,7 @@ import (
+ 	"github.com/ThirdCoastInteractive/the-beach/auth"
+ 	"github.com/ThirdCoastInteractive/the-beach/session"
+ 	"github.com/ThirdCoastInteractive/the-beach/storage"
++	"github.com/ThirdCoastInteractive/the-beach/storage/cfimages"
+ 	"github.com/ThirdCoastInteractive/the-beach/ui/specimen"
+ 
+ 	"github.com/jackc/pgx/v5/pgxpool"
+@@ -48,17 +50,26 @@ var migrationsFS embed.FS
+ // app holds the wired dependencies the handlers close over. With DATABASE_URL
+ // set, the wall and the signup gate — applications, accounts, roles, sessions —
+ // are Postgres-backed (pgStore); without it the app runs open and in-memory
+-// (memStore): anyone can post, there's no gate.
++// (memStore): anyone can post, there's no gate. files and images are the media
++// wiring (media.go): Local or R2 behind the Store interface, plus the optional
++// Cloudflare Images client image posts route through.
+ type app struct {
+ 	cfg      config
+ 	store    wall
+-	files    *storage.Local
++	files    storage.Store
++	images   *cfimages.Client // nil = image posts go through files
+ 	rep      *reputation
+ 	authn    *auth.Authenticator
+ 	sessions *session.Store
+ 	pool     *pgxpool.Pool
+ 	release  bool
+ 
++	// The Cloudflare Images variant names (media.go sets them with the
++	// client): the full-size one feed cards render and the square-crop thumb
++	// the grid tiles use.
++	imgVariant string
++	imgThumb   string
++
+ 	// The invite graph (invitee → inviter), in-memory, hydrated from
+ 	// hush_invites at boot — the chain echoes read it on every vote.
+ 	chainMu sync.Mutex
+@@ -78,19 +89,13 @@ func main() {
+ 		log.Fatalf("hush: static sub-fs: %v", err)
+ 	}
+ 
+-	// Local file store under the OS temp dir, served at /files. Ephemeral — a
+-	// Postgres-persisted wall can outlive these bytes; Cloudflare Images
+-	// (cf_image_id on hush_posts) is the durable image path, a later phase.
+-	filesDir := os.Getenv("HUSH_FILES_DIR")
+-	if filesDir == "" {
+-		filesDir = filepath.Join(os.TempDir(), "hush-files")
+-	}
+-	files, err := storage.NewLocal(filesDir, "/files")
+-	if err != nil {
+-		log.Fatalf("hush: file store: %v", err)
++	a := &app{cfg: loadConfig(), release: os.Getenv("RELEASE") != ""}
++	// Media wiring (media.go): R2 or a local temp dir behind storage.Store,
++	// plus the optional Cloudflare Images client. With no R2_*/CF_IMAGES_* env
++	// the wall runs exactly as before — local ephemeral files served at /files.
++	if err := a.initMedia(); err != nil {
++		log.Fatalf("hush: media: %v", err)
+ 	}
+-
+-	a := &app{cfg: loadConfig(), files: files, release: os.Getenv("RELEASE") != ""}
+ 	a.rep = newReputation(a.cfg)
+ 
+ 	cfg := beach.Config{
+@@ -202,7 +207,11 @@ func (a *app) routes(app *beach.App) {
+ 	app.Raw(http.MethodPost, "/invite/{code}", a.doRedeem)
+ 	app.Raw(http.MethodPost, "/invites", a.doMint, postGuard...)
+ 
+-	app.Raw(http.MethodGet, "/files/", http.StripPrefix("/files/", a.files).ServeHTTP)
++	// Only the local store needs an app route to serve its bytes — R2 URLs are
++	// absolute, pointing at the bucket's public/custom domain (or presigned).
++	if local, ok := a.files.(*storage.Local); ok {
++		app.Raw(http.MethodGet, "/files/", http.StripPrefix("/files/", local).ServeHTTP)
++	}
+ }
+ 
+ // compose serves the WebGPU camera page.
+@@ -253,7 +262,7 @@ func (a *app) postView(c *beach.Ctx) (beach.View, error) {
+ 	handle, canPost, admin := a.acct(c)
+ 	myVote := a.store.voteOf(c.Context(), id, voterKey(handle))
+ 	return beach.View{
+-		Page: feedPage(newer, p, older, moreNewer, moreOlder, canPost, myVote, handle, admin, a.tierOf(a.rep.score(handle))),
++		Page: a.feedPage(newer, p, older, moreNewer, moreOlder, canPost, myVote, handle, admin, a.tierOf(a.rep.score(handle))),
+ 	}, nil
+ }
+ 
+@@ -278,7 +287,7 @@ func (a *app) feedMore(newer bool) beach.PageFunc {
+ 		cursor, _ := strconv.ParseInt(c.R.URL.Query().Get("cursor"), 10, 64)
+ 		posts, more := a.store.neighbors(c.Context(), cursor, newer, feedChunk)
+ 		return beach.View{
+-			Fragment: feedBatch(dir, posts, more),
++			Fragment: a.feedBatch(dir, posts, more),
+ 			Target:   "feed-" + dir,
+ 			Mode:     beach.PatchReplace,
+ 		}, nil
+@@ -290,8 +299,8 @@ func (a *app) home(c *beach.Ctx) (beach.View, error) {
+ 	posts := a.store.list(c.Context())
+ 	handle, canPost, admin := a.acct(c)
+ 	return beach.View{
+-		Page:     homePage(posts, handle, canPost, admin, a.tierOf(a.rep.score(handle)), a.openLeft(c.Context())),
+-		Fragment: grid(posts),
++		Page:     a.homePage(posts, handle, canPost, admin, a.tierOf(a.rep.score(handle)), a.openLeft(c.Context())),
++		Fragment: a.grid(posts),
+ 		Target:   "hush-grid",
+ 	}, nil
+ }
+@@ -323,7 +332,7 @@ func (a *app) createPost(c *beach.Ctx) (beach.Patches, error) {
+ 	}
+ 	a.rep.emit("post", author)
+ 	return beach.Patches{
+-		{Fragment: tile(p), Target: "hush-grid", Mode: beach.PatchPrepend, Signals: map[string]string{"body": ""}},
++		{Fragment: tile(p, a.postThumbURL(p)), Target: "hush-grid", Mode: beach.PatchPrepend, Signals: map[string]string{"body": ""}},
+ 		{Fragment: note(""), Target: "hush-note", Mode: beach.PatchInner},
+ 	}, nil
+ }
+@@ -355,10 +364,11 @@ func (a *app) votePost(c *beach.Ctx) (beach.Patches, error) {
+ 	return beach.Patches{{Fragment: reactions(p, true, a.store.voteOf(c.Context(), id, voter)), Target: "vote-" + c.Param("id"), Mode: beach.PatchOuter}}, nil
+ }
+ 
+-// uploadImage handles the plain multipart upload form: validate it's an image,
+-// Put the bytes into the file store under a random key, append an image post, and
+-// 303 back to the wall (a real navigation — no Datastar, CSP-clean). The camera
+-// island in Block C adds the fetch-based prepend path against this same store.
++// uploadImage handles the plain multipart upload form (and the camera island's
++// fetch, which posts the same field): validate it's an image, hand the bytes to
++// storeImage (Cloudflare Images when wired, the file store otherwise — media.go),
++// append an image post, and 303 back to the wall (a real navigation — no
++// Datastar, CSP-clean).
+ func (a *app) uploadImage(w http.ResponseWriter, r *http.Request) {
+ 	if err := r.ParseMultipartForm(8 << 20); err != nil { // 8 MiB cap
+ 		http.Redirect(w, r, "/", http.StatusSeeOther)
+@@ -377,14 +387,13 @@ func (a *app) uploadImage(w http.ResponseWriter, r *http.Request) {
+ 		return
+ 	}
+ 
+-	key := "posts/" + randHex() + extFor(ct)
+-	if _, err := a.files.Put(r.Context(), key, f, ct); err != nil {
++	mediaURL, cfID, err := a.storeImage(r.Context(), f, ct)
++	if err != nil {
+ 		http.Redirect(w, r, "/", http.StatusSeeOther)
+ 		return
+ 	}
+-	url, _ := a.files.URL(r.Context(), key)
+ 	author, _, _ := a.acct(&beach.Ctx{W: w, R: r})
+-	if _, err := a.store.addImage(r.Context(), url, "", author, clientMeta(r)); err != nil {
++	if _, err := a.store.addImage(r.Context(), mediaURL, cfID, author, clientMeta(r)); err != nil {
+ 		http.Redirect(w, r, "/", http.StatusSeeOther)
+ 		return
+ 	}
+diff --git a/examples/hush/media.go b/examples/hush/media.go
+new file mode 100644
+index 0000000..a9c7e4e
+--- /dev/null
++++ b/examples/hush/media.go
+@@ -0,0 +1,107 @@
++// hush's media wiring: which storage.Store holds files, and whether image
++// posts route through Cloudflare Images. Both decisions are env-driven and
++// optional — with nothing set, files live in a local temp dir served at
++// /files and image posts are raw stored bytes, exactly the database-less
++// developer experience. Production sets R2_* (durable file bytes) and
++// CF_IMAGES_* (resized variants from imagedelivery.net) independently.
++package main
++
++import (
++	"context"
++	"io"
++	"os"
++	"path/filepath"
++
++	"github.com/ThirdCoastInteractive/the-beach/storage"
++	"github.com/ThirdCoastInteractive/the-beach/storage/cfimages"
++	"github.com/ThirdCoastInteractive/the-beach/storage/s3"
++)
++
++// initMedia wires a.files and a.images from the environment, once at boot.
++//
++// The file store is R2 when all four R2_* variables are set (PublicBaseURL
++// from R2_PUBLIC_URL — unset means presigned links, which still work), Local
++// under HUSH_FILES_DIR (default: OS temp) otherwise. Application photos and
++// non-Cloudflare image posts flow through it either way.
++//
++// The Cloudflare Images client exists when the three CF_IMAGES_* variables
++// are set; nil means image posts go through the file store. The variant
++// names are dashboard-side config — CF_IMAGES_VARIANT is the full-size one
++// feed cards render, CF_IMAGES_THUMB the square crop the grid tiles use.
++func (a *app) initMedia() error {
++	endpoint := os.Getenv("R2_ENDPOINT")
++	bucket := os.Getenv("R2_BUCKET")
++	keyID := os.Getenv("R2_ACCESS_KEY_ID")
++	secret := os.Getenv("R2_SECRET_ACCESS_KEY")
++	if endpoint != "" && bucket != "" && keyID != "" && secret != "" {
++		files, err := s3.New(s3.Config{
++			Endpoint:        endpoint,
++			Bucket:          bucket,
++			AccessKeyID:     keyID,
++			SecretAccessKey: secret,
++			PublicBaseURL:   os.Getenv("R2_PUBLIC_URL"),
++		})
++		if err != nil {
++			return err
++		}
++		a.files = files
++	} else {
++		dir := os.Getenv("HUSH_FILES_DIR")
++		if dir == "" {
++			dir = filepath.Join(os.TempDir(), "hush-files")
++		}
++		files, err := storage.NewLocal(dir, "/files")
++		if err != nil {
++			return err
++		}
++		a.files = files
++	}
++
++	if account, token, hash := os.Getenv("CF_IMAGES_ACCOUNT_ID"), os.Getenv("CF_IMAGES_TOKEN"), os.Getenv("CF_IMAGES_HASH"); account != "" && token != "" && hash != "" {
++		a.images = cfimages.New(account, token, hash)
++		a.imgVariant = envStr("CF_IMAGES_VARIANT", "public")
++		a.imgThumb = envStr("CF_IMAGES_THUMB", "thumb")
++	}
++	return nil
++}
++
++// storeImage puts an uploaded post image where it belongs: Cloudflare Images
++// when the client is wired (cfID comes back filled, mediaURL is the full
++// variant's delivery URL — a stable fallback even if the client is later
++// unwired), the file store otherwise (cfID stays "").
++func (a *app) storeImage(ctx context.Context, r io.Reader, contentType string) (mediaURL, cfID string, err error) {
++	if a.images != nil {
++		id, err := a.images.Upload(ctx, r, randHex()+extFor(contentType))
++		if err != nil {
++			return "", "", err
++		}
++		return a.images.DeliveryURL(id, a.imgVariant), id, nil
++	}
++	key := "posts/" + randHex() + extFor(contentType)
++	if _, err := a.files.Put(ctx, key, r, contentType); err != nil {
++		return "", "", err
++	}
++	url, err := a.files.URL(ctx, key)
++	return url, "", err
++}
++
++// postImageURL is a post's full-size image source (feed cards). For a
++// Cloudflare-hosted image it's recomputed from the id at render time, so a
++// variant rename in the env applies to old posts too; otherwise the stored
++// URL stands.
++func (a *app) postImageURL(p Post) string {
++	if p.CFImageID != "" && a.images != nil {
++		return a.images.DeliveryURL(p.CFImageID, a.imgVariant)
++	}
++	return p.ImageURL
++}
++
++// postThumbURL is a post's grid-tile source: the square-crop thumb variant
++// (Cloudflare resizes server-side) when the image lives in Cloudflare
++// Images, the full image otherwise (the tile's object-fit crops it locally).
++func (a *app) postThumbURL(p Post) string {
++	if p.CFImageID != "" && a.images != nil {
++		return a.images.DeliveryURL(p.CFImageID, a.imgThumb)
++	}
++	return p.ImageURL
++}
+diff --git a/examples/hush/model.go b/examples/hush/model.go
+index 34aac10..fd56876 100644
+--- a/examples/hush/model.go
++++ b/examples/hush/model.go
+@@ -10,15 +10,16 @@ import (
+ 
+ // Post is one tile on the wall. A text post carries sanitized BodyHTML (from
+ // renderPost — never raw user input); an image post carries ImageURL, the public
+-// URL its bytes were stored at via storage.Store (plus CFImageID once uploads
+-// move to Cloudflare Images). Hidden, FlagCount, and Meta exist for moderation —
+-// admin eyes only; templates never render them.
++// URL its bytes were stored at, plus CFImageID when the upload went through
++// Cloudflare Images (the postImageURL/postThumbURL helpers in media.go pick
++// the right source per surface). Hidden, FlagCount, and Meta exist for
++// moderation — admin eyes only; templates never render them.
+ type Post struct {
+ 	ID        int64
+ 	Kind      string // "text" | "image"
+ 	BodyHTML  string // text posts
+ 	ImageURL  string // image posts
+-	CFImageID string // image posts, Cloudflare Images id ("" until that phase)
++	CFImageID string // image posts, Cloudflare Images id ("" when stored via files)
+ 	Author    string // handle that posted it (for Repute scoring; never shown — the wall is anon)
+ 	Hidden    bool   // moderated off the wall; permalink 404s for non-admins
+ 	FlagCount int    // filled on admin reads
+diff --git a/examples/hush/pages.templ b/examples/hush/pages.templ
+index a21fec8..e01c05b 100644
+--- a/examples/hush/pages.templ
++++ b/examples/hush/pages.templ
+@@ -90,8 +90,10 @@ templ backToWall() {
+ // homePage is the wall: the centered header + composer, then the full-bleed
+ // gapless grid. Tiles are real links — opening a post is a navigation (the
+ // browser owns push/pop state), and the cross-document View Transition morphs
+-// the clicked square into its feed card.
+-templ homePage(posts []Post, handle string, canPost bool, admin bool, tier int, openLeft int) {
++// the clicked square into its feed card. A method on *app — like every view
++// that renders post images — so it can resolve each post's image source
++// through the media helpers (media.go).
++templ (a *app) homePage(posts []Post, handle string, canPost bool, admin bool, tier int, openLeft int) {
+ 	@shell("hush") {
+ 		@accountStrip(handle, admin, tier)
+ 		<div class="hush-top">
+@@ -107,7 +109,7 @@ templ homePage(posts []Post, handle string, canPost bool, admin bool, tier int,
+ 				<p class="hush-sub hush-gateline">posting is invite-only — <a class="hush-link" href="/apply">apply</a> or <a class="hush-link" href="/login">sign in</a>.</p>
+ 			}
+ 		</div>
+-		@grid(posts)
++		@a.grid(posts)
+ 	}
+ }
+ 
+@@ -157,11 +159,12 @@ templ composer() {
+ }
+ 
+ // grid is the full #hush-grid wall. It doubles as the fragment the home
+-// handler patches on a Datastar request.
+-templ grid(posts []Post) {
++// handler patches on a Datastar request. Tiles get the thumb source — the
++// square-crop Cloudflare variant when the image has one.
++templ (a *app) grid(posts []Post) {
+ 	<div id="hush-grid" class="hush-grid">
+ 		for _, p := range posts {
+-			@tile(p)
++			@tile(p, a.postThumbURL(p))
+ 		}
+ 	</div>
+ }
+@@ -170,11 +173,11 @@ templ grid(posts []Post) {
+ // becomes a live view-transition-name while the tile holds focus (i.e. it was
+ // just clicked), so navigating morphs exactly this square into the focused
+ // card. A text tile's BodyHTML is already sanitized by renderPost; an image
+-// tile renders the stored object's URL.
+-templ tile(p Post) {
++// tile renders thumbURL, the caller-resolved square source (postThumbURL).
++templ tile(p Post, thumbURL string) {
+ 	if p.Kind == "image" {
+ 		<a class="hush-tile hush-tile--image" style={ postStyle(p) } data-vt={ vtName(p) } href={ postHref(p.ID) }>
+-			<img src={ p.ImageURL } alt="" loading="lazy"/>
++			<img src={ thumbURL } alt="" loading="lazy"/>
+ 		</a>
+ 	} else {
+ 		<a class="hush-tile hush-tile--text" style={ postStyle(p) } data-vt={ vtName(p) } href={ postHref(p.ID) }>
+@@ -233,7 +236,7 @@ templ reactions(p Post, canPost bool, myVote int8) {
+ // timeline is reachable from any post without a single control. The only
+ // other affordance is the title, which is the way back to the wall — that and
+ // the browser's own back button.
+-templ feedPage(newer []Post, focused Post, older []Post, moreNewer bool, moreOlder bool, canPost bool, myVote int8, handle string, admin bool, tier int) {
++templ (a *app) feedPage(newer []Post, focused Post, older []Post, moreNewer bool, moreOlder bool, canPost bool, myVote int8, handle string, admin bool, tier int) {
+ 	@shell("hush — post #" + strconv.FormatInt(focused.ID, 10)) {
+ 		@accountStrip(handle, admin, tier)
+ 		<header class="hush-head hush-head--feed">
+@@ -244,11 +247,11 @@ templ feedPage(newer []Post, focused Post, older []Post, moreNewer bool, moreOld
+ 				@moreSentinel("newer", newer[0].ID)
+ 			}
+ 			for _, p := range newer {
+-				@feedCard(p, "hush-above")
++				@a.feedCard(p, "hush-above")
+ 			}
+-			@focusedCard(focused, canPost, myVote)
++			@a.focusedCard(focused, canPost, myVote)
+ 			for _, p := range older {
+-				@feedCard(p, "hush-below")
++				@a.feedCard(p, "hush-below")
+ 			}
+ 			if moreOlder {
+ 				@moreSentinel("older", older[len(older)-1].ID)
+@@ -260,10 +263,10 @@ templ feedPage(newer []Post, focused Post, older []Post, moreNewer bool, moreOld
+ // focusedCard is the expanded post at the center of its feed page: media,
+ // meta, the thumbs. Nothing else — no thread, no reply box; the wall doesn't
+ // talk back. Its id is the link fragment that lands the browser here.
+-templ focusedCard(p Post, canPost bool, myVote int8) {
++templ (a *app) focusedCard(p Post, canPost bool, myVote int8) {
+ 	{{ id := strconv.FormatInt(p.ID, 10) }}
+ 	<article id={ "p" + id } class="hush-fcard hush-fcard--focused" style={ vtStyle(p, "") }>
+-		@cardMedia(p)
++		@cardMedia(p, a.postImageURL(p))
+ 		<div class="hush-card-meta">
+ 			{ "#" + id + " · " + p.CreatedAt.Format("Jan 2 · 15:04") }
+ 		</div>
+@@ -276,10 +279,10 @@ templ focusedCard(p Post, canPost bool, myVote int8) {
+ // Unlike grid tiles, feed cards are named unconditionally: most of them exist
+ // on the next post's page too, so a feed→feed navigation morphs them to their
+ // new positions — the feed reads as sliding, not reloading.
+-templ feedCard(p Post, side string) {
++templ (a *app) feedCard(p Post, side string) {
+ 	{{ id := strconv.FormatInt(p.ID, 10) }}
+ 	<a id={ "p" + id } class="hush-fcard" style={ vtStyle(p, side) } href={ postHref(p.ID) }>
+-		@cardMedia(p)
++		@cardMedia(p, a.postImageURL(p))
+ 		<div class="hush-card-meta">
+ 			{ "#" + id + " · " + p.CreatedAt.Format("Jan 2 · 15:04") }
+ 		</div>
+@@ -297,18 +300,18 @@ templ moreSentinel(dir string, cursor int64) {
+ // feedBatch is what a sentinel becomes: the next cards in display order with
+ // the follow-up sentinel on the outward side, under a display:contents wrapper
+ // (the patch needs one root; layout never sees it).
+-templ feedBatch(dir string, posts []Post, more bool) {
++templ (a *app) feedBatch(dir string, posts []Post, more bool) {
+ 	<div class="hush-batch">
+ 		if dir == "newer" {
+ 			if more {
+ 				@moreSentinel("newer", posts[0].ID)
+ 			}
+ 			for _, p := range posts {
+-				@feedCard(p, "hush-above")
++				@a.feedCard(p, "hush-above")
+ 			}
+ 		} else {
+ 			for _, p := range posts {
+-				@feedCard(p, "hush-below")
++				@a.feedCard(p, "hush-below")
+ 			}
+ 			if more {
+ 				@moreSentinel("older", posts[len(posts)-1].ID)
+@@ -317,12 +320,13 @@ templ feedBatch(dir string, posts []Post, more bool) {
+ 	</div>
+ }
+ 
+-// cardMedia is a post's hero in the feed: the image, or the text on the
++// cardMedia is a post's hero in the feed: the image — imgURL, the
++// caller-resolved full-size source (postImageURL) — or the text on the
+ // post's own computed color.
+-templ cardMedia(p Post) {
++templ cardMedia(p Post, imgURL string) {
+ 	if p.Kind == "image" {
+ 		<div class="hush-card-media hush-card-media--image">
+-			<img src={ p.ImageURL } alt=""/>
++			<img src={ imgURL } alt=""/>
+ 		</div>
+ 	} else {
+ 		<div class="hush-card-media hush-card-media--text" style={ tileBG(p) }>
+@@ -561,8 +565,8 @@ templ adminQueuePage(apps []application) {
+ templ appCard(ap application) {
+ 	{{ id := strconv.FormatInt(ap.ID, 10) }}
+ 	<div class="hush-appcard">
+-		if ap.PhotoKey != "" {
+-			<img class="hush-appphoto" src={ "/files/" + ap.PhotoKey } alt=""/>
++		if ap.PhotoURL != "" {
++			<img class="hush-appphoto" src={ ap.PhotoURL } alt=""/>
+ 		}
+ 		<div class="hush-apphandle">{ ap.Handle }</div>
+ 		<div class="hush-apppitch">{ ap.Pitch }</div>
+diff --git a/examples/hush/pages_templ.go b/examples/hush/pages_templ.go
+index 2f79aec..6656e2b 100644
+--- a/examples/hush/pages_templ.go
++++ b/examples/hush/pages_templ.go
+@@ -104,7 +104,7 @@ func shell(title string) templ.Component {
+ 		var templ_7745c5c3_Var2 string
+ 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.JoinStringErrs(title)
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 74, Col: 17}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 74, Col: 17}
+ 		}
+ 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
+ 		if templ_7745c5c3_Err != nil {
+@@ -159,8 +159,10 @@ func backToWall() templ.Component {
+ // homePage is the wall: the centered header + composer, then the full-bleed
+ // gapless grid. Tiles are real links — opening a post is a navigation (the
+ // browser owns push/pop state), and the cross-document View Transition morphs
+-// the clicked square into its feed card.
+-func homePage(posts []Post, handle string, canPost bool, admin bool, tier int, openLeft int) templ.Component {
++// the clicked square into its feed card. A method on *app — like every view
++// that renders post images — so it can resolve each post's image source
++// through the media helpers (media.go).
++func (a *app) homePage(posts []Post, handle string, canPost bool, admin bool, tier int, openLeft int) templ.Component {
+ 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+ 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+ 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+@@ -214,7 +216,7 @@ func homePage(posts []Post, handle string, canPost bool, admin bool, tier int, o
+ 				var templ_7745c5c3_Var6 string
+ 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(openLeft) + " seats open — ")
+ 				if templ_7745c5c3_Err != nil {
+-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 105, Col: 83}
++					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 107, Col: 83}
+ 				}
+ 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+ 				if templ_7745c5c3_Err != nil {
+@@ -234,7 +236,7 @@ func homePage(posts []Post, handle string, canPost bool, admin bool, tier int, o
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+-			templ_7745c5c3_Err = grid(posts).Render(ctx, templ_7745c5c3_Buffer)
++			templ_7745c5c3_Err = a.grid(posts).Render(ctx, templ_7745c5c3_Buffer)
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+@@ -282,7 +284,7 @@ func accountStrip(handle string, admin bool, tier int) templ.Component {
+ 			var templ_7745c5c3_Var8 string
+ 			templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(handle)
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 122, Col: 27}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 124, Col: 27}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
+ 			if templ_7745c5c3_Err != nil {
+@@ -296,7 +298,7 @@ func accountStrip(handle string, admin bool, tier int) templ.Component {
+ 				var templ_7745c5c3_Var9 string
+ 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
+ 				if templ_7745c5c3_Err != nil {
+-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 124, Col: 12}
++					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 126, Col: 12}
+ 				}
+ 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
+ 				if templ_7745c5c3_Err != nil {
+@@ -309,7 +311,7 @@ func accountStrip(handle string, admin bool, tier int) templ.Component {
+ 				var templ_7745c5c3_Var10 templ.SafeURL
+ 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinURLErrs("/u/" + handle)
+ 				if templ_7745c5c3_Err != nil {
+-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 125, Col: 46}
++					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 127, Col: 46}
+ 				}
+ 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
+ 				if templ_7745c5c3_Err != nil {
+@@ -324,7 +326,7 @@ func accountStrip(handle string, admin bool, tier int) templ.Component {
+ 				var templ_7745c5c3_Var11 string
+ 				templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
+ 				if templ_7745c5c3_Err != nil {
+-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 128, Col: 12}
++					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 130, Col: 12}
+ 				}
+ 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
+ 				if templ_7745c5c3_Err != nil {
+@@ -338,7 +340,7 @@ func accountStrip(handle string, admin bool, tier int) templ.Component {
+ 			var templ_7745c5c3_Var12 string
+ 			templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 131, Col: 11}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 133, Col: 11}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
+ 			if templ_7745c5c3_Err != nil {
+@@ -389,8 +391,9 @@ func composer() templ.Component {
+ }
+ 
+ // grid is the full #hush-grid wall. It doubles as the fragment the home
+-// handler patches on a Datastar request.
+-func grid(posts []Post) templ.Component {
++// handler patches on a Datastar request. Tiles get the thumb source — the
++// square-crop Cloudflare variant when the image has one.
++func (a *app) grid(posts []Post) templ.Component {
+ 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+ 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+ 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+@@ -416,7 +419,7 @@ func grid(posts []Post) templ.Component {
+ 			return templ_7745c5c3_Err
+ 		}
+ 		for _, p := range posts {
+-			templ_7745c5c3_Err = tile(p).Render(ctx, templ_7745c5c3_Buffer)
++			templ_7745c5c3_Err = tile(p, a.postThumbURL(p)).Render(ctx, templ_7745c5c3_Buffer)
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+@@ -433,8 +436,8 @@ func grid(posts []Post) templ.Component {
+ // becomes a live view-transition-name while the tile holds focus (i.e. it was
+ // just clicked), so navigating morphs exactly this square into the focused
+ // card. A text tile's BodyHTML is already sanitized by renderPost; an image
+-// tile renders the stored object's URL.
+-func tile(p Post) templ.Component {
++// tile renders thumbURL, the caller-resolved square source (postThumbURL).
++func tile(p Post, thumbURL string) templ.Component {
+ 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+ 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+ 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+@@ -463,7 +466,7 @@ func tile(p Post) templ.Component {
+ 			var templ_7745c5c3_Var16 string
+ 			templ_7745c5c3_Var16, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(postStyle(p))
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 176, Col: 60}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 179, Col: 60}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
+ 			if templ_7745c5c3_Err != nil {
+@@ -476,7 +479,7 @@ func tile(p Post) templ.Component {
+ 			var templ_7745c5c3_Var17 string
+ 			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.ResolveAttributeValue(vtName(p))
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 176, Col: 82}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 179, Col: 82}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var17)
+ 			if templ_7745c5c3_Err != nil {
+@@ -489,7 +492,7 @@ func tile(p Post) templ.Component {
+ 			var templ_7745c5c3_Var18 templ.SafeURL
+ 			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinURLErrs(postHref(p.ID))
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 176, Col: 106}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 179, Col: 106}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
+ 			if templ_7745c5c3_Err != nil {
+@@ -500,9 +503,9 @@ func tile(p Post) templ.Component {
+ 				return templ_7745c5c3_Err
+ 			}
+ 			var templ_7745c5c3_Var19 string
+-			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ImageURL)
++			templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.ResolveAttributeValue(thumbURL)
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 177, Col: 24}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 180, Col: 22}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var19)
+ 			if templ_7745c5c3_Err != nil {
+@@ -520,7 +523,7 @@ func tile(p Post) templ.Component {
+ 			var templ_7745c5c3_Var20 string
+ 			templ_7745c5c3_Var20, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(postStyle(p))
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 180, Col: 59}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 183, Col: 59}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
+ 			if templ_7745c5c3_Err != nil {
+@@ -533,7 +536,7 @@ func tile(p Post) templ.Component {
+ 			var templ_7745c5c3_Var21 string
+ 			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.ResolveAttributeValue(vtName(p))
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 180, Col: 81}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 183, Col: 81}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var21)
+ 			if templ_7745c5c3_Err != nil {
+@@ -546,7 +549,7 @@ func tile(p Post) templ.Component {
+ 			var templ_7745c5c3_Var22 templ.SafeURL
+ 			templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinURLErrs(postHref(p.ID))
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 180, Col: 105}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 183, Col: 105}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
+ 			if templ_7745c5c3_Err != nil {
+@@ -603,7 +606,7 @@ func reactions(p Post, canPost bool, myVote int8) templ.Component {
+ 		var templ_7745c5c3_Var24 string
+ 		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.ResolveAttributeValue("vote-" + idStr)
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 195, Col: 26}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 198, Col: 26}
+ 		}
+ 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var24)
+ 		if templ_7745c5c3_Err != nil {
+@@ -663,7 +666,7 @@ func reactions(p Post, canPost bool, myVote int8) templ.Component {
+ 			var templ_7745c5c3_Var25 string
+ 			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.ResolveAttributeValue("@post('/p/" + idStr + "/vote?dir=up')")
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 211, Col: 89}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 214, Col: 89}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var25)
+ 			if templ_7745c5c3_Err != nil {
+@@ -684,7 +687,7 @@ func reactions(p Post, canPost bool, myVote int8) templ.Component {
+ 			var templ_7745c5c3_Var26 string
+ 			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.ResolveAttributeValue("@post('/p/" + idStr + "/vote?dir=down')")
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 214, Col: 91}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 217, Col: 91}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var26)
+ 			if templ_7745c5c3_Err != nil {
+@@ -740,7 +743,7 @@ func reactions(p Post, canPost bool, myVote int8) templ.Component {
+ // timeline is reachable from any post without a single control. The only
+ // other affordance is the title, which is the way back to the wall — that and
+ // the browser's own back button.
+-func feedPage(newer []Post, focused Post, older []Post, moreNewer bool, moreOlder bool, canPost bool, myVote int8, handle string, admin bool, tier int) templ.Component {
++func (a *app) feedPage(newer []Post, focused Post, older []Post, moreNewer bool, moreOlder bool, canPost bool, myVote int8, handle string, admin bool, tier int) templ.Component {
+ 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+ 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+ 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+@@ -788,17 +791,17 @@ func feedPage(newer []Post, focused Post, older []Post, moreNewer bool, moreOlde
+ 				}
+ 			}
+ 			for _, p := range newer {
+-				templ_7745c5c3_Err = feedCard(p, "hush-above").Render(ctx, templ_7745c5c3_Buffer)
++				templ_7745c5c3_Err = a.feedCard(p, "hush-above").Render(ctx, templ_7745c5c3_Buffer)
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+ 			}
+-			templ_7745c5c3_Err = focusedCard(focused, canPost, myVote).Render(ctx, templ_7745c5c3_Buffer)
++			templ_7745c5c3_Err = a.focusedCard(focused, canPost, myVote).Render(ctx, templ_7745c5c3_Buffer)
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+ 			for _, p := range older {
+-				templ_7745c5c3_Err = feedCard(p, "hush-below").Render(ctx, templ_7745c5c3_Buffer)
++				templ_7745c5c3_Err = a.feedCard(p, "hush-below").Render(ctx, templ_7745c5c3_Buffer)
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+@@ -826,7 +829,7 @@ func feedPage(newer []Post, focused Post, older []Post, moreNewer bool, moreOlde
+ // focusedCard is the expanded post at the center of its feed page: media,
+ // meta, the thumbs. Nothing else — no thread, no reply box; the wall doesn't
+ // talk back. Its id is the link fragment that lands the browser here.
+-func focusedCard(p Post, canPost bool, myVote int8) templ.Component {
++func (a *app) focusedCard(p Post, canPost bool, myVote int8) templ.Component {
+ 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+ 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+ 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+@@ -855,7 +858,7 @@ func focusedCard(p Post, canPost bool, myVote int8) templ.Component {
+ 		var templ_7745c5c3_Var30 string
+ 		templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.ResolveAttributeValue("p" + id)
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 265, Col: 23}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 268, Col: 23}
+ 		}
+ 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var30)
+ 		if templ_7745c5c3_Err != nil {
+@@ -868,7 +871,7 @@ func focusedCard(p Post, canPost bool, myVote int8) templ.Component {
+ 		var templ_7745c5c3_Var31 string
+ 		templ_7745c5c3_Var31, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(vtStyle(p, ""))
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 265, Col: 87}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 268, Col: 87}
+ 		}
+ 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
+ 		if templ_7745c5c3_Err != nil {
+@@ -878,7 +881,7 @@ func focusedCard(p Post, canPost bool, myVote int8) templ.Component {
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+-		templ_7745c5c3_Err = cardMedia(p).Render(ctx, templ_7745c5c3_Buffer)
++		templ_7745c5c3_Err = cardMedia(p, a.postImageURL(p)).Render(ctx, templ_7745c5c3_Buffer)
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+@@ -889,7 +892,7 @@ func focusedCard(p Post, canPost bool, myVote int8) templ.Component {
+ 		var templ_7745c5c3_Var32 string
+ 		templ_7745c5c3_Var32, templ_7745c5c3_Err = templ.JoinStringErrs("#" + id + " · " + p.CreatedAt.Format("Jan 2 · 15:04"))
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 268, Col: 61}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 271, Col: 61}
+ 		}
+ 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
+ 		if templ_7745c5c3_Err != nil {
+@@ -916,7 +919,7 @@ func focusedCard(p Post, canPost bool, myVote int8) templ.Component {
+ // Unlike grid tiles, feed cards are named unconditionally: most of them exist
+ // on the next post's page too, so a feed→feed navigation morphs them to their
+ // new positions — the feed reads as sliding, not reloading.
+-func feedCard(p Post, side string) templ.Component {
++func (a *app) feedCard(p Post, side string) templ.Component {
+ 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+ 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+ 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+@@ -945,7 +948,7 @@ func feedCard(p Post, side string) templ.Component {
+ 		var templ_7745c5c3_Var34 string
+ 		templ_7745c5c3_Var34, templ_7745c5c3_Err = templ.ResolveAttributeValue("p" + id)
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 281, Col: 17}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 284, Col: 17}
+ 		}
+ 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var34)
+ 		if templ_7745c5c3_Err != nil {
+@@ -958,7 +961,7 @@ func feedCard(p Post, side string) templ.Component {
+ 		var templ_7745c5c3_Var35 string
+ 		templ_7745c5c3_Var35, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(vtStyle(p, side))
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 281, Col: 63}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 284, Col: 63}
+ 		}
+ 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var35))
+ 		if templ_7745c5c3_Err != nil {
+@@ -971,7 +974,7 @@ func feedCard(p Post, side string) templ.Component {
+ 		var templ_7745c5c3_Var36 templ.SafeURL
+ 		templ_7745c5c3_Var36, templ_7745c5c3_Err = templ.JoinURLErrs(postHref(p.ID))
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 281, Col: 87}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 284, Col: 87}
+ 		}
+ 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var36))
+ 		if templ_7745c5c3_Err != nil {
+@@ -981,7 +984,7 @@ func feedCard(p Post, side string) templ.Component {
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+-		templ_7745c5c3_Err = cardMedia(p).Render(ctx, templ_7745c5c3_Buffer)
++		templ_7745c5c3_Err = cardMedia(p, a.postImageURL(p)).Render(ctx, templ_7745c5c3_Buffer)
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+@@ -992,7 +995,7 @@ func feedCard(p Post, side string) templ.Component {
+ 		var templ_7745c5c3_Var37 string
+ 		templ_7745c5c3_Var37, templ_7745c5c3_Err = templ.JoinStringErrs("#" + id + " · " + p.CreatedAt.Format("Jan 2 · 15:04"))
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 284, Col: 61}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 287, Col: 61}
+ 		}
+ 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
+ 		if templ_7745c5c3_Err != nil {
+@@ -1038,7 +1041,7 @@ func moreSentinel(dir string, cursor int64) templ.Component {
+ 		var templ_7745c5c3_Var39 string
+ 		templ_7745c5c3_Var39, templ_7745c5c3_Err = templ.ResolveAttributeValue("feed-" + dir)
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 294, Col: 24}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 297, Col: 24}
+ 		}
+ 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var39)
+ 		if templ_7745c5c3_Err != nil {
+@@ -1051,7 +1054,7 @@ func moreSentinel(dir string, cursor int64) templ.Component {
+ 		var templ_7745c5c3_Var40 string
+ 		templ_7745c5c3_Var40, templ_7745c5c3_Err = templ.ResolveAttributeValue(moreGet(dir, cursor))
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 294, Col: 91}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 297, Col: 91}
+ 		}
+ 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var40)
+ 		if templ_7745c5c3_Err != nil {
+@@ -1068,7 +1071,7 @@ func moreSentinel(dir string, cursor int64) templ.Component {
+ // feedBatch is what a sentinel becomes: the next cards in display order with
+ // the follow-up sentinel on the outward side, under a display:contents wrapper
+ // (the patch needs one root; layout never sees it).
+-func feedBatch(dir string, posts []Post, more bool) templ.Component {
++func (a *app) feedBatch(dir string, posts []Post, more bool) templ.Component {
+ 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+ 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+ 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+@@ -1101,14 +1104,14 @@ func feedBatch(dir string, posts []Post, more bool) templ.Component {
+ 				}
+ 			}
+ 			for _, p := range posts {
+-				templ_7745c5c3_Err = feedCard(p, "hush-above").Render(ctx, templ_7745c5c3_Buffer)
++				templ_7745c5c3_Err = a.feedCard(p, "hush-above").Render(ctx, templ_7745c5c3_Buffer)
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+ 			}
+ 		} else {
+ 			for _, p := range posts {
+-				templ_7745c5c3_Err = feedCard(p, "hush-below").Render(ctx, templ_7745c5c3_Buffer)
++				templ_7745c5c3_Err = a.feedCard(p, "hush-below").Render(ctx, templ_7745c5c3_Buffer)
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+@@ -1132,9 +1135,10 @@ func feedBatch(dir string, posts []Post, more bool) templ.Component {
+ 	})
+ }
+ 
+-// cardMedia is a post's hero in the feed: the image, or the text on the
++// cardMedia is a post's hero in the feed: the image — imgURL, the
++// caller-resolved full-size source (postImageURL) — or the text on the
+ // post's own computed color.
+-func cardMedia(p Post) templ.Component {
++func cardMedia(p Post, imgURL string) templ.Component {
+ 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+ 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+ 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+@@ -1161,9 +1165,9 @@ func cardMedia(p Post) templ.Component {
+ 				return templ_7745c5c3_Err
+ 			}
+ 			var templ_7745c5c3_Var43 string
+-			templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ImageURL)
++			templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.ResolveAttributeValue(imgURL)
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 325, Col: 24}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 329, Col: 20}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var43)
+ 			if templ_7745c5c3_Err != nil {
+@@ -1181,7 +1185,7 @@ func cardMedia(p Post) templ.Component {
+ 			var templ_7745c5c3_Var44 string
+ 			templ_7745c5c3_Var44, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(tileBG(p))
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 328, Col: 70}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 332, Col: 70}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var44))
+ 			if templ_7745c5c3_Err != nil {
+@@ -1304,7 +1308,7 @@ func profilePage(handle string, tier int, posts int, panel invitePanel) templ.Co
+ 			var templ_7745c5c3_Var49 string
+ 			templ_7745c5c3_Var49, templ_7745c5c3_Err = templ.JoinStringErrs(handle)
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 357, Col: 35}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 361, Col: 35}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var49))
+ 			if templ_7745c5c3_Err != nil {
+@@ -1317,7 +1321,7 @@ func profilePage(handle string, tier int, posts int, panel invitePanel) templ.Co
+ 			var templ_7745c5c3_Var50 string
+ 			templ_7745c5c3_Var50, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(posts))
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 360, Col: 74}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 364, Col: 74}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var50))
+ 			if templ_7745c5c3_Err != nil {
+@@ -1393,7 +1397,7 @@ func invitesSection(panel invitePanel) templ.Component {
+ 		var templ_7745c5c3_Var52 string
+ 		templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(len(panel.Invites)) + " of " + strconv.Itoa(panel.Allowance) + " minted — your chain's standing sets the allowance.")
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 381, Col: 155}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 385, Col: 155}
+ 		}
+ 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
+ 		if templ_7745c5c3_Err != nil {
+@@ -1411,7 +1415,7 @@ func invitesSection(panel invitePanel) templ.Component {
+ 			var templ_7745c5c3_Var53 string
+ 			templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs("/invite/" + inv.Code)
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 384, Col: 58}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 388, Col: 58}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
+ 			if templ_7745c5c3_Err != nil {
+@@ -1429,7 +1433,7 @@ func invitesSection(panel invitePanel) templ.Component {
+ 				var templ_7745c5c3_Var54 string
+ 				templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs("→ " + inv.UsedBy)
+ 				if templ_7745c5c3_Err != nil {
+-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 386, Col: 57}
++					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 390, Col: 57}
+ 				}
+ 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
+ 				if templ_7745c5c3_Err != nil {
+@@ -1511,7 +1515,7 @@ func registerFormPage(left int, errMsg string) templ.Component {
+ 			var templ_7745c5c3_Var57 string
+ 			templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs("first-come registration is open — " + strconv.Itoa(left) + " seats left.")
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 406, Col: 100}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 410, Col: 100}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
+ 			if templ_7745c5c3_Err != nil {
+@@ -1529,7 +1533,7 @@ func registerFormPage(left int, errMsg string) templ.Component {
+ 				var templ_7745c5c3_Var58 string
+ 				templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(errMsg)
+ 				if templ_7745c5c3_Err != nil {
+-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 408, Col: 32}
++					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 412, Col: 32}
+ 				}
+ 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
+ 				if templ_7745c5c3_Err != nil {
+@@ -1597,7 +1601,7 @@ func inviteFormPage(code string, errMsg string) templ.Component {
+ 				var templ_7745c5c3_Var61 string
+ 				templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.JoinStringErrs(errMsg)
+ 				if templ_7745c5c3_Err != nil {
+-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 426, Col: 32}
++					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 430, Col: 32}
+ 				}
+ 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var61))
+ 				if templ_7745c5c3_Err != nil {
+@@ -1615,7 +1619,7 @@ func inviteFormPage(code string, errMsg string) templ.Component {
+ 			var templ_7745c5c3_Var62 templ.SafeURL
+ 			templ_7745c5c3_Var62, templ_7745c5c3_Err = templ.JoinURLErrs("/invite/" + code)
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 428, Col: 48}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 432, Col: 48}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var62))
+ 			if templ_7745c5c3_Err != nil {
+@@ -1676,7 +1680,7 @@ func noticePage(title string, sub string) templ.Component {
+ 			var templ_7745c5c3_Var65 string
+ 			templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.JoinStringErrs(title)
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 445, Col: 31}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 449, Col: 31}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var65))
+ 			if templ_7745c5c3_Err != nil {
+@@ -1694,7 +1698,7 @@ func noticePage(title string, sub string) templ.Component {
+ 				var templ_7745c5c3_Var66 string
+ 				templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(sub)
+ 				if templ_7745c5c3_Err != nil {
+-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 447, Col: 30}
++					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 451, Col: 30}
+ 				}
+ 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
+ 				if templ_7745c5c3_Err != nil {
+@@ -1768,7 +1772,7 @@ func formPage(title string) templ.Component {
+ 			var templ_7745c5c3_Var69 string
+ 			templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.JoinStringErrs(title)
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 461, Col: 31}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 465, Col: 31}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var69))
+ 			if templ_7745c5c3_Err != nil {
+@@ -1957,7 +1961,7 @@ func loginFormPage(errMsg string) templ.Component {
+ 				var templ_7745c5c3_Var76 string
+ 				templ_7745c5c3_Var76, templ_7745c5c3_Err = templ.JoinStringErrs(errMsg)
+ 				if templ_7745c5c3_Err != nil {
+-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 526, Col: 32}
++					return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 530, Col: 32}
+ 				}
+ 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var76))
+ 				if templ_7745c5c3_Err != nil {
+@@ -2079,15 +2083,15 @@ func appCard(ap application) templ.Component {
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+-		if ap.PhotoKey != "" {
++		if ap.PhotoURL != "" {
+ 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 119, "<img class=\"hush-appphoto\" src=\"")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+ 			var templ_7745c5c3_Var80 string
+-			templ_7745c5c3_Var80, templ_7745c5c3_Err = templ.ResolveAttributeValue("/files/" + ap.PhotoKey)
++			templ_7745c5c3_Var80, templ_7745c5c3_Err = templ.ResolveAttributeValue(ap.PhotoURL)
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 565, Col: 59}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 569, Col: 47}
+ 			}
+ 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var80)
+ 			if templ_7745c5c3_Err != nil {
+@@ -2105,7 +2109,7 @@ func appCard(ap application) templ.Component {
+ 		var templ_7745c5c3_Var81 string
+ 		templ_7745c5c3_Var81, templ_7745c5c3_Err = templ.JoinStringErrs(ap.Handle)
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 567, Col: 41}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 571, Col: 41}
+ 		}
+ 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var81))
+ 		if templ_7745c5c3_Err != nil {
+@@ -2118,7 +2122,7 @@ func appCard(ap application) templ.Component {
+ 		var templ_7745c5c3_Var82 string
+ 		templ_7745c5c3_Var82, templ_7745c5c3_Err = templ.JoinStringErrs(ap.Pitch)
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 568, Col: 39}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 572, Col: 39}
+ 		}
+ 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var82))
+ 		if templ_7745c5c3_Err != nil {
+@@ -2173,7 +2177,7 @@ func decideForm(id string, action string) templ.Component {
+ 		var templ_7745c5c3_Var84 string
+ 		templ_7745c5c3_Var84, templ_7745c5c3_Err = templ.ResolveAttributeValue(id)
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 579, Col: 43}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 583, Col: 43}
+ 		}
+ 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var84)
+ 		if templ_7745c5c3_Err != nil {
+@@ -2186,7 +2190,7 @@ func decideForm(id string, action string) templ.Component {
+ 		var templ_7745c5c3_Var85 string
+ 		templ_7745c5c3_Var85, templ_7745c5c3_Err = templ.ResolveAttributeValue(action)
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 580, Col: 51}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 584, Col: 51}
+ 		}
+ 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var85)
+ 		if templ_7745c5c3_Err != nil {
+@@ -2240,7 +2244,7 @@ func note(msg string) templ.Component {
+ 		var templ_7745c5c3_Var87 string
+ 		templ_7745c5c3_Var87, templ_7745c5c3_Err = templ.JoinStringErrs(msg)
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 591, Col: 6}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pages.templ`, Line: 595, Col: 6}
+ 		}
+ 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var87))
+ 		if templ_7745c5c3_Err != nil {

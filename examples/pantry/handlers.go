@@ -35,7 +35,11 @@ func (a *app) createItem(c *beach.Ctx) (beach.Patches, error) {
 	}
 	if strings.TrimSpace(in.Name) == "" {
 		// Nothing to add — just re-render the current grid and clear the form.
-		return beach.Patches{{Fragment: a.itemGrid(a.store.listItems()), Target: "item-grid"}}, nil
+		items, err := a.store.listItems(c.Context())
+		if err != nil {
+			return nil, err
+		}
+		return beach.Patches{{Fragment: a.itemGrid(items), Target: "item-grid"}}, nil
 	}
 	qty := in.Quantity
 	if qty == 0 {
@@ -48,16 +52,24 @@ func (a *app) createItem(c *beach.Ctx) (beach.Patches, error) {
 			exp = &t
 		}
 	}
-	a.store.addItem(Item{
+	cat := firstNonEmpty(in.Category, "other")
+	if err := a.store.addItem(c.Context(), Item{
 		Name:       in.Name,
 		Quantity:   qty,
 		Unit:       firstNonEmpty(in.Unit, "ea"),
-		Category:   firstNonEmpty(in.Category, "other"),
+		Category:   cat,
 		LocationID: locID,
 		ExpiresAt:  exp,
-	})
+	}); err != nil {
+		return nil, err
+	}
+	a.track(c.R, event{Kind: "item_added", ItemName: in.Name, Category: cat, Quantity: qty})
 	// Re-render the whole grid by its id (@fragment page.ItemGrid).
-	return beach.Patches{{Fragment: a.itemGrid(a.store.listItems()), Target: "item-grid"}}, nil
+	items, err := a.store.listItems(c.Context())
+	if err != nil {
+		return nil, err
+	}
+	return beach.Patches{{Fragment: a.itemGrid(items), Target: "item-grid"}}, nil
 }
 
 // createLocation handles POST /locations.
@@ -70,30 +82,31 @@ func (a *app) createLocation(c *beach.Ctx) (beach.Patches, error) {
 		return nil, err
 	}
 	if strings.TrimSpace(in.Name) != "" {
-		a.store.addLocation(in.Name, firstNonEmpty(in.Kind, "other"))
+		if err := a.store.addLocation(c.Context(), in.Name, firstNonEmpty(in.Kind, "other")); err != nil {
+			return nil, err
+		}
+		a.track(c.R, event{Kind: "location_added", ItemName: in.Name})
 	}
-	return beach.Patches{{Fragment: a.locList(a.store.listLocations()), Target: "loc-list"}}, nil
+	locs, err := a.store.listLocations(c.Context())
+	if err != nil {
+		return nil, err
+	}
+	return beach.Patches{{Fragment: a.locList(locs), Target: "loc-list"}}, nil
 }
 
 // --- login ---
 
-// loginPage renders the sign-in form (views.templ loginView). It works
-// without a DB but renders a warning instead of the form (auth needs Postgres).
+// loginPage renders the sign-in form (views.templ loginView).
 func (a *app) loginPage(c *beach.Ctx) (beach.View, error) {
 	_, authed := c.User()
-	return beach.View{Page: a.loginView(authed, a.authn != nil, c.Query("err"))}, nil
+	return beach.View{Page: a.loginView(authed, c.Query("err"))}, nil
 }
 
 // doLogin handles POST /login. It is a Raw handler (not an ActionFunc) because
 // login is a plain form POST (progressive enhancement): read the form fields,
 // then redirect with a 303. No SSE, no inline script — the strict CSP forbids
 // the SDK's script-based redirect, and a real navigation is what login wants.
-// Requires the authenticator (DB).
 func (a *app) doLogin(w http.ResponseWriter, r *http.Request) {
-	if a.authn == nil {
-		http.NotFound(w, r)
-		return
-	}
 	_ = r.ParseForm()
 	token, _, _, err := a.authn.Login(r.Context(), r.FormValue("username"), r.FormValue("password"))
 	if err != nil {

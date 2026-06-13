@@ -1,0 +1,3020 @@
+diff --git a/examples/hush/.env.example b/examples/hush/.env.example
+index 9edda10..5472bc1 100644
+--- a/examples/hush/.env.example
++++ b/examples/hush/.env.example
+@@ -9,3 +9,21 @@ DATABASE_URL=postgres://beach:beach@localhost:5432/hush?sslmode=disable
+ # Open the first N registrations with no review (the switch-on-later mode);
+ # once spent, the application queue resumes. Unset/0 = queue + invites only.
+ #HUSH_OPEN_SLOTS=50
++
++# Absolute origin for the links inside outgoing email (verification, invites).
++#HUSH_BASE_URL=http://localhost:8080
++
++# Where new-application notices go. Unset = no admin emails.
++#HUSH_ADMIN_EMAIL=admin@example.com
++
++# Transactional email transport — with all of this unset, the log mailer runs
++# and "sent" mail prints to the app log (the dev default; the flows still
++# work). Set Mailgun, or SMTP, for real delivery — see mailer/mailer.go.
++#MAIL_FROM_NAME=hush
++#MAIL_FROM_ADDR=hush@example.com
++#MAILGUN_KEY=
++#MAILGUN_DOMAIN=
++#SMTP_HOST=
++#SMTP_PORT=587
++#SMTP_USERNAME=
++#SMTP_PASSWORD=
+diff --git a/examples/hush/apply.go b/examples/hush/apply.go
+index d7d981c..3ced1de 100644
+--- a/examples/hush/apply.go
++++ b/examples/hush/apply.go
+@@ -39,7 +39,9 @@ func (a *app) applyPage(c *beach.Ctx) (beach.View, error) {
+ }
+ 
+ // doApply handles the application form: validate, hash the chosen password, stash
+-// an optional photo in the file store, and insert a pending application.
++// an optional photo in the file store, and insert a pending application. An
++// optional email rides the row (where the decision notice goes); the admin
++// hears about the application when HUSH_ADMIN_EMAIL is set.
+ func (a *app) doApply(w http.ResponseWriter, r *http.Request) {
+ 	if a.authn == nil {
+ 		http.NotFound(w, r)
+@@ -52,6 +54,7 @@ func (a *app) doApply(w http.ResponseWriter, r *http.Request) {
+ 	handle := strings.TrimSpace(r.FormValue("handle"))
+ 	password := r.FormValue("password")
+ 	pitch := strings.TrimSpace(r.FormValue("pitch"))
++	email := normalizeEmail(r.FormValue("email"))
+ 	if handle == "" || password == "" || pitch == "" {
+ 		http.Redirect(w, r, "/apply", http.StatusSeeOther)
+ 		return
+@@ -74,9 +77,12 @@ func (a *app) doApply(w http.ResponseWriter, r *http.Request) {
+ 		}
+ 	}
+ 
+-	_, _ = a.pool.Exec(r.Context(),
+-		`INSERT INTO hush_applications (handle, pitch, password_hash, photo_key) VALUES ($1, $2, $3, $4)`,
+-		handle, pitch, hash, photoKey)
++	_, err = a.pool.Exec(r.Context(),
++		`INSERT INTO hush_applications (handle, pitch, password_hash, photo_key, email) VALUES ($1, $2, $3, $4, $5)`,
++		handle, pitch, hash, photoKey, email)
++	if err == nil && a.cfg.AdminEmail != "" {
++		a.enqueueMail(r.Context(), a.cfg.AdminEmail, "application-received", applicationReceivedAdmin(handle, pitch))
++	}
+ 	http.Redirect(w, r, "/apply?ok=1", http.StatusSeeOther)
+ }
+ 
+@@ -108,7 +114,8 @@ func (a *app) queuePage(c *beach.Ctx) (beach.View, error) {
+ }
+ 
+ // doDecide approves (creates the user + member role from the application) or
+-// rejects a pending application. Admin only.
++// rejects a pending application. Admin only. Either way the applicant hears
++// the decision by mail — if they gave an address.
+ func (a *app) doDecide(w http.ResponseWriter, r *http.Request) {
+ 	if a.authn == nil {
+ 		http.NotFound(w, r)
+@@ -119,14 +126,19 @@ func (a *app) doDecide(w http.ResponseWriter, r *http.Request) {
+ 	ctx := r.Context()
+ 
+ 	if r.FormValue("action") != "approve" {
+-		_, _ = a.pool.Exec(ctx, `UPDATE hush_applications SET status='rejected', decided_at=now() WHERE id=$1 AND status='pending'`, id)
++		var handle, email string
++		if err := a.pool.QueryRow(ctx,
++			`UPDATE hush_applications SET status='rejected', decided_at=now()
++			 WHERE id=$1 AND status='pending' RETURNING handle, email`, id).Scan(&handle, &email); err == nil && email != "" {
++			a.enqueueMail(ctx, email, "application-rejected", applicationRejected(handle))
++		}
+ 		http.Redirect(w, r, "/admin/queue", http.StatusSeeOther)
+ 		return
+ 	}
+ 
+-	var handle, hash string
++	var handle, hash, email string
+ 	if err := a.pool.QueryRow(ctx,
+-		`SELECT handle, password_hash FROM hush_applications WHERE id=$1 AND status='pending'`, id).Scan(&handle, &hash); err != nil {
++		`SELECT handle, password_hash, email FROM hush_applications WHERE id=$1 AND status='pending'`, id).Scan(&handle, &hash, &email); err != nil {
+ 		http.Redirect(w, r, "/admin/queue", http.StatusSeeOther)
+ 		return
+ 	}
+@@ -147,6 +159,24 @@ func (a *app) doDecide(w http.ResponseWriter, r *http.Request) {
+ 	if err := a.pool.QueryRow(ctx, `SELECT id FROM roles WHERE slug='member'`).Scan(&rid); err == nil {
+ 		_, _ = a.pool.Exec(ctx, `INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, uid, rid)
+ 	}
++
++	// The application email follows the member in: stored unverified with a
++	// verify link in the welcome — unless this user (the upsert can land on an
++	// existing one) already verified that very address, which stays earned.
++	if email != "" {
++		verifyLink := ""
++		var existing string
++		var verified bool
++		err := a.pool.QueryRow(ctx,
++			`SELECT email, verified_at IS NOT NULL FROM hush_member_emails WHERE user_id=$1`, uid).Scan(&existing, &verified)
++		if err != nil || existing != email || !verified {
++			if token, terr := a.setMemberEmail(ctx, uid, email); terr == nil {
++				verifyLink = a.verifyLink(token)
++			}
++		}
++		a.enqueueMail(ctx, email, "application-approved", applicationApproved(handle, a.cfg.BaseURL+"/login", verifyLink))
++	}
++
+ 	_, _ = a.pool.Exec(ctx, `UPDATE hush_applications SET status='approved', decided_at=now() WHERE id=$1`, id)
+ 	http.Redirect(w, r, "/admin/queue", http.StatusSeeOther)
+ }
+diff --git a/examples/hush/docker-compose.yml b/examples/hush/docker-compose.yml
+index 984a280..254d42b 100644
+--- a/examples/hush/docker-compose.yml
++++ b/examples/hush/docker-compose.yml
+@@ -40,6 +40,14 @@ services:
+       PORT: "8080"
+       # Reached by service name on the internal network; never published to host.
+       DATABASE_URL: postgres://beach:beach@postgres:5432/hush?sslmode=disable
++      # Links inside outgoing email (verification, invites) are built on this.
++      HUSH_BASE_URL: http://localhost:${PORT:-8080}
++      # Email is log-only by default (sends print to the app log). For real
++      # delivery set a transport — and an admin inbox for application notices:
++      # HUSH_ADMIN_EMAIL: admin@example.com
++      # MAIL_FROM_ADDR: hush@example.com
++      # MAILGUN_KEY: ...
++      # MAILGUN_DOMAIN: ...
+     networks: [internal]
+     ports: ["${PORT:-8080}:8080"]
+     depends_on:
+diff --git a/examples/hush/emails.go b/examples/hush/emails.go
+new file mode 100644
+index 0000000..ff6803f
+--- /dev/null
++++ b/examples/hush/emails.go
+@@ -0,0 +1,76 @@
++// The text half of each outbound message, paired with its HTML component from
++// emails.templ and returned as one *mailer.Email. Text is the canonical body
++// (mailer.Email's contract — every transport sends it); the HTML is the same
++// words on the white shell. Callers build absolute links from a.cfg.BaseURL
++// and queue the result with enqueueMail (outbox.go).
++package main
++
++import (
++	"context"
++	"strings"
++
++	"github.com/ThirdCoastInteractive/the-beach/mailer"
++	"github.com/a-h/templ"
++)
++
++// renderEmail renders an emails.templ component to the HTML string an outbox
++// row stores. Render only fails on writer errors; strings.Builder has none.
++func renderEmail(c templ.Component) string {
++	var b strings.Builder
++	_ = c.Render(context.Background(), &b)
++	return b.String()
++}
++
++// verifyEmail carries the tokened verification link for a member's address.
++func verifyEmail(link string) *mailer.Email {
++	return &mailer.Email{
++		Subject: "verify your email",
++		Text: "hush\n\nverify your email — your standing will feel it.\n\n" + link +
++			"\n\nyour address is never shown to anyone. if you didn't add it to a hush account, ignore this.\n",
++		HTML: renderEmail(verifyEmailHTML(link)),
++	}
++}
++
++// applicationReceivedAdmin is the admin's new-application notice.
++func applicationReceivedAdmin(handle, pitch string) *mailer.Email {
++	return &mailer.Email{
++		Subject: "new application: " + handle,
++		Text: "hush\n\nsomeone is at the door.\n\nhandle: " + handle + "\n\n" + pitch +
++			"\n\nthe queue is waiting.\n",
++		HTML: renderEmail(applicationReceivedAdminHTML(handle, pitch)),
++	}
++}
++
++// applicationApproved tells an applicant they're in. verifyLink may be empty —
++// it rides along only while the address is unverified.
++func applicationApproved(handle, loginURL, verifyLink string) *mailer.Email {
++	text := "hush\n\n" + handle + " — your application was approved. post into the quiet.\n\nsign in: " + loginURL + "\n"
++	if verifyLink != "" {
++		text += "\nverify this address while you're here — your standing will feel it:\n\n" + verifyLink + "\n"
++	}
++	return &mailer.Email{
++		Subject: "you're in",
++		Text:    text,
++		HTML:    renderEmail(applicationApprovedHTML(handle, loginURL, verifyLink)),
++	}
++}
++
++// applicationRejected is a quiet no.
++func applicationRejected(handle string) *mailer.Email {
++	return &mailer.Email{
++		Subject: "about your application",
++		Text: "hush\n\n" + handle + " — your application wasn't approved this time.\n\n" +
++			"the wall stays small on purpose. you may apply again.\n",
++		HTML: renderEmail(applicationRejectedHTML(handle)),
++	}
++}
++
++// inviteEmail mails a minted code as its redemption link. One use.
++func inviteEmail(link string) *mailer.Email {
++	return &mailer.Email{
++		Subject: "you're invited",
++		Text: "hush\n\nsomeone minted you a way in. the link works once:\n\n" + link +
++			"\n\nwhoever invited you answers for you — post things people like.\n",
++		HTML: renderEmail(inviteEmailHTML(link)),
++	}
++}
+diff --git a/examples/hush/emails.templ b/examples/hush/emails.templ
+new file mode 100644
+index 0000000..548ba3b
+--- /dev/null
++++ b/examples/hush/emails.templ
+@@ -0,0 +1,160 @@
++// hush's outbound email, as templ components — the HTML half of each message
++// (the text half lives in emails.go beside it). Email clients strip <style>
++// tags and scope classes unpredictably, so everything here is inline styles on
++// a 600px table — the one layout that survives Outlook. The look is hush
++// translated to paper: white background, black text, lowercase, hard edges.
++package main
++
++// The email palette, named so the inline styles read. Monochrome like the
++// site, inverted for mail — a white page survives client dark-mode color
++// filters far better than a black one.
++const (
++	emailInk   = "#000000"
++	emailPaper = "#ffffff"
++	emailDim   = "#555555"
++	emailFaint = "#888888"
++)
++
++// emailShell wraps a message body in the brand line and the 600px table.
++// Tables, not divs: Outlook ignores max-width on divs.
++templ emailShell() {
++	<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style={ "background:" + emailPaper + ";padding:24px 0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;" }>
++		<tr>
++			<td align="center">
++				<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style={ "max-width:600px;width:100%;background:" + emailPaper + ";border:1px solid " + emailInk + ";" }>
++					<tr>
++						<td style="padding:28px 32px 0 32px;">
++							<div style={ "color:" + emailInk + ";font-size:18px;font-weight:600;letter-spacing:0.32em;text-transform:lowercase;" }>hush</div>
++							@emailRule()
++						</td>
++					</tr>
++					<tr>
++						<td style={ "padding:0 32px;color:" + emailInk + ";font-size:15px;line-height:1.6;" }>
++							{ children... }
++						</td>
++					</tr>
++					<tr>
++						<td style="padding:8px 32px 28px 32px;">
++							@emailRule()
++							<div style={ "color:" + emailFaint + ";font-size:11px;line-height:1.7;" }>a quiet wall.</div>
++						</td>
++					</tr>
++				</table>
++			</td>
++		</tr>
++	</table>
++}
++
++// emailRule is the thin divider under the brand line and above the footer.
++templ emailRule() {
++	<div style={ "border-top:1px solid " + emailInk + ";margin:18px 0;height:0;font-size:0;line-height:0;" }></div>
++}
++
++// emailP is one body paragraph.
++templ emailP() {
++	<p style={ "margin:0 0 14px 0;color:" + emailInk + ";" }>
++		{ children... }
++	</p>
++}
++
++// emailHint is the smaller dim line (caveats, fallback links).
++templ emailHint() {
++	<p style={ "margin:0 0 14px 0;color:" + emailDim + ";font-size:12px;" }>
++		{ children... }
++	</p>
++}
++
++// emailButton is the one CTA shape: a black block with a white lowercase
++// label. An outer table because Outlook renders padding on <a> unreliably.
++templ emailButton(label string, url string) {
++	<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0;">
++		<tr>
++			<td style={ "background:" + emailInk + ";" }>
++				<a href={ templ.SafeURL(url) } style={ "display:inline-block;padding:12px 28px;color:" + emailPaper + ";text-decoration:none;font-size:14px;text-transform:lowercase;letter-spacing:0.12em;" }>{ label }</a>
++			</td>
++		</tr>
++	</table>
++}
++
++// emailLinkLine is the raw URL under a button, for clients that mangle the
++// button — and for people who copy links instead of clicking them.
++templ emailLinkLine(url string) {
++	@emailHint() {
++		<a href={ templ.SafeURL(url) } style={ "color:" + emailInk + ";word-break:break-all;" }>{ url }</a>
++	}
++}
++
++// verifyEmailHTML carries the tokened verification link for a member's address.
++templ verifyEmailHTML(link string) {
++	@emailShell() {
++		@emailP() {
++			verify your email — your standing will feel it.
++		}
++		@emailButton("verify", link)
++		@emailLinkLine(link)
++		@emailHint() {
++			your address is never shown to anyone. if you didn't add it to a hush account, ignore this.
++		}
++	}
++}
++
++// applicationReceivedAdminHTML is the admin's new-application notice: the
++// handle and the pitch, nothing decided yet.
++templ applicationReceivedAdminHTML(handle string, pitch string) {
++	@emailShell() {
++		@emailP() {
++			someone is at the door.
++		}
++		@emailP() {
++			<strong>{ handle }</strong>
++		}
++		<p style={ "margin:0 0 14px 0;color:" + emailInk + ";white-space:pre-wrap;" }>{ pitch }</p>
++		@emailHint() {
++			the queue is waiting.
++		}
++	}
++}
++
++// applicationApprovedHTML tells an applicant they're in. verifyLink may be
++// empty — it rides along only while the address is unverified.
++templ applicationApprovedHTML(handle string, loginURL string, verifyLink string) {
++	@emailShell() {
++		@emailP() {
++			{ handle } — your application was approved. post into the quiet.
++		}
++		@emailButton("sign in", loginURL)
++		@emailLinkLine(loginURL)
++		if verifyLink != "" {
++			@emailP() {
++				verify this address while you're here — your standing will feel it:
++			}
++			@emailLinkLine(verifyLink)
++		}
++	}
++}
++
++// applicationRejectedHTML is a quiet no.
++templ applicationRejectedHTML(handle string) {
++	@emailShell() {
++		@emailP() {
++			{ handle } — your application wasn't approved this time.
++		}
++		@emailHint() {
++			the wall stays small on purpose. you may apply again.
++		}
++	}
++}
++
++// inviteEmailHTML mails a minted code as its redemption link. One use.
++templ inviteEmailHTML(link string) {
++	@emailShell() {
++		@emailP() {
++			someone minted you a way in. the link works once:
++		}
++		@emailButton("join", link)
++		@emailLinkLine(link)
++		@emailHint() {
++			whoever invited you answers for you — post things people like.
++		}
++	}
++}
+diff --git a/examples/hush/emails_templ.go b/examples/hush/emails_templ.go
+new file mode 100644
+index 0000000..535b705
+--- /dev/null
++++ b/examples/hush/emails_templ.go
+@@ -0,0 +1,1070 @@
++// Code generated by templ - DO NOT EDIT.
++
++// templ: version: v0.3.1020
++// hush's outbound email, as templ components — the HTML half of each message
++
++// (the text half lives in emails.go beside it). Email clients strip <style>
++
++// tags and scope classes unpredictably, so everything here is inline styles on
++
++// a 600px table — the one layout that survives Outlook. The look is hush
++
++// translated to paper: white background, black text, lowercase, hard edges.
++
++package main
++
++//lint:file-ignore SA4006 This context is only used if a nested component is present.
++
++import "github.com/a-h/templ"
++import templruntime "github.com/a-h/templ/runtime"
++
++// The email palette, named so the inline styles read. Monochrome like the
++// site, inverted for mail — a white page survives client dark-mode color
++// filters far better than a black one.
++const (
++	emailInk   = "#000000"
++	emailPaper = "#ffffff"
++	emailDim   = "#555555"
++	emailFaint = "#888888"
++)
++
++// emailShell wraps a message body in the brand line and the 600px table.
++// Tables, not divs: Outlook ignores max-width on divs.
++func emailShell() templ.Component {
++	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
++			return templ_7745c5c3_CtxErr
++		}
++		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++		if !templ_7745c5c3_IsBuffer {
++			defer func() {
++				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++				if templ_7745c5c3_Err == nil {
++					templ_7745c5c3_Err = templ_7745c5c3_BufErr
++				}
++			}()
++		}
++		ctx = templ.InitializeContext(ctx)
++		templ_7745c5c3_Var1 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var1 == nil {
++			templ_7745c5c3_Var1 = templ.NopComponent
++		}
++		ctx = templ.ClearChildren(ctx)
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		var templ_7745c5c3_Var2 string
++		templ_7745c5c3_Var2, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("background:" + emailPaper + ";padding:24px 0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;")
++		if templ_7745c5c3_Err != nil {
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 21, Col: 220}
++		}
++		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var2))
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "\"><tr><td align=\"center\"><table role=\"presentation\" width=\"600\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		var templ_7745c5c3_Var3 string
++		templ_7745c5c3_Var3, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("max-width:600px;width:100%;background:" + emailPaper + ";border:1px solid " + emailInk + ";")
++		if templ_7745c5c3_Err != nil {
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 24, Col: 187}
++		}
++		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "\"><tr><td style=\"padding:28px 32px 0 32px;\"><div style=\"")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		var templ_7745c5c3_Var4 string
++		templ_7745c5c3_Var4, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("color:" + emailInk + ";font-size:18px;font-weight:600;letter-spacing:0.32em;text-transform:lowercase;")
++		if templ_7745c5c3_Err != nil {
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 27, Col: 123}
++		}
++		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var4))
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "\">hush</div>")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = emailRule().Render(ctx, templ_7745c5c3_Buffer)
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 5, "</td></tr><tr><td style=\"")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		var templ_7745c5c3_Var5 string
++		templ_7745c5c3_Var5, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("padding:0 32px;color:" + emailInk + ";font-size:15px;line-height:1.6;")
++		if templ_7745c5c3_Err != nil {
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 32, Col: 89}
++		}
++		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 6, "\">")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templ_7745c5c3_Var1.Render(ctx, templ_7745c5c3_Buffer)
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "</td></tr><tr><td style=\"padding:8px 32px 28px 32px;\">")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = emailRule().Render(ctx, templ_7745c5c3_Buffer)
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "<div style=\"")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		var templ_7745c5c3_Var6 string
++		templ_7745c5c3_Var6, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("color:" + emailFaint + ";font-size:11px;line-height:1.7;")
++		if templ_7745c5c3_Err != nil {
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 39, Col: 78}
++		}
++		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "\">a quiet wall.</div></td></tr></table></td></tr></table>")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		return nil
++	})
++}
++
++// emailRule is the thin divider under the brand line and above the footer.
++func emailRule() templ.Component {
++	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
++			return templ_7745c5c3_CtxErr
++		}
++		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++		if !templ_7745c5c3_IsBuffer {
++			defer func() {
++				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++				if templ_7745c5c3_Err == nil {
++					templ_7745c5c3_Err = templ_7745c5c3_BufErr
++				}
++			}()
++		}
++		ctx = templ.InitializeContext(ctx)
++		templ_7745c5c3_Var7 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var7 == nil {
++			templ_7745c5c3_Var7 = templ.NopComponent
++		}
++		ctx = templ.ClearChildren(ctx)
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<div style=\"")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		var templ_7745c5c3_Var8 string
++		templ_7745c5c3_Var8, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("border-top:1px solid " + emailInk + ";margin:18px 0;height:0;font-size:0;line-height:0;")
++		if templ_7745c5c3_Err != nil {
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 50, Col: 103}
++		}
++		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "\"></div>")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		return nil
++	})
++}
++
++// emailP is one body paragraph.
++func emailP() templ.Component {
++	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
++			return templ_7745c5c3_CtxErr
++		}
++		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++		if !templ_7745c5c3_IsBuffer {
++			defer func() {
++				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++				if templ_7745c5c3_Err == nil {
++					templ_7745c5c3_Err = templ_7745c5c3_BufErr
++				}
++			}()
++		}
++		ctx = templ.InitializeContext(ctx)
++		templ_7745c5c3_Var9 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var9 == nil {
++			templ_7745c5c3_Var9 = templ.NopComponent
++		}
++		ctx = templ.ClearChildren(ctx)
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 12, "<p style=\"")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		var templ_7745c5c3_Var10 string
++		templ_7745c5c3_Var10, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("margin:0 0 14px 0;color:" + emailInk + ";")
++		if templ_7745c5c3_Err != nil {
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 55, Col: 55}
++		}
++		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 13, "\">")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templ_7745c5c3_Var9.Render(ctx, templ_7745c5c3_Buffer)
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "</p>")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		return nil
++	})
++}
++
++// emailHint is the smaller dim line (caveats, fallback links).
++func emailHint() templ.Component {
++	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
++			return templ_7745c5c3_CtxErr
++		}
++		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++		if !templ_7745c5c3_IsBuffer {
++			defer func() {
++				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++				if templ_7745c5c3_Err == nil {
++					templ_7745c5c3_Err = templ_7745c5c3_BufErr
++				}
++			}()
++		}
++		ctx = templ.InitializeContext(ctx)
++		templ_7745c5c3_Var11 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var11 == nil {
++			templ_7745c5c3_Var11 = templ.NopComponent
++		}
++		ctx = templ.ClearChildren(ctx)
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 15, "<p style=\"")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		var templ_7745c5c3_Var12 string
++		templ_7745c5c3_Var12, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("margin:0 0 14px 0;color:" + emailDim + ";font-size:12px;")
++		if templ_7745c5c3_Err != nil {
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 62, Col: 70}
++		}
++		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 16, "\">")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templ_7745c5c3_Var11.Render(ctx, templ_7745c5c3_Buffer)
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 17, "</p>")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		return nil
++	})
++}
++
++// emailButton is the one CTA shape: a black block with a white lowercase
++// label. An outer table because Outlook renders padding on <a> unreliably.
++func emailButton(label string, url string) templ.Component {
++	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
++			return templ_7745c5c3_CtxErr
++		}
++		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++		if !templ_7745c5c3_IsBuffer {
++			defer func() {
++				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++				if templ_7745c5c3_Err == nil {
++					templ_7745c5c3_Err = templ_7745c5c3_BufErr
++				}
++			}()
++		}
++		ctx = templ.InitializeContext(ctx)
++		templ_7745c5c3_Var13 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var13 == nil {
++			templ_7745c5c3_Var13 = templ.NopComponent
++		}
++		ctx = templ.ClearChildren(ctx)
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"margin:20px 0;\"><tr><td style=\"")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		var templ_7745c5c3_Var14 string
++		templ_7745c5c3_Var14, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("background:" + emailInk + ";")
++		if templ_7745c5c3_Err != nil {
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 72, Col: 45}
++		}
++		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 19, "\"><a href=\"")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		var templ_7745c5c3_Var15 templ.SafeURL
++		templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(url))
++		if templ_7745c5c3_Err != nil {
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 73, Col: 32}
++		}
++		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 20, "\" style=\"")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		var templ_7745c5c3_Var16 string
++		templ_7745c5c3_Var16, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("display:inline-block;padding:12px 28px;color:" + emailPaper + ";text-decoration:none;font-size:14px;text-transform:lowercase;letter-spacing:0.12em;")
++		if templ_7745c5c3_Err != nil {
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 73, Col: 192}
++		}
++		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "\">")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		var templ_7745c5c3_Var17 string
++		templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(label)
++		if templ_7745c5c3_Err != nil {
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 73, Col: 202}
++		}
++		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 22, "</a></td></tr></table>")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		return nil
++	})
++}
++
++// emailLinkLine is the raw URL under a button, for clients that mangle the
++// button — and for people who copy links instead of clicking them.
++func emailLinkLine(url string) templ.Component {
++	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
++			return templ_7745c5c3_CtxErr
++		}
++		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++		if !templ_7745c5c3_IsBuffer {
++			defer func() {
++				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++				if templ_7745c5c3_Err == nil {
++					templ_7745c5c3_Err = templ_7745c5c3_BufErr
++				}
++			}()
++		}
++		ctx = templ.InitializeContext(ctx)
++		templ_7745c5c3_Var18 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var18 == nil {
++			templ_7745c5c3_Var18 = templ.NopComponent
++		}
++		ctx = templ.ClearChildren(ctx)
++		templ_7745c5c3_Var19 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++			if !templ_7745c5c3_IsBuffer {
++				defer func() {
++					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++					if templ_7745c5c3_Err == nil {
++						templ_7745c5c3_Err = templ_7745c5c3_BufErr
++					}
++				}()
++			}
++			ctx = templ.InitializeContext(ctx)
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 23, "<a href=\"")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			var templ_7745c5c3_Var20 templ.SafeURL
++			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinURLErrs(templ.SafeURL(url))
++			if templ_7745c5c3_Err != nil {
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 83, Col: 30}
++			}
++			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 24, "\" style=\"")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			var templ_7745c5c3_Var21 string
++			templ_7745c5c3_Var21, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("color:" + emailInk + ";word-break:break-all;")
++			if templ_7745c5c3_Err != nil {
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 83, Col: 87}
++			}
++			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 25, "\">")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			var templ_7745c5c3_Var22 string
++			templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(url)
++			if templ_7745c5c3_Err != nil {
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 83, Col: 95}
++			}
++			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 26, "</a>")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			return nil
++		})
++		templ_7745c5c3_Err = emailHint().Render(templ.WithChildren(ctx, templ_7745c5c3_Var19), templ_7745c5c3_Buffer)
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		return nil
++	})
++}
++
++// verifyEmailHTML carries the tokened verification link for a member's address.
++func verifyEmailHTML(link string) templ.Component {
++	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
++			return templ_7745c5c3_CtxErr
++		}
++		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++		if !templ_7745c5c3_IsBuffer {
++			defer func() {
++				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++				if templ_7745c5c3_Err == nil {
++					templ_7745c5c3_Err = templ_7745c5c3_BufErr
++				}
++			}()
++		}
++		ctx = templ.InitializeContext(ctx)
++		templ_7745c5c3_Var23 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var23 == nil {
++			templ_7745c5c3_Var23 = templ.NopComponent
++		}
++		ctx = templ.ClearChildren(ctx)
++		templ_7745c5c3_Var24 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++			if !templ_7745c5c3_IsBuffer {
++				defer func() {
++					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++					if templ_7745c5c3_Err == nil {
++						templ_7745c5c3_Err = templ_7745c5c3_BufErr
++					}
++				}()
++			}
++			ctx = templ.InitializeContext(ctx)
++			templ_7745c5c3_Var25 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++				if !templ_7745c5c3_IsBuffer {
++					defer func() {
++						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++						if templ_7745c5c3_Err == nil {
++							templ_7745c5c3_Err = templ_7745c5c3_BufErr
++						}
++					}()
++				}
++				ctx = templ.InitializeContext(ctx)
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 27, "verify your email — your standing will feel it.")
++				if templ_7745c5c3_Err != nil {
++					return templ_7745c5c3_Err
++				}
++				return nil
++			})
++			templ_7745c5c3_Err = emailP().Render(templ.WithChildren(ctx, templ_7745c5c3_Var25), templ_7745c5c3_Buffer)
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 28, " ")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = emailButton("verify", link).Render(ctx, templ_7745c5c3_Buffer)
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, " ")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = emailLinkLine(link).Render(ctx, templ_7745c5c3_Buffer)
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 30, " ")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Var26 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++				if !templ_7745c5c3_IsBuffer {
++					defer func() {
++						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++						if templ_7745c5c3_Err == nil {
++							templ_7745c5c3_Err = templ_7745c5c3_BufErr
++						}
++					}()
++				}
++				ctx = templ.InitializeContext(ctx)
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 31, "your address is never shown to anyone. if you didn't add it to a hush account, ignore this.")
++				if templ_7745c5c3_Err != nil {
++					return templ_7745c5c3_Err
++				}
++				return nil
++			})
++			templ_7745c5c3_Err = emailHint().Render(templ.WithChildren(ctx, templ_7745c5c3_Var26), templ_7745c5c3_Buffer)
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			return nil
++		})
++		templ_7745c5c3_Err = emailShell().Render(templ.WithChildren(ctx, templ_7745c5c3_Var24), templ_7745c5c3_Buffer)
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		return nil
++	})
++}
++
++// applicationReceivedAdminHTML is the admin's new-application notice: the
++// handle and the pitch, nothing decided yet.
++func applicationReceivedAdminHTML(handle string, pitch string) templ.Component {
++	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
++			return templ_7745c5c3_CtxErr
++		}
++		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++		if !templ_7745c5c3_IsBuffer {
++			defer func() {
++				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++				if templ_7745c5c3_Err == nil {
++					templ_7745c5c3_Err = templ_7745c5c3_BufErr
++				}
++			}()
++		}
++		ctx = templ.InitializeContext(ctx)
++		templ_7745c5c3_Var27 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var27 == nil {
++			templ_7745c5c3_Var27 = templ.NopComponent
++		}
++		ctx = templ.ClearChildren(ctx)
++		templ_7745c5c3_Var28 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++			if !templ_7745c5c3_IsBuffer {
++				defer func() {
++					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++					if templ_7745c5c3_Err == nil {
++						templ_7745c5c3_Err = templ_7745c5c3_BufErr
++					}
++				}()
++			}
++			ctx = templ.InitializeContext(ctx)
++			templ_7745c5c3_Var29 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++				if !templ_7745c5c3_IsBuffer {
++					defer func() {
++						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++						if templ_7745c5c3_Err == nil {
++							templ_7745c5c3_Err = templ_7745c5c3_BufErr
++						}
++					}()
++				}
++				ctx = templ.InitializeContext(ctx)
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 32, "someone is at the door.")
++				if templ_7745c5c3_Err != nil {
++					return templ_7745c5c3_Err
++				}
++				return nil
++			})
++			templ_7745c5c3_Err = emailP().Render(templ.WithChildren(ctx, templ_7745c5c3_Var29), templ_7745c5c3_Buffer)
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 33, " ")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Var30 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++				if !templ_7745c5c3_IsBuffer {
++					defer func() {
++						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++						if templ_7745c5c3_Err == nil {
++							templ_7745c5c3_Err = templ_7745c5c3_BufErr
++						}
++					}()
++				}
++				ctx = templ.InitializeContext(ctx)
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 34, "<strong>")
++				if templ_7745c5c3_Err != nil {
++					return templ_7745c5c3_Err
++				}
++				var templ_7745c5c3_Var31 string
++				templ_7745c5c3_Var31, templ_7745c5c3_Err = templ.JoinStringErrs(handle)
++				if templ_7745c5c3_Err != nil {
++					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 109, Col: 19}
++				}
++				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var31))
++				if templ_7745c5c3_Err != nil {
++					return templ_7745c5c3_Err
++				}
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 35, "</strong>")
++				if templ_7745c5c3_Err != nil {
++					return templ_7745c5c3_Err
++				}
++				return nil
++			})
++			templ_7745c5c3_Err = emailP().Render(templ.WithChildren(ctx, templ_7745c5c3_Var30), templ_7745c5c3_Buffer)
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 36, " <p style=\"")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			var templ_7745c5c3_Var32 string
++			templ_7745c5c3_Var32, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("margin:0 0 14px 0;color:" + emailInk + ";white-space:pre-wrap;")
++			if templ_7745c5c3_Err != nil {
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 111, Col: 77}
++			}
++			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var32))
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 37, "\">")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			var templ_7745c5c3_Var33 string
++			templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(pitch)
++			if templ_7745c5c3_Err != nil {
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 111, Col: 87}
++			}
++			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "</p>")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Var34 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++				if !templ_7745c5c3_IsBuffer {
++					defer func() {
++						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++						if templ_7745c5c3_Err == nil {
++							templ_7745c5c3_Err = templ_7745c5c3_BufErr
++						}
++					}()
++				}
++				ctx = templ.InitializeContext(ctx)
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "the queue is waiting.")
++				if templ_7745c5c3_Err != nil {
++					return templ_7745c5c3_Err
++				}
++				return nil
++			})
++			templ_7745c5c3_Err = emailHint().Render(templ.WithChildren(ctx, templ_7745c5c3_Var34), templ_7745c5c3_Buffer)
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			return nil
++		})
++		templ_7745c5c3_Err = emailShell().Render(templ.WithChildren(ctx, templ_7745c5c3_Var28), templ_7745c5c3_Buffer)
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		return nil
++	})
++}
++
++// applicationApprovedHTML tells an applicant they're in. verifyLink may be
++// empty — it rides along only while the address is unverified.
++func applicationApprovedHTML(handle string, loginURL string, verifyLink string) templ.Component {
++	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
++			return templ_7745c5c3_CtxErr
++		}
++		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++		if !templ_7745c5c3_IsBuffer {
++			defer func() {
++				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++				if templ_7745c5c3_Err == nil {
++					templ_7745c5c3_Err = templ_7745c5c3_BufErr
++				}
++			}()
++		}
++		ctx = templ.InitializeContext(ctx)
++		templ_7745c5c3_Var35 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var35 == nil {
++			templ_7745c5c3_Var35 = templ.NopComponent
++		}
++		ctx = templ.ClearChildren(ctx)
++		templ_7745c5c3_Var36 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++			if !templ_7745c5c3_IsBuffer {
++				defer func() {
++					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++					if templ_7745c5c3_Err == nil {
++						templ_7745c5c3_Err = templ_7745c5c3_BufErr
++					}
++				}()
++			}
++			ctx = templ.InitializeContext(ctx)
++			templ_7745c5c3_Var37 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++				if !templ_7745c5c3_IsBuffer {
++					defer func() {
++						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++						if templ_7745c5c3_Err == nil {
++							templ_7745c5c3_Err = templ_7745c5c3_BufErr
++						}
++					}()
++				}
++				ctx = templ.InitializeContext(ctx)
++				var templ_7745c5c3_Var38 string
++				templ_7745c5c3_Var38, templ_7745c5c3_Err = templ.JoinStringErrs(handle)
++				if templ_7745c5c3_Err != nil {
++					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 123, Col: 11}
++				}
++				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var38))
++				if templ_7745c5c3_Err != nil {
++					return templ_7745c5c3_Err
++				}
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 40, " — your application was approved. post into the quiet.")
++				if templ_7745c5c3_Err != nil {
++					return templ_7745c5c3_Err
++				}
++				return nil
++			})
++			templ_7745c5c3_Err = emailP().Render(templ.WithChildren(ctx, templ_7745c5c3_Var37), templ_7745c5c3_Buffer)
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 41, " ")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = emailButton("sign in", loginURL).Render(ctx, templ_7745c5c3_Buffer)
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 42, " ")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = emailLinkLine(loginURL).Render(ctx, templ_7745c5c3_Buffer)
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 43, " ")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			if verifyLink != "" {
++				templ_7745c5c3_Var39 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++					templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++					templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++					if !templ_7745c5c3_IsBuffer {
++						defer func() {
++							templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++							if templ_7745c5c3_Err == nil {
++								templ_7745c5c3_Err = templ_7745c5c3_BufErr
++							}
++						}()
++					}
++					ctx = templ.InitializeContext(ctx)
++					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 44, "verify this address while you're here — your standing will feel it:")
++					if templ_7745c5c3_Err != nil {
++						return templ_7745c5c3_Err
++					}
++					return nil
++				})
++				templ_7745c5c3_Err = emailP().Render(templ.WithChildren(ctx, templ_7745c5c3_Var39), templ_7745c5c3_Buffer)
++				if templ_7745c5c3_Err != nil {
++					return templ_7745c5c3_Err
++				}
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 45, " ")
++				if templ_7745c5c3_Err != nil {
++					return templ_7745c5c3_Err
++				}
++				templ_7745c5c3_Err = emailLinkLine(verifyLink).Render(ctx, templ_7745c5c3_Buffer)
++				if templ_7745c5c3_Err != nil {
++					return templ_7745c5c3_Err
++				}
++			}
++			return nil
++		})
++		templ_7745c5c3_Err = emailShell().Render(templ.WithChildren(ctx, templ_7745c5c3_Var36), templ_7745c5c3_Buffer)
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		return nil
++	})
++}
++
++// applicationRejectedHTML is a quiet no.
++func applicationRejectedHTML(handle string) templ.Component {
++	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
++			return templ_7745c5c3_CtxErr
++		}
++		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++		if !templ_7745c5c3_IsBuffer {
++			defer func() {
++				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++				if templ_7745c5c3_Err == nil {
++					templ_7745c5c3_Err = templ_7745c5c3_BufErr
++				}
++			}()
++		}
++		ctx = templ.InitializeContext(ctx)
++		templ_7745c5c3_Var40 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var40 == nil {
++			templ_7745c5c3_Var40 = templ.NopComponent
++		}
++		ctx = templ.ClearChildren(ctx)
++		templ_7745c5c3_Var41 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++			if !templ_7745c5c3_IsBuffer {
++				defer func() {
++					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++					if templ_7745c5c3_Err == nil {
++						templ_7745c5c3_Err = templ_7745c5c3_BufErr
++					}
++				}()
++			}
++			ctx = templ.InitializeContext(ctx)
++			templ_7745c5c3_Var42 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++				if !templ_7745c5c3_IsBuffer {
++					defer func() {
++						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++						if templ_7745c5c3_Err == nil {
++							templ_7745c5c3_Err = templ_7745c5c3_BufErr
++						}
++					}()
++				}
++				ctx = templ.InitializeContext(ctx)
++				var templ_7745c5c3_Var43 string
++				templ_7745c5c3_Var43, templ_7745c5c3_Err = templ.JoinStringErrs(handle)
++				if templ_7745c5c3_Err != nil {
++					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/emails.templ`, Line: 140, Col: 11}
++				}
++				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var43))
++				if templ_7745c5c3_Err != nil {
++					return templ_7745c5c3_Err
++				}
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 46, " — your application wasn't approved this time.")
++				if templ_7745c5c3_Err != nil {
++					return templ_7745c5c3_Err
++				}
++				return nil
++			})
++			templ_7745c5c3_Err = emailP().Render(templ.WithChildren(ctx, templ_7745c5c3_Var42), templ_7745c5c3_Buffer)
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 47, " ")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Var44 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++				if !templ_7745c5c3_IsBuffer {
++					defer func() {
++						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++						if templ_7745c5c3_Err == nil {
++							templ_7745c5c3_Err = templ_7745c5c3_BufErr
++						}
++					}()
++				}
++				ctx = templ.InitializeContext(ctx)
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 48, "the wall stays small on purpose. you may apply again.")
++				if templ_7745c5c3_Err != nil {
++					return templ_7745c5c3_Err
++				}
++				return nil
++			})
++			templ_7745c5c3_Err = emailHint().Render(templ.WithChildren(ctx, templ_7745c5c3_Var44), templ_7745c5c3_Buffer)
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			return nil
++		})
++		templ_7745c5c3_Err = emailShell().Render(templ.WithChildren(ctx, templ_7745c5c3_Var41), templ_7745c5c3_Buffer)
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		return nil
++	})
++}
++
++// inviteEmailHTML mails a minted code as its redemption link. One use.
++func inviteEmailHTML(link string) templ.Component {
++	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
++			return templ_7745c5c3_CtxErr
++		}
++		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++		if !templ_7745c5c3_IsBuffer {
++			defer func() {
++				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++				if templ_7745c5c3_Err == nil {
++					templ_7745c5c3_Err = templ_7745c5c3_BufErr
++				}
++			}()
++		}
++		ctx = templ.InitializeContext(ctx)
++		templ_7745c5c3_Var45 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var45 == nil {
++			templ_7745c5c3_Var45 = templ.NopComponent
++		}
++		ctx = templ.ClearChildren(ctx)
++		templ_7745c5c3_Var46 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++			if !templ_7745c5c3_IsBuffer {
++				defer func() {
++					templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++					if templ_7745c5c3_Err == nil {
++						templ_7745c5c3_Err = templ_7745c5c3_BufErr
++					}
++				}()
++			}
++			ctx = templ.InitializeContext(ctx)
++			templ_7745c5c3_Var47 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++				if !templ_7745c5c3_IsBuffer {
++					defer func() {
++						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++						if templ_7745c5c3_Err == nil {
++							templ_7745c5c3_Err = templ_7745c5c3_BufErr
++						}
++					}()
++				}
++				ctx = templ.InitializeContext(ctx)
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 49, "someone minted you a way in. the link works once:")
++				if templ_7745c5c3_Err != nil {
++					return templ_7745c5c3_Err
++				}
++				return nil
++			})
++			templ_7745c5c3_Err = emailP().Render(templ.WithChildren(ctx, templ_7745c5c3_Var47), templ_7745c5c3_Buffer)
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, " ")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = emailButton("join", link).Render(ctx, templ_7745c5c3_Buffer)
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 51, " ")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = emailLinkLine(link).Render(ctx, templ_7745c5c3_Buffer)
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 52, " ")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Var48 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++				templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++				templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++				if !templ_7745c5c3_IsBuffer {
++					defer func() {
++						templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++						if templ_7745c5c3_Err == nil {
++							templ_7745c5c3_Err = templ_7745c5c3_BufErr
++						}
++					}()
++				}
++				ctx = templ.InitializeContext(ctx)
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 53, "whoever invited you answers for you — post things people like.")
++				if templ_7745c5c3_Err != nil {
++					return templ_7745c5c3_Err
++				}
++				return nil
++			})
++			templ_7745c5c3_Err = emailHint().Render(templ.WithChildren(ctx, templ_7745c5c3_Var48), templ_7745c5c3_Buffer)
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			return nil
++		})
++		templ_7745c5c3_Err = emailShell().Render(templ.WithChildren(ctx, templ_7745c5c3_Var46), templ_7745c5c3_Buffer)
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		return nil
++	})
++}
++
++var _ = templruntime.GeneratedTemplate
+diff --git a/examples/hush/invites.go b/examples/hush/invites.go
+index 093ec6c..f32e8dd 100644
+--- a/examples/hush/invites.go
++++ b/examples/hush/invites.go
+@@ -183,6 +183,7 @@ func (a *app) doRegister(w http.ResponseWriter, r *http.Request) {
+ 		http.Redirect(w, r, "/apply?err=taken", http.StatusSeeOther)
+ 		return
+ 	}
++	a.attachEmail(ctx, handle, r.FormValue("email"))
+ 	a.signIn(w, r, handle, password)
+ }
+ 
+@@ -245,24 +246,32 @@ func (a *app) doRedeem(w http.ResponseWriter, r *http.Request) {
+ 	}
+ 	_, _ = a.pool.Exec(ctx, `INSERT INTO hush_signups (handle, via) VALUES ($1, 'invite')`, handle)
+ 	a.addChain(handle, inviter)
++	a.attachEmail(ctx, handle, r.FormValue("email"))
+ 	a.signIn(w, r, handle, password)
+ }
+ 
+ // doMint mints one invite code if the member's allowance has room, then 303s
+-// back to their profile, where the list lives.
++// back to their profile, where the list lives. An optional email form value is
++// the "mint & send" path: the fresh code goes straight out as an invite link.
+ func (a *app) doMint(w http.ResponseWriter, r *http.Request) {
+ 	handle, canPost, _ := a.acct(&beach.Ctx{W: w, R: r})
+ 	if a.authn == nil || handle == "" || !canPost {
+ 		http.NotFound(w, r)
+ 		return
+ 	}
++	_ = r.ParseForm()
+ 	ctx := r.Context()
+ 	tier := a.tierOf(a.rep.score(handle))
+ 	allowance := inviteAllowance(tier, a.rep.chainScore(handle))
+ 	var minted int
+ 	_ = a.pool.QueryRow(ctx, `SELECT count(*) FROM hush_invites WHERE inviter = $1`, handle).Scan(&minted)
+ 	if minted < allowance {
+-		_, _ = a.pool.Exec(ctx, `INSERT INTO hush_invites (code, inviter) VALUES ($1, $2)`, randHex(), handle)
++		code := randHex()
++		if _, err := a.pool.Exec(ctx, `INSERT INTO hush_invites (code, inviter) VALUES ($1, $2)`, code, handle); err == nil {
++			if email := normalizeEmail(r.FormValue("email")); email != "" {
++				a.enqueueMail(ctx, email, "invite", inviteEmail(a.cfg.BaseURL+"/invite/"+code))
++			}
++		}
+ 	}
+ 	http.Redirect(w, r, "/u/"+handle, http.StatusSeeOther)
+ }
+diff --git a/examples/hush/main.go b/examples/hush/main.go
+index 46bfd48..4f90f2b 100644
+--- a/examples/hush/main.go
++++ b/examples/hush/main.go
+@@ -32,6 +32,7 @@ import (
+ 
+ 	beach "github.com/ThirdCoastInteractive/the-beach"
+ 	"github.com/ThirdCoastInteractive/the-beach/auth"
++	"github.com/ThirdCoastInteractive/the-beach/mailer"
+ 	"github.com/ThirdCoastInteractive/the-beach/session"
+ 	"github.com/ThirdCoastInteractive/the-beach/storage"
+ 	"github.com/ThirdCoastInteractive/the-beach/ui/specimen"
+@@ -54,6 +55,7 @@ type app struct {
+ 	store    wall
+ 	files    *storage.Local
+ 	rep      *reputation
++	mail     mailer.Mailer
+ 	authn    *auth.Authenticator
+ 	sessions *session.Store
+ 	pool     *pgxpool.Pool
+@@ -92,6 +94,9 @@ func main() {
+ 
+ 	a := &app{cfg: loadConfig(), files: files, release: os.Getenv("RELEASE") != ""}
+ 	a.rep = newReputation(a.cfg)
++	// The strongest transport the MAIL_/MAILGUN_/SMTP_ env supports; with none
++	// of it set, a LogMailer — outbox sends print to this terminal.
++	a.mail = mailer.New(mailer.ConfigFromEnv())
+ 
+ 	cfg := beach.Config{
+ 		Service: "hush",
+@@ -142,6 +147,13 @@ func main() {
+ 		a.store = newMemStore()
+ 	}
+ 
++	// The outbox pump — transactional email leaves the process only here, and
++	// only in database mode (the queue is a table). Boot's reputation replay
++	// never enqueues, so a restart sends nothing twice.
++	if a.pool != nil && a.mail != nil {
++		go a.pumpOutbox(ctx)
++	}
++
+ 	beachApp := beach.New(cfg)
+ 	a.routes(beachApp)
+ 
+@@ -195,6 +207,12 @@ func (a *app) routes(app *beach.App) {
+ 	app.Raw(http.MethodPost, "/login", a.doLogin)
+ 	app.Raw(http.MethodGet, "/logout", a.logout)
+ 
++	// Member email (verify.go): the verification link is public — it arrives
++	// by mail, signed in or not; the set/resend forms check the session inside.
++	app.Page("/email/verify/{token}", a.verifyEmailPage)
++	app.Raw(http.MethodPost, "/email/set", a.doSetEmail)
++	app.Raw(http.MethodPost, "/email/resend", a.doResendEmail)
++
+ 	// The other doors (invites.go): capped open registration and invite
+ 	// redemption — both create accounts directly; minting is member-gated.
+ 	app.Raw(http.MethodPost, "/register", a.doRegister)
+@@ -223,10 +241,12 @@ func (a *app) profileView(c *beach.Ctx) (beach.View, error) {
+ 			"post things people like.")}, nil
+ 	}
+ 	var panel invitePanel
++	var email emailSection
+ 	if handle == me {
+ 		panel = a.invitesFor(c.Context(), handle, tier)
++		email = a.emailFor(c.Context(), handle)
+ 	}
+-	return beach.View{Page: profilePage(handle, tier, a.store.countByAuthor(c.Context(), handle), panel)}, nil
++	return beach.View{Page: profilePage(handle, tier, a.store.countByAuthor(c.Context(), handle), panel, email)}, nil
+ }
+ 
+ // The feed renders feedSpan neighbors each way up front — enough that the top
+diff --git a/examples/hush/migrations/00004_application_email.sql b/examples/hush/migrations/00004_application_email.sql
+new file mode 100644
+index 0000000..ba72331
+--- /dev/null
++++ b/examples/hush/migrations/00004_application_email.sql
+@@ -0,0 +1,8 @@
++-- +goose Up
++-- Applications carry an optional contact email: where the approve/reject
++-- notice goes, and the address copied into hush_member_emails (unverified)
++-- when the applicant becomes a member. Admin eyes only until then.
++ALTER TABLE hush_applications ADD COLUMN email text NOT NULL DEFAULT '';
++
++-- +goose Down
++ALTER TABLE hush_applications DROP COLUMN email;
+diff --git a/examples/hush/outbox.go b/examples/hush/outbox.go
+new file mode 100644
+index 0000000..ab9ee52
+--- /dev/null
++++ b/examples/hush/outbox.go
+@@ -0,0 +1,139 @@
++// Transactional email as data: handlers enqueue rows into hush_outbox and a
++// background pump delivers them through the Mailer with retry + backoff. The
++// queue is the seam — a handler never blocks on SMTP, a crashed send is just a
++// row still pending, and the dev default (mailer.LogMailer) "delivers" to the
++// terminal so the flows work on a fresh checkout.
++package main
++
++import (
++	"context"
++	"log/slog"
++	"time"
++
++	"github.com/ThirdCoastInteractive/the-beach/mailer"
++)
++
++// The pump's knobs: claim cadence, claim size, and how many tries a message
++// gets before its row is parked as failed for an admin to read.
++const (
++	outboxEvery    = 5 * time.Second
++	outboxBatch    = 10
++	outboxMaxTries = 8
++)
++
++// enqueue inserts one pending outbox row. Best-effort by design: every email
++// hush sends is a courtesy, so a queue failure logs and the request proceeds —
++// nobody's signup should die because the mail table hiccuped.
++func (a *app) enqueue(ctx context.Context, to, subject, text, html, templateKey string) {
++	if a.pool == nil || to == "" {
++		return
++	}
++	if _, err := a.pool.Exec(ctx,
++		`INSERT INTO hush_outbox (to_email, subject, text_body, html_body, template_key)
++		 VALUES ($1, $2, $3, $4, $5)`, to, subject, text, html, templateKey); err != nil {
++		slog.Error("hush: outbox enqueue failed", "template", templateKey, "err", err)
++	}
++}
++
++// enqueueMail queues a built template (emails.go) for to — the unpacking every
++// call site would otherwise repeat.
++func (a *app) enqueueMail(ctx context.Context, to, templateKey string, m *mailer.Email) {
++	a.enqueue(ctx, to, m.Subject, m.Text, m.HTML, templateKey)
++}
++
++// pumpOutbox is the process-lifetime sender loop, started at boot in database
++// mode. Each tick drains one batch. No clean shutdown is needed — an
++// undelivered row is still pending after a restart — but the context guard
++// stops the goroutine if boot ever grows a lifecycle worth cancelling.
++func (a *app) pumpOutbox(ctx context.Context) {
++	if a.pool == nil || a.mail == nil {
++		return
++	}
++	t := time.NewTicker(outboxEvery)
++	defer t.Stop()
++	for {
++		select {
++		case <-ctx.Done():
++			return
++		case <-t.C:
++			a.drainOutbox(ctx)
++		}
++	}
++}
++
++// outboxRow is one claimed message.
++type outboxRow struct {
++	id       int64
++	to       string
++	subject  string
++	text     string
++	html     string
++	attempts int
++}
++
++// drainOutbox claims one batch of due rows and delivers them. FOR UPDATE SKIP
++// LOCKED is the claim: the rows stay locked while their sends run, so a second
++// instance pumping the same table skips past them instead of double-sending.
++// A failed send backs off (1m doubling, capped at an hour) until
++// outboxMaxTries parks the row as failed.
++func (a *app) drainOutbox(ctx context.Context) {
++	tx, err := a.pool.Begin(ctx)
++	if err != nil {
++		return
++	}
++	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
++
++	rows, err := tx.Query(ctx,
++		`SELECT id, to_email, subject, text_body, html_body, attempts FROM hush_outbox
++		 WHERE status = 'pending' AND next_attempt_at <= now()
++		 ORDER BY next_attempt_at
++		 FOR UPDATE SKIP LOCKED
++		 LIMIT $1`, outboxBatch)
++	if err != nil {
++		return
++	}
++	var batch []outboxRow
++	for rows.Next() {
++		var m outboxRow
++		if err := rows.Scan(&m.id, &m.to, &m.subject, &m.text, &m.html, &m.attempts); err != nil {
++			rows.Close()
++			return
++		}
++		batch = append(batch, m)
++	}
++	rows.Close()
++	if rows.Err() != nil {
++		return
++	}
++
++	for _, m := range batch {
++		if err := a.mail.Send(&mailer.Email{To: m.to, Subject: m.subject, Text: m.text, HTML: m.html}); err != nil {
++			attempts := m.attempts + 1
++			status := "pending"
++			if attempts >= outboxMaxTries {
++				status = "failed"
++			}
++			slog.Warn("hush: outbox send failed", "id", m.id, "attempts", attempts, "status", status, "err", err)
++			_, _ = tx.Exec(ctx,
++				`UPDATE hush_outbox SET attempts = $2, last_error = $3, status = $4,
++				        next_attempt_at = now() + make_interval(secs => $5)
++				 WHERE id = $1`,
++				m.id, attempts, err.Error(), status, outboxBackoff(attempts).Seconds())
++			continue
++		}
++		_, _ = tx.Exec(ctx, `UPDATE hush_outbox SET status = 'sent', sent_at = now() WHERE id = $1`, m.id)
++	}
++	_ = tx.Commit(ctx)
++}
++
++// outboxBackoff is the retry curve: 1m * 2^attempts, capped at an hour.
++func outboxBackoff(attempts int) time.Duration {
++	if attempts > 6 { // 1m << 6 already exceeds the cap
++		attempts = 6
++	}
++	d := time.Minute << attempts
++	if d > time.Hour {
++		d = time.Hour
++	}
++	return d
++}
+diff --git a/examples/hush/pages.templ b/examples/hush/pages.templ
+index a21fec8..4e112c4 100644
+--- a/examples/hush/pages.templ
++++ b/examples/hush/pages.templ
+@@ -350,7 +350,7 @@ templ notFoundPage() {
+ // no number anywhere ever says how you're doing; what you see is what has
+ // unlocked (the page itself, the DM line, the invite allowance). The wall
+ // stays anonymous, so this is the one place a handle is shown with anything.
+-templ profilePage(handle string, tier int, posts int, panel invitePanel) {
++templ profilePage(handle string, tier int, posts int, panel invitePanel, email emailSection) {
+ 	@shell("hush — " + handle) {
+ 		<div class="hush-top">
+ 			<header class="hush-head">
+@@ -367,11 +367,43 @@ templ profilePage(handle string, tier int, posts int, panel invitePanel) {
+ 			if panel.Show {
+ 				@invitesSection(panel)
+ 			}
++			if email.Show {
++				@emailSettings(email)
++			}
+ 			@backToWall()
+ 		</div>
+ 	}
+ }
+ 
++// emailSettings is the profile's quiet email section, owner's eyes only: the
++// masked address with its verification state (resend while unverified), or an
++// add form when nothing is on file. The same /email/set form changes an
++// existing address — a change restarts verification.
++templ emailSettings(es emailSection) {
++	<section class="hush-email">
++		<h2 class="hush-invites-title">email</h2>
++		if es.Masked == "" {
++			<p class="hush-sub">no address on file — verifying one helps your standing. never shown to anyone.</p>
++		} else if es.Verified {
++			<p class="hush-sub"><span class="hush-email-addr">{ es.Masked }</span>{ " · verified" }</p>
++		} else {
++			<p class="hush-sub"><span class="hush-email-addr">{ es.Masked }</span>{ " · unverified" }</p>
++			<form method="post" action="/email/resend" class="hush-email-resend">
++				<button class="hush-post hush-post--ghost" type="submit">resend verification</button>
++			</form>
++		}
++		<form method="post" action="/email/set" class="hush-email-form">
++			if es.Masked == "" {
++				<input class="hush-input" type="email" name="email" placeholder="you@example.com" autocomplete="email" required/>
++				<button class="hush-post hush-post--ghost" type="submit">add</button>
++			} else {
++				<input class="hush-input" type="email" name="email" placeholder="change address" autocomplete="email" required/>
++				<button class="hush-post hush-post--ghost" type="submit">change</button>
++			}
++		</form>
++	</section>
++}
++
+ // invitesSection is the invite panel on your own profile: the throttle math
+ // (chain standing sets the allowance), every minted code as a shareable link,
+ // and the mint button while the allowance has room.
+@@ -393,6 +425,10 @@ templ invitesSection(panel invitePanel) {
+ 			<form method="post" action="/invites" class="hush-invite-mint">
+ 				<button class="hush-post hush-post--ghost" type="submit">mint an invite</button>
+ 			</form>
++			<form method="post" action="/invites" class="hush-invite-mint hush-invite-mint--send">
++				<input class="hush-input" type="email" name="email" placeholder="their email" aria-label="email the invite to someone" required/>
++				<button class="hush-post hush-post--ghost" type="submit">mint &amp; send</button>
++			</form>
+ 		} else {
+ 			<p class="hush-hint">no invites available — your chain has to earn them.</p>
+ 		}
+@@ -410,6 +446,7 @@ templ registerFormPage(left int, errMsg string) {
+ 		<form method="post" action="/register" class="hush-form">
+ 			<input class="hush-input" type="text" name="handle" placeholder="handle" autocomplete="username" required/>
+ 			<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="new-password" required/>
++			<input class="hush-input" type="email" name="email" placeholder="email (optional — never shown)" autocomplete="email"/>
+ 			<div class="hush-form-row">
+ 				<a class="hush-link" href="/login">already in? sign in →</a>
+ 				<button class="hush-post" type="submit">claim</button>
+@@ -428,6 +465,7 @@ templ inviteFormPage(code string, errMsg string) {
+ 		<form method="post" action={ "/invite/" + code } class="hush-form">
+ 			<input class="hush-input" type="text" name="handle" placeholder="handle" autocomplete="username" required/>
+ 			<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="new-password" required/>
++			<input class="hush-input" type="email" name="email" placeholder="email (optional — never shown)" autocomplete="email"/>
+ 			<div class="hush-form-row">
+ 				<a class="hush-link" href="/login">already in? sign in →</a>
+ 				<button class="hush-post" type="submit">join</button>
+@@ -507,6 +545,7 @@ templ applyFormPage() {
+ 		<form method="post" action="/apply" enctype="multipart/form-data" class="hush-form">
+ 			<input class="hush-input" type="text" name="handle" placeholder="handle" autocomplete="username" required/>
+ 			<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="new-password" required/>
++			<input class="hush-input" type="email" name="email" placeholder="email (optional — never shown)" autocomplete="email"/>
+ 			<textarea class="hush-input" name="pitch" rows="4" placeholder="what do you want to post? (3–5 lines)" required></textarea>
+ 			<label class="hush-hint">a photo of you (optional)</label>
+ 			<input class="hush-file" type="file" name="photo" accept="image/*"/>
+diff --git a/examples/hush/pages_templ.go b/examples/hush/pages_templ.go
+index 2f79aec..d4d8c91 100644
+--- a/examples/hush/pages_templ.go
++++ b/examples/hush/pages_templ.go
+@@ -1264,7 +1264,7 @@ func notFoundPage() templ.Component {
+ // no number anywhere ever says how you're doing; what you see is what has
+ // unlocked (the page itself, the DM line, the invite allowance). The wall
+ // stays anonymous, so this is the one place a handle is shown with anything.
+-func profilePage(handle string, tier int, posts int, panel invitePanel) templ.Component {
++func profilePage(handle string, tier int, posts int, panel invitePanel, email emailSection) templ.Component {
+ 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+ 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+ 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
+@@ -1344,6 +1344,12 @@ func profilePage(handle string, tier int, posts int, panel invitePanel) templ.Co
+ 					return templ_7745c5c3_Err
+ 				}
+ 			}
++			if email.Show {
++				templ_7745c5c3_Err = emailSettings(email).Render(ctx, templ_7745c5c3_Buffer)
++				if templ_7745c5c3_Err != nil {
++					return templ_7745c5c3_Err
++				}
++			}
+ 			templ_7745c5c3_Err = backToWall().Render(ctx, templ_7745c5c3_Buffer)
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+@@ -1362,6 +1368,126 @@ func profilePage(handle string, tier int, posts int, panel invitePanel) templ.Co
+ 	})
+ }
+ 
++// emailSettings is the profile's quiet email section, owner's eyes only: the
++// masked address with its verification state (resend while unverified), or an
++// add form when nothing is on file. The same /email/set form changes an
++// existing address — a change restarts verification.
++func emailSettings(es emailSection) templ.Component {
++	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
++		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
++			return templ_7745c5c3_CtxErr
++		}
++		templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
++		if !templ_7745c5c3_IsBuffer {
++			defer func() {
++				templ_7745c5c3_BufErr := templruntime.ReleaseBuffer(templ_7745c5c3_Buffer)
++				if templ_7745c5c3_Err == nil {
++					templ_7745c5c3_Err = templ_7745c5c3_BufErr
++				}
++			}()
++		}
++		ctx = templ.InitializeContext(ctx)
++		templ_7745c5c3_Var51 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var51 == nil {
++			templ_7745c5c3_Var51 = templ.NopComponent
++		}
++		ctx = templ.ClearChildren(ctx)
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "<section class=\"hush-email\"><h2 class=\"hush-invites-title\">email</h2>")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		if es.Masked == "" {
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "<p class=\"hush-sub\">no address on file — verifying one helps your standing. never shown to anyone.</p>")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++		} else if es.Verified {
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "<p class=\"hush-sub\"><span class=\"hush-email-addr\">")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			var templ_7745c5c3_Var52 string
++			templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(es.Masked)
++			if templ_7745c5c3_Err != nil {
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 388, Col: 64}
++			}
++			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "</span>")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			var templ_7745c5c3_Var53 string
++			templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs(" · verified")
++			if templ_7745c5c3_Err != nil {
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 388, Col: 89}
++			}
++			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "</p>")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++		} else {
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, "<p class=\"hush-sub\"><span class=\"hush-email-addr\">")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			var templ_7745c5c3_Var54 string
++			templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs(es.Masked)
++			if templ_7745c5c3_Err != nil {
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 390, Col: 64}
++			}
++			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "</span>")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			var templ_7745c5c3_Var55 string
++			templ_7745c5c3_Var55, templ_7745c5c3_Err = templ.JoinStringErrs(" · unverified")
++			if templ_7745c5c3_Err != nil {
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 390, Col: 91}
++			}
++			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var55))
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "</p><form method=\"post\" action=\"/email/resend\" class=\"hush-email-resend\"><button class=\"hush-post hush-post--ghost\" type=\"submit\">resend verification</button></form>")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++		}
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "<form method=\"post\" action=\"/email/set\" class=\"hush-email-form\">")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		if es.Masked == "" {
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "<input class=\"hush-input\" type=\"email\" name=\"email\" placeholder=\"you@example.com\" autocomplete=\"email\" required> <button class=\"hush-post hush-post--ghost\" type=\"submit\">add</button>")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++		} else {
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "<input class=\"hush-input\" type=\"email\" name=\"email\" placeholder=\"change address\" autocomplete=\"email\" required> <button class=\"hush-post hush-post--ghost\" type=\"submit\">change</button>")
++			if templ_7745c5c3_Err != nil {
++				return templ_7745c5c3_Err
++			}
++		}
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "</form></section>")
++		if templ_7745c5c3_Err != nil {
++			return templ_7745c5c3_Err
++		}
++		return nil
++	})
++}
++
+ // invitesSection is the invite panel on your own profile: the throttle math
+ // (chain standing sets the allowance), every minted code as a shareable link,
+ // and the mint button while the allowance has room.
+@@ -1381,87 +1507,87 @@ func invitesSection(panel invitePanel) templ.Component {
+ 			}()
+ 		}
+ 		ctx = templ.InitializeContext(ctx)
+-		templ_7745c5c3_Var51 := templ.GetChildren(ctx)
+-		if templ_7745c5c3_Var51 == nil {
+-			templ_7745c5c3_Var51 = templ.NopComponent
++		templ_7745c5c3_Var56 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var56 == nil {
++			templ_7745c5c3_Var56 = templ.NopComponent
+ 		}
+ 		ctx = templ.ClearChildren(ctx)
+-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 79, "<section class=\"hush-invites\"><h2 class=\"hush-invites-title\">invites</h2><p class=\"hush-sub\">")
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "<section class=\"hush-invites\"><h2 class=\"hush-invites-title\">invites</h2><p class=\"hush-sub\">")
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+-		var templ_7745c5c3_Var52 string
+-		templ_7745c5c3_Var52, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(len(panel.Invites)) + " of " + strconv.Itoa(panel.Allowance) + " minted — your chain's standing sets the allowance.")
++		var templ_7745c5c3_Var57 string
++		templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs(strconv.Itoa(len(panel.Invites)) + " of " + strconv.Itoa(panel.Allowance) + " minted — your chain's standing sets the allowance.")
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 381, Col: 155}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 413, Col: 155}
+ 		}
+-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var52))
++		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 80, "</p>")
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "</p>")
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+ 		for _, inv := range panel.Invites {
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 81, "<div class=\"hush-invite-row\"><span class=\"hush-invite-code\">")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "<div class=\"hush-invite-row\"><span class=\"hush-invite-code\">")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+-			var templ_7745c5c3_Var53 string
+-			templ_7745c5c3_Var53, templ_7745c5c3_Err = templ.JoinStringErrs("/invite/" + inv.Code)
++			var templ_7745c5c3_Var58 string
++			templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs("/invite/" + inv.Code)
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 384, Col: 58}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 416, Col: 58}
+ 			}
+-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var53))
++			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 82, "</span> ")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "</span> ")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+ 			if inv.UsedBy != "" {
+-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 83, "<span class=\"hush-invite-used\">")
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "<span class=\"hush-invite-used\">")
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+-				var templ_7745c5c3_Var54 string
+-				templ_7745c5c3_Var54, templ_7745c5c3_Err = templ.JoinStringErrs("→ " + inv.UsedBy)
++				var templ_7745c5c3_Var59 string
++				templ_7745c5c3_Var59, templ_7745c5c3_Err = templ.JoinStringErrs("→ " + inv.UsedBy)
+ 				if templ_7745c5c3_Err != nil {
+-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 386, Col: 57}
++					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 418, Col: 57}
+ 				}
+-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var54))
++				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var59))
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 84, "</span>")
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "</span>")
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+ 			} else {
+-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 85, "<span class=\"hush-invite-open\">unclaimed</span>")
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "<span class=\"hush-invite-open\">unclaimed</span>")
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+ 			}
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "</div>")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "</div>")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+ 		}
+ 		if panel.Remaining > 0 {
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "<form method=\"post\" action=\"/invites\" class=\"hush-invite-mint\"><button class=\"hush-post hush-post--ghost\" type=\"submit\">mint an invite</button></form>")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "<form method=\"post\" action=\"/invites\" class=\"hush-invite-mint\"><button class=\"hush-post hush-post--ghost\" type=\"submit\">mint an invite</button></form><form method=\"post\" action=\"/invites\" class=\"hush-invite-mint hush-invite-mint--send\"><input class=\"hush-input\" type=\"email\" name=\"email\" placeholder=\"their email\" aria-label=\"email the invite to someone\" required> <button class=\"hush-post hush-post--ghost\" type=\"submit\">mint &amp; send</button></form>")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+ 		} else {
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "<p class=\"hush-hint\">no invites available — your chain has to earn them.</p>")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "<p class=\"hush-hint\">no invites available — your chain has to earn them.</p>")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+ 		}
+-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "</section>")
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, "</section>")
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+@@ -1487,12 +1613,12 @@ func registerFormPage(left int, errMsg string) templ.Component {
+ 			}()
+ 		}
+ 		ctx = templ.InitializeContext(ctx)
+-		templ_7745c5c3_Var55 := templ.GetChildren(ctx)
+-		if templ_7745c5c3_Var55 == nil {
+-			templ_7745c5c3_Var55 = templ.NopComponent
++		templ_7745c5c3_Var60 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var60 == nil {
++			templ_7745c5c3_Var60 = templ.NopComponent
+ 		}
+ 		ctx = templ.ClearChildren(ctx)
+-		templ_7745c5c3_Var56 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_Var61 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+ 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+ 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+ 			if !templ_7745c5c3_IsBuffer {
+@@ -1504,49 +1630,49 @@ func registerFormPage(left int, errMsg string) templ.Component {
+ 				}()
+ 			}
+ 			ctx = templ.InitializeContext(ctx)
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "<p class=\"hush-sub\">")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "<p class=\"hush-sub\">")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+-			var templ_7745c5c3_Var57 string
+-			templ_7745c5c3_Var57, templ_7745c5c3_Err = templ.JoinStringErrs("first-come registration is open — " + strconv.Itoa(left) + " seats left.")
++			var templ_7745c5c3_Var62 string
++			templ_7745c5c3_Var62, templ_7745c5c3_Err = templ.JoinStringErrs("first-come registration is open — " + strconv.Itoa(left) + " seats left.")
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 406, Col: 100}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 442, Col: 100}
+ 			}
+-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var57))
++			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var62))
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "</p>")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, "</p>")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+ 			if errMsg != "" {
+-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "<p class=\"hush-note\">")
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 104, "<p class=\"hush-note\">")
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+-				var templ_7745c5c3_Var58 string
+-				templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(errMsg)
++				var templ_7745c5c3_Var63 string
++				templ_7745c5c3_Var63, templ_7745c5c3_Err = templ.JoinStringErrs(errMsg)
+ 				if templ_7745c5c3_Err != nil {
+-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 408, Col: 32}
++					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 444, Col: 32}
+ 				}
+-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
++				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var63))
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "</p>")
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 105, "</p>")
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+ 			}
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, " <form method=\"post\" action=\"/register\" class=\"hush-form\"><input class=\"hush-input\" type=\"text\" name=\"handle\" placeholder=\"handle\" autocomplete=\"username\" required> <input class=\"hush-input\" type=\"password\" name=\"password\" placeholder=\"password\" autocomplete=\"new-password\" required><div class=\"hush-form-row\"><a class=\"hush-link\" href=\"/login\">already in? sign in →</a> <button class=\"hush-post\" type=\"submit\">claim</button></div></form>")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, " <form method=\"post\" action=\"/register\" class=\"hush-form\"><input class=\"hush-input\" type=\"text\" name=\"handle\" placeholder=\"handle\" autocomplete=\"username\" required> <input class=\"hush-input\" type=\"password\" name=\"password\" placeholder=\"password\" autocomplete=\"new-password\" required> <input class=\"hush-input\" type=\"email\" name=\"email\" placeholder=\"email (optional — never shown)\" autocomplete=\"email\"><div class=\"hush-form-row\"><a class=\"hush-link\" href=\"/login\">already in? sign in →</a> <button class=\"hush-post\" type=\"submit\">claim</button></div></form>")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+ 			return nil
+ 		})
+-		templ_7745c5c3_Err = formPage("claim a seat").Render(templ.WithChildren(ctx, templ_7745c5c3_Var56), templ_7745c5c3_Buffer)
++		templ_7745c5c3_Err = formPage("claim a seat").Render(templ.WithChildren(ctx, templ_7745c5c3_Var61), templ_7745c5c3_Buffer)
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+@@ -1572,12 +1698,12 @@ func inviteFormPage(code string, errMsg string) templ.Component {
+ 			}()
+ 		}
+ 		ctx = templ.InitializeContext(ctx)
+-		templ_7745c5c3_Var59 := templ.GetChildren(ctx)
+-		if templ_7745c5c3_Var59 == nil {
+-			templ_7745c5c3_Var59 = templ.NopComponent
++		templ_7745c5c3_Var64 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var64 == nil {
++			templ_7745c5c3_Var64 = templ.NopComponent
+ 		}
+ 		ctx = templ.ClearChildren(ctx)
+-		templ_7745c5c3_Var60 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_Var65 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+ 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+ 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+ 			if !templ_7745c5c3_IsBuffer {
+@@ -1590,44 +1716,44 @@ func inviteFormPage(code string, errMsg string) templ.Component {
+ 			}
+ 			ctx = templ.InitializeContext(ctx)
+ 			if errMsg != "" {
+-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "<p class=\"hush-note\">")
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, "<p class=\"hush-note\">")
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+-				var templ_7745c5c3_Var61 string
+-				templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.JoinStringErrs(errMsg)
++				var templ_7745c5c3_Var66 string
++				templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(errMsg)
+ 				if templ_7745c5c3_Err != nil {
+-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 426, Col: 32}
++					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 463, Col: 32}
+ 				}
+-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var61))
++				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "</p>")
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, "</p>")
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+ 			}
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, " <form method=\"post\" action=\"")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, " <form method=\"post\" action=\"")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+-			var templ_7745c5c3_Var62 templ.SafeURL
+-			templ_7745c5c3_Var62, templ_7745c5c3_Err = templ.JoinURLErrs("/invite/" + code)
++			var templ_7745c5c3_Var67 templ.SafeURL
++			templ_7745c5c3_Var67, templ_7745c5c3_Err = templ.JoinURLErrs("/invite/" + code)
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 428, Col: 48}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 465, Col: 48}
+ 			}
+-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var62))
++			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var67))
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "\" class=\"hush-form\"><input class=\"hush-input\" type=\"text\" name=\"handle\" placeholder=\"handle\" autocomplete=\"username\" required> <input class=\"hush-input\" type=\"password\" name=\"password\" placeholder=\"password\" autocomplete=\"new-password\" required><div class=\"hush-form-row\"><a class=\"hush-link\" href=\"/login\">already in? sign in →</a> <button class=\"hush-post\" type=\"submit\">join</button></div></form>")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 110, "\" class=\"hush-form\"><input class=\"hush-input\" type=\"text\" name=\"handle\" placeholder=\"handle\" autocomplete=\"username\" required> <input class=\"hush-input\" type=\"password\" name=\"password\" placeholder=\"password\" autocomplete=\"new-password\" required> <input class=\"hush-input\" type=\"email\" name=\"email\" placeholder=\"email (optional — never shown)\" autocomplete=\"email\"><div class=\"hush-form-row\"><a class=\"hush-link\" href=\"/login\">already in? sign in →</a> <button class=\"hush-post\" type=\"submit\">join</button></div></form>")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+ 			return nil
+ 		})
+-		templ_7745c5c3_Err = formPage("you're invited").Render(templ.WithChildren(ctx, templ_7745c5c3_Var60), templ_7745c5c3_Buffer)
++		templ_7745c5c3_Err = formPage("you're invited").Render(templ.WithChildren(ctx, templ_7745c5c3_Var65), templ_7745c5c3_Buffer)
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+@@ -1652,12 +1778,12 @@ func noticePage(title string, sub string) templ.Component {
+ 			}()
+ 		}
+ 		ctx = templ.InitializeContext(ctx)
+-		templ_7745c5c3_Var63 := templ.GetChildren(ctx)
+-		if templ_7745c5c3_Var63 == nil {
+-			templ_7745c5c3_Var63 = templ.NopComponent
++		templ_7745c5c3_Var68 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var68 == nil {
++			templ_7745c5c3_Var68 = templ.NopComponent
+ 		}
+ 		ctx = templ.ClearChildren(ctx)
+-		templ_7745c5c3_Var64 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_Var69 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+ 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+ 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+ 			if !templ_7745c5c3_IsBuffer {
+@@ -1669,43 +1795,43 @@ func noticePage(title string, sub string) templ.Component {
+ 				}()
+ 			}
+ 			ctx = templ.InitializeContext(ctx)
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "<div class=\"hush-top\"><header class=\"hush-head\"><h1 class=\"hush-title\">hush</h1><p class=\"hush-sub\">")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 111, "<div class=\"hush-top\"><header class=\"hush-head\"><h1 class=\"hush-title\">hush</h1><p class=\"hush-sub\">")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+-			var templ_7745c5c3_Var65 string
+-			templ_7745c5c3_Var65, templ_7745c5c3_Err = templ.JoinStringErrs(title)
++			var templ_7745c5c3_Var70 string
++			templ_7745c5c3_Var70, templ_7745c5c3_Err = templ.JoinStringErrs(title)
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 445, Col: 31}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 483, Col: 31}
+ 			}
+-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var65))
++			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var70))
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "</p>")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, "</p>")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+ 			if sub != "" {
+-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, "<p class=\"hush-sub\">")
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 113, "<p class=\"hush-sub\">")
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+-				var templ_7745c5c3_Var66 string
+-				templ_7745c5c3_Var66, templ_7745c5c3_Err = templ.JoinStringErrs(sub)
++				var templ_7745c5c3_Var71 string
++				templ_7745c5c3_Var71, templ_7745c5c3_Err = templ.JoinStringErrs(sub)
+ 				if templ_7745c5c3_Err != nil {
+-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 447, Col: 30}
++					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 485, Col: 30}
+ 				}
+-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var66))
++				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var71))
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "</p>")
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 114, "</p>")
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+ 			}
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, "</header>")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 115, "</header>")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+@@ -1713,13 +1839,13 @@ func noticePage(title string, sub string) templ.Component {
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 104, "</div>")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 116, "</div>")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+ 			return nil
+ 		})
+-		templ_7745c5c3_Err = shell("hush").Render(templ.WithChildren(ctx, templ_7745c5c3_Var64), templ_7745c5c3_Buffer)
++		templ_7745c5c3_Err = shell("hush").Render(templ.WithChildren(ctx, templ_7745c5c3_Var69), templ_7745c5c3_Buffer)
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+@@ -1744,12 +1870,12 @@ func formPage(title string) templ.Component {
+ 			}()
+ 		}
+ 		ctx = templ.InitializeContext(ctx)
+-		templ_7745c5c3_Var67 := templ.GetChildren(ctx)
+-		if templ_7745c5c3_Var67 == nil {
+-			templ_7745c5c3_Var67 = templ.NopComponent
++		templ_7745c5c3_Var72 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var72 == nil {
++			templ_7745c5c3_Var72 = templ.NopComponent
+ 		}
+ 		ctx = templ.ClearChildren(ctx)
+-		templ_7745c5c3_Var68 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_Var73 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+ 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+ 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+ 			if !templ_7745c5c3_IsBuffer {
+@@ -1761,28 +1887,28 @@ func formPage(title string) templ.Component {
+ 				}()
+ 			}
+ 			ctx = templ.InitializeContext(ctx)
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 105, "<div class=\"hush-top\"><header class=\"hush-head\"><h1 class=\"hush-title\">hush</h1><p class=\"hush-sub\">")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 117, "<div class=\"hush-top\"><header class=\"hush-head\"><h1 class=\"hush-title\">hush</h1><p class=\"hush-sub\">")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+-			var templ_7745c5c3_Var69 string
+-			templ_7745c5c3_Var69, templ_7745c5c3_Err = templ.JoinStringErrs(title)
++			var templ_7745c5c3_Var74 string
++			templ_7745c5c3_Var74, templ_7745c5c3_Err = templ.JoinStringErrs(title)
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 461, Col: 31}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 499, Col: 31}
+ 			}
+-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var69))
++			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var74))
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, "</p></header><div class=\"hush-formwrap\">")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 118, "</p></header><div class=\"hush-formwrap\">")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+-			templ_7745c5c3_Err = templ_7745c5c3_Var67.Render(ctx, templ_7745c5c3_Buffer)
++			templ_7745c5c3_Err = templ_7745c5c3_Var72.Render(ctx, templ_7745c5c3_Buffer)
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 107, "</div>")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 119, "</div>")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+@@ -1790,13 +1916,13 @@ func formPage(title string) templ.Component {
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 108, "</div>")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, "</div>")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+ 			return nil
+ 		})
+-		templ_7745c5c3_Err = shell("hush — "+title).Render(templ.WithChildren(ctx, templ_7745c5c3_Var68), templ_7745c5c3_Buffer)
++		templ_7745c5c3_Err = shell("hush — "+title).Render(templ.WithChildren(ctx, templ_7745c5c3_Var73), templ_7745c5c3_Buffer)
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+@@ -1825,12 +1951,12 @@ func composePage() templ.Component {
+ 			}()
+ 		}
+ 		ctx = templ.InitializeContext(ctx)
+-		templ_7745c5c3_Var70 := templ.GetChildren(ctx)
+-		if templ_7745c5c3_Var70 == nil {
+-			templ_7745c5c3_Var70 = templ.NopComponent
++		templ_7745c5c3_Var75 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var75 == nil {
++			templ_7745c5c3_Var75 = templ.NopComponent
+ 		}
+ 		ctx = templ.ClearChildren(ctx)
+-		templ_7745c5c3_Var71 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_Var76 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+ 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+ 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+ 			if !templ_7745c5c3_IsBuffer {
+@@ -1842,7 +1968,7 @@ func composePage() templ.Component {
+ 				}()
+ 			}
+ 			ctx = templ.InitializeContext(ctx)
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, "<div class=\"hush-top\"><header class=\"hush-head\"><h1 class=\"hush-title\">hush</h1><p class=\"hush-sub\">capture something — filtered, on-device.</p></header><div class=\"hush-cam\"><canvas id=\"cam-canvas\" class=\"cam-canvas\" width=\"720\" height=\"720\"></canvas><div class=\"cam-controls\"><select id=\"cam-filter\" class=\"cam-filter\" aria-label=\"filter\"><option value=\"none\">none</option> <option value=\"noir\">noir</option> <option value=\"bleach\">bleach</option> <option value=\"dream\">dream</option></select> <button id=\"cam-shoot\" class=\"hush-post\" type=\"button\">capture</button></div><p id=\"cam-status\" class=\"cam-status\" aria-live=\"polite\"></p></div>")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, "<div class=\"hush-top\"><header class=\"hush-head\"><h1 class=\"hush-title\">hush</h1><p class=\"hush-sub\">capture something — filtered, on-device.</p></header><div class=\"hush-cam\"><canvas id=\"cam-canvas\" class=\"cam-canvas\" width=\"720\" height=\"720\"></canvas><div class=\"cam-controls\"><select id=\"cam-filter\" class=\"cam-filter\" aria-label=\"filter\"><option value=\"none\">none</option> <option value=\"noir\">noir</option> <option value=\"bleach\">bleach</option> <option value=\"dream\">dream</option></select> <button id=\"cam-shoot\" class=\"hush-post\" type=\"button\">capture</button></div><p id=\"cam-status\" class=\"cam-status\" aria-live=\"polite\"></p></div>")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+@@ -1850,13 +1976,13 @@ func composePage() templ.Component {
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 110, "</div><script type=\"module\" src=\"/static/js/camera.js\"></script>")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 122, "</div><script type=\"module\" src=\"/static/js/camera.js\"></script>")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+ 			return nil
+ 		})
+-		templ_7745c5c3_Err = shell("hush — capture").Render(templ.WithChildren(ctx, templ_7745c5c3_Var71), templ_7745c5c3_Buffer)
++		templ_7745c5c3_Err = shell("hush — capture").Render(templ.WithChildren(ctx, templ_7745c5c3_Var76), templ_7745c5c3_Buffer)
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+@@ -1883,12 +2009,12 @@ func applyFormPage() templ.Component {
+ 			}()
+ 		}
+ 		ctx = templ.InitializeContext(ctx)
+-		templ_7745c5c3_Var72 := templ.GetChildren(ctx)
+-		if templ_7745c5c3_Var72 == nil {
+-			templ_7745c5c3_Var72 = templ.NopComponent
++		templ_7745c5c3_Var77 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var77 == nil {
++			templ_7745c5c3_Var77 = templ.NopComponent
+ 		}
+ 		ctx = templ.ClearChildren(ctx)
+-		templ_7745c5c3_Var73 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_Var78 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+ 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+ 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+ 			if !templ_7745c5c3_IsBuffer {
+@@ -1900,13 +2026,13 @@ func applyFormPage() templ.Component {
+ 				}()
+ 			}
+ 			ctx = templ.InitializeContext(ctx)
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 111, "<form method=\"post\" action=\"/apply\" enctype=\"multipart/form-data\" class=\"hush-form\"><input class=\"hush-input\" type=\"text\" name=\"handle\" placeholder=\"handle\" autocomplete=\"username\" required> <input class=\"hush-input\" type=\"password\" name=\"password\" placeholder=\"password\" autocomplete=\"new-password\" required> <textarea class=\"hush-input\" name=\"pitch\" rows=\"4\" placeholder=\"what do you want to post? (3–5 lines)\" required></textarea> <label class=\"hush-hint\">a photo of you (optional)</label> <input class=\"hush-file\" type=\"file\" name=\"photo\" accept=\"image/*\"><div class=\"hush-form-row\"><a class=\"hush-link\" href=\"/login\">already approved? sign in →</a> <button class=\"hush-post\" type=\"submit\">apply</button></div></form>")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 123, "<form method=\"post\" action=\"/apply\" enctype=\"multipart/form-data\" class=\"hush-form\"><input class=\"hush-input\" type=\"text\" name=\"handle\" placeholder=\"handle\" autocomplete=\"username\" required> <input class=\"hush-input\" type=\"password\" name=\"password\" placeholder=\"password\" autocomplete=\"new-password\" required> <input class=\"hush-input\" type=\"email\" name=\"email\" placeholder=\"email (optional — never shown)\" autocomplete=\"email\"> <textarea class=\"hush-input\" name=\"pitch\" rows=\"4\" placeholder=\"what do you want to post? (3–5 lines)\" required></textarea> <label class=\"hush-hint\">a photo of you (optional)</label> <input class=\"hush-file\" type=\"file\" name=\"photo\" accept=\"image/*\"><div class=\"hush-form-row\"><a class=\"hush-link\" href=\"/login\">already approved? sign in →</a> <button class=\"hush-post\" type=\"submit\">apply</button></div></form>")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+ 			return nil
+ 		})
+-		templ_7745c5c3_Err = formPage("apply to post").Render(templ.WithChildren(ctx, templ_7745c5c3_Var73), templ_7745c5c3_Buffer)
++		templ_7745c5c3_Err = formPage("apply to post").Render(templ.WithChildren(ctx, templ_7745c5c3_Var78), templ_7745c5c3_Buffer)
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+@@ -1932,12 +2058,12 @@ func loginFormPage(errMsg string) templ.Component {
+ 			}()
+ 		}
+ 		ctx = templ.InitializeContext(ctx)
+-		templ_7745c5c3_Var74 := templ.GetChildren(ctx)
+-		if templ_7745c5c3_Var74 == nil {
+-			templ_7745c5c3_Var74 = templ.NopComponent
++		templ_7745c5c3_Var79 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var79 == nil {
++			templ_7745c5c3_Var79 = templ.NopComponent
+ 		}
+ 		ctx = templ.ClearChildren(ctx)
+-		templ_7745c5c3_Var75 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_Var80 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+ 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+ 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+ 			if !templ_7745c5c3_IsBuffer {
+@@ -1950,31 +2076,31 @@ func loginFormPage(errMsg string) templ.Component {
+ 			}
+ 			ctx = templ.InitializeContext(ctx)
+ 			if errMsg != "" {
+-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, "<p class=\"hush-note\">")
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, "<p class=\"hush-note\">")
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+-				var templ_7745c5c3_Var76 string
+-				templ_7745c5c3_Var76, templ_7745c5c3_Err = templ.JoinStringErrs(errMsg)
++				var templ_7745c5c3_Var81 string
++				templ_7745c5c3_Var81, templ_7745c5c3_Err = templ.JoinStringErrs(errMsg)
+ 				if templ_7745c5c3_Err != nil {
+-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 526, Col: 32}
++					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 565, Col: 32}
+ 				}
+-				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var76))
++				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var81))
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 113, "</p>")
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 125, "</p>")
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+ 			}
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 114, " <form method=\"post\" action=\"/login\" class=\"hush-form\"><input class=\"hush-input\" type=\"text\" name=\"username\" placeholder=\"handle\" autocomplete=\"username\" required> <input class=\"hush-input\" type=\"password\" name=\"password\" placeholder=\"password\" autocomplete=\"current-password\" required><div class=\"hush-form-row\"><a class=\"hush-link\" href=\"/apply\">need an account? apply →</a> <button class=\"hush-post\" type=\"submit\">sign in</button></div></form>")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 126, " <form method=\"post\" action=\"/login\" class=\"hush-form\"><input class=\"hush-input\" type=\"text\" name=\"username\" placeholder=\"handle\" autocomplete=\"username\" required> <input class=\"hush-input\" type=\"password\" name=\"password\" placeholder=\"password\" autocomplete=\"current-password\" required><div class=\"hush-form-row\"><a class=\"hush-link\" href=\"/apply\">need an account? apply →</a> <button class=\"hush-post\" type=\"submit\">sign in</button></div></form>")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+ 			return nil
+ 		})
+-		templ_7745c5c3_Err = formPage("sign in").Render(templ.WithChildren(ctx, templ_7745c5c3_Var75), templ_7745c5c3_Buffer)
++		templ_7745c5c3_Err = formPage("sign in").Render(templ.WithChildren(ctx, templ_7745c5c3_Var80), templ_7745c5c3_Buffer)
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+@@ -2000,12 +2126,12 @@ func adminQueuePage(apps []application) templ.Component {
+ 			}()
+ 		}
+ 		ctx = templ.InitializeContext(ctx)
+-		templ_7745c5c3_Var77 := templ.GetChildren(ctx)
+-		if templ_7745c5c3_Var77 == nil {
+-			templ_7745c5c3_Var77 = templ.NopComponent
++		templ_7745c5c3_Var82 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var82 == nil {
++			templ_7745c5c3_Var82 = templ.NopComponent
+ 		}
+ 		ctx = templ.ClearChildren(ctx)
+-		templ_7745c5c3_Var78 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
++		templ_7745c5c3_Var83 := templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
+ 			templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
+ 			templ_7745c5c3_Buffer, templ_7745c5c3_IsBuffer := templruntime.GetBuffer(templ_7745c5c3_W)
+ 			if !templ_7745c5c3_IsBuffer {
+@@ -2017,7 +2143,7 @@ func adminQueuePage(apps []application) templ.Component {
+ 				}()
+ 			}
+ 			ctx = templ.InitializeContext(ctx)
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 115, "<div class=\"hush-top\"><header class=\"hush-head\"><h1 class=\"hush-title\">hush</h1><p class=\"hush-sub\">pending applications</p></header>")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 127, "<div class=\"hush-top\"><header class=\"hush-head\"><h1 class=\"hush-title\">hush</h1><p class=\"hush-sub\">pending applications</p></header>")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+@@ -2032,18 +2158,18 @@ func adminQueuePage(apps []application) templ.Component {
+ 				}
+ 			}
+ 			if len(apps) == 0 {
+-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 116, "<p class=\"hush-sub\">nothing pending.</p>")
++				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 128, "<p class=\"hush-sub\">nothing pending.</p>")
+ 				if templ_7745c5c3_Err != nil {
+ 					return templ_7745c5c3_Err
+ 				}
+ 			}
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 117, "</div>")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 129, "</div>")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+ 			return nil
+ 		})
+-		templ_7745c5c3_Err = shell("hush — queue").Render(templ.WithChildren(ctx, templ_7745c5c3_Var78), templ_7745c5c3_Buffer)
++		templ_7745c5c3_Err = shell("hush — queue").Render(templ.WithChildren(ctx, templ_7745c5c3_Var83), templ_7745c5c3_Buffer)
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+@@ -2069,62 +2195,62 @@ func appCard(ap application) templ.Component {
+ 			}()
+ 		}
+ 		ctx = templ.InitializeContext(ctx)
+-		templ_7745c5c3_Var79 := templ.GetChildren(ctx)
+-		if templ_7745c5c3_Var79 == nil {
+-			templ_7745c5c3_Var79 = templ.NopComponent
++		templ_7745c5c3_Var84 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var84 == nil {
++			templ_7745c5c3_Var84 = templ.NopComponent
+ 		}
+ 		ctx = templ.ClearChildren(ctx)
+ 		id := strconv.FormatInt(ap.ID, 10)
+-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 118, "<div class=\"hush-appcard\">")
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 130, "<div class=\"hush-appcard\">")
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+ 		if ap.PhotoKey != "" {
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 119, "<img class=\"hush-appphoto\" src=\"")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 131, "<img class=\"hush-appphoto\" src=\"")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+-			var templ_7745c5c3_Var80 string
+-			templ_7745c5c3_Var80, templ_7745c5c3_Err = templ.ResolveAttributeValue("/files/" + ap.PhotoKey)
++			var templ_7745c5c3_Var85 string
++			templ_7745c5c3_Var85, templ_7745c5c3_Err = templ.ResolveAttributeValue("/files/" + ap.PhotoKey)
+ 			if templ_7745c5c3_Err != nil {
+-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 565, Col: 59}
++				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 604, Col: 59}
+ 			}
+-			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var80)
++			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var85)
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, "\" alt=\"\">")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 132, "\" alt=\"\">")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+ 		}
+-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, "<div class=\"hush-apphandle\">")
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 133, "<div class=\"hush-apphandle\">")
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+-		var templ_7745c5c3_Var81 string
+-		templ_7745c5c3_Var81, templ_7745c5c3_Err = templ.JoinStringErrs(ap.Handle)
++		var templ_7745c5c3_Var86 string
++		templ_7745c5c3_Var86, templ_7745c5c3_Err = templ.JoinStringErrs(ap.Handle)
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 567, Col: 41}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 606, Col: 41}
+ 		}
+-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var81))
++		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var86))
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 122, "</div><div class=\"hush-apppitch\">")
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 134, "</div><div class=\"hush-apppitch\">")
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+-		var templ_7745c5c3_Var82 string
+-		templ_7745c5c3_Var82, templ_7745c5c3_Err = templ.JoinStringErrs(ap.Pitch)
++		var templ_7745c5c3_Var87 string
++		templ_7745c5c3_Var87, templ_7745c5c3_Err = templ.JoinStringErrs(ap.Pitch)
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 568, Col: 39}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 607, Col: 39}
+ 		}
+-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var82))
++		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var87))
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 123, "</div><div class=\"hush-form-row\">")
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 135, "</div><div class=\"hush-form-row\">")
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+@@ -2136,7 +2262,7 @@ func appCard(ap application) templ.Component {
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, "</div></div>")
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 136, "</div></div>")
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+@@ -2161,53 +2287,53 @@ func decideForm(id string, action string) templ.Component {
+ 			}()
+ 		}
+ 		ctx = templ.InitializeContext(ctx)
+-		templ_7745c5c3_Var83 := templ.GetChildren(ctx)
+-		if templ_7745c5c3_Var83 == nil {
+-			templ_7745c5c3_Var83 = templ.NopComponent
++		templ_7745c5c3_Var88 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var88 == nil {
++			templ_7745c5c3_Var88 = templ.NopComponent
+ 		}
+ 		ctx = templ.ClearChildren(ctx)
+-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 125, "<form method=\"post\" action=\"/admin/decide\"><input type=\"hidden\" name=\"id\" value=\"")
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 137, "<form method=\"post\" action=\"/admin/decide\"><input type=\"hidden\" name=\"id\" value=\"")
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+-		var templ_7745c5c3_Var84 string
+-		templ_7745c5c3_Var84, templ_7745c5c3_Err = templ.ResolveAttributeValue(id)
++		var templ_7745c5c3_Var89 string
++		templ_7745c5c3_Var89, templ_7745c5c3_Err = templ.ResolveAttributeValue(id)
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 579, Col: 43}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 618, Col: 43}
+ 		}
+-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var84)
++		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var89)
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 126, "\"> <input type=\"hidden\" name=\"action\" value=\"")
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 138, "\"> <input type=\"hidden\" name=\"action\" value=\"")
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+-		var templ_7745c5c3_Var85 string
+-		templ_7745c5c3_Var85, templ_7745c5c3_Err = templ.ResolveAttributeValue(action)
++		var templ_7745c5c3_Var90 string
++		templ_7745c5c3_Var90, templ_7745c5c3_Err = templ.ResolveAttributeValue(action)
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 580, Col: 51}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 619, Col: 51}
+ 		}
+-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var85)
++		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var90)
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 127, "\"> ")
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 139, "\"> ")
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+ 		if action == "approve" {
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 128, "<button class=\"hush-post\" type=\"submit\">approve</button>")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 140, "<button class=\"hush-post\" type=\"submit\">approve</button>")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+ 		} else {
+-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 129, "<button class=\"hush-post hush-post--ghost\" type=\"submit\">reject</button>")
++			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 141, "<button class=\"hush-post hush-post--ghost\" type=\"submit\">reject</button>")
+ 			if templ_7745c5c3_Err != nil {
+ 				return templ_7745c5c3_Err
+ 			}
+ 		}
+-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 130, "</form>")
++		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 142, "</form>")
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+@@ -2232,17 +2358,17 @@ func note(msg string) templ.Component {
+ 			}()
+ 		}
+ 		ctx = templ.InitializeContext(ctx)
+-		templ_7745c5c3_Var86 := templ.GetChildren(ctx)
+-		if templ_7745c5c3_Var86 == nil {
+-			templ_7745c5c3_Var86 = templ.NopComponent
++		templ_7745c5c3_Var91 := templ.GetChildren(ctx)
++		if templ_7745c5c3_Var91 == nil {
++			templ_7745c5c3_Var91 = templ.NopComponent
+ 		}
+ 		ctx = templ.ClearChildren(ctx)
+-		var templ_7745c5c3_Var87 string
+-		templ_7745c5c3_Var87, templ_7745c5c3_Err = templ.JoinStringErrs(msg)
++		var templ_7745c5c3_Var92 string
++		templ_7745c5c3_Var92, templ_7745c5c3_Err = templ.JoinStringErrs(msg)
+ 		if templ_7745c5c3_Err != nil {
+-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 591, Col: 6}
++			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/pages.templ`, Line: 630, Col: 6}
+ 		}
+-		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var87))
++		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var92))
+ 		if templ_7745c5c3_Err != nil {
+ 			return templ_7745c5c3_Err
+ 		}
+diff --git a/examples/hush/static/css/hush.css b/examples/hush/static/css/hush.css
+index 3c2e911..96e0572 100644
+--- a/examples/hush/static/css/hush.css
++++ b/examples/hush/static/css/hush.css
+@@ -480,3 +480,40 @@ html:active-view-transition-type(backwards)::view-transition-old(root) {
+ .hush-invite-open { color: rgba(255, 255, 255, 0.4); white-space: nowrap; }
+ .hush-invite-mint { margin-top: 1rem; }
+ 
++/* mint & send: the optional email beside the plain mint button */
++.hush-invite-mint--send {
++  display: flex;
++  gap: 0.5rem;
++  margin-top: 0.6rem;
++}
++.hush-invite-mint--send .hush-input {
++  flex: 1;
++  min-width: 0;
++  min-height: auto;
++  font-size: 0.85rem;
++}
++.hush-invite-mint--send .hush-post { white-space: nowrap; }
++
++/* the profile's quiet email section — masked even for its owner */
++.hush-email {
++  max-width: 420px;
++  margin: 2rem auto 0;
++  padding-top: 1.25rem;
++  border-top: 1px solid rgba(255, 255, 255, 0.12);
++  text-align: center;
++}
++.hush-email-addr { font-family: ui-monospace, monospace; color: #fff; }
++.hush-email-resend { margin-top: 0.75rem; }
++.hush-email-form {
++  display: flex;
++  gap: 0.5rem;
++  margin-top: 0.75rem;
++}
++.hush-email-form .hush-input {
++  flex: 1;
++  min-width: 0;
++  min-height: auto;
++  font-size: 0.85rem;
++}
++.hush-email-form .hush-post { white-space: nowrap; }
++
+diff --git a/examples/hush/verify.go b/examples/hush/verify.go
+new file mode 100644
+index 0000000..b99e369
+--- /dev/null
++++ b/examples/hush/verify.go
+@@ -0,0 +1,182 @@
++// The member email lifecycle: an optional address attached at signup or from
++// the profile, verified by a tokened link, worth EmailPoints of author
++// standing once confirmed. Addresses are never shown publicly — even the
++// masked form only ever renders on its owner's profile. The token travels in
++// the email alone; the table stores its sha256 (a leaked dump verifies nobody).
++package main
++
++import (
++	"context"
++	"crypto/rand"
++	"crypto/sha256"
++	"encoding/hex"
++	"net/http"
++	"net/mail"
++	"strings"
++
++	beach "github.com/ThirdCoastInteractive/the-beach"
++)
++
++// emailSection is what the profile shows its owner about their email: the
++// masked address and whether it's verified, or nothing on file (the add form
++// renders). Show is false on other people's profiles and without a database.
++type emailSection struct {
++	Show     bool
++	Masked   string // "" when no address is on file
++	Verified bool
++}
++
++// normalizeEmail validates a submitted address and returns it bare, "" when it
++// doesn't parse. Email is optional everywhere in hush, so a bad address is
++// quietly dropped — never an error the user has to see.
++func normalizeEmail(s string) string {
++	s = strings.TrimSpace(s)
++	if s == "" {
++		return ""
++	}
++	addr, err := mail.ParseAddress(s)
++	if err != nil {
++		return ""
++	}
++	return addr.Address
++}
++
++// maskEmail hides most of an address for the profile's quiet email line:
++// m***@example.com. Even the owner sees only enough to recognize it.
++func maskEmail(s string) string {
++	at := strings.IndexByte(s, '@')
++	if at <= 0 {
++		return "***"
++	}
++	return s[:1] + "***" + s[at:]
++}
++
++// newVerifyToken returns 32 random bytes as hex. The cleartext only ever
++// lives inside the verification link.
++func newVerifyToken() string {
++	var b [32]byte
++	_, _ = rand.Read(b[:])
++	return hex.EncodeToString(b[:])
++}
++
++// verifyLink builds the absolute verification URL a token rides in.
++func (a *app) verifyLink(token string) string {
++	return a.cfg.BaseURL + "/email/verify/" + token
++}
++
++// userIDByHandle resolves a handle to its users row.
++func (a *app) userIDByHandle(ctx context.Context, handle string) (int64, bool) {
++	var uid int64
++	err := a.pool.QueryRow(ctx, `SELECT id FROM users WHERE username = $1`, handle).Scan(&uid)
++	return uid, err == nil
++}
++
++// setMemberEmail upserts a member's address as unverified under a fresh token
++// and returns the cleartext token for the verification link. Changing an
++// address always restarts verification — the old confirmation doesn't carry.
++func (a *app) setMemberEmail(ctx context.Context, userID int64, email string) (string, error) {
++	token := newVerifyToken()
++	sum := sha256.Sum256([]byte(token))
++	_, err := a.pool.Exec(ctx,
++		`INSERT INTO hush_member_emails (user_id, email, verify_token_hash, verified_at, updated_at)
++		 VALUES ($1, $2, $3, NULL, now())
++		 ON CONFLICT (user_id) DO UPDATE
++		 SET email = EXCLUDED.email, verify_token_hash = EXCLUDED.verify_token_hash,
++		     verified_at = NULL, updated_at = now()`, userID, email, sum[:])
++	return token, err
++}
++
++// attachEmail stores an optional address for a member (unverified) and queues
++// the verification email — the one call registration flows and the profile's
++// set form share. Empty or unparseable input is a quiet no-op.
++func (a *app) attachEmail(ctx context.Context, handle, email string) {
++	email = normalizeEmail(email)
++	if email == "" || a.pool == nil {
++		return
++	}
++	uid, ok := a.userIDByHandle(ctx, handle)
++	if !ok {
++		return
++	}
++	token, err := a.setMemberEmail(ctx, uid, email)
++	if err != nil {
++		return
++	}
++	a.enqueueMail(ctx, email, "verify", verifyEmail(a.verifyLink(token)))
++}
++
++// emailFor assembles the profile's email section for its owner.
++func (a *app) emailFor(ctx context.Context, handle string) emailSection {
++	if a.pool == nil {
++		return emailSection{}
++	}
++	es := emailSection{Show: true}
++	var email string
++	var verified bool
++	if err := a.pool.QueryRow(ctx,
++		`SELECT e.email, e.verified_at IS NOT NULL FROM hush_member_emails e
++		 JOIN users u ON u.id = e.user_id WHERE u.username = $1`, handle).Scan(&email, &verified); err == nil {
++		es.Masked = maskEmail(email)
++		es.Verified = verified
++	}
++	return es
++}
++
++// verifyEmailPage is the link in the mail: GET /email/verify/{token}. The
++// UPDATE matches the token hash against unverified rows only, so a link works
++// exactly once — that's also what keeps the live "email-verified" emit from
++// double-counting (boot replay re-emits from verified_at rows instead).
++func (a *app) verifyEmailPage(c *beach.Ctx) (beach.View, error) {
++	if a.pool == nil {
++		return beach.View{Page: noticePage("verification needs the database.", "set DATABASE_URL to enable accounts.")}, nil
++	}
++	sum := sha256.Sum256([]byte(c.Param("token")))
++	var handle string
++	err := a.pool.QueryRow(c.Context(),
++		`UPDATE hush_member_emails e
++		 SET verified_at = now(), verify_token_hash = NULL, updated_at = now()
++		 FROM users u
++		 WHERE u.id = e.user_id AND e.verify_token_hash = $1 AND e.verified_at IS NULL
++		 RETURNING u.username`, sum[:]).Scan(&handle)
++	if err != nil {
++		return beach.View{Page: noticePage("that link doesn't verify anything.", "it may have been used already — check your profile.")}, nil
++	}
++	a.rep.emit("email-verified", handle)
++	return beach.View{Page: noticePage("email verified.", "your standing felt it.")}, nil
++}
++
++// doResendEmail regenerates the token for the signed-in member's unverified
++// address and queues a fresh verification email. Already verified (or no
++// address at all) is a no-op; either way, back to the profile.
++func (a *app) doResendEmail(w http.ResponseWriter, r *http.Request) {
++	handle, _, _ := a.acct(&beach.Ctx{W: w, R: r})
++	if a.authn == nil || handle == "" {
++		http.NotFound(w, r)
++		return
++	}
++	ctx := r.Context()
++	var uid int64
++	var email string
++	if err := a.pool.QueryRow(ctx,
++		`SELECT e.user_id, e.email FROM hush_member_emails e
++		 JOIN users u ON u.id = e.user_id
++		 WHERE u.username = $1 AND e.verified_at IS NULL`, handle).Scan(&uid, &email); err == nil {
++		if token, terr := a.setMemberEmail(ctx, uid, email); terr == nil {
++			a.enqueueMail(ctx, email, "verify", verifyEmail(a.verifyLink(token)))
++		}
++	}
++	http.Redirect(w, r, "/u/"+handle, http.StatusSeeOther)
++}
++
++// doSetEmail adds or changes the signed-in member's address — stored
++// unverified, verification queued — then 303s back to the profile.
++func (a *app) doSetEmail(w http.ResponseWriter, r *http.Request) {
++	handle, _, _ := a.acct(&beach.Ctx{W: w, R: r})
++	if a.authn == nil || handle == "" {
++		http.NotFound(w, r)
++		return
++	}
++	_ = r.ParseForm()
++	a.attachEmail(r.Context(), handle, r.FormValue("email"))
++	http.Redirect(w, r, "/u/"+handle, http.StatusSeeOther)
++}

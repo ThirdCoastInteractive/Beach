@@ -1,9 +1,11 @@
 package main
 
 import (
-	"sort"
-	"sync"
+	"context"
+	"fmt"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Domain types. These mirror the columns the annotated sqlc queries in
@@ -45,165 +47,201 @@ type ListItem struct {
 	Checked  bool
 }
 
-// memStore is the in-memory pantry store used when no DATABASE_URL is set, so
-// the binary serves the full CRUD surface (minus auth) without Postgres. With a
-// database the same handlers would call the generated sqlc queries; the store
-// interface is intentionally narrow so swapping is a one-liner.
-//
-// It is seeded so the home/inventory pages render something on first run.
-type memStore struct {
-	mu        sync.Mutex
-	items     map[int64]*Item
-	locations map[int64]*Location
-	lists     map[int64]*ShoppingList
-	nextID    int64
+// pgStore is the Postgres-backed pantry store — the system of record for
+// inventory, locations, and shopping lists. pantry requires a database, so this
+// is the only implementation (no in-memory fallback). The same handlers that
+// call it would, in a generated build, call the sqlc queries; the method surface
+// is intentionally narrow so swapping is mechanical.
+type pgStore struct {
+	pool *pgxpool.Pool
 }
 
-func newMemStore() *memStore {
-	s := &memStore{
-		items:     map[int64]*Item{},
-		locations: map[int64]*Location{},
-		lists:     map[int64]*ShoppingList{},
-		nextID:    1,
+// newPGStore returns the store and idempotently seeds a fresh database with the
+// sample inventory (3 locations, 6 items, 1 shopping list) so the UI renders
+// something on first run. Safe to run on every boot: it only inserts when
+// pantry_items is empty.
+func newPGStore(ctx context.Context, pool *pgxpool.Pool) (*pgStore, error) {
+	s := &pgStore{pool: pool}
+	if err := s.seed(ctx); err != nil {
+		return nil, err
 	}
-	s.seed()
-	return s
+	return s, nil
 }
 
-func (s *memStore) id() int64 {
-	v := s.nextID
-	s.nextID++
-	return v
-}
-
-func (s *memStore) seed() {
-	pantry := &Location{ID: s.id(), Name: "Pantry shelf", Kind: "pantry"}
-	fridge := &Location{ID: s.id(), Name: "Fridge", Kind: "fridge"}
-	freezer := &Location{ID: s.id(), Name: "Freezer", Kind: "freezer"}
-	for _, l := range []*Location{pantry, fridge, freezer} {
-		s.locations[l.ID] = l
+func (s *pgStore) seed(ctx context.Context) error {
+	var n int
+	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM pantry_items`).Scan(&n); err != nil {
+		return fmt.Errorf("pantry: seed count: %w", err)
 	}
-
-	soon := dayPtr(5)
-	later := dayPtr(40)
+	if n > 0 {
+		return nil
+	}
+	// Locations first; capture ids to place the items.
+	var pantry, fridge, freezer int64
+	for _, l := range []struct {
+		name, kind string
+		id         *int64
+	}{
+		{"Pantry shelf", "pantry", &pantry},
+		{"Fridge", "fridge", &fridge},
+		{"Freezer", "freezer", &freezer},
+	} {
+		if err := s.pool.QueryRow(ctx,
+			`INSERT INTO pantry_locations (name, kind) VALUES ($1, $2) RETURNING id`,
+			l.name, l.kind).Scan(l.id); err != nil {
+			return fmt.Errorf("pantry: seed location %q: %w", l.name, err)
+		}
+	}
+	// Items: expiry as current_date + N days (nil for the olive oil).
 	type seedItem struct {
 		name, unit, cat, photo string
 		qty                    float64
-		loc                    *Location
-		exp                    *time.Time
+		loc                    int64
+		expDays                int // 0 = no expiry
 	}
-	seeds := []seedItem{
-		{"Whole milk", "L", "dairy", "/static/img/milk.svg", 2, fridge, soon},
-		{"Eggs", "doz", "dairy", "/static/img/eggs.svg", 1, fridge, soon},
-		{"Pasta", "box", "dry", "/static/img/pasta.svg", 4, pantry, later},
-		{"Olive oil", "bottle", "dry", "/static/img/oil.svg", 1, pantry, nil},
-		{"Frozen peas", "bag", "frozen", "/static/img/peas.svg", 3, freezer, later},
-		{"Canned tomatoes", "can", "dry", "/static/img/tomato.svg", 6, pantry, later},
-	}
-	for _, sd := range seeds {
-		it := &Item{
-			ID: s.id(), Name: sd.name, Quantity: sd.qty, Unit: sd.unit,
-			Category: sd.cat, PhotoURL: sd.photo, ExpiresAt: sd.exp,
-			LocationID: sd.loc.ID, Location: sd.loc.Name,
+	for _, it := range []seedItem{
+		{"Whole milk", "L", "dairy", "/static/img/milk.svg", 2, fridge, 5},
+		{"Eggs", "doz", "dairy", "/static/img/eggs.svg", 1, fridge, 5},
+		{"Pasta", "box", "dry", "/static/img/pasta.svg", 4, pantry, 40},
+		{"Olive oil", "bottle", "dry", "/static/img/oil.svg", 1, pantry, 0},
+		{"Frozen peas", "bag", "frozen", "/static/img/peas.svg", 3, freezer, 40},
+		{"Canned tomatoes", "can", "dry", "/static/img/tomato.svg", 6, pantry, 40},
+	} {
+		var exp any
+		if it.expDays > 0 {
+			exp = time.Now().AddDate(0, 0, it.expDays)
 		}
-		s.items[it.ID] = it
-	}
-
-	list := &ShoppingList{ID: s.id(), Name: "Weekly groceries", Items: []ListItem{
-		{ID: s.id(), Name: "Bananas", Quantity: 6},
-		{ID: s.id(), Name: "Bread", Quantity: 1, Checked: true},
-		{ID: s.id(), Name: "Coffee", Quantity: 1},
-	}}
-	s.lists[list.ID] = list
-}
-
-func dayPtr(days int) *time.Time {
-	t := time.Now().AddDate(0, 0, days)
-	return &t
-}
-
-// --- reads ---
-
-func (s *memStore) listItems() []Item {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	out := make([]Item, 0, len(s.items))
-	for _, it := range s.items {
-		out = append(out, *it)
-	}
-	sort.Slice(out, func(i, j int) bool {
-		// expiring first (nil last), then name
-		ei, ej := out[i].ExpiresAt, out[j].ExpiresAt
-		switch {
-		case ei != nil && ej != nil && !ei.Equal(*ej):
-			return ei.Before(*ej)
-		case ei != nil && ej == nil:
-			return true
-		case ei == nil && ej != nil:
-			return false
+		if _, err := s.pool.Exec(ctx,
+			`INSERT INTO pantry_items (name, quantity, unit, category, photo_url, location_id, expires_at)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+			it.name, it.qty, it.unit, it.cat, it.photo, it.loc, exp); err != nil {
+			return fmt.Errorf("pantry: seed item %q: %w", it.name, err)
 		}
-		return out[i].Name < out[j].Name
-	})
-	return out
-}
-
-func (s *memStore) getItem(id int64) (Item, bool) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	it, ok := s.items[id]
-	if !ok {
-		return Item{}, false
 	}
-	return *it, true
-}
-
-func (s *memStore) listLocations() []Location {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	out := make([]Location, 0, len(s.locations))
-	for _, l := range s.locations {
-		out = append(out, *l)
+	// One shopping list with three lines.
+	var listID int64
+	if err := s.pool.QueryRow(ctx,
+		`INSERT INTO pantry_lists (name) VALUES ('Weekly groceries') RETURNING id`).Scan(&listID); err != nil {
+		return fmt.Errorf("pantry: seed list: %w", err)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	return out
-}
-
-func (s *memStore) listLists() []ShoppingList {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	out := make([]ShoppingList, 0, len(s.lists))
-	for _, l := range s.lists {
-		out = append(out, *l)
+	for _, li := range []struct {
+		name    string
+		qty     float64
+		checked bool
+	}{
+		{"Bananas", 6, false},
+		{"Bread", 1, true},
+		{"Coffee", 1, false},
+	} {
+		if _, err := s.pool.Exec(ctx,
+			`INSERT INTO pantry_list_items (list_id, name, quantity, checked) VALUES ($1, $2, $3, $4)`,
+			listID, li.name, li.qty, li.checked); err != nil {
+			return fmt.Errorf("pantry: seed list item %q: %w", li.name, err)
+		}
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
-	return out
+	return nil
 }
 
-// --- writes ---
+// --- reads (deleted_at filtered; ordering in SQL) ---
 
-func (s *memStore) addItem(it Item) Item {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	it.ID = s.id()
-	if loc, ok := s.locations[it.LocationID]; ok {
-		it.Location = loc.Name
+func (s *pgStore) listItems(ctx context.Context) ([]Item, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT i.id, i.name, i.quantity, i.unit, i.category, i.photo_url, i.expires_at,
+		       COALESCE(i.location_id, 0), COALESCE(l.name, '')
+		  FROM pantry_items i
+		  LEFT JOIN pantry_locations l ON l.id = i.location_id
+		 WHERE i.deleted_at IS NULL
+		 ORDER BY (i.expires_at IS NULL), i.expires_at, i.name`)
+	if err != nil {
+		return nil, err
 	}
-	s.items[it.ID] = &it
-	return it
+	defer rows.Close()
+	out := []Item{}
+	for rows.Next() {
+		var it Item
+		if err := rows.Scan(&it.ID, &it.Name, &it.Quantity, &it.Unit, &it.Category,
+			&it.PhotoURL, &it.ExpiresAt, &it.LocationID, &it.Location); err != nil {
+			return nil, err
+		}
+		out = append(out, it)
+	}
+	return out, rows.Err()
 }
 
-func (s *memStore) addLocation(name, kind string) Location {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	l := &Location{ID: s.id(), Name: name, Kind: kind}
-	s.locations[l.ID] = l
-	return *l
+func (s *pgStore) listLocations(ctx context.Context) ([]Location, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT id, name, kind FROM pantry_locations WHERE deleted_at IS NULL ORDER BY name`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []Location{}
+	for rows.Next() {
+		var l Location
+		if err := rows.Scan(&l.ID, &l.Name, &l.Kind); err != nil {
+			return nil, err
+		}
+		out = append(out, l)
+	}
+	return out, rows.Err()
 }
 
-func (s *memStore) addList(name string) ShoppingList {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	l := &ShoppingList{ID: s.id(), Name: name}
-	s.lists[l.ID] = l
-	return *l
+func (s *pgStore) listLists(ctx context.Context) ([]ShoppingList, error) {
+	rows, err := s.pool.Query(ctx, `
+		SELECT sl.id, sl.name, li.id, li.name, li.quantity, li.checked
+		  FROM pantry_lists sl
+		  LEFT JOIN pantry_list_items li ON li.list_id = sl.id
+		 WHERE sl.deleted_at IS NULL
+		 ORDER BY sl.name, li.id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []ShoppingList
+	byID := map[int64]int{} // list id -> index in out
+	for rows.Next() {
+		var (
+			lid    int64
+			lname  string
+			liID   *int64
+			liName *string
+			liQty  *float64
+			liChk  *bool
+		)
+		if err := rows.Scan(&lid, &lname, &liID, &liName, &liQty, &liChk); err != nil {
+			return nil, err
+		}
+		idx, ok := byID[lid]
+		if !ok {
+			out = append(out, ShoppingList{ID: lid, Name: lname})
+			idx = len(out) - 1
+			byID[lid] = idx
+		}
+		if liID != nil { // LEFT JOIN: skip the null row of an empty list
+			out[idx].Items = append(out[idx].Items, ListItem{
+				ID: *liID, Name: *liName, Quantity: *liQty, Checked: *liChk,
+			})
+		}
+	}
+	return out, rows.Err()
+}
+
+// --- writes (callers re-render from a fresh read, so only the error matters) ---
+
+func (s *pgStore) addItem(ctx context.Context, it Item) error {
+	var loc any
+	if it.LocationID != 0 {
+		loc = it.LocationID
+	}
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO pantry_items (name, quantity, unit, category, location_id, expires_at)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		it.Name, it.Quantity, it.Unit, it.Category, loc, it.ExpiresAt)
+	return err
+}
+
+func (s *pgStore) addLocation(ctx context.Context, name, kind string) error {
+	_, err := s.pool.Exec(ctx,
+		`INSERT INTO pantry_locations (name, kind) VALUES ($1, $2)`, name, kind)
+	return err
 }

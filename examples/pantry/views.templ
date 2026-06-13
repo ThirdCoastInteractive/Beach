@@ -46,8 +46,9 @@ templ (a *app) sidebar(active string) {
 
 // --- Dashboard ---
 
-// dashboardView is the home page: four deferred chart widgets in a grid. Each
-// placeholder reserves its height and @gets its fragment on intersection.
+// dashboardView is the home page: four deferred chart widgets in a grid, each
+// fed by a live query (the ClickHouse activity firehose + Postgres inventory).
+// Each placeholder reserves its height and @gets its fragment on intersection.
 templ (a *app) dashboardView(authed bool) {
 	@a.shellView(a.t(ctx, "dash.heading"), "dash", authed) {
 		@driftwood.Container(driftwood.ContainerProps{}) {
@@ -58,7 +59,6 @@ templ (a *app) dashboardView(authed bool) {
 				@dashWidget(a.t(ctx, "dash.expiry"), "w-expiry", "/widgets/expiry", "180px")
 				@dashWidget(a.t(ctx, "dash.waste"), "w-waste", "/widgets/waste", "220px")
 			}
-			@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleInfo, Title: a.t(ctx, "dash.sample")})
 		}
 	}
 }
@@ -82,7 +82,7 @@ templ dashWidget(title, id, src, height string) {
 // --- Inventory ---
 
 // itemsView lists inventory as a responsive card grid with photos. canWrite
-// shows the create form (pantry:write, or the single local user database-free).
+// shows the create form (gated on pantry:write).
 templ (a *app) itemsView(authed, canWrite bool, items []Item, locs []Location) {
 	@a.shellView(a.t(ctx, "items.heading"), "items", authed) {
 		@driftwood.Container(driftwood.ContainerProps{}) {
@@ -215,24 +215,20 @@ templ (a *app) listsView(authed bool, lists []ShoppingList) {
 
 // --- Login ---
 
-// loginView renders the sign-in page. Database-less it shows a warning instead
-// of the form; errCode surfaces the post-redirect failure banner.
-templ (a *app) loginView(authed, dbOn bool, errCode string) {
+// loginView renders the sign-in page. errCode surfaces the post-redirect
+// failure banner.
+templ (a *app) loginView(authed bool, errCode string) {
 	@a.shellView(a.t(ctx, "login.heading"), "", authed) {
 		@driftwood.Container(driftwood.ContainerProps{}) {
 			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: a.t(ctx, "login.heading")})
-			if !dbOn {
-				@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleWarn, Title: a.t(ctx, "login.dboff")})
-			} else {
-				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel}) {
-					switch errCode {
-						case "1":
-							@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleDanger, Title: "Invalid username or password."})
-						case "locked":
-							@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleDanger, Title: "Account locked. Try again later."})
-					}
-					@a.loginForm()
+			@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel}) {
+				switch errCode {
+					case "1":
+						@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleDanger, Title: "Invalid username or password."})
+					case "locked":
+						@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleDanger, Title: "Account locked. Try again later."})
 				}
+				@a.loginForm()
 			}
 		}
 	}

@@ -104,8 +104,7 @@ func backToWall() templ.Component {
 // accountStrip is the top-right account line: who you are, the admin links,
 // and log out. No score, no tier — standing is never printed; the
 // profile link simply appearing IS how you learn you've reached tier 1.
-// Empty when signed out (the gate line carries the call to action) or in
-// database-less open mode.
+// Empty when signed out (the gate line carries the call to action).
 func accountStrip(handle string, admin bool, tier int) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -135,7 +134,7 @@ func accountStrip(handle string, admin bool, tier int) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.JoinStringErrs(handle)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 42, Col: 27}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 41, Col: 27}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var5))
 			if templ_7745c5c3_Err != nil {
@@ -149,7 +148,7 @@ func accountStrip(handle string, admin bool, tier int) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 44, Col: 12}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 43, Col: 12}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -162,7 +161,7 @@ func accountStrip(handle string, admin bool, tier int) templ.Component {
 				var templ_7745c5c3_Var7 templ.SafeURL
 				templ_7745c5c3_Var7, templ_7745c5c3_Err = templ.JoinURLErrs("/u/" + handle)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 45, Col: 46}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 44, Col: 46}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var7))
 				if templ_7745c5c3_Err != nil {
@@ -177,7 +176,7 @@ func accountStrip(handle string, admin bool, tier int) templ.Component {
 				var templ_7745c5c3_Var8 string
 				templ_7745c5c3_Var8, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 48, Col: 12}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 47, Col: 12}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var8))
 				if templ_7745c5c3_Err != nil {
@@ -190,7 +189,7 @@ func accountStrip(handle string, admin bool, tier int) templ.Component {
 				var templ_7745c5c3_Var9 string
 				templ_7745c5c3_Var9, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 50, Col: 12}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 49, Col: 12}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var9))
 				if templ_7745c5c3_Err != nil {
@@ -203,7 +202,7 @@ func accountStrip(handle string, admin bool, tier int) templ.Component {
 				var templ_7745c5c3_Var10 string
 				templ_7745c5c3_Var10, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 52, Col: 12}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 51, Col: 12}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 				if templ_7745c5c3_Err != nil {
@@ -217,7 +216,7 @@ func accountStrip(handle string, admin bool, tier int) templ.Component {
 			var templ_7745c5c3_Var11 string
 			templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(" · ")
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 55, Col: 11}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 54, Col: 11}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 			if templ_7745c5c3_Err != nil {
@@ -273,7 +272,7 @@ func formPage(title string) templ.Component {
 			var templ_7745c5c3_Var14 string
 			templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 67, Col: 31}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 66, Col: 31}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 			if templ_7745c5c3_Err != nil {
@@ -350,7 +349,7 @@ func noticePage(title string, sub string) templ.Component {
 			var templ_7745c5c3_Var17 string
 			templ_7745c5c3_Var17, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 83, Col: 31}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 82, Col: 31}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var17))
 			if templ_7745c5c3_Err != nil {
@@ -368,7 +367,7 @@ func noticePage(title string, sub string) templ.Component {
 				var templ_7745c5c3_Var18 string
 				templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.JoinStringErrs(sub)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 85, Col: 30}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 84, Col: 30}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 				if templ_7745c5c3_Err != nil {
@@ -482,7 +481,7 @@ func note(msg string) templ.Component {
 		var templ_7745c5c3_Var22 string
 		templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(msg)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 108, Col: 6}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/hush/shell.templ`, Line: 107, Col: 6}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 		if templ_7745c5c3_Err != nil {

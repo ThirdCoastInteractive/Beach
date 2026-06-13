@@ -19,7 +19,7 @@ import (
 
 // emailSection is what the profile shows its owner about their email: the
 // masked address and whether it's verified, or nothing on file (the add form
-// renders). Show is false on other people's profiles and without a database.
+// renders). Show is false on other people's profiles.
 type emailSection struct {
 	Show     bool
 	Masked   string // "" when no address is on file
@@ -91,7 +91,7 @@ func (a *app) setMemberEmail(ctx context.Context, userID int64, email string) (s
 // set form share. Empty or unparseable input is a quiet no-op.
 func (a *app) attachEmail(ctx context.Context, handle, email string) {
 	email = normalizeEmail(email)
-	if email == "" || a.pool == nil {
+	if email == "" {
 		return
 	}
 	uid, ok := a.userIDByHandle(ctx, handle)
@@ -107,9 +107,6 @@ func (a *app) attachEmail(ctx context.Context, handle, email string) {
 
 // emailFor assembles the profile's email section for its owner.
 func (a *app) emailFor(ctx context.Context, handle string) emailSection {
-	if a.pool == nil {
-		return emailSection{}
-	}
 	es := emailSection{Show: true}
 	var email string
 	var verified bool
@@ -127,9 +124,6 @@ func (a *app) emailFor(ctx context.Context, handle string) emailSection {
 // exactly once — that's also what keeps the live "email-verified" emit from
 // double-counting (boot replay re-emits from verified_at rows instead).
 func (a *app) verifyEmailPage(c *beach.Ctx) (beach.View, error) {
-	if a.pool == nil {
-		return beach.View{Page: noticePage("verification needs the database.", "set DATABASE_URL to enable accounts.")}, nil
-	}
 	sum := sha256.Sum256([]byte(c.Param("token")))
 	var handle string
 	err := a.pool.QueryRow(c.Context(),
@@ -150,7 +144,7 @@ func (a *app) verifyEmailPage(c *beach.Ctx) (beach.View, error) {
 // address at all) is a no-op; either way, back to the profile.
 func (a *app) doResendEmail(w http.ResponseWriter, r *http.Request) {
 	handle, _, _ := a.acct(&beach.Ctx{W: w, R: r})
-	if a.authn == nil || handle == "" {
+	if handle == "" {
 		http.NotFound(w, r)
 		return
 	}
@@ -172,7 +166,7 @@ func (a *app) doResendEmail(w http.ResponseWriter, r *http.Request) {
 // unverified, verification queued — then 303s back to the profile.
 func (a *app) doSetEmail(w http.ResponseWriter, r *http.Request) {
 	handle, _, _ := a.acct(&beach.Ctx{W: w, R: r})
-	if a.authn == nil || handle == "" {
+	if handle == "" {
 		http.NotFound(w, r)
 		return
 	}

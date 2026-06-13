@@ -11,34 +11,48 @@ import (
 // Page handlers. Markup lives in views.templ; these shape the data and pick
 // the component. Each returns a full document built by (*app).shellView.
 
-// dashboardPage is the home route. It renders without a DB: four chart
-// widgets behind ui.Defer, each fed by sample data through its own widget
-// PageFunc (see dashboard.go).
+// dashboardPage is the home route: four deferred chart widgets behind ui.Defer,
+// each running its own query (CH activity line + Postgres inventory widgets).
 func (a *app) dashboardPage(c *beach.Ctx) (beach.View, error) {
 	_, authed := c.User()
 	return beach.View{Page: a.dashboardView(authed)}, nil
 }
 
-// itemsPage lists inventory from the in-memory store, so it works without a
-// database.
+// itemsPage lists inventory from Postgres. Viewing an item also lands an
+// item_viewed event in the firehose, so the activity line has read traffic.
 func (a *app) itemsPage(c *beach.Ctx) (beach.View, error) {
 	_, authed := c.User()
-	// Database-free there is no principal, so the single local user can manage
-	// their own pantry; with auth on, the pantry:write permission gates the form.
-	canWrite := a.authn == nil || a.principalCan(c, "pantry:write")
-	return beach.View{Page: a.itemsView(authed, canWrite, a.store.listItems(), a.store.listLocations())}, nil
+	canWrite := a.principalCan(c, "pantry:write")
+	items, err := a.store.listItems(c.Context())
+	if err != nil {
+		return beach.View{}, err
+	}
+	locs, err := a.store.listLocations(c.Context())
+	if err != nil {
+		return beach.View{}, err
+	}
+	a.track(c.R, event{Kind: "item_viewed"})
+	return beach.View{Page: a.itemsView(authed, canWrite, items, locs)}, nil
 }
 
 // locationsPage lists storage locations.
 func (a *app) locationsPage(c *beach.Ctx) (beach.View, error) {
 	_, authed := c.User()
-	return beach.View{Page: a.locationsView(authed, a.principalCan(c, "pantry:write"), a.store.listLocations())}, nil
+	locs, err := a.store.listLocations(c.Context())
+	if err != nil {
+		return beach.View{}, err
+	}
+	return beach.View{Page: a.locationsView(authed, a.principalCan(c, "pantry:write"), locs)}, nil
 }
 
 // listsPage renders the shopping lists and their lines.
 func (a *app) listsPage(c *beach.Ctx) (beach.View, error) {
 	_, authed := c.User()
-	return beach.View{Page: a.listsView(authed, a.store.listLists())}, nil
+	lists, err := a.store.listLists(c.Context())
+	if err != nil {
+		return beach.View{}, err
+	}
+	return beach.View{Page: a.listsView(authed, lists)}, nil
 }
 
 // --- view-data helpers (called from views.templ) ---
@@ -105,9 +119,9 @@ func expiringSoon(it Item) bool {
 	return it.ExpiresAt.Before(time.Now().AddDate(0, 0, 7))
 }
 
-// principalCan reports whether the request principal holds permission. Without a
-// configured PrincipalResolver (no DB) every request is anonymous and this is
-// false, so write forms are hidden — read-only degradation.
+// principalCan reports whether the request principal holds permission. An
+// anonymous (signed-out) request has no permissions, so write forms stay hidden
+// until login.
 func (a *app) principalCan(c *beach.Ctx, perm string) bool {
 	p, _ := c.Principal()
 	return p.Can(perm)
