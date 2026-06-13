@@ -16,8 +16,9 @@ It exercises the packages the trio doesn't: `storage` (Local, R2 via
 `ch` (the analytics firehose + admin charts), and **Repute** (post scoring,
 which gates profiles and invites).
 
-Views live in `pages.templ` (plus `adminviews.templ`, `analyticsviews.templ`,
-and `emails.templ`) behind a **custom shell** (`templ shell`): hush links
+Views live in one `.templ` file per surface — `shell` (document + scaffolding),
+`wall`, `feed`, `gate`, `profile`, `camera`, `terms`, `adminviews`,
+`analyticsviews`, `emails` — behind a **custom shell** (`templ shell`): hush links
 the framework stylesheet (so `dw-*` surfaces still resolve) *and* its own
 `static/css/hush.css`, and loads `datastar.js` but deliberately **not**
 `chart.js` — proof that an app can replace the driftwood page chrome and skip

@@ -25,7 +25,7 @@ feature.** Each is verified in a real browser (chrome-devtools/playwright)
 clicking the actual flows, not just compiling and serving a 200.
 
 Two things every app shares: views are `.templ` components (`views.templ` /
-hush's `pages.templ`, compiled by `make gen`, generated output committed), and
+hush's per-surface files, compiled by `make gen`, generated output committed), and
 each mounts the framework's [specimen](16-components.md#the-specimen) at
 `/specimen` — the component/token/chart gallery rides the examples instead of a
 dedicated demo binary.
@@ -391,10 +391,11 @@ The **custom-layout + client-JS showcase**, and the only consumer of `storage`
 and Repute. A curated, anonymous wall of square posts — *hush-hush* by design.
 Full architecture in [18-hush.md](18-hush.md); in brief:
 
-- Views live in `pages.templ` with a **custom shell**: hush links the framework
-  stylesheet plus its own `hush.css`, loads `datastar.js` but deliberately not
-  `chart.js` — the proof that an app can skip the driftwood page chrome (and the
-  chart layer) without losing the framework.
+- Views live in one `.templ` file per surface (shell, wall, feed, gate, profile,
+  camera, terms, admin, analytics, emails) with a **custom shell**: hush links the
+  framework stylesheet plus its own `hush.css`, loads `datastar.js` but
+  deliberately not `chart.js` — the proof that an app can skip the driftwood page
+  chrome (and the chart layer) without losing the framework.
 - A **gapless grid of square tiles** (pure CSS, container-query text scaling) is
   the proof that a custom layout sits cleanly on the SSR core.
 - A **WebGPU camera** is the proof that client-side JS can be an isolated island —
