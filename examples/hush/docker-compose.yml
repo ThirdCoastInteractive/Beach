@@ -44,21 +44,15 @@ services:
       CLICKHOUSE_DB: hush
       # The image ships `default` locked to container-localhost; this makes the
       # entrypoint regenerate that user with open networks so the app can reach
-      # it across the (internal-only) compose network with the passwordless DSN.
+      # it across the (internal-only) compose network by service name.
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
-    # The image's default <listen_host> is the IPv6 dual-stack "::"; on a host
-    # with IPv6 disabled that bind fails with no IPv4 fallback and the server
-    # never opens 8123/9000. Pin it to IPv4 so the stack comes up anywhere.
-    configs:
-      - source: ch_listen_ipv4
-        target: /etc/clickhouse-server/config.d/listen.xml
     volumes: [chdata:/var/lib/clickhouse]
     networks: [internal]
     healthcheck:
-      # 127.0.0.1, not localhost: we pin the server to IPv4 (listen.xml above),
-      # but localhost resolves to ::1 first, so a localhost check misses its
-      # own server.
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8123/ping"]
+      # clickhouse-client talks to its own server over the native protocol —
+      # no host or port to name, so the check never depends on how localhost
+      # happens to resolve.
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -94,9 +88,4 @@ networks:
 volumes:
   pgdata:
   chdata:
-
-configs:
-  ch_listen_ipv4:
-    content: |
-      <clickhouse><listen_host>0.0.0.0</listen_host></clickhouse>
 
