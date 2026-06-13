@@ -272,8 +272,11 @@ a one-line `hushed.` notice; otherwise only the control goes inert
 (`flagged`). No counts, no progress bar — **a member never learns what their
 flag did**. Hiding is reversible by design: the post keeps its row, its flags,
 and its capture meta for admin review, where the ruling is `restore` (back on
-the wall, flags cleared so they can't re-hide it) or `purge` (the row deleted
-outright, reactions and flags cascading with it). Admins can also `hide`
+the wall, flags cleared so they can't re-hide it) or `purge` (a **soft**
+delete: `deleted_at`/`deleted_by` are stamped and the post leaves every public
+surface and the review queue, but the row, reactions, flags, and capture meta
+stay as evidence — kept in the admin browser under a `purged` badge, never
+destroyed; the terms promise exactly that). Admins can also `hide`
 directly from the browser pages — same switch, their handle in `hidden_by`
 instead of `'flags'`.
 
@@ -461,34 +464,41 @@ The count is on stripped plain text, so `**bold**` costs 4 characters, not 8.
 A client-side island that produces a blob and hands it to a normal action.
 Everything around it is SSR; this is the "client JS on top of Beach" showcase.
 
-Pipeline (`examples/hush/static/js/camera.js`), adapted from the m13 audition
-recorder but **still capture, not video, and WebGPU, not WebGL**:
+Pipeline (`examples/hush/static/js/camera.js`), a shader instrument — **still
+capture, not video, and WebGPU, not WebGL**:
 
-1. `navigator.mediaDevices.getUserMedia({ video })` → hidden `<video>` preview.
-   No audio track.
-2. Each frame is imported as a WebGPU external texture and drawn through a
-   **WGSL render pipeline**: LUT + brightness/contrast/saturation/temperature/
-   grain/vignette, the recorder's preset set translated GLSL→WGSL. Output to a
-   canvas.
-3. **`grab()`** replaces the recorder's start/stop: `canvas.toBlob('image/jpeg',
-   0.9)` of the filtered canvas. The shader already modified the frame live, so
-   the filtered canvas *is* the modified still — no post-step. This is "capture
-   the raw image, then modify": modification happens in the live pipeline.
-4. Upload: `POST /upload` hands the blob to a normal action → `storeImage`
-   (Cloudflare Images when wired, the file store otherwise) → the tile renders
-   from the thumb variant or the stored URL.
+1. **Two sources, one pipeline.** The camera
+   (`getUserMedia({ video })` → a per-frame copy into the source texture) or a
+   picked image file (`createImageBitmap` → the same texture). The
+   upload-and-edit path the docs always promised is now real: file mode works
+   with no webcam at all.
+2. **One WGSL fragment shader, one pass.** A uniforms struct carries the six
+   grade params (brightness, contrast, saturation, temperature, grain,
+   vignette), the effect flags/intensities, and a `time` clock. The pass
+   samples (with VHS row-displacement and channel aberration when on), takes
+   halation taps, grades, layers the effects (crushed blacks, blown
+   highlights, lifted blacks, mono, duotone, negative, ordered-dither
+   posterize, scanlines), then closes the vignette — all arithmetic, identity
+   at zero, so the looks stack freely without rebuilding the pipeline.
+3. **Nine preset looks** (`none`, `noir`, `bleach`, `dream`, `vhs`, `poster`,
+   `wound`, `negative`, `crush`) are slider-set-plus-flag bundles. Picking one
+   writes the sliders (so you see what it did) and swaps the flags whole; the
+   six sliders then fine-tune live on top. A steady `requestAnimationFrame`
+   loop drives both modes, so animated grain and scanlines stay alive even on
+   a still.
+4. **Capture** is `canvas.toBlob('image/jpeg', 0.9)` of the filtered canvas in
+   the same frame as a render — the shader already modified the preview, so the
+   canvas *is* the modified still. `POST /upload` hands the blob to the normal
+   action → `storeImage` (Cloudflare Images when wired, the file store
+   otherwise) → the tile renders from the thumb variant or the stored URL. The
+   § 2257 certification gates the shutter (and the server refuses uncertified
+   uploads regardless).
 
-The **upload-and-edit** path feeds an uploaded file into the *same* WebGPU
-pipeline as a texture, so camera and editor share one set of WGSL shaders — one
-island, two entry points.
-
-WGSL gives the compute path room to grow filters beyond per-pixel — separable
-blur/bokeh, histogram tone-mapping, 3D film LUTs — without changing `grab()` or
-the upload flow, which sit above the renderer.
-
-Feature detection is a one-liner: if `navigator.gpu` is absent the camera button
-is disabled and plain image upload (unfiltered) still works, so a device without
-WebGPU can still post — it just doesn't get the live filters.
+Feature detection: no `navigator.gpu` disables the shutter, hides the
+instrument, and points back at the wall's plain (unfiltered) upload; WebGPU
+present but no webcam still does file mode. WGSL leaves room to grow beyond
+per-pixel — separable blur/bokeh, histogram tone-mapping, 3D film LUTs —
+without touching capture or upload, which sit above the renderer.
 
 ## The gapless square grid
 
@@ -621,6 +631,7 @@ by the package that owns it; `.env.example` mirrors this table.
 | --- | --- |
 | `PORT` | listen port (default 8080) |
 | `DATABASE_URL` | Postgres DSN; unset = open, in-memory, no gate |
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | compose-only: the credentials the postgres service is created with and that compose's built `DATABASE_URL` uses (defaults `beach`/`beach`/`hush`) |
 | `CLICKHOUSE_DSN` | ClickHouse DSN for the observation store; unset = analytics off (set-but-wrong panics at boot) |
 | `HUSH_OPEN_SLOTS` | open the first N registrations with no review; once spent the queue resumes (default 0) |
 | `HUSH_TIER1` | author score that unlocks tier 1, the profile (default 3) |
@@ -628,6 +639,7 @@ by the package that owns it; `.env.example` mirrors this table.
 | `HUSH_EMAIL_POINTS` | author standing granted for a verified email (default 2) |
 | `HUSH_FLAG_TIER` | tier whose single flag insta-hides a post (default 1) |
 | `HUSH_FLAG_QUORUM` | how many tier-0 flags hide a post by agreement (default 3) |
+| `HUSH_INVITE_BASE` / `HUSH_INVITE_MAX` | a tier-1 member's starting invite allowance and the hard cap (defaults 3 / 6) |
 | `HUSH_BASE_URL` | absolute origin for links inside outgoing email (default `http://localhost:8080`) |
 | `HUSH_ADMIN_EMAIL` | where new-application notices go; unset = no admin mail |
 | `HUSH_FILES_DIR` | Local file-store root when R2 is unset (default: under the OS temp dir) |
@@ -665,13 +677,15 @@ upload form (303 back to the wall — CSP-clean, no Datastar). ◆ Gate (verifie
 in-browser): upload an image, it `Put`s to the store, serves from `/files`, and
 renders as an image tile in the gapless wall.
 
-**Block C — WebGPU camera. ✅ built (capture needs a real camera to verify).** The
-`camera.js` island on `/compose`: `getUserMedia` → a WGSL render pipeline
-(brightness/contrast/saturation/temperature + presets none/noir/bleach/dream over
-a `texture_external`) → `canvas.toBlob` → `POST /upload` (the Block B endpoint) →
-back to the wall. Feature-detects `navigator.gpu` and falls back to the plain
-upload. ◆ Gate: the page renders, CSS + WebGPU init verified in-browser; the live
-filtered capture is verified on a device with an actual camera.
+**Block C — WebGPU camera. ✅ built (shader instrument).** The `camera.js`
+island on `/compose` is a one-pass WGSL fragment shader fed by either the
+webcam or a picked photo, with nine preset looks and six live grade sliders on
+uniforms (see [the camera section](#the-camera--webgpu-filter-pipeline)) →
+`canvas.toBlob` → `POST /upload` → back to the wall. Feature-detects
+`navigator.gpu` (falls back to the plain upload) and a missing webcam (file
+mode still works). ◆ Gate (verified in-browser): file mode grades a synthesized
+image through `noir` and the grayscale grainy result lands on the wall;
+presets and sliders change the rendered pixels live.
 
 **Block D — the gate. ✅ built (verified against Postgres).** DB-optional, like
 pantry: set `DATABASE_URL` and the gate turns on; without it the wall runs open.
@@ -764,8 +778,15 @@ the log; with `RELEASE` set, a missing `DATABASE_URL` — or any database
 failure at boot — is fatal: a production wall never quietly runs open.
 Building the private Repute dep needs
 `GOPRIVATE=…,github.com/ThirdCoastInteractive`. Or use the self-contained
-`examples/hush/docker-compose.yml` — `docker compose build --ssh default &&
-docker compose up` (the SSH agent is forwarded so the image build can fetch
-Repute; see the [Dockerfile](../../Dockerfile)) — which runs Postgres and
-ClickHouse internal-only alongside the app, mail on the log transport. Each
-example carries its own `docker-compose.yml` + `.env.example`.
+`examples/hush/docker-compose.yml` — `cp .env.example .env && docker compose
+build --ssh default && docker compose up` (the SSH agent is forwarded so the
+image build can fetch Repute; see the [Dockerfile](../../Dockerfile)) — which
+runs Postgres and ClickHouse **internal-only** alongside the app, with **only
+the web port published**. The **same `.env`** feeds both `go run` and compose:
+compose interpolates the `POSTGRES_*` credentials from it and loads the whole
+file into the app via `env_file`, then its `environment` block overrides the
+connection/origin values with service names (`postgres:5432`,
+`clickhouse:9000`) so the localhost URLs the file hands `go run` don't reach
+the container (`environment` beats `env_file`). ClickHouse is pinned to IPv4
+with a `127.0.0.1` healthcheck so the stack comes up on hosts with IPv6
+disabled. Each example carries its own `docker-compose.yml` + `.env.example`.
