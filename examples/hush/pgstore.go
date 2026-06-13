@@ -1,6 +1,6 @@
-// The Postgres wall. Same interface as the in-memory store (model.go), but
-// posts, reactions, and flags survive restarts — production mode, switched on
-// by the same DATABASE_URL that enables the gate.
+// The Postgres wall — hush's only store. Posts, reactions, flags, and the
+// moderation state all live here; the app requires a database, so this is the
+// store, not one of two. Post types and the boot seed are in model.go.
 package main
 
 import (

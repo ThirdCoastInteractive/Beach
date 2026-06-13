@@ -50,15 +50,15 @@ var staticFS embed.FS
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
 
-// app holds the wired dependencies the handlers close over. With DATABASE_URL
-// set, the wall and the signup gate — applications, accounts, roles, sessions —
-// are Postgres-backed (pgStore); without it the app runs open and in-memory
-// (memStore): anyone can post, there's no gate. files and images are the media
-// wiring (media.go): Local or R2 behind the Store interface, plus the optional
-// Cloudflare Images client image posts route through.
+// app holds the wired dependencies the handlers close over. The wall and the
+// whole gate — applications, accounts, roles, sessions, the live policy — are
+// Postgres-backed (store, a *pgStore); a database is required, there is no
+// in-memory mode. files and images are the media wiring (media.go): Local or R2
+// behind the Store interface, plus the optional Cloudflare Images client image
+// posts route through.
 type app struct {
 	cfg      config
-	store    wall
+	store    *pgStore
 	files    storage.Store
 	images   *cfimages.Client // nil = image posts go through files
 	rep      *reputation
@@ -126,67 +126,49 @@ func main() {
 		Logger:  logger,
 	}
 
-	// Optional Postgres: the wall persists and the signup gate (applications,
-	// accounts, RBAC, sessions) switches on. Without it the wall runs open and
-	// database-less — a DEV convenience only. In RELEASE the degrade paths are
-	// fatal instead: a production wall that loses its database must die loudly,
-	// never quietly reopen with no gate, no accounts, and anonymous posting.
+	// Postgres is required: it holds the wall and the whole gate — applications,
+	// accounts, RBAC, sessions, the live policy. There is no in-memory fallback;
+	// a missing or broken database is fatal, because a hush with no database is
+	// a hush with no gate, and that is never what you want running. Each step
+	// below dies loudly rather than degrading.
 	ctx := context.Background()
 	dsn := os.Getenv("DATABASE_URL")
-	if a.release && dsn == "" {
-		log.Fatal("hush: RELEASE requires DATABASE_URL — the wall must not run open in production")
+	if dsn == "" {
+		log.Fatal("hush: DATABASE_URL is required (run the docker compose stack; see docs/architecture/18-hush.md)")
 	}
-	if dsn != "" {
-		pool, perr := openPool(ctx, dsn)
-		if perr != nil {
-			if a.release {
-				log.Fatalf("hush: database connect failed: %v", perr)
-			}
-			logger.Error("hush: database connect failed; running database-less — THE WALL IS OPEN", "err", perr)
-		} else {
-			a.pool = pool
-			if err := a.migrate(ctx); err != nil {
-				if a.release {
-					log.Fatalf("hush: migrate failed: %v", err)
-				}
-				logger.Error("hush: migrate failed; running database-less — THE WALL IS OPEN", "err", err)
-				pool.Close()
-				a.pool = nil
-			} else if wallStore, werr := newPGStore(ctx, pool); werr != nil {
-				if a.release {
-					log.Fatalf("hush: wall init failed: %v", werr)
-				}
-				logger.Error("hush: wall init failed; running database-less — THE WALL IS OPEN", "err", werr)
-				pool.Close()
-				a.pool = nil
-			} else {
-				a.store = wallStore
-				a.sessions = session.NewStore(pool, session.Config{CookieName: sessionCookie})
-				a.authn = auth.NewAuthenticator(pool, a.sessions, auth.LockoutConfig{})
-				cfg.Sessions = a.sessions
-				cfg.Principals = a.principalResolver
-				if err := a.seedAdmin(ctx); err != nil {
-					logger.Error("hush: seed admin failed", "err", err)
-				}
-				// seed the policy table from env on first boot, then load the
-				// authoritative values over the live pointer
-				if err := a.loadSettings(ctx, seed); err != nil {
-					logger.Error("hush: load settings failed; using env defaults", "err", err)
-				}
-				// chains feed the replay's echoes, so hydrate them first
-				if err := a.hydrateChains(ctx); err != nil {
-					logger.Error("hush: hydrate invite chains failed", "err", err)
-				}
-				if err := a.replayReputation(ctx); err != nil {
-					logger.Error("hush: reputation replay failed", "err", err)
-				}
-				logger.Info("hush: database mode (gate enabled)", "login", "admin / password", "openSlots", a.live().OpenSlots)
-			}
-		}
+	pool, err := openPool(ctx, dsn)
+	if err != nil {
+		log.Fatalf("hush: database connect failed: %v", err)
 	}
-	if a.store == nil {
-		a.store = newMemStore()
+	a.pool = pool
+	if err := a.migrate(ctx); err != nil {
+		log.Fatalf("hush: migrate failed: %v", err)
 	}
+	store, err := newPGStore(ctx, pool)
+	if err != nil {
+		log.Fatalf("hush: wall init failed: %v", err)
+	}
+	a.store = store
+	a.sessions = session.NewStore(pool, session.Config{CookieName: sessionCookie})
+	a.authn = auth.NewAuthenticator(pool, a.sessions, auth.LockoutConfig{})
+	cfg.Sessions = a.sessions
+	cfg.Principals = a.principalResolver
+	if err := a.seedAdmin(ctx); err != nil {
+		log.Fatalf("hush: seed admin failed: %v", err)
+	}
+	// seed the policy table from env on first boot, then load the authoritative
+	// values over the live pointer
+	if err := a.loadSettings(ctx, seed); err != nil {
+		log.Fatalf("hush: load settings failed: %v", err)
+	}
+	// chains feed the replay's echoes, so hydrate them first
+	if err := a.hydrateChains(ctx); err != nil {
+		log.Fatalf("hush: hydrate invite chains failed: %v", err)
+	}
+	if err := a.replayReputation(ctx); err != nil {
+		log.Fatalf("hush: reputation replay failed: %v", err)
+	}
+	logger.Info("hush: ready", "login", "admin / password", "openSlots", a.live().OpenSlots)
 
 	// The outbox pump — transactional email leaves the process only here, and
 	// only in database mode (the queue is a table). Boot's reputation replay
