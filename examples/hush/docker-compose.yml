@@ -1,13 +1,19 @@
 name: hush
 
-# Standalone runner for the hush example (gated anon board + Repute scoring).
+# Self-contained hush stack: the app, its Postgres, and its ClickHouse — only
+# the web port is published; the databases are internal-only.
 #
-#   docker compose build --ssh default     # Repute is a private module — see note
+#   cp .env.example .env                    # then edit it (mail keys, secrets)
+#   docker compose build --ssh default      # Repute is a private module, see below
 #   docker compose up                       →  http://localhost:8080  (admin / password)
 #
-# Postgres is internal-only (no host port mapping); only the app is published.
-# Without DATABASE_URL the app runs open/database-less, but the signup gate and
-# accounts need Postgres.
+# ONE .env feeds everything. Compose reads it for the ${...} interpolation
+# below (the Postgres credentials), and the hush service loads the whole file
+# via env_file so the operator's mail/R2/Cloudflare/trust knobs reach the app.
+# The hush `environment:` block then overrides the four connection/origin
+# values so the container talks to the postgres/clickhouse SERVICES, not the
+# localhost URLs the same .env hands `go run`. (Compose precedence: environment
+# beats env_file, so the override always wins.)
 #
 # NOTE: hush depends on the private module github.com/ThirdCoastInteractive/Repute,
 # so the image build needs git access to it. Build with BuildKit SSH forwarding —
@@ -18,13 +24,13 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: beach
-      POSTGRES_PASSWORD: beach
-      POSTGRES_DB: hush
+      POSTGRES_USER: ${POSTGRES_USER:-beach}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-beach}
+      POSTGRES_DB: ${POSTGRES_DB:-hush}
     volumes: [pgdata:/var/lib/postgresql/data]
     networks: [internal]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U beach -d hush"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-beach} -d ${POSTGRES_DB:-hush}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -40,13 +46,23 @@ services:
       # entrypoint regenerate that user with open networks so the app can reach
       # it across the (internal-only) compose network with the passwordless DSN.
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    # The image's default <listen_host> is the IPv6 dual-stack "::"; on a host
+    # with IPv6 disabled that bind fails with no IPv4 fallback and the server
+    # never opens 8123/9000. Pin it to IPv4 so the stack comes up anywhere.
+    configs:
+      - source: ch_listen_ipv4
+        target: /etc/clickhouse-server/config.d/listen.xml
     volumes: [chdata:/var/lib/clickhouse]
     networks: [internal]
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8123/ping"]
+      # 127.0.0.1, not localhost: we pin the server to IPv4 (listen.xml above),
+      # but localhost resolves to ::1 first, so a localhost check misses its
+      # own server.
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8123/ping"]
       interval: 5s
       timeout: 5s
-      retries: 10
+      retries: 12
+      start_period: 30s
 
   hush:
     build:
@@ -55,19 +71,16 @@ services:
         APP: hush
         GOPRIVATE: github.com/ThirdCoastInteractive
       ssh: [default] # forward the SSH agent so go can fetch the private Repute module
+    # The operator's config — mail, R2, Cloudflare Images, the trust knobs,
+    # the admin inbox — rides in from the same .env the local run uses.
+    env_file: [.env]
+    # ...and these reach past it: container-internal service names instead of
+    # the localhost URLs .env carries for `go run`. environment beats env_file.
     environment:
       PORT: "8080"
-      # Reached by service name on the internal network; never published to host.
-      DATABASE_URL: postgres://beach:beach@postgres:5432/hush?sslmode=disable
+      DATABASE_URL: postgres://${POSTGRES_USER:-beach}:${POSTGRES_PASSWORD:-beach}@postgres:5432/${POSTGRES_DB:-hush}?sslmode=disable
       CLICKHOUSE_DSN: clickhouse://default:@clickhouse:9000/hush
-      # Links inside outgoing email (verification, invites) are built on this.
       HUSH_BASE_URL: http://localhost:${PORT:-8080}
-      # Email is log-only by default (sends print to the app log). For real
-      # delivery set a transport — and an admin inbox for application notices:
-      # HUSH_ADMIN_EMAIL: admin@example.com
-      # MAIL_FROM_ADDR: hush@example.com
-      # MAILGUN_KEY: ...
-      # MAILGUN_DOMAIN: ...
     networks: [internal]
     ports: ["${PORT:-8080}:8080"]
     depends_on:
@@ -81,3 +94,9 @@ networks:
 volumes:
   pgdata:
   chdata:
+
+configs:
+  ch_listen_ipv4:
+    content: |
+      <clickhouse><listen_host>0.0.0.0</listen_host></clickhouse>
+
