@@ -94,6 +94,12 @@
   gap: 0.75rem;
 }
 
+/* the upload form's certification appears only once an image is chosen: the
+   required file input is :valid exactly then, and :has lifts that state to
+   the form. no script — the picker is the trigger. */
+.hush-upload .hush-agree { display: none; }
+.hush-upload:has(.hush-file:valid) .hush-agree { display: flex; }
+
 /* legal checkboxes (the 18+/terms agreement, the § 2257 certification) —
    quiet, but real: the server refuses the action without them */
 .hush-agree {

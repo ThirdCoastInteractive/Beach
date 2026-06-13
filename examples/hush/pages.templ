@@ -157,7 +157,10 @@ templ composer(notice string) {
 		<div id="hush-note" class="hush-note" aria-live="polite">{ notice }</div>
 		<form class="hush-upload" method="post" action="/upload" enctype="multipart/form-data">
 			<div class="hush-upload-row">
-				<input type="file" id="hush-image" name="image" accept="image/*" class="hush-file"/>
+				// required does double duty: the form can't submit empty, and
+				// :valid flips only once a file is chosen — which is what shows
+				// the certification below (the :has rule in hush.css)
+				<input type="file" id="hush-image" name="image" accept="image/*" class="hush-file" required/>
 				<button class="hush-post hush-post--ghost" type="submit">upload image</button>
 				<a class="hush-link hush-cam-link" href="/compose">or open the camera →</a>
 			</div>
