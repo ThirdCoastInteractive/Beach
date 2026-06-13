@@ -144,11 +144,16 @@ async function main() {
 }
 
 function capture(stream) {
+  // the § 2257 certification gates the shutter; the server refuses uploads
+  // without the field regardless, this just tells the truth before the trip
+  const cert = document.getElementById("cam-2257");
+  if (cert && !cert.checked) { setStatus("confirm the § 2257 certification first."); return; }
   setStatus("posting…");
   canvas.toBlob((blob) => {
     if (!blob) { setStatus("capture failed — try again."); requestAnimationFrame(() => {}); return; }
     const fd = new FormData();
     fd.append("image", blob, "capture.jpg");
+    fd.append("cert2257", "on");
     fetch("/upload", { method: "POST", body: fd })
       .then(() => { stream.getTracks().forEach((t) => t.stop()); window.location = "/"; })
       .catch((err) => setStatus("upload failed: " + err.message));

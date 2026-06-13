@@ -157,6 +157,10 @@ func (a *app) doRegister(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/apply", http.StatusSeeOther)
 		return
 	}
+	if !agreed(r, "agree18") {
+		http.Redirect(w, r, "/apply?err=agree", http.StatusSeeOther)
+		return
+	}
 	ctx := r.Context()
 
 	tag, err := a.pool.Exec(ctx,
@@ -179,6 +183,7 @@ func (a *app) doRegister(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/apply?err="+signupErrCode(err), http.StatusSeeOther)
 		return
 	}
+	a.recordAgreement(ctx, handle, agreeTOS18, clientMeta(r))
 	a.attachEmail(ctx, handle, r.FormValue("email"))
 	a.track(r, "register", handle, 0)
 	a.signIn(w, r, handle, password)
@@ -199,6 +204,8 @@ func signupErrMsg(code string) string {
 		return "password too short — 8 characters minimum."
 	case "taken":
 		return "that handle is taken — try another."
+	case "agree":
+		return "you must be 18 or older and accept the terms to contribute."
 	}
 	return ""
 }
@@ -236,6 +243,10 @@ func (a *app) doRedeem(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/invite/"+code, http.StatusSeeOther)
 		return
 	}
+	if !agreed(r, "agree18") {
+		http.Redirect(w, r, "/invite/"+code+"?err=agree", http.StatusSeeOther)
+		return
+	}
 	ctx := r.Context()
 
 	var inviter string
@@ -258,6 +269,7 @@ func (a *app) doRedeem(w http.ResponseWriter, r *http.Request) {
 	}
 	_, _ = a.pool.Exec(ctx, `INSERT INTO hush_signups (handle, via) VALUES ($1, 'invite')`, handle)
 	a.addChain(handle, inviter)
+	a.recordAgreement(ctx, handle, agreeTOS18, clientMeta(r))
 	a.attachEmail(ctx, handle, r.FormValue("email"))
 	a.track(r, "redeem", handle, 0)
 	a.signIn(w, r, handle, password)

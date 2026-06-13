@@ -82,15 +82,56 @@
   font-size: 0.8rem;
 }
 
-/* image upload row */
+/* image upload: the picker row, then the § 2257 certification under it */
 .hush-upload {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
   margin-top: 0.85rem;
   padding-top: 0.85rem;
   border-top: 1px solid rgba(255, 255, 255, 0.12);
 }
+.hush-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* legal checkboxes (the 18+/terms agreement, the § 2257 certification) —
+   quiet, but real: the server refuses the action without them */
+.hush-agree {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  text-align: left;
+}
+.hush-agree input[type="checkbox"] {
+  margin: 0.15rem 0 0;
+  accent-color: #fff;
+}
+.hush-agree .hush-link { font-size: inherit; text-decoration: underline; }
+
+/* the terms page: plain words, readable measure */
+.hush-terms { max-width: 640px; }
+.hush-terms-body {
+  margin-top: 1.5rem;
+  text-align: left;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.75);
+}
+.hush-terms-body h2 {
+  margin: 1.4rem 0 0.4rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: lowercase;
+  color: #fff;
+}
+.hush-terms-body p { margin: 0; }
+.hush-terms-body strong { color: #fff; }
 .hush-file {
   flex: 1;
   min-width: 0;
@@ -215,6 +256,14 @@
   color: rgba(255, 255, 255, 0.5);
   font-size: 0.82rem;
 }
+.hush-cam .hush-agree { max-width: 520px; }
+
+/* the wall's one quiet legal pointer */
+.hush-foot {
+  margin: 2rem 0 1.5rem;
+  text-align: center;
+}
+.hush-foot .hush-link { color: rgba(255, 255, 255, 0.4); }
 .hush-back { text-align: center; margin-top: 1.5rem; }
 
 /* account strip + gate */

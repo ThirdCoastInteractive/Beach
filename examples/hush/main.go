@@ -204,6 +204,9 @@ func (a *app) routes(app *beach.App) {
 	app.Page("/apply", a.applyPage)
 	app.Page("/login", a.loginPage)
 	app.Page("/u/{handle}", a.profileView)
+	app.Page("/terms", func(c *beach.Ctx) (beach.View, error) {
+		return beach.View{Page: termsPage(a.cfg.AdminEmail)}, nil
+	})
 
 	// The framework's living showcase — every driftwood component and chart
 	// type with sample data — mounted so a hush checkout doubles as a styling
@@ -375,13 +378,21 @@ func (a *app) feedMore(newer bool) beach.PageFunc {
 	}
 }
 
+// homeNotice maps the wall's ?err code onto the composer's note line.
+func homeNotice(code string) string {
+	if code == "2257" {
+		return "image posts need the § 2257 certification — check the box."
+	}
+	return ""
+}
+
 // home renders the wall on navigation and patches the grid on a Datastar request.
 func (a *app) home(c *beach.Ctx) (beach.View, error) {
 	posts := a.store.list(c.Context())
 	handle, canPost, admin := a.acct(c)
 	a.track(c.R, "view_wall", handle, 0)
 	return beach.View{
-		Page:     a.homePage(posts, handle, canPost, admin, a.tierOf(a.rep.score(handle)), a.openLeft(c.Context())),
+		Page:     a.homePage(posts, handle, canPost, admin, a.tierOf(a.rep.score(handle)), a.openLeft(c.Context()), homeNotice(c.Query("err"))),
 		Fragment: a.grid(posts),
 		Target:   "hush-grid",
 	}, nil
@@ -486,6 +497,12 @@ func (a *app) uploadImage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
+	// no certification, no image — 18 U.S.C. § 2257 rides every upload, the
+	// wall form and the camera alike, and each assent leaves a row
+	if !agreed(r, "cert2257") {
+		http.Redirect(w, r, "/?err=2257", http.StatusSeeOther)
+		return
+	}
 	f, hdr, err := r.FormFile("image")
 	if err != nil {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -505,6 +522,7 @@ func (a *app) uploadImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	author, _, _ := a.acct(&beach.Ctx{W: w, R: r})
+	a.recordAgreement(r.Context(), author, agree2257, clientMeta(r))
 	p, err := a.store.addImage(r.Context(), mediaURL, cfID, author, clientMeta(r))
 	if err != nil {
 		http.Redirect(w, r, "/", http.StatusSeeOther)

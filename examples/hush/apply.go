@@ -59,6 +59,10 @@ func (a *app) doApply(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/apply", http.StatusSeeOther)
 		return
 	}
+	if !agreed(r, "agree18") {
+		http.Redirect(w, r, "/apply?err=agree", http.StatusSeeOther)
+		return
+	}
 	hash, err := passwords.Hash(password)
 	if err != nil {
 		http.Redirect(w, r, "/apply?err="+signupErrCode(err), http.StatusSeeOther)
@@ -81,6 +85,7 @@ func (a *app) doApply(w http.ResponseWriter, r *http.Request) {
 		`INSERT INTO hush_applications (handle, pitch, password_hash, photo_key, email) VALUES ($1, $2, $3, $4, $5)`,
 		handle, pitch, hash, photoKey, email)
 	if err == nil {
+		a.recordAgreement(r.Context(), handle, agreeTOS18, clientMeta(r))
 		if a.cfg.AdminEmail != "" {
 			a.enqueueMail(r.Context(), a.cfg.AdminEmail, "application-received", applicationReceivedAdmin(handle, pitch))
 		}

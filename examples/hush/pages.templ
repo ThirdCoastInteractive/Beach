@@ -93,7 +93,7 @@ templ backToWall() {
 // the clicked square into its feed card. A method on *app — like every view
 // that renders post images — so it can resolve each post's image source
 // through the media helpers (media.go).
-templ (a *app) homePage(posts []Post, handle string, canPost bool, admin bool, tier int, openLeft int) {
+templ (a *app) homePage(posts []Post, handle string, canPost bool, admin bool, tier int, openLeft int, notice string) {
 	@shell("hush") {
 		@accountStrip(handle, admin, tier)
 		<div class="hush-top">
@@ -102,7 +102,7 @@ templ (a *app) homePage(posts []Post, handle string, canPost bool, admin bool, t
 				<p class="hush-sub">a quiet wall — post into it.</p>
 			</header>
 			if canPost {
-				@composer()
+				@composer(notice)
 			} else if openLeft > 0 {
 				<p class="hush-sub hush-gateline">{ strconv.Itoa(openLeft) + " seats open — " }<a class="hush-link" href="/apply">claim one</a> or <a class="hush-link" href="/login">sign in</a>.</p>
 			} else {
@@ -110,6 +110,7 @@ templ (a *app) homePage(posts []Post, handle string, canPost bool, admin bool, t
 			}
 		</div>
 		@a.grid(posts)
+		<p class="hush-foot"><a class="hush-link" href="/terms">terms</a></p>
 	}
 }
 
@@ -146,18 +147,21 @@ templ accountStrip(handle string, admin bool, tier int) {
 // image upload below it IS a plain multipart form (303 back to the wall) — no
 // Datastar, no inline script, CSP-clean; the camera island adds the
 // fetch-based prepend path.
-templ composer() {
+templ composer(notice string) {
 	<div class="hush-compose">
 		<textarea id="hush-body" name="body" class="hush-input" data-bind:body aria-label="compose a post" placeholder="say something — **bold**, *italics*, - lists"></textarea>
 		<div class="hush-compose-row">
 			<span class="hush-hint">bold · italics · lists · 512 characters</span>
 			<button class="hush-post" data-on:click="@post('/posts')">post</button>
 		</div>
-		<div id="hush-note" class="hush-note" aria-live="polite"></div>
+		<div id="hush-note" class="hush-note" aria-live="polite">{ notice }</div>
 		<form class="hush-upload" method="post" action="/upload" enctype="multipart/form-data">
-			<input type="file" id="hush-image" name="image" accept="image/*" class="hush-file"/>
-			<button class="hush-post hush-post--ghost" type="submit">upload image</button>
-			<a class="hush-link hush-cam-link" href="/compose">or open the camera →</a>
+			<div class="hush-upload-row">
+				<input type="file" id="hush-image" name="image" accept="image/*" class="hush-file"/>
+				<button class="hush-post hush-post--ghost" type="submit">upload image</button>
+				<a class="hush-link hush-cam-link" href="/compose">or open the camera →</a>
+			</div>
+			@certBox2257("hush-2257")
 		</form>
 	</div>
 }
@@ -488,6 +492,7 @@ templ registerFormPage(left int, errMsg string) {
 			<input class="hush-input" type="text" name="handle" placeholder="handle" autocomplete="username" required/>
 			<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="new-password" required/>
 			<input class="hush-input" type="email" name="email" placeholder="email (optional — never shown)" autocomplete="email"/>
+			@agreeBox()
 			<div class="hush-form-row">
 				<a class="hush-link" href="/login">already in? sign in →</a>
 				<button class="hush-post" type="submit">claim</button>
@@ -507,6 +512,7 @@ templ inviteFormPage(code string, errMsg string) {
 			<input class="hush-input" type="text" name="handle" placeholder="handle" autocomplete="username" required/>
 			<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="new-password" required/>
 			<input class="hush-input" type="email" name="email" placeholder="email (optional — never shown)" autocomplete="email"/>
+			@agreeBox()
 			<div class="hush-form-row">
 				<a class="hush-link" href="/login">already in? sign in →</a>
 				<button class="hush-post" type="submit">join</button>
@@ -570,6 +576,7 @@ templ composePage() {
 					</select>
 					<button id="cam-shoot" class="hush-post" type="button">capture</button>
 				</div>
+				@certBox2257("cam-2257")
 				<p id="cam-status" class="cam-status" aria-live="polite"></p>
 			</div>
 			@backToWall()
@@ -593,6 +600,7 @@ templ applyFormPage(errMsg string) {
 			<textarea class="hush-input" name="pitch" rows="4" placeholder="what do you want to post? (3–5 lines)" required></textarea>
 			<label class="hush-hint">a photo of you (optional)</label>
 			<input class="hush-file" type="file" name="photo" accept="image/*"/>
+			@agreeBox()
 			<div class="hush-form-row">
 				<a class="hush-link" href="/login">already approved? sign in →</a>
 				<button class="hush-post" type="submit">apply</button>
