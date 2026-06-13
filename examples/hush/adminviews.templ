@@ -167,7 +167,7 @@ templ (a *app) postRow(p Post, v voteCount, back string) {
 	{{ id := strconv.FormatInt(p.ID, 10) }}
 	<tr>
 		<td>
-			if p.Hidden {
+			if p.Hidden || p.Deleted {
 				{ "#" + id }
 			} else {
 				<a class="hush-link" href={ postHref(p.ID) }>{ "#" + id }</a>
@@ -189,19 +189,24 @@ templ (a *app) postRow(p Post, v voteCount, back string) {
 		<td>{ strconv.Itoa(v.Down) }</td>
 		<td>{ strconv.Itoa(p.FlagCount) }</td>
 		<td>
-			if p.Hidden {
+			if p.Deleted {
+				<span class="hush-adm-badge">purged</span>
+			} else if p.Hidden {
 				<span class="hush-adm-badge">hidden</span>
 			}
 		</td>
 		<td>
-			<div class="hush-adm-actions">
-				if p.Hidden {
-					@moderateForm(id, "restore", back)
-				} else {
-					@moderateForm(id, "hide", back)
-				}
-				@moderateForm(id, "purge", back)
-			</div>
+			// a purged post is settled — kept as evidence, no further rulings
+			if !p.Deleted {
+				<div class="hush-adm-actions">
+					if p.Hidden {
+						@moderateForm(id, "restore", back)
+					} else {
+						@moderateForm(id, "hide", back)
+					}
+					@moderateForm(id, "purge", back)
+				</div>
+			}
 		</td>
 	</tr>
 }

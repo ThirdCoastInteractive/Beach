@@ -22,6 +22,7 @@ type Post struct {
 	CFImageID string // image posts, Cloudflare Images id ("" when stored via files)
 	Author    string // handle that posted it (for Repute scoring; never shown — the wall is anon)
 	Hidden    bool   // moderated off the wall; permalink 404s for non-admins
+	Deleted   bool   // purged (soft) — gone everywhere but the admin browser
 	FlagCount int    // filled on admin reads
 	Meta      Meta   // capture-time request context; admin eyes only
 	CreatedAt time.Time
@@ -71,8 +72,10 @@ type wall interface {
 	// restore puts a hidden post back and clears its flags — the admin has
 	// ruled it fine, so the old flags shouldn't re-hide it on the next one.
 	restore(ctx context.Context, id int64) error
-	// purge deletes a post outright, reactions and flags with it.
-	purge(ctx context.Context, id int64) error
+	// purge takes a post off every surface but the admin browser — soft: the
+	// row, reactions, flags, and capture meta stay as evidence (the terms
+	// promise exactly that), and by records which admin ruled.
+	purge(ctx context.Context, id int64, by string) error
 	// flagged returns posts needing review — hidden or carrying flags — newest
 	// first, with FlagCount filled.
 	flagged(ctx context.Context) []Post
@@ -87,18 +90,20 @@ type wall interface {
 type memStore struct {
 	mu     sync.Mutex
 	posts  []Post                    // ID-ascending; Meta rides each row
-	voters map[int64]map[string]int8 // post id → handle → reaction (+1/−1; one, final)
-	flags  map[int64]map[string]int  // post id → flagger → tier at flag time
-	hidden map[int64]string          // post id → who hid it ("flags" for the community)
-	next   int64
+	voters  map[int64]map[string]int8 // post id → handle → reaction (+1/−1; one, final)
+	flags   map[int64]map[string]int  // post id → flagger → tier at flag time
+	hidden  map[int64]string          // post id → who hid it ("flags" for the community)
+	deleted map[int64]string          // post id → which admin purged it (soft: the row is evidence)
+	next    int64
 }
 
 func newMemStore() *memStore {
 	s := &memStore{
-		voters: map[int64]map[string]int8{},
-		flags:  map[int64]map[string]int{},
-		hidden: map[int64]string{},
-		next:   1,
+		voters:  map[int64]map[string]int8{},
+		flags:   map[int64]map[string]int{},
+		hidden:  map[int64]string{},
+		deleted: map[int64]string{},
+		next:    1,
 	}
 	for _, md := range seedPosts {
 		if html, ok := renderPost(md); ok {
@@ -111,8 +116,19 @@ func newMemStore() *memStore {
 // fill copies a post with its moderation state filled. Callers hold s.mu.
 func (s *memStore) fill(p Post) Post {
 	_, p.Hidden = s.hidden[p.ID]
+	_, p.Deleted = s.deleted[p.ID]
 	p.FlagCount = len(s.flags[p.ID])
 	return p
+}
+
+// gone reports whether a post is off the public wall entirely — hidden by
+// moderation or soft-deleted. Callers hold s.mu.
+func (s *memStore) gone(id int64) bool {
+	if _, hid := s.hidden[id]; hid {
+		return true
+	}
+	_, del := s.deleted[id]
+	return del
 }
 
 // find returns a pointer into s.posts, hidden or not. Callers hold s.mu.
@@ -128,7 +144,7 @@ func (s *memStore) find(id int64) *Post {
 func (s *memStore) get(_ context.Context, id int64) (Post, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if _, hid := s.hidden[id]; hid {
+	if s.gone(id) {
 		return Post{}, false
 	}
 	if p := s.find(id); p != nil {
@@ -191,7 +207,7 @@ func (s *memStore) neighbors(_ context.Context, id int64, newer bool, limit int)
 	if newer {
 		// nearest above id = the smallest IDs past it; s.posts is ID-ascending
 		for _, p := range s.posts {
-			if _, hid := s.hidden[p.ID]; hid {
+			if s.gone(p.ID) {
 				continue
 			}
 			if p.ID > id {
@@ -204,7 +220,7 @@ func (s *memStore) neighbors(_ context.Context, id int64, newer bool, limit int)
 	} else {
 		for i := len(s.posts) - 1; i >= 0; i-- {
 			p := s.posts[i]
-			if _, hid := s.hidden[p.ID]; hid {
+			if s.gone(p.ID) {
 				continue
 			}
 			if p.ID < id {
@@ -247,7 +263,7 @@ func (s *memStore) list(_ context.Context) []Post {
 	defer s.mu.Unlock()
 	out := make([]Post, 0, len(s.posts))
 	for _, p := range s.posts {
-		if _, hid := s.hidden[p.ID]; hid {
+		if s.gone(p.ID) {
 			continue
 		}
 		out = append(out, s.fill(p))
@@ -260,6 +276,10 @@ func (s *memStore) flag(_ context.Context, postID int64, flagger string, flagger
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.find(postID) == nil {
+		return false, false
+	}
+	if _, del := s.deleted[postID]; del {
+		// a purged post is settled; flags on it do nothing
 		return false, false
 	}
 	fresh := false
@@ -316,19 +336,18 @@ func (s *memStore) restore(_ context.Context, id int64) error {
 	return nil
 }
 
-func (s *memStore) purge(_ context.Context, id int64) error {
+func (s *memStore) purge(_ context.Context, id int64, by string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for i := range s.posts {
-		if s.posts[i].ID == id {
-			s.posts = append(s.posts[:i], s.posts[i+1:]...)
-			delete(s.voters, id)
-			delete(s.flags, id)
-			delete(s.hidden, id)
-			return nil
-		}
+	if s.find(id) == nil {
+		return errNoPost
 	}
-	return errNoPost
+	// soft: the post leaves every surface but the admin browser; the row,
+	// reactions, flags, and capture meta stay as evidence
+	if _, del := s.deleted[id]; !del {
+		s.deleted[id] = by
+	}
+	return nil
 }
 
 func (s *memStore) flagged(_ context.Context) []Post {
@@ -337,6 +356,10 @@ func (s *memStore) flagged(_ context.Context) []Post {
 	var out []Post
 	for i := len(s.posts) - 1; i >= 0; i-- {
 		p := s.posts[i]
+		if _, del := s.deleted[p.ID]; del {
+			// purged posts are settled, out of the review queue
+			continue
+		}
 		_, hid := s.hidden[p.ID]
 		if hid || len(s.flags[p.ID]) > 0 {
 			out = append(out, s.fill(p))

@@ -36,7 +36,11 @@ func newPGStore(ctx context.Context, pool *pgxpool.Pool) (*pgStore, error) {
 
 // postCols is the SELECT list every post read shares; scanPost matches it.
 const postCols = `p.id, p.kind, p.body_html, p.media_url, p.cf_image_id, p.author,
-	p.ip, p.country, p.city, p.user_agent, p.created_at, (p.hidden_at IS NOT NULL)`
+	p.ip, p.country, p.city, p.user_agent, p.created_at, (p.hidden_at IS NOT NULL),
+	(p.deleted_at IS NOT NULL)`
+
+// visibleWhere is the public wall's filter: not hidden, not soft-deleted.
+const visibleWhere = `p.hidden_at IS NULL AND p.deleted_at IS NULL`
 
 // pgxScanner is the Scan seam pgx.Row and pgx.Rows share.
 type pgxScanner interface{ Scan(dest ...any) error }
@@ -45,7 +49,7 @@ type pgxScanner interface{ Scan(dest ...any) error }
 // flag-count column (the admin reads append it to postCols).
 func scanPost(sc pgxScanner, p *Post, withFlags bool) error {
 	dest := []any{&p.ID, &p.Kind, &p.BodyHTML, &p.ImageURL, &p.CFImageID, &p.Author,
-		&p.Meta.IP, &p.Meta.Country, &p.Meta.City, &p.Meta.UA, &p.CreatedAt, &p.Hidden}
+		&p.Meta.IP, &p.Meta.Country, &p.Meta.City, &p.Meta.UA, &p.CreatedAt, &p.Hidden, &p.Deleted}
 	if withFlags {
 		dest = append(dest, &p.FlagCount)
 	}
@@ -76,13 +80,13 @@ func (s *pgStore) queryPosts(ctx context.Context, withFlags bool, q string, args
 
 func (s *pgStore) list(ctx context.Context) []Post {
 	return s.queryPosts(ctx, false,
-		`SELECT `+postCols+` FROM hush_posts p WHERE p.hidden_at IS NULL ORDER BY p.id DESC`)
+		`SELECT `+postCols+` FROM hush_posts p WHERE `+visibleWhere+` ORDER BY p.id DESC`)
 }
 
 func (s *pgStore) get(ctx context.Context, id int64) (Post, bool) {
 	var p Post
 	err := scanPost(s.pool.QueryRow(ctx,
-		`SELECT `+postCols+` FROM hush_posts p WHERE p.hidden_at IS NULL AND p.id = $1`, id), &p, false)
+		`SELECT `+postCols+` FROM hush_posts p WHERE `+visibleWhere+` AND p.id = $1`, id), &p, false)
 	return p, err == nil
 }
 
@@ -96,9 +100,9 @@ func (s *pgStore) anyPost(ctx context.Context, id int64) (Post, bool) {
 }
 
 func (s *pgStore) neighbors(ctx context.Context, id int64, newer bool, limit int) ([]Post, bool) {
-	q := `SELECT ` + postCols + ` FROM hush_posts p WHERE p.hidden_at IS NULL AND p.id < $1 ORDER BY p.id DESC LIMIT $2`
+	q := `SELECT ` + postCols + ` FROM hush_posts p WHERE ` + visibleWhere + ` AND p.id < $1 ORDER BY p.id DESC LIMIT $2`
 	if newer {
-		q = `SELECT ` + postCols + ` FROM hush_posts p WHERE p.hidden_at IS NULL AND p.id > $1 ORDER BY p.id ASC LIMIT $2`
+		q = `SELECT ` + postCols + ` FROM hush_posts p WHERE ` + visibleWhere + ` AND p.id > $1 ORDER BY p.id ASC LIMIT $2`
 	}
 	out := s.queryPosts(ctx, false, q, id, limit+1)
 	more := len(out) > limit
@@ -227,22 +231,34 @@ func (s *pgStore) restore(ctx context.Context, id int64) error {
 	return err
 }
 
-func (s *pgStore) purge(ctx context.Context, id int64) error {
-	tag, err := s.pool.Exec(ctx, `DELETE FROM hush_posts WHERE id = $1`, id) // reactions + flags cascade
+func (s *pgStore) purge(ctx context.Context, id int64, by string) error {
+	// soft: the row, reactions, flags, and capture meta stay as evidence (the
+	// terms promise exactly that); the post just leaves every public surface
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE hush_posts SET deleted_at = now(), deleted_by = $2 WHERE id = $1 AND deleted_at IS NULL`, id, by)
 	if err != nil {
 		return err
 	}
 	if tag.RowsAffected() == 0 {
-		return errNoPost
+		// already purged is fine; missing is not
+		var exists bool
+		if err := s.pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM hush_posts WHERE id = $1)`, id).Scan(&exists); err != nil {
+			return err
+		}
+		if !exists {
+			return errNoPost
+		}
 	}
 	return nil
 }
 
 func (s *pgStore) flagged(ctx context.Context) []Post {
+	// purged posts are settled — out of the review queue, kept only in the
+	// admin browser
 	return s.queryPosts(ctx, true,
 		`SELECT `+postCols+`, count(f.post_id)::int
 		 FROM hush_posts p LEFT JOIN hush_flags f ON f.post_id = p.id
-		 WHERE p.hidden_at IS NOT NULL OR f.post_id IS NOT NULL
+		 WHERE p.deleted_at IS NULL AND (p.hidden_at IS NOT NULL OR f.post_id IS NOT NULL)
 		 GROUP BY p.id
 		 ORDER BY p.id DESC`)
 }

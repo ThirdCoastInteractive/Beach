@@ -235,14 +235,14 @@ func (a *app) doModerate(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 	id, _ := strconv.ParseInt(r.FormValue("id"), 10, 64)
 	ctx := r.Context()
+	admin, _, _ := a.acct(&beach.Ctx{W: w, R: r})
 	switch r.FormValue("action") {
 	case "hide":
-		admin, _, _ := a.acct(&beach.Ctx{W: w, R: r})
 		_ = a.store.hide(ctx, id, admin)
 	case "restore":
 		_ = a.store.restore(ctx, id)
 	case "purge":
-		_ = a.store.purge(ctx, id)
+		_ = a.store.purge(ctx, id, admin)
 	}
 	back := r.FormValue("back")
 	if !strings.HasPrefix(back, "/admin") {
