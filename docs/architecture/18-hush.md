@@ -638,9 +638,8 @@ POSTs that 303 (CSP-clean, no Datastar dependency).
 ## Config
 
 Two layers. **Infrastructure, secrets, and scoring weights** are env, read once
-at boot into `a.cfg` (config.go); the two example files mirror this table
-(`.env.example` for `go run`, `.env.docker.example` for the stack — see
-Running it for why they differ on the database). The
+at boot into `a.cfg` (config.go); `.env.example` mirrors this table (minus the
+connection strings, which compose builds — see Running it). The
 **gate-and-moderation policy** (tier thresholds, flag tier/quorum, invite
 base/cap, open slots, admin email) lives in the `hush_settings` table
 (settings.go), edited at `/admin/settings` with **no restart** — held behind an
@@ -790,30 +789,32 @@ trio: a rendered page is not a working feature.
 
 ## Running it
 
-There's an env example per way to run, each self-contained and each naming the
-database in exactly one place.
+hush runs as a container stack — there is no `go run` workflow to babysit.
 
-**Locally (`go run`):** copy `examples/hush/.env.example` to `.env` and point
-`DATABASE_URL` at a Postgres (or unset it to run open/database-less);
-optionally point `CLICKHOUSE_DSN` at a ClickHouse for the analytics dashboard.
-That one DSN is the whole database story — `go run` connects to a database,
-it doesn't create one, so there is no separate credentials block. The `.env`
-loads at boot (cwd or the example dir; real env wins). The open database-less
-wall is a dev convenience only and announces itself in the log; with `RELEASE`
-set, a missing `DATABASE_URL` — or any database failure at boot — is fatal: a
-production wall never quietly runs open.
+```
+cd examples/hush
+cp .env.example .env                  # then edit it (secrets)
+docker compose build --ssh default    # Repute is a private module, see below
+docker compose up                     # → http://localhost:8080 (admin / password)
+```
 
-**Containerized:** copy `examples/hush/.env.docker.example` to `.env`, then
-`docker compose build --ssh default && docker compose up` (the SSH agent is
-forwarded so the image build can fetch the private Repute dep, which otherwise
-needs `GOPRIVATE=…,github.com/ThirdCoastInteractive`; see the
-[Dockerfile](../../Dockerfile)). The stack runs Postgres and ClickHouse
-**internal-only** alongside the app, with **only the web port published**. The
-docker `.env` carries no `DATABASE_URL` and no localhost: it holds the Postgres
-credentials, the secrets, and the policy seeds, and `docker-compose.yml` builds
-the connection strings from those credentials and the service names
-(`postgres:5432`, `clickhouse:9000`) in its `environment` block — so the
-database connection is configured once, in the compose file, not duplicated
-into the env. `HUSH_BASE_URL` comes from the `.env` (your public origin) or a
-localhost default. ClickHouse's healthcheck is `clickhouse-client --query
-'SELECT 1'`, which talks to its own server with no host to name.
+The stack is the app, its Postgres, and its ClickHouse, all on an internal
+network with **only the web port published** — the databases never expose a
+port. The app gets its whole config from the container environment that compose
+injects; it reads no `.env` off disk. One `.env` (from `.env.example`) holds the
+Postgres credentials, the operator secrets (mail, R2, Cloudflare), and the
+policy seeds — but **no `DATABASE_URL` and no localhost**: the app reaches its
+database and observation store by service name, and `docker-compose.yml` builds
+the connection strings from the credentials and the service names
+(`postgres:5432`, `clickhouse:9000`) in its `environment` block, so the database
+connection is configured once, in the compose file, not duplicated into the env.
+`HUSH_BASE_URL` comes from the `.env` (your public origin) or a localhost
+default. ClickHouse's healthcheck is `clickhouse-client --query 'SELECT 1'`,
+which talks to its own server with no host to name.
+
+The image build needs git access to the private Repute module — BuildKit SSH
+forwarding (`--ssh default`) hands the agent and `GOPRIVATE` to `go mod
+download`; see the [Dockerfile](../../Dockerfile). The wall still degrades to an
+open in-memory mode if it boots without a database, but the stack always gives
+it one; with `RELEASE` set, a missing or unreachable database at boot is fatal,
+so a production wall never quietly runs open.
