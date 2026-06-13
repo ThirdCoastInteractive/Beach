@@ -638,7 +638,9 @@ POSTs that 303 (CSP-clean, no Datastar dependency).
 ## Config
 
 Two layers. **Infrastructure, secrets, and scoring weights** are env, read once
-at boot into `a.cfg` (config.go); `.env.example` mirrors this table. The
+at boot into `a.cfg` (config.go); the two example files mirror this table
+(`.env.example` for `go run`, `.env.docker.example` for the stack — see
+Running it for why they differ on the database). The
 **gate-and-moderation policy** (tier thresholds, flag tier/quorum, invite
 base/cap, open slots, admin email) lives in the `hush_settings` table
 (settings.go), edited at `/admin/settings` with **no restart** — held behind an
@@ -788,25 +790,30 @@ trio: a rendered page is not a working feature.
 
 ## Running it
 
-Locally (`go run`): copy `examples/hush/.env.example` to `.env` and point
+There's an env example per way to run, each self-contained and each naming the
+database in exactly one place.
+
+**Locally (`go run`):** copy `examples/hush/.env.example` to `.env` and point
 `DATABASE_URL` at a Postgres (or unset it to run open/database-less);
 optionally point `CLICKHOUSE_DSN` at a ClickHouse for the analytics dashboard.
-The `.env` actually loads at boot (cwd or the example dir; real env wins).
-The open database-less wall is a dev convenience only and announces itself in
-the log; with `RELEASE` set, a missing `DATABASE_URL` — or any database
-failure at boot — is fatal: a production wall never quietly runs open.
-Building the private Repute dep needs
-`GOPRIVATE=…,github.com/ThirdCoastInteractive`. Or use the self-contained
-`examples/hush/docker-compose.yml` — `cp .env.example .env && docker compose
-build --ssh default && docker compose up` (the SSH agent is forwarded so the
-image build can fetch Repute; see the [Dockerfile](../../Dockerfile)) — which
-runs Postgres and ClickHouse **internal-only** alongside the app, with **only
-the web port published**. The **same `.env`** feeds both `go run` and compose:
-compose interpolates the `POSTGRES_*` credentials from it and loads the whole
-file into the app via `env_file`, then its `environment` block overrides the
-connection/origin values with service names (`postgres:5432`,
-`clickhouse:9000`) so the localhost URLs the file hands `go run` don't reach
-the container (`environment` beats `env_file`). ClickHouse's healthcheck is
-`clickhouse-client --query 'SELECT 1'`, which talks to its own server over the
-native protocol with no host to name. Each example carries its own
-`docker-compose.yml` + `.env.example`.
+That one DSN is the whole database story — `go run` connects to a database,
+it doesn't create one, so there is no separate credentials block. The `.env`
+loads at boot (cwd or the example dir; real env wins). The open database-less
+wall is a dev convenience only and announces itself in the log; with `RELEASE`
+set, a missing `DATABASE_URL` — or any database failure at boot — is fatal: a
+production wall never quietly runs open.
+
+**Containerized:** copy `examples/hush/.env.docker.example` to `.env`, then
+`docker compose build --ssh default && docker compose up` (the SSH agent is
+forwarded so the image build can fetch the private Repute dep, which otherwise
+needs `GOPRIVATE=…,github.com/ThirdCoastInteractive`; see the
+[Dockerfile](../../Dockerfile)). The stack runs Postgres and ClickHouse
+**internal-only** alongside the app, with **only the web port published**. The
+docker `.env` carries no `DATABASE_URL` and no localhost: it holds the Postgres
+credentials, the secrets, and the policy seeds, and `docker-compose.yml` builds
+the connection strings from those credentials and the service names
+(`postgres:5432`, `clickhouse:9000`) in its `environment` block — so the
+database connection is configured once, in the compose file, not duplicated
+into the env. `HUSH_BASE_URL` comes from the `.env` (your public origin) or a
+localhost default. ClickHouse's healthcheck is `clickhouse-client --query
+'SELECT 1'`, which talks to its own server with no host to name.
