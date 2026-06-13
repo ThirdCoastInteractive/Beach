@@ -27,6 +27,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -34,6 +35,7 @@ import (
 	beach "github.com/ThirdCoastInteractive/the-beach"
 	"github.com/ThirdCoastInteractive/the-beach/auth"
 	"github.com/ThirdCoastInteractive/the-beach/ch"
+	beachcfg "github.com/ThirdCoastInteractive/the-beach/config"
 	"github.com/ThirdCoastInteractive/the-beach/mailer"
 	"github.com/ThirdCoastInteractive/the-beach/session"
 	"github.com/ThirdCoastInteractive/the-beach/storage"
@@ -87,6 +89,13 @@ type app struct {
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
 
+	// The .env the README tells you to copy actually loads — from the cwd or
+	// the example dir, whichever exists — and real env always wins over the
+	// file. Without this, a configured DATABASE_URL silently never arrives and
+	// the wall boots open.
+	_ = beachcfg.LoadEnvFile(".env")
+	_ = beachcfg.LoadEnvFile(filepath.Join("examples", "hush", ".env"))
+
 	addr := ":8080"
 	if p := os.Getenv("PORT"); p != "" {
 		addr = ":" + p
@@ -118,20 +127,35 @@ func main() {
 
 	// Optional Postgres: the wall persists and the signup gate (applications,
 	// accounts, RBAC, sessions) switches on. Without it the wall runs open and
-	// database-less.
+	// database-less — a DEV convenience only. In RELEASE the degrade paths are
+	// fatal instead: a production wall that loses its database must die loudly,
+	// never quietly reopen with no gate, no accounts, and anonymous posting.
 	ctx := context.Background()
-	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
+	dsn := os.Getenv("DATABASE_URL")
+	if a.release && dsn == "" {
+		log.Fatal("hush: RELEASE requires DATABASE_URL — the wall must not run open in production")
+	}
+	if dsn != "" {
 		pool, perr := openPool(ctx, dsn)
 		if perr != nil {
-			logger.Error("hush: database connect failed; running database-less", "err", perr)
+			if a.release {
+				log.Fatalf("hush: database connect failed: %v", perr)
+			}
+			logger.Error("hush: database connect failed; running database-less — THE WALL IS OPEN", "err", perr)
 		} else {
 			a.pool = pool
 			if err := a.migrate(ctx); err != nil {
-				logger.Error("hush: migrate failed; running database-less", "err", err)
+				if a.release {
+					log.Fatalf("hush: migrate failed: %v", err)
+				}
+				logger.Error("hush: migrate failed; running database-less — THE WALL IS OPEN", "err", err)
 				pool.Close()
 				a.pool = nil
 			} else if wallStore, werr := newPGStore(ctx, pool); werr != nil {
-				logger.Error("hush: wall init failed; running database-less", "err", werr)
+				if a.release {
+					log.Fatalf("hush: wall init failed: %v", werr)
+				}
+				logger.Error("hush: wall init failed; running database-less — THE WALL IS OPEN", "err", werr)
 				pool.Close()
 				a.pool = nil
 			} else {
