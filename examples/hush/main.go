@@ -31,6 +31,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	beach "github.com/ThirdCoastInteractive/the-beach"
 	"github.com/ThirdCoastInteractive/the-beach/auth"
@@ -68,6 +69,11 @@ type app struct {
 	sessions *session.Store
 	pool     *pgxpool.Pool
 	release  bool
+
+	// The live gate-and-moderation policy (settings.go), seeded from env and
+	// editable at /admin/settings. Atomic so the hot-path reads (a.live()) are
+	// lock-free; a save swaps the whole pointer.
+	settings atomic.Pointer[liveSettings]
 
 	// The Cloudflare Images variant names (media.go sets them with the
 	// client): the full-size one feed cards render and the square-crop thumb
@@ -107,6 +113,10 @@ func main() {
 	}
 
 	a := &app{cfg: loadConfig(), release: os.Getenv("RELEASE") != ""}
+	// Publish the env-seeded policy before anything serves, so a.live() is safe
+	// everywhere; database mode reseeds + loads the authoritative table below.
+	seed := settingsSeed(a.cfg)
+	a.settings.Store(&seed)
 	// Media wiring (media.go): R2 or a local temp dir behind storage.Store,
 	// plus the optional Cloudflare Images client. With no R2_*/CF_IMAGES_* env
 	// the wall runs exactly as before — local ephemeral files served at /files.
@@ -167,6 +177,11 @@ func main() {
 				if err := a.seedAdmin(ctx); err != nil {
 					logger.Error("hush: seed admin failed", "err", err)
 				}
+				// seed the policy table from env on first boot, then load the
+				// authoritative values over the live pointer
+				if err := a.loadSettings(ctx, seed); err != nil {
+					logger.Error("hush: load settings failed; using env defaults", "err", err)
+				}
 				// chains feed the replay's echoes, so hydrate them first
 				if err := a.hydrateChains(ctx); err != nil {
 					logger.Error("hush: hydrate invite chains failed", "err", err)
@@ -174,7 +189,7 @@ func main() {
 				if err := a.replayReputation(ctx); err != nil {
 					logger.Error("hush: reputation replay failed", "err", err)
 				}
-				logger.Info("hush: database mode (gate enabled)", "login", "admin / password", "openSlots", a.cfg.OpenSlots)
+				logger.Info("hush: database mode (gate enabled)", "login", "admin / password", "openSlots", a.live().OpenSlots)
 			}
 		}
 	}
@@ -229,7 +244,7 @@ func (a *app) routes(app *beach.App) {
 	app.Page("/login", a.loginPage)
 	app.Page("/u/{handle}", a.profileView)
 	app.Page("/terms", func(c *beach.Ctx) (beach.View, error) {
-		return beach.View{Page: termsPage(a.cfg.AdminEmail)}, nil
+		return beach.View{Page: termsPage(a.live().AdminEmail)}, nil
 	})
 
 	// The framework's living showcase — every driftwood component and chart
@@ -265,6 +280,10 @@ func (a *app) routes(app *beach.App) {
 	app.Page("/admin/members", a.adminMembers, adminGuard...)
 	app.Page("/admin/outbox", a.adminOutbox, adminGuard...)
 	app.Raw(http.MethodPost, "/admin/moderate", a.doModerate, adminGuard...)
+	// The live policy editor (settings.go): read on every page through
+	// a.live(), edited here and effective on the next request, no restart.
+	app.Page("/admin/settings", a.adminSettings, adminGuard...)
+	app.Raw(http.MethodPost, "/admin/settings", a.doSaveSettings, adminGuard...)
 
 	// Admin analytics (analytics.go): the dashboard page plus its deferred
 	// widget fragments — every route behind the same admin guard, since the
@@ -503,7 +522,8 @@ func (a *app) flagPost(c *beach.Ctx) (beach.Patches, error) {
 		return beach.Patches{}, nil
 	}
 	tier := a.tierOf(a.rep.score(handle))
-	hidden, _ := a.store.flag(c.Context(), id, voterKey(handle), tier, a.cfg.FlagTier, a.cfg.FlagQuorum)
+	pol := a.live()
+	hidden, _ := a.store.flag(c.Context(), id, voterKey(handle), tier, pol.FlagTier, pol.FlagQuorum)
 	a.track(c.R, "flag", handle, id)
 	if hidden {
 		return beach.Patches{{Fragment: hushedCard(idStr), Target: "p" + idStr, Mode: beach.PatchOuter}}, nil

@@ -5,10 +5,13 @@ import (
 	"strconv"
 )
 
-// config is hush's env-driven knobs, read once at boot. Everything tunable —
-// tier thresholds, moderation triggers, the signup cap — lives here so the
-// rest of the app reads a.cfg instead of os.Getenv, and a deploy can retune
-// the wall without a rebuild.
+// config is hush's env-driven knobs, read once at boot. Two kinds live here:
+// infrastructure and scoring weights the app reads straight off a.cfg
+// (EmailPoints, BaseURL — set at deploy), and the gate-and-moderation policy
+// (tier thresholds, flag triggers, invite throttle, open slots, admin email),
+// which these values only SEED. That policy then lives in the database and is
+// edited live at /admin/settings; the app reads it through a.live(), never off
+// a.cfg. See settings.go.
 type config struct {
 	// Tier1 is the author-track score that unlocks tier 1 (the profile).
 	// HUSH_TIER1, default 3.

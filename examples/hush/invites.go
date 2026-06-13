@@ -28,12 +28,13 @@ func (a *app) inviteAllowance(tier int, chain float64) int {
 	if tier < 1 {
 		return 0
 	}
-	n := a.cfg.InviteBase + int(chain)/2
+	s := a.live()
+	n := s.InviteBase + int(chain)/2
 	if n < 0 {
 		n = 0
 	}
-	if n > a.cfg.InviteMax {
-		n = a.cfg.InviteMax
+	if n > s.InviteMax {
+		n = s.InviteMax
 	}
 	return n
 }
@@ -93,14 +94,16 @@ func (a *app) inviterOf(handle string) string {
 }
 
 // openLeft counts the unclaimed open-registration seats — 0 when the mode is
-// off (HUSH_OPEN_SLOTS unset), the seats are spent, or there is no database.
+// off (the open-slots setting at 0), the seats are spent, or there is no
+// database.
 func (a *app) openLeft(ctx context.Context) int {
-	if a.pool == nil || a.cfg.OpenSlots <= 0 {
+	slots := a.live().OpenSlots
+	if a.pool == nil || slots <= 0 {
 		return 0
 	}
 	var used int
 	_ = a.pool.QueryRow(ctx, `SELECT count(*) FROM hush_signups WHERE via='open'`).Scan(&used)
-	if left := a.cfg.OpenSlots - used; left > 0 {
+	if left := slots - used; left > 0 {
 		return left
 	}
 	return 0
@@ -166,7 +169,7 @@ func (a *app) doRegister(w http.ResponseWriter, r *http.Request) {
 	tag, err := a.pool.Exec(ctx,
 		`INSERT INTO hush_signups (handle, via)
 		 SELECT $1, 'open' WHERE (SELECT count(*) FROM hush_signups WHERE via = 'open') < $2`,
-		handle, a.cfg.OpenSlots)
+		handle, a.live().OpenSlots)
 	if err != nil || tag.RowsAffected() == 0 {
 		http.Redirect(w, r, "/apply", http.StatusSeeOther) // seats gone (or mode off)
 		return

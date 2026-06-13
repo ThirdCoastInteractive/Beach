@@ -31,6 +31,7 @@ templ adminNav(section string) {
 		@adminNavLink("queue", "/admin/queue", section)
 		@adminNavLink("outbox", "/admin/outbox", section)
 		@adminNavLink("analytics", "/admin/analytics", section)
+		@adminNavLink("settings", "/admin/settings", section)
 	</nav>
 }
 
@@ -307,5 +308,52 @@ templ adminOutboxPage(mails []mailRow) {
 				</tbody>
 			</table>
 		}
+	}
+}
+
+// adminSettingsPage is the live policy editor: the gate-and-moderation knobs
+// as a form, saved to the database and effective on the next request. The
+// numbers the wall never shows members are tuned right here.
+templ adminSettingsPage(s liveSettings, saved bool) {
+	@adminPage("settings", "settings") {
+		if saved {
+			<p class="hush-sub hush-adm-saved">saved. live now.</p>
+		}
+		<form method="post" action="/admin/settings" class="hush-adm-settings">
+			<p class="hush-sub">the gate and moderation policy. editable here, no restart; the HUSH_* env vars only seed these on first boot.</p>
+			<label class="hush-adm-field">
+				<span>tier 1 score <em>(unlocks the profile + minting invites)</em></span>
+				<input class="hush-input hush-adm-in" type="number" step="0.5" name="tier1" value={ ftoa(s.Tier1) }/>
+			</label>
+			<label class="hush-adm-field">
+				<span>tier 2 score <em>(unlocks DMs)</em></span>
+				<input class="hush-input hush-adm-in" type="number" step="0.5" name="tier2" value={ ftoa(s.Tier2) }/>
+			</label>
+			<label class="hush-adm-field">
+				<span>flag tier <em>(a flag from this tier or above insta-hides)</em></span>
+				<input class="hush-input hush-adm-in" type="number" name="flag_tier" value={ itoa(s.FlagTier) }/>
+			</label>
+			<label class="hush-adm-field">
+				<span>flag quorum <em>(this many tier-0 flags hide by agreement)</em></span>
+				<input class="hush-input hush-adm-in" type="number" name="flag_quorum" value={ itoa(s.FlagQuorum) }/>
+			</label>
+			<label class="hush-adm-field">
+				<span>invite base <em>(a tier-1 member's starting allowance)</em></span>
+				<input class="hush-input hush-adm-in" type="number" name="invite_base" value={ itoa(s.InviteBase) }/>
+			</label>
+			<label class="hush-adm-field">
+				<span>invite max <em>(hard cap however high the chain climbs)</em></span>
+				<input class="hush-input hush-adm-in" type="number" name="invite_max" value={ itoa(s.InviteMax) }/>
+			</label>
+			<label class="hush-adm-field">
+				<span>open slots <em>(first-come registrations with no review; 0 = queue only)</em></span>
+				<input class="hush-input hush-adm-in" type="number" name="open_slots" value={ itoa(s.OpenSlots) }/>
+			</label>
+			<label class="hush-adm-field">
+				<span>admin email <em>(where new-application notices go; blank = none)</em></span>
+				<input class="hush-input hush-adm-in" type="email" name="admin_email" value={ s.AdminEmail }/>
+			</label>
+			<button class="hush-post" type="submit">save</button>
+		</form>
 	}
 }

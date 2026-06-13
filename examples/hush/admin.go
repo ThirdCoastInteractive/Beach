@@ -251,6 +251,54 @@ func (a *app) doModerate(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, back, http.StatusSeeOther)
 }
 
+// adminSettings is /admin/settings: the live gate-and-moderation policy as an
+// editable form. Without a database the policy comes from the environment and
+// can't be persisted, so it shows the notice the other admin pages do.
+func (a *app) adminSettings(c *beach.Ctx) (beach.View, error) {
+	if a.pool == nil {
+		return beach.View{Page: noticePage("settings need the database.",
+			"in database-less mode the policy comes from the environment.")}, nil
+	}
+	return beach.View{Page: adminSettingsPage(a.live(), c.Query("saved") == "1")}, nil
+}
+
+// doSaveSettings persists the edited policy and swaps the live pointer — the
+// change takes effect on the next request, no restart. A field that won't
+// parse keeps its current value rather than resetting to zero.
+func (a *app) doSaveSettings(w http.ResponseWriter, r *http.Request) {
+	if a.authn == nil {
+		http.NotFound(w, r)
+		return
+	}
+	_ = r.ParseForm()
+	ls := a.live()
+	ls.Tier1 = formFloat(r, "tier1", ls.Tier1)
+	ls.Tier2 = formFloat(r, "tier2", ls.Tier2)
+	ls.FlagTier = formInt(r, "flag_tier", ls.FlagTier)
+	ls.FlagQuorum = formInt(r, "flag_quorum", ls.FlagQuorum)
+	ls.InviteBase = formInt(r, "invite_base", ls.InviteBase)
+	ls.InviteMax = formInt(r, "invite_max", ls.InviteMax)
+	ls.OpenSlots = formInt(r, "open_slots", ls.OpenSlots)
+	ls.AdminEmail = strings.TrimSpace(r.FormValue("admin_email"))
+	_ = a.saveSettings(r.Context(), ls)
+	http.Redirect(w, r, "/admin/settings?saved=1", http.StatusSeeOther)
+}
+
+// formInt/formFloat read one numeric form field, keeping def on a bad parse.
+func formInt(r *http.Request, name string, def int) int {
+	if n, err := strconv.Atoi(strings.TrimSpace(r.FormValue(name))); err == nil {
+		return n
+	}
+	return def
+}
+
+func formFloat(r *http.Request, name string, def float64) float64 {
+	if f, err := strconv.ParseFloat(strings.TrimSpace(r.FormValue(name)), 64); err == nil {
+		return f
+	}
+	return def
+}
+
 // mailRow is one outbox entry as the admin page lists it — enough to see what
 // went, what's waiting, and what's parked failed with its last error.
 type mailRow struct {

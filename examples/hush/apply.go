@@ -86,8 +86,8 @@ func (a *app) doApply(w http.ResponseWriter, r *http.Request) {
 		handle, pitch, hash, photoKey, email)
 	if err == nil {
 		a.recordAgreement(r.Context(), handle, agreeTOS18, clientMeta(r))
-		if a.cfg.AdminEmail != "" {
-			a.enqueueMail(r.Context(), a.cfg.AdminEmail, "application-received", applicationReceivedAdmin(handle, pitch))
+		if adminEmail := a.live().AdminEmail; adminEmail != "" {
+			a.enqueueMail(r.Context(), adminEmail, "application-received", applicationReceivedAdmin(handle, pitch))
 		}
 		a.track(r, "apply", handle, 0)
 	}

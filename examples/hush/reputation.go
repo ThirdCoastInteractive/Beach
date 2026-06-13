@@ -85,13 +85,15 @@ func (r *reputation) chainScore(member string) float64 {
 	return r.eng.Score(repute.ActorID(member), chainTrack, time.Now())
 }
 
-// tierOf maps an author-track score to a capability tier, against the
-// env-tuned thresholds (HUSH_TIER1 / HUSH_TIER2).
+// tierOf maps an author-track score to a capability tier, against the live
+// thresholds (settings.go; seeded by HUSH_TIER1 / HUSH_TIER2, then editable
+// at /admin/settings).
 func (a *app) tierOf(score float64) int {
+	s := a.live()
 	switch {
-	case score >= a.cfg.Tier2:
+	case score >= s.Tier2:
 		return 2
-	case score >= a.cfg.Tier1:
+	case score >= s.Tier1:
 		return 1
 	default:
 		return 0
