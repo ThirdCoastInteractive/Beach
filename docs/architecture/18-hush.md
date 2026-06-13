@@ -172,6 +172,10 @@ hush_invites ( code text primary key, inviter text, created_at timestamptz,
 -- open-registration cap can count what it has spent.
 hush_signups ( id bigserial primary key, handle text, via text, -- open | invite
                created_at timestamptz );
+
+-- 00007: live policy — the gate-and-moderation knobs (one key per row), seeded
+-- from the HUSH_* env on first boot, then edited at /admin/settings (see Config).
+hush_settings ( key text primary key, value text, updated_at timestamptz );
 ```
 
 Both backends implement one `wall` interface (model.go): `memStore` keeps the
@@ -179,8 +183,9 @@ database-less mode alive (zero setup, like boardwalk — posts, reactions, and
 flags in maps), `pgStore` (pgstore.go) is the production path. The interface
 is the moderation surface too: `flag`/`hide`/`restore`/`purge` plus the admin
 reads (`flagged`, `adminList`) sit alongside `list`/`get`/`neighbors`, and the
-visible reads all exclude hidden posts — moderated content simply isn't on the
-wall, and its permalink reads as not found.
+visible reads all exclude both hidden and purged posts — moderated content
+simply isn't on the wall, and its permalink reads as not found, while the row
+survives for the admin browser.
 
 `hush_reactions` owns the "one reaction per voter per post" rule (the PK).
 **Repute owns the math**, but the engine stays in-memory: there is no
@@ -305,13 +310,18 @@ Without a database they degrade to a notice, like the rest of the gate.
 - **`/admin/members` — the member ledger.** Every account with the real
   numbers: roles, author score, tier, chain score, post count, email (masked
   nowhere here) + verified state, invites minted/redeemed, last-seen IP.
+- **`/admin/outbox` — the mail ledger.** The last 200 `hush_outbox` rows,
+  newest first: recipient, subject, template, status, attempts, and the
+  `last_error` that parked anything failed.
 - **`/admin/analytics` — the dashboard** (see Analytics).
+- **`/admin/settings` — the live policy editor** (see Config). The gate and
+  moderation knobs as a form, saved to `hush_settings` and effective on the
+  next request — the numbers the wall hides from members are tuned here.
 
 One shared admin chrome (`adminPage` + `adminNav`) strings the sections
 together. The moderation action all the forms post to is `/admin/moderate`;
 its `back` parameter is clamped to `/admin*` paths so the form can't be used
-to redirect off-site. There is no outbox page yet — failed mail parks in
-`hush_outbox` with its `last_error` for an admin to read in SQL.
+to redirect off-site.
 
 ## Email
 
@@ -606,7 +616,10 @@ POST /admin/decide                raw     -- approve → create user (+ mail); o
 GET  /admin/review                page    -- hidden/flagged posts in full, restore or purge   [admin]
 GET  /admin/posts                 page    -- everything browser (?author= &ip=), meta + tallies [admin]
 GET  /admin/members               page    -- member ledger: the real numbers                  [admin]
-POST /admin/moderate              raw     -- hide / restore / purge, 303 back within /admin   [admin]
+POST /admin/moderate              raw     -- hide / restore / purge (soft), 303 back within /admin [admin]
+GET  /admin/outbox                page    -- the transactional-mail ledger                    [admin]
+GET  /admin/settings              page    -- the live policy editor                           [admin]
+POST /admin/settings              raw     -- save the policy to hush_settings, effective live [admin]
 GET  /admin/analytics             page    -- the dashboard of deferred widgets                [admin]
 GET  /admin/analytics/{events,posts,votes,countries,ips,recent}
                                   frag    -- one widget each, live ClickHouse queries         [admin]
@@ -624,8 +637,16 @@ POSTs that 303 (CSP-clean, no Datastar dependency).
 
 ## Config
 
-Everything tunable is env, read once at boot into `a.cfg` (config.go) or wired
-by the package that owns it; `.env.example` mirrors this table.
+Two layers. **Infrastructure, secrets, and scoring weights** are env, read once
+at boot into `a.cfg` (config.go); `.env.example` mirrors this table. The
+**gate-and-moderation policy** (tier thresholds, flag tier/quorum, invite
+base/cap, open slots, admin email) lives in the `hush_settings` table
+(settings.go), edited at `/admin/settings` with **no restart** — held behind an
+atomic pointer (`a.live()`) so the hot-path reads stay lock-free. The `HUSH_*`
+policy vars below only **seed** that table on first boot; after that the
+database is authoritative (in database-less mode they are the live values). The
+split is "how to reach the world and score reputation" (env) vs "how the gate
+behaves" (DB).
 
 | Variable | Meaning |
 | --- | --- |
@@ -633,16 +654,14 @@ by the package that owns it; `.env.example` mirrors this table.
 | `DATABASE_URL` | Postgres DSN; unset = open, in-memory, no gate |
 | `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | compose-only: the credentials the postgres service is created with and that compose's built `DATABASE_URL` uses (defaults `beach`/`beach`/`hush`) |
 | `CLICKHOUSE_DSN` | ClickHouse DSN for the observation store; unset = analytics off (set-but-wrong panics at boot) |
-| `HUSH_OPEN_SLOTS` | open the first N registrations with no review; once spent the queue resumes (default 0) |
-| `HUSH_TIER1` | author score that unlocks tier 1, the profile (default 3) |
-| `HUSH_TIER2` | author score that unlocks tier 2 (default 8) |
-| `HUSH_EMAIL_POINTS` | author standing granted for a verified email (default 2) |
-| `HUSH_FLAG_TIER` | tier whose single flag insta-hides a post (default 1) |
-| `HUSH_FLAG_QUORUM` | how many tier-0 flags hide a post by agreement (default 3) |
-| `HUSH_INVITE_BASE` / `HUSH_INVITE_MAX` | a tier-1 member's starting invite allowance and the hard cap (defaults 3 / 6) |
+| `HUSH_EMAIL_POINTS` | author standing granted for a verified email (default 2); env-only, baked into the Repute engine at boot |
 | `HUSH_BASE_URL` | absolute origin for links inside outgoing email (default `http://localhost:8080`) |
-| `HUSH_ADMIN_EMAIL` | where new-application notices go; unset = no admin mail |
 | `HUSH_FILES_DIR` | Local file-store root when R2 is unset (default: under the OS temp dir) |
+| `HUSH_TIER1` / `HUSH_TIER2` | **seed:** author scores that unlock tier 1 (profile + invites) and tier 2 (DMs); defaults 3 / 8 |
+| `HUSH_FLAG_TIER` / `HUSH_FLAG_QUORUM` | **seed:** the tier whose single flag insta-hides, and how many tier-0 flags hide by agreement; defaults 1 / 3 |
+| `HUSH_INVITE_BASE` / `HUSH_INVITE_MAX` | **seed:** a tier-1 member's starting invite allowance and the hard cap; defaults 3 / 6 |
+| `HUSH_OPEN_SLOTS` | **seed:** open the first N registrations with no review; once spent the queue resumes (default 0) |
+| `HUSH_ADMIN_EMAIL` | **seed:** where new-application notices go; blank = no admin mail |
 | `MAIL_FROM_NAME` / `MAIL_FROM_ADDR` | the From header on outgoing mail |
 | `MAILGUN_KEY` / `MAILGUN_DOMAIN` | Mailgun API transport — the strongest, picked first |
 | `SMTP_HOST` / `SMTP_PORT` / `SMTP_USERNAME` / `SMTP_PASSWORD` | plain SMTP transport (port defaults to 587); with no transport set, the log mailer prints sends to the app log |
@@ -787,6 +806,7 @@ compose interpolates the `POSTGRES_*` credentials from it and loads the whole
 file into the app via `env_file`, then its `environment` block overrides the
 connection/origin values with service names (`postgres:5432`,
 `clickhouse:9000`) so the localhost URLs the file hands `go run` don't reach
-the container (`environment` beats `env_file`). ClickHouse is pinned to IPv4
-with a `127.0.0.1` healthcheck so the stack comes up on hosts with IPv6
-disabled. Each example carries its own `docker-compose.yml` + `.env.example`.
+the container (`environment` beats `env_file`). ClickHouse's healthcheck is
+`clickhouse-client --query 'SELECT 1'`, which talks to its own server over the
+native protocol with no host to name. Each example carries its own
+`docker-compose.yml` + `.env.example`.
