@@ -758,6 +758,10 @@ trio: a rendered page is not a working feature.
 Locally (`go run`): copy `examples/hush/.env.example` to `.env` and point
 `DATABASE_URL` at a Postgres (or unset it to run open/database-less);
 optionally point `CLICKHOUSE_DSN` at a ClickHouse for the analytics dashboard.
+The `.env` actually loads at boot (cwd or the example dir; real env wins).
+The open database-less wall is a dev convenience only and announces itself in
+the log; with `RELEASE` set, a missing `DATABASE_URL` — or any database
+failure at boot — is fatal: a production wall never quietly runs open.
 Building the private Repute dep needs
 `GOPRIVATE=…,github.com/ThirdCoastInteractive`. Or use the self-contained
 `examples/hush/docker-compose.yml` — `docker compose build --ssh default &&
