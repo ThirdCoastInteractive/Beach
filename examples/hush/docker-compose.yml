@@ -3,17 +3,16 @@ name: hush
 # Self-contained hush stack: the app, its Postgres, and its ClickHouse — only
 # the web port is published; the databases are internal-only.
 #
-#   cp .env.example .env                    # then edit it (mail keys, secrets)
+#   cp .env.docker.example .env             # then edit it (mail keys, secrets)
 #   docker compose build --ssh default      # Repute is a private module, see below
 #   docker compose up                       →  http://localhost:8080  (admin / password)
 #
-# ONE .env feeds everything. Compose reads it for the ${...} interpolation
-# below (the Postgres credentials), and the hush service loads the whole file
-# via env_file so the operator's mail/R2/Cloudflare/trust knobs reach the app.
-# The hush `environment:` block then overrides the four connection/origin
-# values so the container talks to the postgres/clickhouse SERVICES, not the
-# localhost URLs the same .env hands `go run`. (Compose precedence: environment
-# beats env_file, so the override always wins.)
+# The .env (from .env.docker.example) holds only the Postgres credentials, the
+# operator secrets (mail, R2, Cloudflare), and the policy seeds. It carries NO
+# DATABASE_URL or CLICKHOUSE_DSN: the app reaches its database and observation
+# store by SERVICE name, and this file builds those connection strings from the
+# credentials below and the service names — so the database connection is
+# configured in exactly one place, here, not duplicated into the .env.
 #
 # NOTE: hush depends on the private module github.com/ThirdCoastInteractive/Repute,
 # so the image build needs git access to it. Build with BuildKit SSH forwarding —
@@ -65,16 +64,18 @@ services:
         APP: hush
         GOPRIVATE: github.com/ThirdCoastInteractive
       ssh: [default] # forward the SSH agent so go can fetch the private Repute module
-    # The operator's config — mail, R2, Cloudflare Images, the trust knobs,
-    # the admin inbox — rides in from the same .env the local run uses.
+    # The operator's config — credentials, mail, R2, Cloudflare Images, the
+    # policy seeds — rides in from .env (copied from .env.docker.example).
     env_file: [.env]
-    # ...and these reach past it: container-internal service names instead of
-    # the localhost URLs .env carries for `go run`. environment beats env_file.
+    # The connection strings are built here, from the credentials and the
+    # service names, so they live in one place and never localhost. HUSH_BASE_URL
+    # takes the .env value when set (your public origin), else a localhost
+    # default for a kick-the-tires run.
     environment:
       PORT: "8080"
       DATABASE_URL: postgres://${POSTGRES_USER:-beach}:${POSTGRES_PASSWORD:-beach}@postgres:5432/${POSTGRES_DB:-hush}?sslmode=disable
       CLICKHOUSE_DSN: clickhouse://default:@clickhouse:9000/hush
-      HUSH_BASE_URL: http://localhost:${PORT:-8080}
+      HUSH_BASE_URL: ${HUSH_BASE_URL:-http://localhost:8080}
     networks: [internal]
     ports: ["${PORT:-8080}:8080"]
     depends_on:
