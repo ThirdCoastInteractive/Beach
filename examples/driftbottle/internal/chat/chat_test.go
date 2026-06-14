@@ -1,4 +1,4 @@
-package main
+package chat
 
 import (
 	"context"
@@ -10,14 +10,10 @@ import (
 	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
 )
 
-// newTestServer builds a server wired to a fresh hub, with logging discarded.
-func newTestServer() *server {
-	return &server{
-		hub:      hub.New(),
-		log:      slog.New(slog.NewTextHandler(discard{}, nil)),
-		sessions: map[string]*sessionState{},
-		feeds:    map[string][]chatMessage{},
-	}
+// newTestServer builds a Server wired to a fresh hub, with logging discarded and
+// no analytics sink (Track and the archive ops become no-ops).
+func newTestServer() *Server {
+	return New(hub.New(), slog.New(slog.NewTextHandler(discard{}, nil)), nil)
 }
 
 type discard struct{}
@@ -173,10 +169,8 @@ func TestWordFilter(t *testing.T) {
 	}
 }
 
-// TestStreamLoopServesCatchUp wires the real beach App and confirms the home
-// route serves without a database (the non-DB requirement). It uses the App's
-// handler via httptest indirectly through the package's wiring; here we just
-// confirm currentRoom renders a lobby for an unknown session.
+// TestCurrentRoomDefaultsToLobby confirms currentRoom renders a lobby for an
+// unknown session — the home view renders without a database.
 func TestCurrentRoomDefaultsToLobby(t *testing.T) {
 	s := newTestServer()
 	frag := s.currentRoom("never-seen")
