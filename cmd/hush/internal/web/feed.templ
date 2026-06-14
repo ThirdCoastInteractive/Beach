@@ -20,10 +20,10 @@ import (
 // other affordance is the title, which is the way back to the wall — that and
 // the browser's own back button.
 templ (a *App) feedPage(newer []store.Post, focused store.Post, older []store.Post, moreNewer bool, moreOlder bool, canPost bool, myVote int8, flagState string, handle string, admin bool, tier int) {
-	@shell("hush — post #" + strconv.FormatInt(focused.ID, 10)) {
+	@shell("goldgirl — post #" + strconv.FormatInt(focused.ID, 10)) {
 		@accountStrip(handle, admin, tier)
 		<header class="hush-head hush-head--feed">
-			<h1 class="hush-title"><a class="hush-home" href="/">hush</a></h1>
+			<h1 class="hush-title"><a class="hush-home" href="/">goldgirl</a></h1>
 		</header>
 		<div class="hush-feed">
 			if moreNewer {

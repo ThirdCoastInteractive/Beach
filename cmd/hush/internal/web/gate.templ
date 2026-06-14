@@ -92,10 +92,10 @@ templ loginFormPage(errMsg string) {
 // adminQueuePage lists pending applications with approve/reject controls
 // (admin only).
 templ adminQueuePage(apps []application) {
-	@shell("hush — queue") {
+	@shell("goldgirl — queue") {
 		<div class="hush-top">
 			<header class="hush-head">
-				<h1 class="hush-title">hush</h1>
+				<h1 class="hush-title">goldgirl</h1>
 				<p class="hush-sub">pending applications</p>
 			</header>
 			@backToWall()

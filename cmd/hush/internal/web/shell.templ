@@ -59,10 +59,10 @@ templ accountStrip(handle string, admin bool, tier int) {
 
 // formPage centers a form (login, apply) under the hush header.
 templ formPage(title string) {
-	@shell("hush — " + title) {
+	@shell("goldgirl — " + title) {
 		<div class="hush-top">
 			<header class="hush-head">
-				<h1 class="hush-title">hush</h1>
+				<h1 class="hush-title">goldgirl</h1>
 				<p class="hush-sub">{ title }</p>
 			</header>
 			<div class="hush-formwrap">
@@ -75,10 +75,10 @@ templ formPage(title string) {
 
 // noticePage is a centered one-line message page (e.g. "application submitted").
 templ noticePage(title string, sub string) {
-	@shell("hush") {
+	@shell("goldgirl") {
 		<div class="hush-top">
 			<header class="hush-head">
-				<h1 class="hush-title">hush</h1>
+				<h1 class="hush-title">goldgirl</h1>
 				<p class="hush-sub">{ title }</p>
 				if sub != "" {
 					<p class="hush-sub">{ sub }</p>
@@ -91,10 +91,10 @@ templ noticePage(title string, sub string) {
 
 // notFoundPage is shown when a permalink points at a post that doesn't exist.
 templ notFoundPage() {
-	@shell("hush — not found") {
+	@shell("goldgirl — not found") {
 		<div class="hush-top">
 			<header class="hush-head">
-				<h1 class="hush-title">hush</h1>
+				<h1 class="hush-title">goldgirl</h1>
 				<p class="hush-sub">that post is gone.</p>
 			</header>
 			@backToWall()

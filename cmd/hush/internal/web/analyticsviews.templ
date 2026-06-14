@@ -16,11 +16,11 @@ import (
 // Each placeholder reserves its height and @gets its fragment on intersection
 // (the pantry pattern) — the ClickHouse aggregates never block first paint.
 templ analyticsView(handle string, admin bool, tier int) {
-	@shell("hush — analytics") {
+	@shell("goldgirl — analytics") {
 		@accountStrip(handle, admin, tier)
 		<div class="hush-top hush-anl">
 			<header class="hush-head">
-				<h1 class="hush-title">hush</h1>
+				<h1 class="hush-title">goldgirl</h1>
 				<p class="hush-sub">analytics — admin eyes only.</p>
 			</header>
 			@backToWall()

@@ -9,7 +9,7 @@ import "strconv"
 // unlocked (the page itself, the DM line, the invite allowance). The wall
 // stays anonymous, so this is the one place a handle is shown with anything.
 templ profilePage(handle string, tier int, posts int, panel invitePanel, email emailSection, own bool) {
-	@shell("hush — " + handle) {
+	@shell("goldgirl — " + handle) {
 		<div class="hush-top">
 			<header class="hush-head">
 				<h1 class="hush-title">{ handle }</h1>

@@ -78,7 +78,7 @@ func certBox2257(id string) templ.Component {
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.ResolveAttributeValue(id)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/terms.templ`, Line: 21, Col: 32}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/terms.templ`, Line: 21, Col: 32}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var3)
 		if templ_7745c5c3_Err != nil {
@@ -130,7 +130,7 @@ func termsPage(contact string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"hush-top hush-terms\"><header class=\"hush-head\"><h1 class=\"hush-title\"><a class=\"hush-home\" href=\"/\">hush</a></h1><p class=\"hush-sub\">terms of service</p></header><section class=\"hush-terms-body\"><h2>1. what this is</h2><p>hush is an invite-only wall. you post to it; some of it stays. using it means you agree to what follows.</p><h2>2. age</h2><p>you must be <strong>18 or older</strong> to hold an account or to post, vote, or flag anything. checking the box is your statement that you are. accounts found to belong to anyone under 18 are closed, and their content removed.</p><h2>3. accounts</h2><p>accounts come by application, by an open seat, or by invite, and an inviter vouches for who they bring. we may close any account at any time, without notice or explanation. the wall is anonymous to other members. it is not anonymous to us; see section 7.</p><h2>4. your work</h2><p>your posts remain yours. by posting you allow us to store, display, and resize them to operate the wall. post only what you hold the rights to.</p><h2>5. limits</h2><p>nothing unlawful. nothing sexual involving anyone under 18. <strong>such material is preserved and reported to the national center for missing &amp; exploited children and to law enforcement, without exception.</strong> no doxxing, no threats, no spam. any post may be removed at our discretion.</p><h2>6. images</h2><p>every image carries a certification, which we retain: that each person depicted was 18 or older when the image was made, and that you produced it or hold the records required by 18 U.S.C. § 2257 and 28 C.F.R. part 75. do not upload an image you cannot stand behind.</p><h2>7. what we keep</h2><p>the wall displays no names and no counts. we retain, for operating the service and for legal compliance, the ip address, approximate location, and browser recorded with each post, vote, flag, signup, and certification; your email address if you provide one; and usage analytics. we disclose these records when the law requires it. we do not sell them.</p><h2>8. no warranty</h2><p>the wall is provided as is, without warranty of any kind. we are not liable for any loss arising from its use, including lost posts, standing, or access. we may change these terms or discontinue the wall at any time; continued use is acceptance. sections 4 through 7 survive the end of your account.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 4, "<div class=\"hush-top hush-terms\"><header class=\"hush-head\"><h1 class=\"hush-title\"><a class=\"hush-home\" href=\"/\">goldgirl</a></h1><p class=\"hush-sub\">terms of service</p></header><section class=\"hush-terms-body\"><h2>1. what this is</h2><p>goldgirl is an invite-only wall. you post to it; some of it stays. using it means you agree to what follows.</p><h2>2. age</h2><p>you must be <strong>18 or older</strong> to hold an account or to post, vote, or flag anything. checking the box is your statement that you are. accounts found to belong to anyone under 18 are closed, and their content removed.</p><h2>3. accounts</h2><p>accounts come by application, by an open seat, or by invite, and an inviter vouches for who they bring. we may close any account at any time, without notice or explanation. the wall is anonymous to other members. it is not anonymous to us; see section 7.</p><h2>4. your work</h2><p>your posts remain yours. by posting you allow us to store, display, and resize them to operate the wall. post only what you hold the rights to.</p><h2>5. limits</h2><p>nothing unlawful. nothing sexual involving anyone under 18. <strong>such material is preserved and reported to the national center for missing &amp; exploited children and to law enforcement, without exception.</strong> no doxxing, no threats, no spam. any post may be removed at our discretion.</p><h2>6. images</h2><p>every image carries a certification, which we retain: that each person depicted was 18 or older when the image was made, and that you produced it or hold the records required by 18 U.S.C. § 2257 and 28 C.F.R. part 75. do not upload an image you cannot stand behind.</p><h2>7. what we keep</h2><p>the wall displays no names and no counts. we retain, for operating the service and for legal compliance, the ip address, approximate location, and browser recorded with each post, vote, flag, signup, and certification; your email address if you provide one; and usage analytics. we disclose these records when the law requires it. we do not sell them.</p><h2>8. no warranty</h2><p>the wall is provided as is, without warranty of any kind. we are not liable for any loss arising from its use, including lost posts, standing, or access. we may change these terms or discontinue the wall at any time; continued use is acceptance. sections 4 through 7 survive the end of your account.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -142,7 +142,7 @@ func termsPage(contact string) templ.Component {
 				var templ_7745c5c3_Var6 string
 				templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(contact)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/terms.templ`, Line: 57, Col: 48}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/terms.templ`, Line: 57, Col: 48}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
 				if templ_7745c5c3_Err != nil {
@@ -167,7 +167,7 @@ func termsPage(contact string) templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = shell("hush — terms").Render(templ.WithChildren(ctx, templ_7745c5c3_Var5), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = shell("goldgirl — terms").Render(templ.WithChildren(ctx, templ_7745c5c3_Var5), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

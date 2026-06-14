@@ -15,11 +15,11 @@ import (
 // that renders post images — so it can resolve each post's image source
 // through the media helpers (media.go).
 templ (a *App) homePage(posts []store.Post, handle string, canPost bool, admin bool, tier int, openLeft int, notice string) {
-	@shell("hush") {
+	@shell("goldgirl") {
 		@accountStrip(handle, admin, tier)
 		<div class="hush-top">
 			<header class="hush-head">
-				<h1 class="hush-title"><a class="hush-home" href="/">hush</a></h1>
+				<h1 class="hush-title"><a class="hush-home" href="/">goldgirl</a></h1>
 				<p class="hush-sub">a quiet wall — post into it.</p>
 			</header>
 			if canPost {

@@ -9,8 +9,9 @@ package mail
 // site, inverted for mail — a white page survives client dark-mode color
 // filters far better than a black one.
 const (
-	emailInk   = "#000000"
+	emailInk   = "#1f1c17"
 	emailPaper = "#ffffff"
+	emailGold  = "#b3914f"
 	emailDim   = "#555555"
 	emailFaint = "#888888"
 )
@@ -24,7 +25,7 @@ templ emailShell() {
 				<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style={ "max-width:600px;width:100%;background:" + emailPaper + ";border:1px solid " + emailInk + ";" }>
 					<tr>
 						<td style="padding:28px 32px 0 32px;">
-							<div style={ "color:" + emailInk + ";font-size:18px;font-weight:600;letter-spacing:0.32em;text-transform:lowercase;" }>hush</div>
+							<div style={ "color:" + emailGold + ";font-size:18px;font-weight:600;letter-spacing:0.4em;text-transform:lowercase;" }>goldgirl</div>
 							@emailRule()
 						</td>
 					</tr>
@@ -64,13 +65,13 @@ templ emailHint() {
 	</p>
 }
 
-// emailButton is the one CTA shape: a black block with a white lowercase
+// emailButton is the one CTA shape: a gold block with a charcoal lowercase
 // label. An outer table because Outlook renders padding on <a> unreliably.
 templ emailButton(label string, url string) {
 	<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0;">
 		<tr>
-			<td style={ "background:" + emailInk + ";" }>
-				<a href={ templ.SafeURL(url) } style={ "display:inline-block;padding:12px 28px;color:" + emailPaper + ";text-decoration:none;font-size:14px;text-transform:lowercase;letter-spacing:0.12em;" }>{ label }</a>
+			<td style={ "background:" + emailGold + ";" }>
+				<a href={ templ.SafeURL(url) } style={ "display:inline-block;padding:12px 28px;color:" + emailInk + ";text-decoration:none;font-size:14px;text-transform:lowercase;letter-spacing:0.12em;" }>{ label }</a>
 			</td>
 		</tr>
 	</table>
@@ -93,7 +94,7 @@ templ verifyEmailHTML(link string) {
 		@emailButton("verify", link)
 		@emailLinkLine(link)
 		@emailHint() {
-			your address is never shown to anyone. if you didn't add it to a hush account, ignore this.
+			your address is never shown to anyone. if you didn't add it to a goldgirl account, ignore this.
 		}
 	}
 }

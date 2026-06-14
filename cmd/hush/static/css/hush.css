@@ -1,11 +1,22 @@
-/* hush — the custom layout. Black and white chrome; the only color on the page
-   is each post's own deterministic tile (see colorFor in Go). No border radius
-   anywhere — hard edges, gapless squares. Loaded after the kit's app.css. */
+/* goldgirl — the custom layout. A fancy-spa palette: warm-white chrome, charcoal
+   ink, restrained gold accents (wordmark, buttons, focus). The only other color
+   on the page is each post's own deterministic tile (see colorFor in Go) — the
+   bright tiles keep their black text and pop on white. No border radius anywhere
+   — hard edges, gapless squares. Loaded after the kit's app.css. */
+
+:root {
+  --gg-bg: #f6f3ec;          /* warm spa white — the page */
+  --gg-surface: #fffefb;     /* cards, inputs — a hair brighter than the page */
+  --gg-ink: #1f1c17;         /* warm charcoal — primary text */
+  --gg-gold: #b3914f;        /* the accent: wordmark, buttons, focus, borders */
+  --gg-gold-bright: #c8a86a; /* hover/active gold */
+  --gg-on-gold: #1f1c17;     /* ink on gold fills — luxe and legible */
+}
 
 .hush-body {
   margin: 0;
-  background: #000;
-  color: #fff;
+  background: var(--gg-bg);
+  color: var(--gg-ink);
   font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
 
@@ -24,12 +35,14 @@
   margin: 0;
   font-size: 2rem;
   font-weight: 600;
-  letter-spacing: 0.32em;
+  letter-spacing: 0.5em;     /* wide spa tracking */
+  text-indent: 0.5em;        /* re-center against the trailing track */
   text-transform: lowercase;
+  color: var(--gg-gold);
 }
 .hush-sub {
   margin: 0.35rem 0 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(31, 28, 23, 0.5);
   font-size: 0.9rem;
 }
 
@@ -46,13 +59,13 @@
   padding: 0.75rem;
   font: inherit;
   line-height: 1.5;
-  color: #fff;
-  background: #000;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: var(--gg-ink);
+  background: var(--gg-surface);
+  border: 1px solid rgba(31, 28, 23, 0.25);
   border-radius: 0;
 }
-.hush-input::placeholder { color: rgba(255, 255, 255, 0.35); }
-.hush-input:focus { outline: none; border-color: #fff; }
+.hush-input::placeholder { color: rgba(31, 28, 23, 0.35); }
+.hush-input:focus { outline: none; border-color: var(--gg-gold); }
 
 .hush-compose-row {
   display: flex;
@@ -60,25 +73,25 @@
   justify-content: space-between;
   margin-top: 0.5rem;
 }
-.hush-hint { color: rgba(255, 255, 255, 0.4); font-size: 0.78rem; }
+.hush-hint { color: rgba(31, 28, 23, 0.4); font-size: 0.78rem; }
 
-/* primary button: white on black, inverted */
+/* primary button: gold fill, ink label */
 .hush-post {
   padding: 0.45rem 1.15rem;
   font: inherit;
   text-transform: lowercase;
-  color: #000;
-  background: #fff;
-  border: 1px solid #fff;
+  color: var(--gg-on-gold);
+  background: var(--gg-gold);
+  border: 1px solid var(--gg-gold);
   border-radius: 0;
   cursor: pointer;
 }
-.hush-post:hover { background: #d6d6d6; border-color: #d6d6d6; }
+.hush-post:hover { background: var(--gg-gold-bright); border-color: var(--gg-gold-bright); }
 
 .hush-note {
   min-height: 1rem;
   margin-top: 0.4rem;
-  color: #fff;
+  color: var(--gg-ink);
   font-size: 0.8rem;
 }
 
@@ -86,7 +99,7 @@
 .hush-upload {
   margin-top: 0.85rem;
   padding-top: 0.85rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid rgba(31, 28, 23, 0.12);
 }
 .hush-upload-row {
   display: flex;
@@ -109,13 +122,13 @@
   margin-top: 0.6rem;
   font-size: 0.78rem;
   line-height: 1.45;
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(31, 28, 23, 0.55);
   cursor: pointer;
   text-align: left;
 }
 .hush-agree input[type="checkbox"] {
   margin: 0.15rem 0 0;
-  accent-color: #fff;
+  accent-color: var(--gg-gold);
 }
 .hush-agree .hush-link { font-size: inherit; text-decoration: underline; }
 
@@ -126,7 +139,7 @@
   text-align: left;
   font-size: 0.9rem;
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.75);
+  color: rgba(31, 28, 23, 0.75);
 }
 .hush-terms-body h2 {
   margin: 1.4rem 0 0.4rem;
@@ -134,44 +147,44 @@
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: lowercase;
-  color: #fff;
+  color: var(--gg-ink);
 }
 .hush-terms-body p { margin: 0; }
-.hush-terms-body strong { color: #fff; }
+.hush-terms-body strong { color: var(--gg-ink); }
 .hush-file {
   flex: 1;
   min-width: 0;
   font: inherit;
   font-size: 0.82rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(31, 28, 23, 0.5);
 }
 .hush-file::file-selector-button {
   margin-right: 0.6rem;
   padding: 0.35rem 0.8rem;
   font: inherit;
   font-size: 0.8rem;
-  color: #fff;
-  background: #000;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: var(--gg-ink);
+  background: var(--gg-surface);
+  border: 1px solid rgba(31, 28, 23, 0.3);
   border-radius: 0;
   cursor: pointer;
 }
-.hush-file::file-selector-button:hover { background: rgba(255, 255, 255, 0.1); }
+.hush-file::file-selector-button:hover { background: rgba(31, 28, 23, 0.1); }
 
 /* ghost button: outline only */
 .hush-post--ghost {
-  color: #fff;
+  color: var(--gg-ink);
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(31, 28, 23, 0.4);
 }
-.hush-post--ghost:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.4); }
+.hush-post--ghost:hover { background: rgba(31, 28, 23, 0.1); border-color: rgba(31, 28, 23, 0.4); }
 
 .hush-link {
-  color: #fff;
+  color: var(--gg-ink);
   text-decoration: none;
   font-size: 0.82rem;
 }
-.hush-link:hover { text-decoration: underline; }
+.hush-link:hover { color: var(--gg-gold); text-decoration: underline; }
 .hush-cam-link { margin-left: auto; }
 
 /* the gapless square wall — full bleed, at most 4 columns.
@@ -242,8 +255,8 @@
   width: 100%;
   max-width: 520px;
   height: auto;
-  background: #000;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: var(--gg-ink);
+  border: 1px solid rgba(31, 28, 23, 0.25);
 }
 .cam-sources {
   display: flex;
@@ -256,11 +269,11 @@
 .cam-file { display: none; }
 .cam-pick {
   font-size: 0.82rem;
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(31, 28, 23, 0.65);
   text-decoration: underline;
   cursor: pointer;
 }
-.cam-pick:hover { color: #fff; }
+.cam-pick:hover { color: var(--gg-ink); }
 /* the preset rack: quiet outlines; the active look inverts */
 .cam-rack {
   display: flex;
@@ -274,17 +287,17 @@
   font: inherit;
   font-size: 0.8rem;
   text-transform: lowercase;
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(31, 28, 23, 0.65);
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(31, 28, 23, 0.25);
   border-radius: 0;
   cursor: pointer;
 }
-.cam-preset:hover { color: #fff; border-color: rgba(255, 255, 255, 0.5); }
+.cam-preset:hover { color: var(--gg-ink); border-color: rgba(31, 28, 23, 0.5); }
 .cam-preset[aria-pressed="true"] {
-  color: #000;
-  background: #fff;
-  border-color: #fff;
+  color: var(--gg-on-gold);
+  background: var(--gg-gold);
+  border-color: var(--gg-gold);
 }
 /* the grade sliders: lowercase labels in a fixed gutter, monochrome ranges */
 .cam-sliders {
@@ -301,7 +314,7 @@
   gap: 0.75rem;
   font-size: 0.82rem;
   text-transform: lowercase;
-  color: rgba(255, 255, 255, 0.65);
+  color: rgba(31, 28, 23, 0.65);
 }
 .cam-slider input[type="range"] {
   appearance: none;
@@ -309,7 +322,7 @@
   width: 100%;
   height: 2px;
   margin: 0;
-  background: rgba(255, 255, 255, 0.3);
+  background: rgba(31, 28, 23, 0.3);
   outline: none;
 }
 .cam-slider input[type="range"]::-webkit-slider-thumb {
@@ -317,7 +330,7 @@
   appearance: none;
   width: 12px;
   height: 12px;
-  background: #fff;
+  background: var(--gg-gold);
   border: none;
   border-radius: 0;
   cursor: pointer;
@@ -325,13 +338,13 @@
 .cam-slider input[type="range"]::-moz-range-thumb {
   width: 12px;
   height: 12px;
-  background: #fff;
+  background: var(--gg-gold);
   border: none;
   border-radius: 0;
   cursor: pointer;
 }
-.cam-slider input[type="range"]:focus-visible::-webkit-slider-thumb { outline: 1px solid #fff; outline-offset: 2px; }
-.cam-slider input[type="range"]:focus-visible::-moz-range-thumb { outline: 1px solid #fff; outline-offset: 2px; }
+.cam-slider input[type="range"]:focus-visible::-webkit-slider-thumb { outline: 1px solid var(--gg-gold); outline-offset: 2px; }
+.cam-slider input[type="range"]:focus-visible::-moz-range-thumb { outline: 1px solid var(--gg-gold); outline-offset: 2px; }
 .cam-controls {
   display: flex;
   align-items: center;
@@ -340,7 +353,7 @@
 .cam-status {
   min-height: 1.1rem;
   margin: 0;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(31, 28, 23, 0.5);
   font-size: 0.82rem;
 }
 .hush-cam .hush-agree { max-width: 520px; }
@@ -350,7 +363,7 @@
   margin: 2rem 0 1.5rem;
   text-align: center;
 }
-.hush-foot .hush-link { color: rgba(255, 255, 255, 0.4); }
+.hush-foot .hush-link { color: rgba(31, 28, 23, 0.4); }
 .hush-back { text-align: center; margin-top: 1.5rem; }
 
 /* account strip + gate */
@@ -358,9 +371,9 @@
   padding: 0.6rem 1rem;
   text-align: right;
   font-size: 0.8rem;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(31, 28, 23, 0.6);
 }
-.hush-acct strong { color: #fff; font-weight: 600; }
+.hush-acct strong { color: var(--gg-ink); font-weight: 600; }
 .hush-gateline { margin-top: 1rem; }
 
 /* forms (login, apply) */
@@ -381,7 +394,7 @@
   max-width: 480px;
   margin: 0 auto 1rem;
   padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(31, 28, 23, 0.18);
 }
 .hush-appphoto {
   display: block;
@@ -393,7 +406,7 @@
 .hush-apphandle { font-weight: 600; font-size: 1.05rem; }
 .hush-apppitch {
   margin: 0.35rem 0 0.75rem;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(31, 28, 23, 0.7);
   font-size: 0.9rem;
   white-space: pre-wrap;
 }
@@ -435,13 +448,13 @@
   padding: 1.25rem;
   color: inherit;
   text-decoration: none;
-  background: #000;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: var(--gg-surface);
+  border: 1px solid rgba(31, 28, 23, 0.18);
   /* fragment scroll: keep a breath of black above the focused card */
   scroll-margin-top: 1rem;
 }
-a.hush-fcard:hover { border-color: rgba(255, 255, 255, 0.5); }
-a.hush-fcard:focus-visible { outline: none; border-color: #fff; }
+a.hush-fcard:hover { border-color: rgba(31, 28, 23, 0.5); }
+a.hush-fcard:focus-visible { outline: none; border-color: var(--gg-gold); }
 .hush-fcard .hush-card-meta:last-child { margin-bottom: 0; }
 .hush-head--feed { margin: 1.5rem 0; }
 .hush-home { color: inherit; text-decoration: none; }
@@ -542,7 +555,7 @@ html:active-view-transition-type(backwards)::view-transition-old(root) {
 
 .hush-card-meta {
   margin-bottom: 0.75rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(31, 28, 23, 0.45);
   font-size: 0.8rem;
 }
 
@@ -561,16 +574,16 @@ html:active-view-transition-type(backwards)::view-transition-old(root) {
   padding: 0.4rem 0.9rem;
   font: inherit;
   font-size: 1rem;
-  color: #fff;
+  color: var(--gg-ink);
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(31, 28, 23, 0.4);
   border-radius: 0;
   cursor: pointer;
 }
-.hush-react-btn:hover { background: rgba(255, 255, 255, 0.12); }
-.hush-react-btn--mine { color: #000; background: #fff; border-color: #fff; cursor: default; }
-.hush-react-btn--mine:hover { background: #fff; }
-.hush-react-btn--off { color: rgba(255, 255, 255, 0.45); border-color: rgba(255, 255, 255, 0.2); cursor: default; }
+.hush-react-btn:hover { background: rgba(31, 28, 23, 0.12); }
+.hush-react-btn--mine { color: var(--gg-on-gold); background: var(--gg-gold); border-color: var(--gg-gold); cursor: default; }
+.hush-react-btn--mine:hover { background: var(--gg-gold); }
+.hush-react-btn--off { color: rgba(31, 28, 23, 0.45); border-color: rgba(31, 28, 23, 0.2); cursor: default; }
 .hush-react-btn--off:hover { background: transparent; }
 
 /* profile */
@@ -580,8 +593,8 @@ html:active-view-transition-type(backwards)::view-transition-old(root) {
   gap: 2.5rem;
   margin: 1.5rem 0;
 }
-.hush-stat { text-align: center; color: rgba(255, 255, 255, 0.6); font-size: 0.85rem; }
-.hush-stat-n { display: block; font-size: 2rem; font-weight: 600; color: #fff; }
+.hush-stat { text-align: center; color: rgba(31, 28, 23, 0.6); font-size: 0.85rem; }
+.hush-stat-n { display: block; font-size: 2rem; font-weight: 600; color: var(--gg-ink); }
 
 /* ── flagging — the quiet report control on a focused card. dim text in the
    meta line, no counts; clicked once it reads "flagged" and goes inert. a
@@ -597,17 +610,17 @@ html:active-view-transition-type(backwards)::view-transition-old(root) {
   font: inherit;
   font-size: 0.75rem;
   text-transform: lowercase;
-  color: rgba(255, 255, 255, 0.3);
+  color: rgba(31, 28, 23, 0.3);
   background: transparent;
   border: 0;
   cursor: pointer;
 }
-button.hush-flag:hover { color: rgba(255, 255, 255, 0.7); }
+button.hush-flag:hover { color: rgba(31, 28, 23, 0.7); }
 .hush-flag--done { cursor: default; }
 .hush-hushed {
   padding: 2.5rem 0;
   text-align: center;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(31, 28, 23, 0.45);
 }
 
 /* the invite panel (your own profile, tier 1+) */
@@ -615,7 +628,7 @@ button.hush-flag:hover { color: rgba(255, 255, 255, 0.7); }
   max-width: 420px;
   margin: 2rem auto 0;
   padding-top: 1.25rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid rgba(31, 28, 23, 0.12);
   text-align: center;
 }
 .hush-invites-title {
@@ -635,12 +648,12 @@ button.hush-flag:hover { color: rgba(255, 255, 255, 0.7); }
 }
 .hush-invite-code {
   font-family: ui-monospace, monospace;
-  color: #fff;
+  color: var(--gg-ink);
   overflow-wrap: anywhere;
   text-align: left;
 }
-.hush-invite-used { color: rgba(255, 255, 255, 0.6); white-space: nowrap; }
-.hush-invite-open { color: rgba(255, 255, 255, 0.4); white-space: nowrap; }
+.hush-invite-used { color: rgba(31, 28, 23, 0.6); white-space: nowrap; }
+.hush-invite-open { color: rgba(31, 28, 23, 0.4); white-space: nowrap; }
 .hush-invite-mint { margin-top: 1rem; }
 
 /* mint & send: the optional email beside the plain mint button */
@@ -662,10 +675,10 @@ button.hush-flag:hover { color: rgba(255, 255, 255, 0.7); }
   max-width: 420px;
   margin: 2rem auto 0;
   padding-top: 1.25rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  border-top: 1px solid rgba(31, 28, 23, 0.12);
   text-align: center;
 }
-.hush-email-addr { font-family: ui-monospace, monospace; color: #fff; }
+.hush-email-addr { font-family: ui-monospace, monospace; color: var(--gg-ink); }
 .hush-email-resend { margin-top: 0.75rem; }
 .hush-email-form {
   display: flex;
@@ -695,7 +708,7 @@ button.hush-flag:hover { color: rgba(255, 255, 255, 0.7); }
   gap: 1.25rem;
   margin-bottom: 2rem;
 }
-.hush-adm-here { font-size: 0.82rem; color: rgba(255, 255, 255, 0.4); }
+.hush-adm-here { font-size: 0.82rem; color: rgba(31, 28, 23, 0.4); }
 .hush-adm-empty { text-align: center; }
 
 /* the hub: each number is a door into its section */
@@ -707,7 +720,7 @@ button.hush-flag:hover { color: rgba(255, 255, 255, 0.7); }
   margin: 2rem 0;
 }
 .hush-adm-stat { text-decoration: none; }
-.hush-adm-stat:hover { color: #fff; }
+.hush-adm-stat:hover { color: var(--gg-ink); }
 
 /* dense tables (posts browser, member ledger) */
 .hush-adm-table {
@@ -720,11 +733,11 @@ button.hush-flag:hover { color: rgba(255, 255, 255, 0.7); }
   padding: 0.45rem 0.55rem;
   text-align: left;
   vertical-align: top;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(31, 28, 23, 0.12);
 }
 .hush-adm-table th {
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(31, 28, 23, 0.4);
 }
 .hush-adm-content { max-width: 280px; overflow-wrap: anywhere; }
 .hush-adm-thumb { display: block; width: 48px; height: 48px; object-fit: cover; }
@@ -733,14 +746,14 @@ button.hush-flag:hover { color: rgba(255, 255, 255, 0.7); }
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(31, 28, 23, 0.5);
 }
-.hush-adm-dim { color: rgba(255, 255, 255, 0.5); }
+.hush-adm-dim { color: rgba(31, 28, 23, 0.5); }
 .hush-adm-badge {
   padding: 0.05rem 0.35rem;
   font-size: 0.7rem;
-  color: #000;
-  background: #fff;
+  color: var(--gg-on-gold);
+  background: var(--gg-gold);
 }
 
 /* moderation rulings: small quiet ghosts at table density */
@@ -748,11 +761,11 @@ button.hush-flag:hover { color: rgba(255, 255, 255, 0.7); }
 .hush-post--mini {
   padding: 0.15rem 0.55rem;
   font-size: 0.72rem;
-  color: #fff;
+  color: var(--gg-ink);
   background: transparent;
-  border-color: rgba(255, 255, 255, 0.35);
+  border-color: rgba(31, 28, 23, 0.35);
 }
-.hush-post--mini:hover { background: rgba(255, 255, 255, 0.12); border-color: rgba(255, 255, 255, 0.5); }
+.hush-post--mini:hover { background: rgba(31, 28, 23, 0.12); border-color: rgba(31, 28, 23, 0.5); }
 
 /* the posts browser's filter row */
 .hush-adm-filter {
@@ -773,7 +786,7 @@ button.hush-flag:hover { color: rgba(255, 255, 255, 0.7); }
   max-width: 640px;
   margin: 0 auto 1.25rem;
   padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(31, 28, 23, 0.18);
 }
 .hush-adm-line {
   display: flex;
@@ -787,7 +800,7 @@ button.hush-flag:hover { color: rgba(255, 255, 255, 0.7); }
 .hush-adm-flags {
   margin-bottom: 0.6rem;
   font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.5);
+  color: rgba(31, 28, 23, 0.5);
   overflow-wrap: anywhere;
 }
 .hush-adm-flags { display: flex; flex-wrap: wrap; gap: 0.6rem; }
@@ -809,24 +822,24 @@ button.hush-flag:hover { color: rgba(255, 255, 255, 0.7); }
   border-collapse: collapse;
   font-family: ui-monospace, monospace;
   font-size: 0.72rem;
-  color: #fff;
+  color: var(--gg-ink);
 }
 .hush-anl-table th,
 .hush-anl-table td {
   padding: 0.3rem 0.55rem;
   text-align: left;
   white-space: nowrap;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  border-bottom: 1px solid rgba(31, 28, 23, 0.12);
 }
 .hush-anl-table th {
   position: sticky; /* headers hold while the tail scrolls */
   top: 0;
-  background: #000;
+  background: var(--gg-bg);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: lowercase;
-  color: rgba(255, 255, 255, 0.6);
+  color: rgba(31, 28, 23, 0.6);
 }
 .hush-anl-num { text-align: right; font-variant-numeric: tabular-nums; }
-.hush-anl-empty { color: rgba(255, 255, 255, 0.4); }
+.hush-anl-empty { color: rgba(31, 28, 23, 0.4); }
 

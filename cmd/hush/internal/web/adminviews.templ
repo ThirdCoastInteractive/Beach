@@ -15,10 +15,10 @@ import (
 // adminPage is the admin shell: the hush header, the section nav, and a wide
 // column — dense tables don't fit the member pages' 720px.
 templ adminPage(title string, section string) {
-	@shell("hush — " + title) {
+	@shell("goldgirl — " + title) {
 		<div class="hush-adm">
 			<header class="hush-head">
-				<h1 class="hush-title"><a class="hush-home" href="/">hush</a></h1>
+				<h1 class="hush-title"><a class="hush-home" href="/">goldgirl</a></h1>
 				<p class="hush-sub">{ title }</p>
 			</header>
 			@adminNav(section)

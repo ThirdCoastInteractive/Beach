@@ -1,11 +1,13 @@
-// Command hush is the-beach's custom-layout + client-JS showcase: a gated,
-// anonymous content board rendered as a gapless wall of square tiles. See
-// docs/architecture/18-hush.md for the full plan.
+// Command hush is goldgirl: a gated, anonymous social product built on
+// the-beach — a curated, anonymous wall of square art tiles, branded with a
+// fancy-spa palette (warm white, charcoal, gold). The package stays named hush
+// internally; the user-facing brand is goldgirl. See docs/architecture/18-hush.md
+// for the full plan.
 //
 // Run it as a container stack — the app, its Postgres, and its ClickHouse,
 // only the web port published:
 //
-//	cd examples/hush
+//	cd cmd/hush
 //	cp .env.example .env                  # then edit it (secrets)
 //	docker compose up --build             # → http://localhost:8080
 //
@@ -170,7 +172,7 @@ func main() {
 	go outbox.Pump(ctx)
 
 	beachApp := beach.New(beach.Config{
-		Service:    "hush",
+		Service:    "goldgirl",
 		Release:    release,
 		Static:     sub,
 		Logger:     logger,
