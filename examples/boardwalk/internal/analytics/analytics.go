@@ -1,10 +1,10 @@
-// ClickHouse analytics: the game's action firehose. The live game lives in the
-// in-memory ecs.Store and the durable copy in Postgres; ClickHouse holds one
-// append-only row per thing a player did (join, roll, buy, rent, tax, chance,
-// pass GO), emitted non-blocking from inside the sim loop and aggregated into
-// the public /stats page. ClickHouse is required (CLICKHOUSE_DSN), so the
-// firehose is always on.
-package main
+// Package analytics is the game's ClickHouse action firehose and the /stats
+// widgets over it. The live game lives in the in-memory ecs.Store and the
+// durable copy in Postgres; ClickHouse holds one append-only row per thing a
+// player did (join, roll, buy, rent, tax, chance, pass GO), emitted non-blocking
+// from inside the sim loop and aggregated into the public /stats page.
+// ClickHouse is required (CLICKHOUSE_DSN), so the firehose is always on.
+package analytics
 
 import (
 	"embed"
@@ -21,9 +21,9 @@ import (
 //go:embed chmigrations/*.sql
 var chMigrationsFS embed.FS
 
-// chMigrations re-roots the embed so the .sql files sit at the FS root, where
+// Migrations re-roots the embed so the .sql files sit at the FS root, where
 // ch.Migrate's goose provider looks for them.
-func chMigrations() fs.FS {
+func Migrations() fs.FS {
 	sub, err := fs.Sub(chMigrationsFS, "chmigrations")
 	if err != nil {
 		panic(err) // unreachable: the embed guarantees the directory exists
@@ -31,10 +31,10 @@ func chMigrations() fs.FS {
 	return sub
 }
 
-// event is one boardwalk_events row. The ch tags map fields to columns; the
+// Event is one boardwalk_events row. The ch tags map fields to columns; the
 // batcher AppendStructs them into the prepared insert. Seat/Tile are -1/0 when
 // not applicable; Delta is the cash change (negative for a payment).
-type event struct {
+type Event struct {
 	TS    time.Time `ch:"ts"`
 	Kind  string    `ch:"kind"`  // join | roll | pass_go | buy | rent | tax | chance
 	Seat  int32     `ch:"seat"`  // acting seat index
@@ -44,11 +44,27 @@ type event struct {
 	Delta int64     `ch:"delta"` // cash change in dollars (negative = paid)
 }
 
-// anlWidget adapts a fragment-builder into a deferred-widget PageFunc: the
+// CashBar is one live-standings bar: a seat label and its current cash. The web
+// layer supplies these (read off the sim loop) so analytics never imports game.
+type CashBar struct {
+	Label string
+	Cash  int
+}
+
+// Stats holds the dependencies the /stats widgets need: the ClickHouse
+// connection the rolls/tiles widgets query, and a CashBars hook that reads the
+// live standings off the sim loop. main wires CashBars from game.Snapshot so
+// this package stays free of any game import.
+type Stats struct {
+	Conn     ch.Conn
+	CashBars func(c *beach.Ctx) ([]CashBar, error)
+}
+
+// Widget adapts a fragment-builder into a deferred-widget PageFunc: the
 // fragment carries the placeholder's id so the patch morphs cleanly, and a
 // direct navigation still renders the bare fragment instead of a 404. build runs
 // per request — these are live queries, not cached fragments.
-func anlWidget(id string, build func(c *beach.Ctx) (templ.Component, error)) beach.PageFunc {
+func Widget(id string, build func(c *beach.Ctx) (templ.Component, error)) beach.PageFunc {
 	return func(c *beach.Ctx) (beach.View, error) {
 		f, err := build(c)
 		if err != nil {
@@ -74,10 +90,10 @@ type labelCount struct {
 // dayLabel formats a per-day bucket for an axis ("Jun 2").
 func dayLabel(r dayCount) string { return r.D.Format("Jan 2") }
 
-// anlRolls is the headline widget: rolls per day for 14 days, as a line. WITH
+// Rolls is the headline widget: rolls per day for 14 days, as a line. WITH
 // FILL closes the gaps so quiet days chart as zero instead of vanishing.
-func (s *server) anlRolls(c *beach.Ctx) (templ.Component, error) {
-	rows, err := ch.Rows[dayCount](c.Context(), s.chConn, `
+func (s *Stats) Rolls(c *beach.Ctx) (templ.Component, error) {
+	rows, err := ch.Rows[dayCount](c.Context(), s.Conn, `
 		SELECT toDate(ts) AS d, count() AS n
 		  FROM boardwalk_events
 		 WHERE kind = 'roll' AND toDate(ts) >= toDate(now()) - 13
@@ -91,9 +107,9 @@ func (s *server) anlRolls(c *beach.Ctx) (templ.Component, error) {
 	return chart.ChartLineFragment(chart.LayoutLine("anl-rolls", in, chart.LineOpts{RateUnit: "day"})), nil
 }
 
-// anlTiles ranks the most-landed-on tiles over all time — where the action is.
-func (s *server) anlTiles(c *beach.Ctx) (templ.Component, error) {
-	rows, err := ch.Rows[labelCount](c.Context(), s.chConn, `
+// Tiles ranks the most-landed-on tiles over all time — where the action is.
+func (s *Stats) Tiles(c *beach.Ctx) (templ.Component, error) {
+	rows, err := ch.Rows[labelCount](c.Context(), s.Conn, `
 		SELECT name AS l, count() AS n
 		  FROM boardwalk_events
 		 WHERE kind = 'roll' AND name != ''
@@ -106,26 +122,16 @@ func (s *server) anlTiles(c *beach.Ctx) (templ.Component, error) {
 	return chart.ChartBarFragment("anl-tiles", chart.LayoutHBar(in)), nil
 }
 
-// anlCash is the live standings, read off the loop (not from ClickHouse): each
+// Cash is the live standings, read off the loop (not from ClickHouse): each
 // seat's current cash as a bar. The firehose charts history; this one shows the
-// board right now.
-func (s *server) anlCash(c *beach.Ctx) (templ.Component, error) {
-	snap, err := s.game.Snapshot(c.Context())
+// board right now. CashBars supplies the standings so analytics never reads the
+// store directly.
+func (s *Stats) Cash(c *beach.Ctx) (templ.Component, error) {
+	bars, err := s.CashBars(c)
 	if err != nil {
 		return nil, err
 	}
-	type bar struct {
-		label string
-		cash  int
-	}
-	bars := make([]bar, 0, len(snap.players))
-	for _, p := range snap.players {
-		if p.Spec {
-			continue
-		}
-		bars = append(bars, bar{label: p.Token + " " + p.Name, cash: p.Cash})
-	}
-	in := ch.ToHBarSeries(bars, func(b bar) string { return b.label }, func(b bar) int { return b.cash })
+	in := ch.ToHBarSeries(bars, func(b CashBar) string { return b.Label }, func(b CashBar) int { return b.Cash })
 	in.Unit = " cash"
 	return chart.ChartBarFragment("anl-cash", chart.LayoutHBar(in)), nil
 }

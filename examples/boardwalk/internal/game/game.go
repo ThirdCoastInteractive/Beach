@@ -1,4 +1,4 @@
-package main
+package game
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ThirdCoastInteractive/the-beach/examples/boardwalk/internal/analytics"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/ch"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/ecs"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/sim"
@@ -13,13 +14,10 @@ import (
 
 // Topics. The board everyone watches (spectators included) is one hub topic;
 // each player's private hand/cash is their own user:<seat> topic.
-const boardTopic = "board"
+const BoardTopic = "board"
 
-func userTopic(seat int) string { return fmt.Sprintf("user:%d", seat) }
-
-// maxSeats is the fixed table size. Seats fill as players join; unclaimed seats
-// render as open. Keeping it small keeps the board legible.
-const maxSeats = 4
+// UserTopic is the per-seat private hand topic.
+func UserTopic(seat int) string { return fmt.Sprintf("user:%d", seat) }
 
 // Board is a singleton component on the game entity. It is the projection
 // trigger for the shared board surface: any command that changes the game
@@ -36,13 +34,22 @@ type Board struct {
 	Over   bool
 }
 
+// Renderers are the view hooks the sim projections render through. They live in
+// the web package; injecting them keeps game free of any web import (game must
+// not import web). Each returns the rendered fragment bytes for a hub.Event.
+type Renderers struct {
+	Board func(snap Snapshot) []byte
+	Hand  func(snap Snapshot, seat int) []byte
+}
+
 // Game holds the sim plus the fixed entity handles the handlers need. It is the
 // app's single game instance. Players, the property deeds, and the singleton
 // Board entity are all created up front so seats can be claimed without any
 // structural mutation racing the loop.
 type Game struct {
 	sim    *sim.Sim
-	events *ch.Batcher[event] // the ClickHouse action firehose (analytics.go)
+	events *ch.Batcher[analytics.Event] // the ClickHouse action firehose
+	render Renderers
 
 	mu      sync.Mutex
 	gameEnt ecs.Entity         // carries the Board singleton
@@ -51,13 +58,13 @@ type Game struct {
 	deeds   map[int]ecs.Entity // tile index -> deed entity (properties only)
 }
 
-// registerComponents registers every component type with the ecs registry under
+// RegisterComponents registers every component type with the ecs registry under
 // its stable schema id. Restoring a snapshot (ecs.Load) maps each saved column
 // back to a type by schema id, so the types MUST be registered before the load —
 // otherwise restore fails with "unregistered component". Fresh boots register
 // lazily on the first ecs.Add, but restore happens before any Add, so main calls
 // this up front. Idempotent: re-registering a type is a no-op.
-func registerComponents() {
+func RegisterComponents() {
 	ecs.Register[Board]("boardwalk.Board")
 	ecs.Register[Player]("boardwalk.Player")
 	ecs.Register[Position]("boardwalk.Position")
@@ -69,11 +76,13 @@ func registerComponents() {
 // NewGame builds the Game over the sim's store: it either re-derives the entity
 // handles from a restored snapshot (the store already holds a Board singleton)
 // or seeds a fresh board, then registers the projections. It does not start the
-// loop; call Run. events is the firehose every mutation emits to.
-func NewGame(s *sim.Sim, events *ch.Batcher[event]) *Game {
+// loop; call Run. events is the firehose every mutation emits to; render holds
+// the web view hooks the projections render through.
+func NewGame(s *sim.Sim, events *ch.Batcher[analytics.Event], render Renderers) *Game {
 	g := &Game{
 		sim:    s,
 		events: events,
+		render: render,
 		deeds:  make(map[int]ecs.Entity),
 		seatOf: make(map[ecs.Entity]int),
 	}
@@ -111,20 +120,20 @@ func (g *Game) seed(store *ecs.Store) {
 	// Fixed player seats. Each is a full player entity (Position/Cash/TurnOrder)
 	// flagged as an open Spec seat until claimed.
 	tokens := []string{"🦀", "🐚", "⛵", "🏖️"}
-	g.seats = make([]ecs.Entity, maxSeats)
-	for i := 0; i < maxSeats; i++ {
+	g.seats = make([]ecs.Entity, MaxSeats)
+	for i := 0; i < MaxSeats; i++ {
 		e := store.Create()
 		ecs.Add(store, e, Player{Name: fmt.Sprintf("Seat %d", i+1), Token: tokens[i], Spec: true})
 		ecs.Add(store, e, Position{Square: 0})
-		ecs.Add(store, e, Cash{Amount: startingCash})
+		ecs.Add(store, e, Cash{Amount: StartingCash})
 		ecs.Add(store, e, TurnOrder{Seat: i})
 		g.seats[i] = e
 		g.seatOf[e] = i
 	}
 
 	// Property deeds, one entity per buyable tile, owned by the bank initially.
-	for idx, t := range board {
-		if t.Kind != kindProperty {
+	for idx, t := range Tiles {
+		if t.Kind != KindProperty {
 			continue
 		}
 		e := store.Create()
@@ -146,9 +155,9 @@ func (g *Game) rebuild(store *ecs.Store) {
 	}
 
 	// Seats, indexed by their stable TurnOrder.Seat.
-	g.seats = make([]ecs.Entity, maxSeats)
+	g.seats = make([]ecs.Entity, MaxSeats)
 	for e, to := range ecs.Query[TurnOrder](store) {
-		if to.Seat < 0 || to.Seat >= maxSeats {
+		if to.Seat < 0 || to.Seat >= MaxSeats {
 			continue
 		}
 		g.seats[to.Seat] = e
@@ -170,10 +179,10 @@ func (g *Game) registerProjections() {
 
 	// Shared board: any Board stamp re-renders the whole surface to "board".
 	sim.Project(g.sim, sim.Projection[Board]{
-		Topic: func(e ecs.Entity, _ Board) string { return boardTopic },
+		Topic: func(e ecs.Entity, _ Board) string { return BoardTopic },
 		View: func(e ecs.Entity, _ Board) []byte {
 			snap := snapshotBoard(store, g.seats, g.deeds, g.gameEnt)
-			return renderToBytes(boardFragment(snap))
+			return g.render.Board(snap)
 		},
 	})
 
@@ -185,7 +194,7 @@ func (g *Game) registerProjections() {
 			if !ok {
 				return ""
 			}
-			return userTopic(seat)
+			return UserTopic(seat)
 		},
 		View: func(e ecs.Entity, _ Cash) []byte {
 			seat, ok := g.seatOf[e]
@@ -193,15 +202,15 @@ func (g *Game) registerProjections() {
 				return nil
 			}
 			snap := snapshotBoard(store, g.seats, g.deeds, g.gameEnt)
-			return renderToBytes(handFragment(snap, seat))
+			return g.render.Hand(snap, seat)
 		},
 	})
 }
 
 // Snapshot builds a read-only view of the board off the loop for catch-up
 // rendering. It Asks the loop so the read is consistent and race-free.
-func (g *Game) Snapshot(ctx context.Context) (boardSnapshot, error) {
-	return sim.AskFunc(ctx, g.sim, func(w *sim.World) boardSnapshot {
+func (g *Game) Snapshot(ctx context.Context) (Snapshot, error) {
+	return sim.AskFunc(ctx, g.sim, func(w *sim.World) Snapshot {
 		return snapshotBoard(w.Store, g.seats, g.deeds, g.gameEnt)
 	})
 }
@@ -214,7 +223,7 @@ type snapshotBlob struct {
 
 // SaveSnapshot serializes the live store to a CBOR blob on the loop goroutine
 // (via AskFunc, so it never races the loop) and returns it with the current
-// tick. The saveLoop in main.go calls this periodically and persists the result.
+// tick. The save loop in main calls this periodically and persists the result.
 func (g *Game) SaveSnapshot(ctx context.Context) ([]byte, int64, error) {
 	res, err := sim.AskFunc(ctx, g.sim, func(w *sim.World) snapshotBlob {
 		data, serr := w.Store.Save()
@@ -234,27 +243,6 @@ func (g *Game) SaveSnapshot(ctx context.Context) ([]byte, int64, error) {
 
 // Run drives the sim loop until ctx is cancelled.
 func (g *Game) Run(ctx context.Context) { g.sim.Run(ctx) }
-
-// saveLoop persists a fresh snapshot every 15s until ctx is cancelled. The live
-// game is the in-memory store; this loop keeps Postgres's durable copy current
-// so a restart resumes mid-game. A save failure is logged-by-return — the loop
-// keeps trying on the next tick rather than tearing down the game.
-func saveLoop(ctx context.Context, g *Game, snap snapStore) {
-	t := time.NewTicker(15 * time.Second)
-	defer t.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			data, tick, err := g.SaveSnapshot(ctx)
-			if err != nil {
-				continue
-			}
-			_ = snap.save(ctx, data, tick)
-		}
-	}
-}
 
 // touchBoard re-stamps the Board singleton so the next projection pass renders
 // the shared surface. Call from inside a Command's Apply after any change.
@@ -293,13 +281,13 @@ func (c joinCmd) Apply(w *sim.World) {
 			b.Joined++
 			b.Log = appendLog(b.Log, fmt.Sprintf("%s joined as %s.", jp.Name, jp.Token))
 		})
-		c.game.emit(event{Kind: "join", Seat: int32(seat), Token: jp.Token})
+		c.game.emit(analytics.Event{Kind: "join", Seat: int32(seat), Token: jp.Token})
 	}
 	c.reply(seat)
 }
 
-// rollResult is what an Ask roll returns to the handler.
-type rollResult struct {
+// RollResult is what an Ask roll returns to the handler.
+type RollResult struct {
 	OK  bool
 	Msg string
 	D1  int
@@ -313,7 +301,7 @@ type rollResult struct {
 type rollCmd struct {
 	game  *Game
 	seat  int
-	reply func(rollResult)
+	reply func(RollResult)
 }
 
 func (c rollCmd) Apply(w *sim.World) {
@@ -323,12 +311,12 @@ func (c rollCmd) Apply(w *sim.World) {
 
 	pl, _ := ecs.Get[Player](store, ent)
 	if pl.Spec {
-		c.reply(rollResult{OK: false, Msg: "That seat is open — claim it first."})
+		c.reply(RollResult{OK: false, Msg: "That seat is open — claim it first."})
 		return
 	}
 	board0, _ := ecs.Get[Board](store, g.gameEnt)
 	if board0.Turn != c.seat {
-		c.reply(rollResult{OK: false, Msg: "Not your turn."})
+		c.reply(RollResult{OK: false, Msg: "Not your turn."})
 		return
 	}
 
@@ -338,17 +326,17 @@ func (c rollCmd) Apply(w *sim.World) {
 
 	pos, _ := ecs.Get[Position](store, ent)
 	from := pos.Square
-	to := (from + steps) % len(board)
+	to := (from + steps) % len(Tiles)
 	ecs.Set(store, ent, Position{Square: to})
 
-	lines := []string{fmt.Sprintf("%s rolled %d+%d=%d → %s", pl.Token, d1, d2, steps, board[to].Name)}
-	g.emit(event{Kind: "roll", Seat: int32(c.seat), Token: pl.Token, Tile: int32(to), Name: board[to].Name})
+	lines := []string{fmt.Sprintf("%s rolled %d+%d=%d → %s", pl.Token, d1, d2, steps, Tiles[to].Name)}
+	g.emit(analytics.Event{Kind: "roll", Seat: int32(c.seat), Token: pl.Token, Tile: int32(to), Name: Tiles[to].Name})
 
 	// Passing GO (wrap-around) pays salary.
 	if to < from {
-		addCash(store, ent, salary)
-		lines = append(lines, fmt.Sprintf("%s passed GO, collected $%d.", pl.Token, salary))
-		g.emit(event{Kind: "pass_go", Seat: int32(c.seat), Token: pl.Token, Delta: int64(salary)})
+		addCash(store, ent, Salary)
+		lines = append(lines, fmt.Sprintf("%s passed GO, collected $%d.", pl.Token, Salary))
+		g.emit(analytics.Event{Kind: "pass_go", Seat: int32(c.seat), Token: pl.Token, Delta: int64(Salary)})
 	}
 
 	lines = append(lines, c.resolveTile(w, ent, pl, to)...)
@@ -365,38 +353,38 @@ func (c rollCmd) Apply(w *sim.World) {
 		}
 	})
 
-	c.reply(rollResult{OK: true, Msg: lines[len(lines)-1], D1: d1, D2: d2})
+	c.reply(RollResult{OK: true, Msg: lines[len(lines)-1], D1: d1, D2: d2})
 }
 
 // resolveTile applies the effect of landing on tile `to` and returns log lines.
 func (c rollCmd) resolveTile(w *sim.World, ent ecs.Entity, pl Player, to int) []string {
 	store := w.Store
 	g := c.game
-	t := board[to]
+	t := Tiles[to]
 	var out []string
 
 	switch t.Kind {
-	case kindGo:
-		addCash(store, ent, salary)
-		out = append(out, fmt.Sprintf("%s landed on GO, collected $%d.", pl.Token, salary))
+	case KindGo:
+		addCash(store, ent, Salary)
+		out = append(out, fmt.Sprintf("%s landed on GO, collected $%d.", pl.Token, Salary))
 
-	case kindTax:
+	case KindTax:
 		addCash(store, ent, -t.Price)
 		out = append(out, fmt.Sprintf("%s paid $%d %s.", pl.Token, t.Price, t.Name))
-		g.emit(event{Kind: "tax", Seat: int32(c.seat), Token: pl.Token, Tile: int32(to), Name: t.Name, Delta: int64(-t.Price)})
+		g.emit(analytics.Event{Kind: "tax", Seat: int32(c.seat), Token: pl.Token, Tile: int32(to), Name: t.Name, Delta: int64(-t.Price)})
 
-	case kindChance:
+	case KindChance:
 		// Deterministic swing off the sim PRNG: -$60..+$80 in $20 steps.
 		delta := (w.Intn(8) - 3) * 20
 		addCash(store, ent, delta)
-		g.emit(event{Kind: "chance", Seat: int32(c.seat), Token: pl.Token, Tile: int32(to), Name: t.Name, Delta: int64(delta)})
+		g.emit(analytics.Event{Kind: "chance", Seat: int32(c.seat), Token: pl.Token, Tile: int32(to), Name: t.Name, Delta: int64(delta)})
 		if delta >= 0 {
 			out = append(out, fmt.Sprintf("%s drew Chance: +$%d.", pl.Token, delta))
 		} else {
 			out = append(out, fmt.Sprintf("%s drew Chance: -$%d.", pl.Token, -delta))
 		}
 
-	case kindProperty:
+	case KindProperty:
 		deed := g.deeds[to]
 		own, _ := ecs.Get[Ownership](store, deed)
 		switch {
@@ -407,7 +395,7 @@ func (c rollCmd) resolveTile(w *sim.World, ent ecs.Entity, pl Player, to int) []
 				addCash(store, ent, -t.Price)
 				ecs.Set(store, deed, Ownership{Tile: to, Owner: ent})
 				out = append(out, fmt.Sprintf("%s bought %s for $%d.", pl.Token, t.Name, t.Price))
-				g.emit(event{Kind: "buy", Seat: int32(c.seat), Token: pl.Token, Tile: int32(to), Name: t.Name, Delta: int64(-t.Price)})
+				g.emit(analytics.Event{Kind: "buy", Seat: int32(c.seat), Token: pl.Token, Tile: int32(to), Name: t.Name, Delta: int64(-t.Price)})
 			} else {
 				out = append(out, fmt.Sprintf("%s can't afford %s ($%d).", pl.Token, t.Name, t.Price))
 			}
@@ -419,7 +407,7 @@ func (c rollCmd) resolveTile(w *sim.World, ent ecs.Entity, pl Player, to int) []
 			addCash(store, own.Owner, t.Rent)
 			op, _ := ecs.Get[Player](store, own.Owner)
 			out = append(out, fmt.Sprintf("%s paid $%d rent to %s for %s.", pl.Token, t.Rent, op.Token, t.Name))
-			g.emit(event{Kind: "rent", Seat: int32(c.seat), Token: pl.Token, Tile: int32(to), Name: t.Name, Delta: int64(-t.Rent)})
+			g.emit(analytics.Event{Kind: "rent", Seat: int32(c.seat), Token: pl.Token, Tile: int32(to), Name: t.Name, Delta: int64(-t.Rent)})
 		}
 	}
 	return out
@@ -428,8 +416,8 @@ func (c rollCmd) resolveTile(w *sim.World, ent ecs.Entity, pl Player, to int) []
 // nextSeat returns the next claimed (non-Spec) seat after `seat`, wrapping. If
 // no other player has joined, it returns the same seat (solo play).
 func (g *Game) nextSeat(store *ecs.Store, seat int) int {
-	for i := 1; i <= maxSeats; i++ {
-		cand := (seat + i) % maxSeats
+	for i := 1; i <= MaxSeats; i++ {
+		cand := (seat + i) % MaxSeats
 		p, _ := ecs.Get[Player](store, g.seats[cand])
 		if !p.Spec {
 			return cand
@@ -448,8 +436,8 @@ func (g *Game) Join(ctx context.Context, name string) (int, error) {
 }
 
 // Roll rolls for a seat, returning the outcome.
-func (g *Game) Roll(ctx context.Context, seat int) (rollResult, error) {
-	return sim.Ask(ctx, g.sim, func(reply func(rollResult)) sim.Command {
+func (g *Game) Roll(ctx context.Context, seat int) (RollResult, error) {
+	return sim.Ask(ctx, g.sim, func(reply func(RollResult)) sim.Command {
 		return rollCmd{game: g, seat: seat, reply: reply}
 	})
 }
@@ -459,7 +447,7 @@ func (g *Game) Roll(ctx context.Context, seat int) (rollResult, error) {
 // emit stamps the event with the wall time and hands it to the firehose. Add is
 // non-blocking, so this is safe to call from inside a command's Apply on the
 // loop goroutine. The guard keeps it a no-op if the batcher is somehow unset.
-func (g *Game) emit(e event) {
+func (g *Game) emit(e analytics.Event) {
 	if g.events == nil {
 		return
 	}

@@ -1,4 +1,4 @@
-package main
+package game
 
 import "github.com/ThirdCoastInteractive/the-beach/pkg/ecs"
 
@@ -14,7 +14,7 @@ type Player struct {
 	Spec  bool   // a seat that has not been claimed yet (open seat)
 }
 
-// Position is the player's square index on the board [0,len(board)).
+// Position is the player's square index on the board [0,len(Tiles)).
 type Position struct {
 	Square int
 }

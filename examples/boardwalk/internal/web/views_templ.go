@@ -3,13 +3,13 @@
 // templ: version: v0.3.1020
 // boardwalk's views, as templ components. The handlers and sim wiring
 
-// (main.go, game.go) stay plain Go and call these with snapshot data;
+// (main.go, internal/game) stay plain Go and call these with snapshot data;
 
 // everything that emits markup lives here. Fragments carry stable DOM ids
 
 // (views.go) so SSE projections morph them in place.
 
-package main
+package web
 
 //lint:file-ignore SA4006 This context is only used if a nested component is present.
 
@@ -19,6 +19,7 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"fmt"
 
+	"github.com/ThirdCoastInteractive/the-beach/examples/boardwalk/internal/game"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/ui"
@@ -28,7 +29,7 @@ import (
 // indexView is the full board page. data-init on the container opens the three
 // SSE streams the moment the page is interactive: the shared board, the private
 // hand (it self-resolves the spectator case server-side), and the cash race.
-func indexView(snap boardSnapshot, seat int, lay chart.BarRaceLayout) templ.Component {
+func indexView(snap game.Snapshot, seat int, lay chart.BarRaceLayout) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -273,7 +274,7 @@ func reopenHand() templ.Component {
 // boardFragment renders the whole shared board surface: the turn banner, the
 // tile ring, the standings, and the log. It carries id=boardTarget so every
 // projection morphs it in place.
-func boardFragment(snap boardSnapshot) templ.Component {
+func boardFragment(snap game.Snapshot) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -301,7 +302,7 @@ func boardFragment(snap boardSnapshot) templ.Component {
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(boardTarget)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/boardwalk/views.templ`, Line: 68, Col: 22}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 69, Col: 22}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 		if templ_7745c5c3_Err != nil {
@@ -314,7 +315,7 @@ func boardFragment(snap boardSnapshot) templ.Component {
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.JoinStringErrs(turnName(snap))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/boardwalk/views.templ`, Line: 70, Col: 41}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 71, Col: 41}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
@@ -324,15 +325,15 @@ func boardFragment(snap boardSnapshot) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if snap.board.LastD1 > 0 {
+		if snap.Board.LastD1 > 0 {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 10, "<span class=\"bw-dice\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var13 string
-			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("last roll %d + %d", snap.board.LastD1, snap.board.LastD2))
+			templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinStringErrs(fmt.Sprintf("last roll %d + %d", snap.Board.LastD1, snap.Board.LastD2))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/boardwalk/views.templ`, Line: 72, Col: 98}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 73, Col: 98}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 			if templ_7745c5c3_Err != nil {
@@ -347,7 +348,7 @@ func boardFragment(snap boardSnapshot) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		for idx, t := range board {
+		for idx, t := range game.Tiles {
 			templ_7745c5c3_Err = boardTile(snap, idx, t).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -357,7 +358,7 @@ func boardFragment(snap boardSnapshot) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		for _, p := range snap.players {
+		for _, p := range snap.Players {
 			if p.Spec {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 14, "<li class=\"bw-open\">")
 				if templ_7745c5c3_Err != nil {
@@ -366,7 +367,7 @@ func boardFragment(snap boardSnapshot) templ.Component {
 				var templ_7745c5c3_Var14 string
 				templ_7745c5c3_Var14, templ_7745c5c3_Err = templ.JoinStringErrs(p.Name)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/boardwalk/views.templ`, Line: 85, Col: 34}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 86, Col: 34}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var14))
 				if templ_7745c5c3_Err != nil {
@@ -384,7 +385,7 @@ func boardFragment(snap boardSnapshot) templ.Component {
 				var templ_7745c5c3_Var15 string
 				templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.JoinStringErrs(p.Token + " " + p.Name + " — " + dollars(p.Cash))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/boardwalk/views.templ`, Line: 88, Col: 59}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 89, Col: 59}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var15))
 				if templ_7745c5c3_Err != nil {
@@ -394,7 +395,7 @@ func boardFragment(snap boardSnapshot) templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				if p.Seat == snap.board.Turn {
+				if p.Seat == snap.Board.Turn {
 					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 18, "<span class=\"bw-toturn\">▶</span>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
@@ -410,7 +411,7 @@ func boardFragment(snap boardSnapshot) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		for _, ln := range snap.board.Log {
+		for _, ln := range snap.Board.Log {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 21, "<li>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -418,7 +419,7 @@ func boardFragment(snap boardSnapshot) templ.Component {
 			var templ_7745c5c3_Var16 string
 			templ_7745c5c3_Var16, templ_7745c5c3_Err = templ.JoinStringErrs(ln)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/boardwalk/views.templ`, Line: 101, Col: 13}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 102, Col: 13}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 			if templ_7745c5c3_Err != nil {
@@ -439,7 +440,7 @@ func boardFragment(snap boardSnapshot) templ.Component {
 
 // boardTile is one square of the ring: name, price-or-owner meta for
 // properties, and the tokens currently standing on it.
-func boardTile(snap boardSnapshot, idx int, t tile) templ.Component {
+func boardTile(snap game.Snapshot, idx int, t game.Tile) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -472,7 +473,7 @@ func boardTile(snap boardSnapshot, idx int, t tile) templ.Component {
 			var templ_7745c5c3_Var18 string
 			templ_7745c5c3_Var18, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(groupAccent(t.Group))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/boardwalk/views.templ`, Line: 114, Col: 31}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 115, Col: 31}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var18))
 			if templ_7745c5c3_Err != nil {
@@ -490,7 +491,7 @@ func boardTile(snap boardSnapshot, idx int, t tile) templ.Component {
 		var templ_7745c5c3_Var19 string
 		templ_7745c5c3_Var19, templ_7745c5c3_Err = templ.JoinStringErrs(t.Name)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/boardwalk/views.templ`, Line: 117, Col: 36}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 118, Col: 36}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 		if templ_7745c5c3_Err != nil {
@@ -500,8 +501,8 @@ func boardTile(snap boardSnapshot, idx int, t tile) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if t.Kind == kindProperty {
-			if owner, ok := snap.owners[idx]; ok {
+		if t.Kind == game.KindProperty {
+			if owner, ok := snap.Owners[idx]; ok {
 				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 29, "<div class=\"bw-tile-meta\">")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -509,7 +510,7 @@ func boardTile(snap boardSnapshot, idx int, t tile) templ.Component {
 				var templ_7745c5c3_Var20 string
 				templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs("owned " + owner)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/boardwalk/views.templ`, Line: 120, Col: 48}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 121, Col: 48}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 				if templ_7745c5c3_Err != nil {
@@ -527,7 +528,7 @@ func boardTile(snap boardSnapshot, idx int, t tile) templ.Component {
 				var templ_7745c5c3_Var21 string
 				templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(dollars(t.Price))
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/boardwalk/views.templ`, Line: 122, Col: 48}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 123, Col: 48}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 				if templ_7745c5c3_Err != nil {
@@ -548,7 +549,7 @@ func boardTile(snap boardSnapshot, idx int, t tile) templ.Component {
 			var templ_7745c5c3_Var22 string
 			templ_7745c5c3_Var22, templ_7745c5c3_Err = templ.JoinStringErrs(here)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/boardwalk/views.templ`, Line: 127, Col: 35}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 128, Col: 35}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var22))
 			if templ_7745c5c3_Err != nil {
@@ -571,7 +572,7 @@ func boardTile(snap boardSnapshot, idx int, t tile) templ.Component {
 // the turn control. The seat-claim and Roll controls live here so the SSE
 // stream swaps them with no page reload (and no inline script — the CSP
 // forbids it). Carries id=handTarget.
-func handFragment(snap boardSnapshot, seat int) templ.Component {
+func handFragment(snap game.Snapshot, seat int) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -599,7 +600,7 @@ func handFragment(snap boardSnapshot, seat int) templ.Component {
 		var templ_7745c5c3_Var24 string
 		templ_7745c5c3_Var24, templ_7745c5c3_Err = templ.ResolveAttributeValue(handTarget)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/boardwalk/views.templ`, Line: 137, Col: 21}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 138, Col: 21}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var24)
 		if templ_7745c5c3_Err != nil {
@@ -609,7 +610,7 @@ func handFragment(snap boardSnapshot, seat int) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if seat < 0 || seat >= len(snap.players) {
+		if seat < 0 || seat >= len(snap.Players) {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 38, "<p>Spectating. Join to get a hand.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -623,7 +624,7 @@ func handFragment(snap boardSnapshot, seat int) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		} else {
-			p := snap.players[seat]
+			p := snap.Players[seat]
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 39, "<h3>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -631,7 +632,7 @@ func handFragment(snap boardSnapshot, seat int) templ.Component {
 			var templ_7745c5c3_Var25 string
 			templ_7745c5c3_Var25, templ_7745c5c3_Err = templ.JoinStringErrs(p.Token + " " + p.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/boardwalk/views.templ`, Line: 147, Col: 31}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 148, Col: 31}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var25))
 			if templ_7745c5c3_Err != nil {
@@ -644,7 +645,7 @@ func handFragment(snap boardSnapshot, seat int) templ.Component {
 			var templ_7745c5c3_Var26 string
 			templ_7745c5c3_Var26, templ_7745c5c3_Err = templ.JoinStringErrs(dollars(p.Cash))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/boardwalk/views.templ`, Line: 148, Col: 53}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 149, Col: 53}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var26))
 			if templ_7745c5c3_Err != nil {
@@ -655,9 +656,9 @@ func handFragment(snap boardSnapshot, seat int) templ.Component {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var27 string
-			templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(board[p.Square].Name)
+			templ_7745c5c3_Var27, templ_7745c5c3_Err = templ.JoinStringErrs(game.Tiles[p.Square].Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/boardwalk/views.templ`, Line: 149, Col: 40}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 150, Col: 45}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var27))
 			if templ_7745c5c3_Err != nil {
@@ -682,7 +683,7 @@ func handFragment(snap boardSnapshot, seat int) templ.Component {
 				var templ_7745c5c3_Var28 string
 				templ_7745c5c3_Var28, templ_7745c5c3_Err = templ.JoinStringErrs(d)
 				if templ_7745c5c3_Err != nil {
-					return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/boardwalk/views.templ`, Line: 157, Col: 12}
+					return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 158, Col: 12}
 				}
 				_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var28))
 				if templ_7745c5c3_Err != nil {
@@ -697,7 +698,7 @@ func handFragment(snap boardSnapshot, seat int) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			if snap.board.Turn == seat {
+			if snap.Board.Turn == seat {
 				templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{
 					Label: "Roll dice",
 					Role:  driftwood.RoleAccent,
@@ -754,7 +755,7 @@ func raceFragment(lay chart.BarRaceLayout) templ.Component {
 		var templ_7745c5c3_Var30 string
 		templ_7745c5c3_Var30, templ_7745c5c3_Err = templ.ResolveAttributeValue(raceTarget)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/boardwalk/views.templ`, Line: 179, Col: 21}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 180, Col: 21}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var30)
 		if templ_7745c5c3_Err != nil {
@@ -778,9 +779,9 @@ func raceFragment(lay chart.BarRaceLayout) templ.Component {
 
 // statsPage is the public analytics page: a grid of deferred chart widgets, each
 // a placeholder that @gets its fragment from one of the widget PageFuncs
-// (analytics.go). The rolls/tiles widgets read the ClickHouse firehose; the cash
-// widget reads the live store off the loop. Each placeholder reserves its height
-// so the deferred chart patches in with zero layout shift.
+// (internal/analytics). The rolls/tiles widgets read the ClickHouse firehose; the
+// cash widget reads the live store off the loop. Each placeholder reserves its
+// height so the deferred chart patches in with zero layout shift.
 func statsPage() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -937,7 +938,7 @@ func statWidget(title, id, src, height string) templ.Component {
 			var templ_7745c5c3_Var37 string
 			templ_7745c5c3_Var37, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("height:" + height)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/boardwalk/views.templ`, Line: 214, Col: 33}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 215, Col: 33}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var37))
 			if templ_7745c5c3_Err != nil {

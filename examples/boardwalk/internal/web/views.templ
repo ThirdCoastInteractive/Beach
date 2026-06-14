@@ -1,12 +1,13 @@
 // boardwalk's views, as templ components. The handlers and sim wiring
-// (main.go, game.go) stay plain Go and call these with snapshot data;
+// (main.go, internal/game) stay plain Go and call these with snapshot data;
 // everything that emits markup lives here. Fragments carry stable DOM ids
 // (views.go) so SSE projections morph them in place.
-package main
+package web
 
 import (
 	"fmt"
 
+	"github.com/ThirdCoastInteractive/the-beach/examples/boardwalk/internal/game"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/ui"
@@ -16,7 +17,7 @@ import (
 // indexView is the full board page. data-init on the container opens the three
 // SSE streams the moment the page is interactive: the shared board, the private
 // hand (it self-resolves the spectator case server-side), and the cash race.
-templ indexView(snap boardSnapshot, seat int, lay chart.BarRaceLayout) {
+templ indexView(snap game.Snapshot, seat int, lay chart.BarRaceLayout) {
 	@driftwood.Page(driftwood.PageProps{
 		Title:       "Boardwalk — the-beach",
 		Description: "A database-less sim/ecs board game over SSE.",
@@ -64,29 +65,29 @@ templ reopenHand() {
 // boardFragment renders the whole shared board surface: the turn banner, the
 // tile ring, the standings, and the log. It carries id=boardTarget so every
 // projection morphs it in place.
-templ boardFragment(snap boardSnapshot) {
+templ boardFragment(snap game.Snapshot) {
 	<div id={ boardTarget } class="bw-board">
 		<p class="bw-turn">
 			Current turn: <strong>{ turnName(snap) }</strong>
-			if snap.board.LastD1 > 0 {
-				<span class="bw-dice">{ fmt.Sprintf("last roll %d + %d", snap.board.LastD1, snap.board.LastD2) }</span>
+			if snap.Board.LastD1 > 0 {
+				<span class="bw-dice">{ fmt.Sprintf("last roll %d + %d", snap.Board.LastD1, snap.Board.LastD2) }</span>
 			}
 		</p>
 		<div class="bw-tiles">
-			for idx, t := range board {
+			for idx, t := range game.Tiles {
 				@boardTile(snap, idx, t)
 			}
 		</div>
 		<div class="bw-standings">
 			<h3>Standings</h3>
 			<ul>
-				for _, p := range snap.players {
+				for _, p := range snap.Players {
 					if p.Spec {
 						<li class="bw-open">{ p.Name } <em>open seat</em></li>
 					} else {
 						<li>
 							{ p.Token + " " + p.Name + " — " + dollars(p.Cash) }
-							if p.Seat == snap.board.Turn {
+							if p.Seat == snap.Board.Turn {
 								<span class="bw-toturn">▶</span>
 							}
 						</li>
@@ -97,7 +98,7 @@ templ boardFragment(snap boardSnapshot) {
 		<div class="bw-log">
 			<h3>Game log</h3>
 			<ol>
-				for _, ln := range snap.board.Log {
+				for _, ln := range snap.Board.Log {
 					<li>{ ln }</li>
 				}
 			</ol>
@@ -107,7 +108,7 @@ templ boardFragment(snap boardSnapshot) {
 
 // boardTile is one square of the ring: name, price-or-owner meta for
 // properties, and the tokens currently standing on it.
-templ boardTile(snap boardSnapshot, idx int, t tile) {
+templ boardTile(snap game.Snapshot, idx int, t game.Tile) {
 	<div
 		class="bw-tile"
 		if t.Group != "" {
@@ -115,8 +116,8 @@ templ boardTile(snap boardSnapshot, idx int, t tile) {
 		}
 	>
 		<div class="bw-tile-name">{ t.Name }</div>
-		if t.Kind == kindProperty {
-			if owner, ok := snap.owners[idx]; ok {
+		if t.Kind == game.KindProperty {
+			if owner, ok := snap.Owners[idx]; ok {
 				<div class="bw-tile-meta">{ "owned " + owner }</div>
 			} else {
 				<div class="bw-tile-meta">{ dollars(t.Price) }</div>
@@ -133,9 +134,9 @@ templ boardTile(snap boardSnapshot, idx int, t tile) {
 // the turn control. The seat-claim and Roll controls live here so the SSE
 // stream swaps them with no page reload (and no inline script — the CSP
 // forbids it). Carries id=handTarget.
-templ handFragment(snap boardSnapshot, seat int) {
+templ handFragment(snap game.Snapshot, seat int) {
 	<div id={ handTarget } class="bw-hand">
-		if seat < 0 || seat >= len(snap.players) {
+		if seat < 0 || seat >= len(snap.Players) {
 			<p>Spectating. Join to get a hand.</p>
 			@driftwood.Button(driftwood.ButtonProps{
 				Label: "Take a seat",
@@ -143,10 +144,10 @@ templ handFragment(snap boardSnapshot, seat int) {
 				Attrs: datastar.Attrs{datastar.OnClick("@post('/join')")},
 			})
 		} else {
-			{{ p := snap.players[seat] }}
+			{{ p := snap.Players[seat] }}
 			<h3>{ p.Token + " " + p.Name }</h3>
 			<p class="bw-cash">Cash: <strong>{ dollars(p.Cash) }</strong></p>
-			<p>On: <strong>{ board[p.Square].Name }</strong></p>
+			<p>On: <strong>{ game.Tiles[p.Square].Name }</strong></p>
 			<h4>Your deeds</h4>
 			<ul class="bw-deeds">
 				{{ deeds := deedsOf(snap, p.Token) }}
@@ -157,7 +158,7 @@ templ handFragment(snap boardSnapshot, seat int) {
 					<li>{ d }</li>
 				}
 			</ul>
-			if snap.board.Turn == seat {
+			if snap.Board.Turn == seat {
 				@driftwood.Button(driftwood.ButtonProps{
 					Label: "Roll dice",
 					Role:  driftwood.RoleAccent,
@@ -183,9 +184,9 @@ templ raceFragment(lay chart.BarRaceLayout) {
 
 // statsPage is the public analytics page: a grid of deferred chart widgets, each
 // a placeholder that @gets its fragment from one of the widget PageFuncs
-// (analytics.go). The rolls/tiles widgets read the ClickHouse firehose; the cash
-// widget reads the live store off the loop. Each placeholder reserves its height
-// so the deferred chart patches in with zero layout shift.
+// (internal/analytics). The rolls/tiles widgets read the ClickHouse firehose; the
+// cash widget reads the live store off the loop. Each placeholder reserves its
+// height so the deferred chart patches in with zero layout shift.
 templ statsPage() {
 	@driftwood.Page(driftwood.PageProps{
 		Title:       "Boardwalk stats — the-beach",
