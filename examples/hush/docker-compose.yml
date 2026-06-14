@@ -4,8 +4,7 @@ name: hush
 # the web port is published; the databases are internal-only.
 #
 #   cp .env.example .env                    # then edit it (mail keys, secrets)
-#   docker compose build --ssh default      # Repute is a private module, see below
-#   docker compose up                       →  http://localhost:8080  (admin / password)
+#   docker compose up --build               →  http://localhost:8080  (admin / password)
 #
 # The .env holds only the Postgres credentials, the operator secrets (mail, R2,
 # Cloudflare), and the policy seeds. It carries NO DATABASE_URL or
@@ -14,11 +13,9 @@ name: hush
 # below and the service names — so the database connection is configured in
 # exactly one place, here, not duplicated into the .env.
 #
-# NOTE: hush depends on the private module github.com/ThirdCoastInteractive/Repute,
-# so the image build needs git access to it. Build with BuildKit SSH forwarding —
-# `docker compose build --ssh default` — and the shared Dockerfile forwards the
-# agent + GOPRIVATE to `go mod download`. (The other three examples build with no
-# extra flags.)
+# hush depends on the private module github.com/ThirdCoastInteractive/Repute, but
+# it is vendored (vendor/, tracked in git), so the image build needs no SSH and no
+# private access — it builds with no extra flags, like the other three.
 services:
   postgres:
     image: postgres:16-alpine
@@ -59,13 +56,14 @@ services:
   hush:
     build:
       context: ../..
-      args:
-        APP: hush
-        GOPRIVATE: github.com/ThirdCoastInteractive
-      ssh: [default] # forward the SSH agent so go can fetch the private Repute module
+      args: { APP: hush } # deps are vendored — no SSH/GOPRIVATE needed
     # The operator's config — credentials, mail, R2, Cloudflare Images, the
-    # policy seeds — rides in from .env (copied from .env.docker.example).
-    env_file: [.env]
+    # policy seeds — rides in from .env (copied from .env.example). Optional so
+    # `up` doesn't refuse to start when .env is absent: the app's own config
+    # validation is the source of truth and fail-fasts with the missing-env list.
+    env_file:
+      - path: .env
+        required: false
     # The connection strings are built here, from the credentials and the
     # service names, so they live in one place and never localhost. BASE_URL
     # takes the .env value when set (your public origin), else a localhost

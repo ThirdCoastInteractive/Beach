@@ -29,10 +29,10 @@ test: build
 # volumes — add `-v` by hand to drop them). Credentials and the published PORT
 # come from examples/<app>/.env when present (copy .env.example and edit it),
 # otherwise compose's built-in defaults (beach/beach, PORT 8080). Running more
-# than one stack at once needs a distinct PORT per .env. hush additionally needs
-# the full stack configured (Cloudflare R2/Images + a mail transport, in its
-# .env) and SSH-agent forwarding to fetch the private Repute module, so its
-# build is split out with --ssh default.
+# than one stack at once needs a distinct PORT per .env. Deps are vendored, so
+# every example (hush included) builds with no SSH/private access; hush just also
+# needs the full stack configured (Cloudflare R2/Images + a mail transport) in
+# its .env or it exits at boot.
 
 .PHONY: up-pantry up-driftbottle up-boardwalk up-hush examples-up \
         down-pantry down-driftbottle down-boardwalk down-hush examples-down
@@ -47,11 +47,11 @@ up-boardwalk:
 	cd examples/boardwalk && docker compose up -d --build
 
 up-hush:
-	cd examples/hush && docker compose build --ssh default && docker compose up -d
+	cd examples/hush && docker compose up -d --build
 
 # Bring up the three public example stacks (each needs a distinct PORT in its
 # .env to avoid a host-port clash). hush is excluded — it needs real Cloudflare
-# + mail config and the --ssh build, so start it with `make up-hush`.
+# + mail config in its .env to boot, so start it with `make up-hush`.
 examples-up: up-pantry up-driftbottle up-boardwalk
 
 down-pantry:

@@ -7,8 +7,7 @@
 //
 //	cd examples/hush
 //	cp .env.example .env                  # then edit it (secrets)
-//	docker compose build --ssh default    # Repute is a private module
-//	docker compose up                     # → http://localhost:8080
+//	docker compose up --build             # → http://localhost:8080
 //
 // Config arrives entirely from the container environment (compose's env_file +
 // environment): the wall and the signup gate — applications, accounts, RBAC,

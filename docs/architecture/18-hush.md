@@ -255,8 +255,8 @@ survive restarts. One hop for now; propagating a decayed echo further up the
 chain is the obvious extension.
 
 Repute is a normal (private) module dependency —
-`github.com/ThirdCoastInteractive/Repute` in the root go.mod; building it
-needs `GOPRIVATE=…,github.com/ThirdCoastInteractive`.
+`github.com/ThirdCoastInteractive/Repute` in the root go.mod. It is vendored
+(`vendor/`, tracked in git), so builds need no `GOPRIVATE` or SSH access.
 
 ## Flagging
 
@@ -784,8 +784,7 @@ hush runs as a container stack — there is no `go run` workflow to babysit.
 ```
 cd examples/hush
 cp .env.example .env                  # then edit it (secrets)
-docker compose build --ssh default    # Repute is a private module, see below
-docker compose up                     # → http://localhost:8080 (admin / password)
+docker compose up --build             # → http://localhost:8080 (admin / password)
 ```
 
 The stack is the app, its Postgres, and its ClickHouse, all on an internal
@@ -802,10 +801,10 @@ connection is configured once, in the compose file, not duplicated into the env.
 default. ClickHouse's healthcheck is `clickhouse-client --query 'SELECT 1'`,
 which talks to its own server with no host to name.
 
-The image build needs git access to the private Repute module — BuildKit SSH
-forwarding (`--ssh default`) hands the agent and `GOPRIVATE` to `go mod
-download`; see the [Dockerfile](../../Dockerfile). hush **requires** its whole
-stack — Postgres, ClickHouse, Cloudflare R2/Images, and a mail transport: a
-missing var aborts boot with the list, with no degraded mode — a hush with no
-database is a hush with no gate. The stack always provides the databases; set
-`RELEASE` in production to flip session cookies to Secure.
+The private Repute module is vendored (`vendor/`, tracked in git), so the image
+build needs no SSH or `GOPRIVATE` — it builds like the other three; see the
+[Dockerfile](../../Dockerfile). hush **requires** its whole stack — Postgres,
+ClickHouse, Cloudflare R2/Images, and a mail transport: a missing var aborts boot
+with the list, with no degraded mode — a hush with no database is a hush with no
+gate. The stack always provides the databases; set `RELEASE` in production to
+flip session cookies to Secure.
