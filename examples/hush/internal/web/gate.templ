@@ -1,0 +1,140 @@
+// The doors: the application form, the open-seat claim, invite redemption,
+// sign-in, and the admin's application queue. Every door that creates an
+// account carries the 18+/terms agreement (terms.templ); the handlers refuse
+// submissions without it.
+package web
+
+import "strconv"
+
+// applyFormPage is the signup application form: a handle, a password, 3–5
+// lines about what you want to post, and an optional photo. Submitting creates
+// a pending application an admin reviews.
+templ applyFormPage(errMsg string) {
+	@formPage("apply to post") {
+		if errMsg != "" {
+			<p class="hush-note">{ errMsg }</p>
+		}
+		<form method="post" action="/apply" enctype="multipart/form-data" class="hush-form">
+			<input class="hush-input" type="text" name="handle" placeholder="handle" autocomplete="username" required/>
+			<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="new-password" required/>
+			<input class="hush-input" type="email" name="email" placeholder="email (optional — never shown)" autocomplete="email"/>
+			<textarea class="hush-input" name="pitch" rows="4" placeholder="what do you want to post? (3–5 lines)" required></textarea>
+			<label class="hush-hint">a photo of you (optional)</label>
+			<input class="hush-file" type="file" name="photo" accept="image/*"/>
+			@agreeBox()
+			<div class="hush-form-row">
+				<a class="hush-link" href="/login">already approved? sign in →</a>
+				<button class="hush-post" type="submit">apply</button>
+			</div>
+		</form>
+	}
+}
+
+// registerFormPage is the open-seats door: while HUSH_OPEN_SLOTS has seats
+// left, signing up is a handle and a password — no pitch, no queue.
+templ registerFormPage(left int, errMsg string) {
+	@formPage("claim a seat") {
+		<p class="hush-sub">{ "first-come registration is open — " + strconv.Itoa(left) + " seats left." }</p>
+		if errMsg != "" {
+			<p class="hush-note">{ errMsg }</p>
+		}
+		<form method="post" action="/register" class="hush-form">
+			<input class="hush-input" type="text" name="handle" placeholder="handle" autocomplete="username" required/>
+			<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="new-password" required/>
+			<input class="hush-input" type="email" name="email" placeholder="email (optional — never shown)" autocomplete="email"/>
+			@agreeBox()
+			<div class="hush-form-row">
+				<a class="hush-link" href="/login">already in? sign in →</a>
+				<button class="hush-post" type="submit">claim</button>
+			</div>
+		</form>
+	}
+}
+
+// inviteFormPage redeems a live invite code: a handle and a password, and the
+// account exists — the inviter's chain answers for you from here on.
+templ inviteFormPage(code string, errMsg string) {
+	@formPage("you're invited") {
+		if errMsg != "" {
+			<p class="hush-note">{ errMsg }</p>
+		}
+		<form method="post" action={ "/invite/" + code } class="hush-form">
+			<input class="hush-input" type="text" name="handle" placeholder="handle" autocomplete="username" required/>
+			<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="new-password" required/>
+			<input class="hush-input" type="email" name="email" placeholder="email (optional — never shown)" autocomplete="email"/>
+			@agreeBox()
+			<div class="hush-form-row">
+				<a class="hush-link" href="/login">already in? sign in →</a>
+				<button class="hush-post" type="submit">join</button>
+			</div>
+		</form>
+	}
+}
+
+// loginFormPage is the sign-in form (plain POST → 303). A non-empty errMsg is
+// the failed-attempt banner above the form.
+templ loginFormPage(errMsg string) {
+	@formPage("sign in") {
+		if errMsg != "" {
+			<p class="hush-note">{ errMsg }</p>
+		}
+		<form method="post" action="/login" class="hush-form">
+			<input class="hush-input" type="text" name="username" placeholder="handle" autocomplete="username" required/>
+			<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="current-password" required/>
+			<div class="hush-form-row">
+				<a class="hush-link" href="/apply">need an account? apply →</a>
+				<button class="hush-post" type="submit">sign in</button>
+			</div>
+		</form>
+	}
+}
+
+// adminQueuePage lists pending applications with approve/reject controls
+// (admin only).
+templ adminQueuePage(apps []application) {
+	@shell("hush — queue") {
+		<div class="hush-top">
+			<header class="hush-head">
+				<h1 class="hush-title">hush</h1>
+				<p class="hush-sub">pending applications</p>
+			</header>
+			@backToWall()
+			for _, ap := range apps {
+				@appCard(ap)
+			}
+			if len(apps) == 0 {
+				<p class="hush-sub">nothing pending.</p>
+			}
+		</div>
+	}
+}
+
+// appCard is one pending application: the optional photo, the handle, the
+// pitch, and the decide buttons.
+templ appCard(ap application) {
+	{{ id := strconv.FormatInt(ap.ID, 10) }}
+	<div class="hush-appcard">
+		if ap.PhotoURL != "" {
+			<img class="hush-appphoto" src={ ap.PhotoURL } alt=""/>
+		}
+		<div class="hush-apphandle">{ ap.Handle }</div>
+		<div class="hush-apppitch">{ ap.Pitch }</div>
+		<div class="hush-form-row">
+			@decideForm(id, "reject")
+			@decideForm(id, "approve")
+		</div>
+	</div>
+}
+
+// decideForm posts one admin decision (approve or reject) for an application.
+templ decideForm(id string, action string) {
+	<form method="post" action="/admin/decide">
+		<input type="hidden" name="id" value={ id }/>
+		<input type="hidden" name="action" value={ action }/>
+		if action == "approve" {
+			<button class="hush-post" type="submit">approve</button>
+		} else {
+			<button class="hush-post hush-post--ghost" type="submit">reject</button>
+		}
+	</form>
+}

@@ -1,0 +1,97 @@
+// The profile — the tier-1 reward — and its owner-only sections: the invite
+// panel and the email settings.
+package web
+
+import "strconv"
+
+// profilePage is the tier-1 reward: having one at all. Scores are hidden —
+// no number anywhere ever says how you're doing; what you see is what has
+// unlocked (the page itself, the DM line, the invite allowance). The wall
+// stays anonymous, so this is the one place a handle is shown with anything.
+templ profilePage(handle string, tier int, posts int, panel invitePanel, email emailSection, own bool) {
+	@shell("hush — " + handle) {
+		<div class="hush-top">
+			<header class="hush-head">
+				<h1 class="hush-title">{ handle }</h1>
+			</header>
+			<div class="hush-profile">
+				<div class="hush-stat"><span class="hush-stat-n">{ strconv.Itoa(posts) }</span> posts</div>
+			</div>
+			// the DM line is standing made legible — owner's eyes only
+			if own {
+				if tier < 2 {
+					<p class="hush-sub">DMs unlock as your standing rises.</p>
+				} else {
+					<p class="hush-sub">DMs unlocked.</p>
+				}
+			}
+			if panel.Show {
+				@invitesSection(panel)
+			}
+			if email.Show {
+				@emailSettings(email)
+			}
+			@backToWall()
+		</div>
+	}
+}
+
+// invitesSection is the invite panel on your own profile: the throttle math
+// (chain standing sets the allowance), every minted code as a shareable link,
+// and the mint button while the allowance has room.
+templ invitesSection(panel invitePanel) {
+	<section class="hush-invites">
+		<h2 class="hush-invites-title">invites</h2>
+		<p class="hush-sub">{ strconv.Itoa(len(panel.Invites)) + " of " + strconv.Itoa(panel.Allowance) + " minted — your chain's standing sets the allowance." }</p>
+		for _, inv := range panel.Invites {
+			<div class="hush-invite-row">
+				<span class="hush-invite-code">{ "/invite/" + inv.Code }</span>
+				if inv.UsedBy != "" {
+					<span class="hush-invite-used">{ "→ " + inv.UsedBy }</span>
+				} else {
+					<span class="hush-invite-open">unclaimed</span>
+				}
+			</div>
+		}
+		if panel.Remaining > 0 {
+			<form method="post" action="/invites" class="hush-invite-mint">
+				<button class="hush-post hush-post--ghost" type="submit">mint an invite</button>
+			</form>
+			<form method="post" action="/invites" class="hush-invite-mint hush-invite-mint--send">
+				<input class="hush-input" type="email" name="email" placeholder="their email" aria-label="email the invite to someone" required/>
+				<button class="hush-post hush-post--ghost" type="submit">mint &amp; send</button>
+			</form>
+		} else {
+			<p class="hush-hint">no invites available — your chain has to earn them.</p>
+		}
+	</section>
+}
+
+// emailSettings is the profile's quiet email section, owner's eyes only: the
+// masked address with its verification state (resend while unverified), or an
+// add form when nothing is on file. The same /email/set form changes an
+// existing address — a change restarts verification.
+templ emailSettings(es emailSection) {
+	<section class="hush-email">
+		<h2 class="hush-invites-title">email</h2>
+		if es.Masked == "" {
+			<p class="hush-sub">no address on file — verifying one helps your standing. never shown to anyone.</p>
+		} else if es.Verified {
+			<p class="hush-sub"><span class="hush-email-addr">{ es.Masked }</span>{ " · verified" }</p>
+		} else {
+			<p class="hush-sub"><span class="hush-email-addr">{ es.Masked }</span>{ " · unverified" }</p>
+			<form method="post" action="/email/resend" class="hush-email-resend">
+				<button class="hush-post hush-post--ghost" type="submit">resend verification</button>
+			</form>
+		}
+		<form method="post" action="/email/set" class="hush-email-form">
+			if es.Masked == "" {
+				<input class="hush-input" type="email" name="email" placeholder="you@example.com" autocomplete="email" required/>
+				<button class="hush-post hush-post--ghost" type="submit">add</button>
+			} else {
+				<input class="hush-input" type="email" name="email" placeholder="change address" autocomplete="email" required/>
+				<button class="hush-post hush-post--ghost" type="submit">change</button>
+			}
+		</form>
+	</section>
+}

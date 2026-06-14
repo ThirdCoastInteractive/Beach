@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/ThirdCoastInteractive/the-beach/examples/hush/internal/reputation"
 	bcfg "github.com/ThirdCoastInteractive/the-beach/pkg/config"
 )
 
@@ -80,4 +81,19 @@ func loadConfig() config {
 // otherwise.
 func (c config) mailerConfigured() bool {
 	return (c.MailgunKey != "" && c.MailgunDomain != "") || c.SMTPHost != ""
+}
+
+// settingsSeed is the boot default: the env-loaded config's policy values, used
+// to seed an empty hush_settings table and to backfill any key it's missing.
+func settingsSeed(c config) reputation.Live {
+	return reputation.Live{
+		Tier1:      c.Tier1,
+		Tier2:      c.Tier2,
+		FlagTier:   c.FlagTier,
+		FlagQuorum: c.FlagQuorum,
+		InviteBase: c.InviteBase,
+		InviteMax:  c.InviteMax,
+		OpenSlots:  c.OpenSlots,
+		AdminEmail: c.AdminEmail,
+	}
 }

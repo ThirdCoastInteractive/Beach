@@ -1,0 +1,108 @@
+// The page scaffolding every hush view shares: the document shell, the account
+// strip, and the small centered pages (forms, notices, not-found). The handlers
+// (main.go, apply.go, auth.go) stay plain Go and call these with data;
+// everything that emits markup lives in the .templ files, one per surface.
+package web
+
+// shell is the full hush document. hush is the custom-layout example, so it
+// ships its own page shell rather than the driftwood one: it links the
+// framework stylesheet (so dw-* surfaces still resolve) AND its own hush.css,
+// keeps the theme class on <html> for no pop-in, and defers Datastar per the
+// no-blocking law. No inline script — the strict CSP forbids it.
+templ shell(title string) {
+	<!DOCTYPE html>
+	<html lang="en" class="dw-root">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ title }</title>
+			<link rel="stylesheet" href="/static/css/app.css"/>
+			<link rel="stylesheet" href="/static/css/hush.css"/>
+			<script type="module" src="/static/js/datastar.js" defer></script>
+		</head>
+		<body class="dw-body hush-body">
+			{ children... }
+		</body>
+	</html>
+}
+
+// backToWall is the "← back to the wall" escape hatch every secondary page ends with.
+templ backToWall() {
+	<p class="hush-back"><a class="hush-link" href="/">← back to the wall</a></p>
+}
+
+// accountStrip is the top-right account line: who you are, the admin links,
+// and log out. No score, no tier — standing is never printed; the
+// profile link simply appearing IS how you learn you've reached tier 1.
+// Empty when signed out (the gate line carries the call to action).
+templ accountStrip(handle string, admin bool, tier int) {
+	if handle != "" {
+		<div class="hush-acct">
+			you are <strong>{ handle }</strong>
+			if tier >= 1 {
+				{ " · " }
+				<a class="hush-link" href={ "/u/" + handle }>profile</a>
+			}
+			if admin {
+				{ " · " }
+				<a class="hush-link" href="/admin">admin</a>
+				{ " · " }
+				<a class="hush-link" href="/admin/queue">queue</a>
+				{ " · " }
+				<a class="hush-link" href="/admin/analytics">analytics</a>
+			}
+			{ " · " }
+			<a class="hush-link" href="/logout">log out</a>
+		</div>
+	}
+}
+
+// formPage centers a form (login, apply) under the hush header.
+templ formPage(title string) {
+	@shell("hush — " + title) {
+		<div class="hush-top">
+			<header class="hush-head">
+				<h1 class="hush-title">hush</h1>
+				<p class="hush-sub">{ title }</p>
+			</header>
+			<div class="hush-formwrap">
+				{ children... }
+			</div>
+			@backToWall()
+		</div>
+	}
+}
+
+// noticePage is a centered one-line message page (e.g. "application submitted").
+templ noticePage(title string, sub string) {
+	@shell("hush") {
+		<div class="hush-top">
+			<header class="hush-head">
+				<h1 class="hush-title">hush</h1>
+				<p class="hush-sub">{ title }</p>
+				if sub != "" {
+					<p class="hush-sub">{ sub }</p>
+				}
+			</header>
+			@backToWall()
+		</div>
+	}
+}
+
+// notFoundPage is shown when a permalink points at a post that doesn't exist.
+templ notFoundPage() {
+	@shell("hush — not found") {
+		<div class="hush-top">
+			<header class="hush-head">
+				<h1 class="hush-title">hush</h1>
+				<p class="hush-sub">that post is gone.</p>
+			</header>
+			@backToWall()
+		</div>
+	}
+}
+
+// note renders the composer's status line. An empty message clears it.
+templ note(msg string) {
+	{ msg }
+}

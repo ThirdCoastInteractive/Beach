@@ -1,0 +1,160 @@
+// hush's outbound email, as templ components — the HTML half of each message
+// (the text half lives in emails.go beside it). Email clients strip <style>
+// tags and scope classes unpredictably, so everything here is inline styles on
+// a 600px table — the one layout that survives Outlook. The look is hush
+// translated to paper: white background, black text, lowercase, hard edges.
+package mail
+
+// The email palette, named so the inline styles read. Monochrome like the
+// site, inverted for mail — a white page survives client dark-mode color
+// filters far better than a black one.
+const (
+	emailInk   = "#000000"
+	emailPaper = "#ffffff"
+	emailDim   = "#555555"
+	emailFaint = "#888888"
+)
+
+// emailShell wraps a message body in the brand line and the 600px table.
+// Tables, not divs: Outlook ignores max-width on divs.
+templ emailShell() {
+	<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style={ "background:" + emailPaper + ";padding:24px 0;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif;" }>
+		<tr>
+			<td align="center">
+				<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style={ "max-width:600px;width:100%;background:" + emailPaper + ";border:1px solid " + emailInk + ";" }>
+					<tr>
+						<td style="padding:28px 32px 0 32px;">
+							<div style={ "color:" + emailInk + ";font-size:18px;font-weight:600;letter-spacing:0.32em;text-transform:lowercase;" }>hush</div>
+							@emailRule()
+						</td>
+					</tr>
+					<tr>
+						<td style={ "padding:0 32px;color:" + emailInk + ";font-size:15px;line-height:1.6;" }>
+							{ children... }
+						</td>
+					</tr>
+					<tr>
+						<td style="padding:8px 32px 28px 32px;">
+							@emailRule()
+							<div style={ "color:" + emailFaint + ";font-size:11px;line-height:1.7;" }>a quiet wall.</div>
+						</td>
+					</tr>
+				</table>
+			</td>
+		</tr>
+	</table>
+}
+
+// emailRule is the thin divider under the brand line and above the footer.
+templ emailRule() {
+	<div style={ "border-top:1px solid " + emailInk + ";margin:18px 0;height:0;font-size:0;line-height:0;" }></div>
+}
+
+// emailP is one body paragraph.
+templ emailP() {
+	<p style={ "margin:0 0 14px 0;color:" + emailInk + ";" }>
+		{ children... }
+	</p>
+}
+
+// emailHint is the smaller dim line (caveats, fallback links).
+templ emailHint() {
+	<p style={ "margin:0 0 14px 0;color:" + emailDim + ";font-size:12px;" }>
+		{ children... }
+	</p>
+}
+
+// emailButton is the one CTA shape: a black block with a white lowercase
+// label. An outer table because Outlook renders padding on <a> unreliably.
+templ emailButton(label string, url string) {
+	<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:20px 0;">
+		<tr>
+			<td style={ "background:" + emailInk + ";" }>
+				<a href={ templ.SafeURL(url) } style={ "display:inline-block;padding:12px 28px;color:" + emailPaper + ";text-decoration:none;font-size:14px;text-transform:lowercase;letter-spacing:0.12em;" }>{ label }</a>
+			</td>
+		</tr>
+	</table>
+}
+
+// emailLinkLine is the raw URL under a button, for clients that mangle the
+// button — and for people who copy links instead of clicking them.
+templ emailLinkLine(url string) {
+	@emailHint() {
+		<a href={ templ.SafeURL(url) } style={ "color:" + emailInk + ";word-break:break-all;" }>{ url }</a>
+	}
+}
+
+// verifyEmailHTML carries the tokened verification link for a member's address.
+templ verifyEmailHTML(link string) {
+	@emailShell() {
+		@emailP() {
+			verify your email — your standing will feel it.
+		}
+		@emailButton("verify", link)
+		@emailLinkLine(link)
+		@emailHint() {
+			your address is never shown to anyone. if you didn't add it to a hush account, ignore this.
+		}
+	}
+}
+
+// applicationReceivedAdminHTML is the admin's new-application notice: the
+// handle and the pitch, nothing decided yet.
+templ applicationReceivedAdminHTML(handle string, pitch string) {
+	@emailShell() {
+		@emailP() {
+			someone is at the door.
+		}
+		@emailP() {
+			<strong>{ handle }</strong>
+		}
+		<p style={ "margin:0 0 14px 0;color:" + emailInk + ";white-space:pre-wrap;" }>{ pitch }</p>
+		@emailHint() {
+			the queue is waiting.
+		}
+	}
+}
+
+// applicationApprovedHTML tells an applicant they're in. verifyLink may be
+// empty — it rides along only while the address is unverified.
+templ applicationApprovedHTML(handle string, loginURL string, verifyLink string) {
+	@emailShell() {
+		@emailP() {
+			{ handle } — your application was approved. post into the quiet.
+		}
+		@emailButton("sign in", loginURL)
+		@emailLinkLine(loginURL)
+		if verifyLink != "" {
+			@emailP() {
+				verify this address while you're here — your standing will feel it:
+			}
+			@emailLinkLine(verifyLink)
+		}
+	}
+}
+
+// applicationRejectedHTML is a quiet no.
+templ applicationRejectedHTML(handle string) {
+	@emailShell() {
+		@emailP() {
+			{ handle } — your application wasn't approved this time.
+		}
+		@emailHint() {
+			the wall stays small on purpose. you may apply again.
+		}
+	}
+}
+
+// inviteEmailHTML mails a minted code as its redemption link. One use.
+templ inviteEmailHTML(link string) {
+	@emailShell() {
+		@emailP() {
+			someone minted you a way in. the link works once:
+		}
+		@emailButton("join", link)
+		@emailLinkLine(link)
+		@emailHint() {
+			whoever invited you answers for you — post things people like.
+		}
+	}
+}
