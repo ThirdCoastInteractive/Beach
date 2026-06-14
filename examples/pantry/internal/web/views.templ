@@ -3,11 +3,13 @@
 // called directly (no kit indirection), charts arrive as templ components
 // from the chart package (see dashboard.go), and inline style carries only
 // per-instance reserved dimensions (the no-layout-shift law).
-package main
+package web
 
 import (
 	"github.com/ThirdCoastInteractive/the-beach/pkg/ui"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
+
+	"github.com/ThirdCoastInteractive/the-beach/examples/pantry/internal/store"
 )
 
 // shellView wraps a page body in the document plus the app topbar/sidebar.
@@ -83,7 +85,7 @@ templ dashWidget(title, id, src, height string) {
 
 // itemsView lists inventory as a responsive card grid with photos. canWrite
 // shows the create form (gated on pantry:write).
-templ (a *app) itemsView(authed, canWrite bool, items []Item, locs []Location) {
+templ (a *app) itemsView(authed, canWrite bool, items []store.Item, locs []store.Location) {
 	@a.shellView(a.t(ctx, "items.heading"), "items", authed) {
 		@driftwood.Container(driftwood.ContainerProps{}) {
 			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: a.t(ctx, "items.heading"), Subtitle: a.t(ctx, "items.subtitle", len(items))})
@@ -101,7 +103,7 @@ templ (a *app) itemsView(authed, canWrite bool, items []Item, locs []Location) {
 
 // itemGrid renders the item cards under a stable id so the create action can
 // re-render the whole grid with a single patch.
-templ (a *app) itemGrid(items []Item) {
+templ (a *app) itemGrid(items []store.Item) {
 	<div id="item-grid">
 		@driftwood.Grid(driftwood.GridProps{Cols: 3}) {
 			for _, it := range items {
@@ -113,7 +115,7 @@ templ (a *app) itemGrid(items []Item) {
 
 // itemCard is one inventory tile: photo (fixed aspect box, no shift), name, a
 // quantity/location meta line, and an expiring-soon badge when relevant.
-templ (a *app) itemCard(it Item) {
+templ (a *app) itemCard(it store.Item) {
 	@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel}) {
 		@driftwood.Image(driftwood.ImageProps{
 			Src:   firstNonEmpty(it.PhotoURL, "/static/img/placeholder.svg"),
@@ -135,7 +137,7 @@ templ (a *app) itemCard(it Item) {
 
 // addItemForm is the create-item form (hypermedia @post). Only rendered for
 // principals that may write.
-templ (a *app) addItemForm(locs []Location) {
+templ (a *app) addItemForm(locs []store.Location) {
 	@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfaceWell, Heading: a.t(ctx, "items.add")}) {
 		@driftwood.Form(driftwood.FormProps{Post: "/items", TwoCol: true}) {
 			@driftwood.Field(driftwood.FieldProps{Label: a.t(ctx, "items.field.name"), For: "name"}) {
@@ -158,7 +160,7 @@ templ (a *app) addItemForm(locs []Location) {
 // --- Locations ---
 
 // locationsView lists storage locations with an optional create form.
-templ (a *app) locationsView(authed, canWrite bool, locs []Location) {
+templ (a *app) locationsView(authed, canWrite bool, locs []store.Location) {
 	@a.shellView(a.t(ctx, "loc.heading"), "loc", authed) {
 		@driftwood.Container(driftwood.ContainerProps{}) {
 			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: a.t(ctx, "loc.heading")})
@@ -181,7 +183,7 @@ templ (a *app) addLocationForm() {
 }
 
 // locList renders the locations under a stable id for the create-action patch.
-templ (a *app) locList(locs []Location) {
+templ (a *app) locList(locs []store.Location) {
 	<div id="loc-list">
 		if len(locs) == 0 {
 			@driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "pin", Message: a.t(ctx, "loc.empty")})
@@ -194,7 +196,7 @@ templ (a *app) locList(locs []Location) {
 // --- Shopping lists ---
 
 // listsView renders the shopping lists and their lines.
-templ (a *app) listsView(authed bool, lists []ShoppingList) {
+templ (a *app) listsView(authed bool, lists []store.ShoppingList) {
 	@a.shellView(a.t(ctx, "lists.heading"), "lists", authed) {
 		@driftwood.Container(driftwood.ContainerProps{}) {
 			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: a.t(ctx, "lists.heading")})

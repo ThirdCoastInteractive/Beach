@@ -1,4 +1,4 @@
-package main
+package web
 
 import (
 	"net/http"
@@ -8,13 +8,16 @@ import (
 
 	"github.com/ThirdCoastInteractive/the-beach/pkg/auth"
 	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+
+	"github.com/ThirdCoastInteractive/the-beach/examples/pantry/internal/analytics"
+	"github.com/ThirdCoastInteractive/the-beach/examples/pantry/internal/store"
 )
 
 // CRUD actions. These are the hand-written equivalents of what beach-apigen
 // would emit from the @api POST annotations on the .sql files: bind the form
 // params, run the write, and patch the @fragment. They are guarded by
 // app.Can("pantry:write") at registration so the auth story is visible in the
-// route table (see main.go).
+// route table (see app.go).
 
 // createItem handles POST /items: it appends a row and re-renders the item grid.
 func (a *app) createItem(c *beach.Ctx) (beach.Patches, error) {
@@ -35,7 +38,7 @@ func (a *app) createItem(c *beach.Ctx) (beach.Patches, error) {
 	}
 	if strings.TrimSpace(in.Name) == "" {
 		// Nothing to add — just re-render the current grid and clear the form.
-		items, err := a.store.listItems(c.Context())
+		items, err := a.store.ListItems(c.Context())
 		if err != nil {
 			return nil, err
 		}
@@ -53,7 +56,7 @@ func (a *app) createItem(c *beach.Ctx) (beach.Patches, error) {
 		}
 	}
 	cat := firstNonEmpty(in.Category, "other")
-	if err := a.store.addItem(c.Context(), Item{
+	if err := a.store.AddItem(c.Context(), store.Item{
 		Name:       in.Name,
 		Quantity:   qty,
 		Unit:       firstNonEmpty(in.Unit, "ea"),
@@ -63,9 +66,9 @@ func (a *app) createItem(c *beach.Ctx) (beach.Patches, error) {
 	}); err != nil {
 		return nil, err
 	}
-	a.track(c.R, event{Kind: "item_added", ItemName: in.Name, Category: cat, Quantity: qty})
+	a.anl.Track(c.R, analytics.Event{Kind: "item_added", ItemName: in.Name, Category: cat, Quantity: qty})
 	// Re-render the whole grid by its id (@fragment page.ItemGrid).
-	items, err := a.store.listItems(c.Context())
+	items, err := a.store.ListItems(c.Context())
 	if err != nil {
 		return nil, err
 	}
@@ -82,12 +85,12 @@ func (a *app) createLocation(c *beach.Ctx) (beach.Patches, error) {
 		return nil, err
 	}
 	if strings.TrimSpace(in.Name) != "" {
-		if err := a.store.addLocation(c.Context(), in.Name, firstNonEmpty(in.Kind, "other")); err != nil {
+		if err := a.store.AddLocation(c.Context(), in.Name, firstNonEmpty(in.Kind, "other")); err != nil {
 			return nil, err
 		}
-		a.track(c.R, event{Kind: "location_added", ItemName: in.Name})
+		a.anl.Track(c.R, analytics.Event{Kind: "location_added", ItemName: in.Name})
 	}
-	locs, err := a.store.listLocations(c.Context())
+	locs, err := a.store.ListLocations(c.Context())
 	if err != nil {
 		return nil, err
 	}

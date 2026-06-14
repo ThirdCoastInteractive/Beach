@@ -38,9 +38,12 @@ import (
 	"github.com/ThirdCoastInteractive/the-beach/pkg/passwords"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/pg"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/session"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/specimen"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/ThirdCoastInteractive/the-beach/examples/pantry/internal/analytics"
+	"github.com/ThirdCoastInteractive/the-beach/examples/pantry/internal/store"
+	"github.com/ThirdCoastInteractive/the-beach/examples/pantry/internal/web"
 )
 
 //go:embed static
@@ -51,31 +54,6 @@ var migrationsFS embed.FS
 
 //go:embed catalog.json locales/*.json
 var localesFS embed.FS
-
-const sessionCookie = "pantry_session"
-
-// app holds the wired dependencies the handlers close over. pantry requires the
-// full Beach stack: Postgres (inventory, auth, sessions) and ClickHouse (the
-// activity firehose behind the dashboard) are always present — there is no
-// database-less mode.
-type app struct {
-	store    *pgStore
-	cat      *i18n.Catalog
-	authn    *auth.Authenticator
-	sessions *session.Store
-	pool     *pgxpool.Pool
-	chConn   ch.Conn
-	events   *ch.Batcher[event]
-	release  bool
-}
-
-// t translates a key against the request locale carried on ctx (set by the
-// i18n middleware), using this app's catalog. Handlers call a.t rather than the
-// package-level i18n.T so the pantry catalog — not the framework default — is
-// consulted.
-func (a *app) t(ctx context.Context, key string, args ...any) string {
-	return a.cat.T(ctx, key, args...)
-}
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -88,7 +66,7 @@ func main() {
 	// Load and validate config first: a missing Postgres or ClickHouse DSN aborts
 	// here with the list, before anything serves. There is no database-less mode.
 	conf := loadConfig()
-	a := &app{release: conf.Production()}
+	release := conf.Production()
 	addr := ":" + conf.Port
 
 	// i18n catalog from the embedded locale files; falls back to the builtin
@@ -97,12 +75,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("pantry: i18n: %v", err)
 	}
-	cat.Dev(!a.release)
-	a.cat = cat
+	cat.Dev(!release)
 
 	cfg := beach.Config{
 		Service: "pantry",
-		Release: a.release,
+		Release: release,
 		Static:  sub,
 		Logger:  logger,
 	}
@@ -111,24 +88,21 @@ func main() {
 	// runs the framework's auth+session migrations plus the pantry schema. Each
 	// step dies loudly rather than degrading.
 	ctx := context.Background()
-	pool, err := openPool(ctx, conf.DSN)
+	pool, err := pg.Pool(ctx, conf.DSN)
 	if err != nil {
 		log.Fatalf("pantry: database connect failed: %v", err)
 	}
-	a.pool = pool
-	if err := a.migrate(ctx); err != nil {
+	if err := migrate(ctx, pool); err != nil {
 		log.Fatalf("pantry: migrate failed: %v", err)
 	}
-	store, err := newPGStore(ctx, pool)
+	st, err := store.New(ctx, pool)
 	if err != nil {
 		log.Fatalf("pantry: store init failed: %v", err)
 	}
-	a.store = store
-	a.sessions = session.NewStore(pool, session.Config{CookieName: sessionCookie})
-	a.authn = auth.NewAuthenticator(pool, a.sessions, auth.LockoutConfig{})
-	cfg.Sessions = a.sessions
-	cfg.Principals = a.principalResolver
-	if err := a.seedAdmin(ctx); err != nil {
+	sessions := session.NewStore(pool, session.Config{CookieName: web.SessionCookie})
+	authn := auth.NewAuthenticator(pool, sessions, auth.LockoutConfig{})
+	cfg.Sessions = sessions
+	if err := seedAdmin(ctx, pool); err != nil {
 		log.Fatalf("pantry: seed admin failed: %v", err)
 	}
 
@@ -138,14 +112,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("pantry: clickhouse connect failed: %v", err)
 	}
-	a.chConn = conn
-	if err := ch.Migrate(ctx, a.chConn, chMigrations()); err != nil {
+	if err := ch.Migrate(ctx, conn, analytics.Migrations()); err != nil {
 		log.Fatalf("pantry: clickhouse migrate failed: %v", err)
 	}
-	a.events = ch.NewBatcher[event](a.chConn, "pantry_events", ch.Batch{})
+	anl := analytics.New(conn)
+
+	// Construct the web app (the DI container the handlers hang off) and wire its
+	// routes + principal resolver onto the framework app.
+	a := web.New(st, cat, authn, sessions, pool, anl, release)
+	cfg.Principals = a.PrincipalResolver
 
 	beachApp := beach.New(cfg)
-	a.routes(beachApp)
+	a.Routes(beachApp)
 
 	// Serve via our own server so the i18n middleware can wrap the framework's
 	// full handler stack (App.Handler()) at the edge — it resolves the request
@@ -159,164 +137,56 @@ func main() {
 	}
 }
 
-// openPool builds a pgx pool and pings it, returning an error so the caller can
-// log a clear "database connect failed" and exit (boot has no graceful path).
-func openPool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
-	pool, err := pgxpool.New(ctx, dsn)
-	if err != nil {
-		return nil, err
-	}
-	if err := pool.Ping(ctx); err != nil {
-		pool.Close()
-		return nil, err
-	}
-	return pool, nil
-}
-
 // migrate runs the framework's auth+session migrations and the pantry schema.
 // Each set is rooted at a "migrations" dir, as pg.Migrate expects; they live in
 // separate embed.FS values so they run independently.
-func (a *app) migrate(ctx context.Context) error {
-	if err := pg.Migrate(ctx, a.pool, session.Migrations); err != nil {
+func migrate(ctx context.Context, pool *pgxpool.Pool) error {
+	if err := pg.Migrate(ctx, pool, session.Migrations); err != nil {
 		return err
 	}
-	if err := pg.Migrate(ctx, a.pool, auth.Migrations); err != nil {
+	if err := pg.Migrate(ctx, pool, auth.Migrations); err != nil {
 		return err
 	}
-	return pg.Migrate(ctx, a.pool, migrationsFS)
+	return pg.Migrate(ctx, pool, migrationsFS)
 }
 
 // seedAdmin idempotently creates a single household-admin user (admin / password)
 // with the pantry permissions, so the database-backed app is usable out of the
 // box: sign in and you can manage the pantry. Safe to run on every boot.
-func (a *app) seedAdmin(ctx context.Context) error {
+func seedAdmin(ctx context.Context, pool *pgxpool.Pool) error {
 	var uid int64
-	if err := a.pool.QueryRow(ctx,
+	if err := pool.QueryRow(ctx,
 		`INSERT INTO users (username) VALUES ('admin')
 		 ON CONFLICT (username) DO UPDATE SET username = EXCLUDED.username
 		 RETURNING id`).Scan(&uid); err != nil {
 		return err
 	}
 	var hasCred bool
-	_ = a.pool.QueryRow(ctx,
+	_ = pool.QueryRow(ctx,
 		`SELECT EXISTS (SELECT 1 FROM user_credentials_local WHERE user_id = $1)`, uid).Scan(&hasCred)
 	if !hasCred {
 		hash, err := passwords.Hash("password")
 		if err != nil {
 			return err
 		}
-		if _, err := a.pool.Exec(ctx,
+		if _, err := pool.Exec(ctx,
 			`INSERT INTO user_credentials_local (user_id, password_hash) VALUES ($1, $2)`, uid, hash); err != nil {
 			return err
 		}
 	}
 	var rid int64
-	if err := a.pool.QueryRow(ctx,
+	if err := pool.QueryRow(ctx,
 		`INSERT INTO roles (slug) VALUES ('household-admin')
 		 ON CONFLICT (slug) DO UPDATE SET slug = EXCLUDED.slug RETURNING id`).Scan(&rid); err != nil {
 		return err
 	}
 	for _, perm := range []string{"pantry:read", "pantry:write", "pantry:admin"} {
-		if _, err := a.pool.Exec(ctx,
+		if _, err := pool.Exec(ctx,
 			`INSERT INTO role_permissions (role_id, permission) VALUES ($1, $2) ON CONFLICT DO NOTHING`, rid, perm); err != nil {
 			return err
 		}
 	}
-	_, err := a.pool.Exec(ctx,
+	_, err := pool.Exec(ctx,
 		`INSERT INTO user_roles (user_id, role_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`, uid, rid)
 	return err
-}
-
-// routes registers every page, widget, action, and the login flow, plus the
-// i18n middleware. Writes are guarded by Can("pantry:write"); location deletes
-// would be Can("pantry:admin") — the auth story is visible right here.
-func (a *app) routes(app *beach.App) {
-	// Read pages.
-	app.Page("/", a.dashboardPage)
-	app.Page("/items", a.itemsPage)
-	app.Page("/locations", a.locationsPage)
-	app.Page("/lists", a.listsPage)
-	app.Page("/login", a.loginPage)
-
-	// The living driftwood + chart showcase, handy while restyling the app.
-	app.Page("/specimen", func(c *beach.Ctx) (beach.View, error) {
-		return beach.View{Page: specimen.Page()}, nil
-	})
-
-	// Deferred dashboard widgets — each runs a live query (CH activity firehose +
-	// Postgres inventory) and returns its chart fragment (see dashboard.go).
-	app.Page("/widgets/spend", anlWidget("w-spend", a.wActivity))
-	app.Page("/widgets/category", anlWidget("w-category", a.wCategory))
-	app.Page("/widgets/expiry", anlWidget("w-expiry", a.wExpiry))
-	app.Page("/widgets/waste", anlWidget("w-waste", a.wWaste))
-
-	// Write actions are guarded by pantry:write — the auth story stays visible in
-	// the route table.
-	write := []beach.Guard{app.Can("pantry:write")}
-	app.Action("/items", a.createItem, write...)
-	app.Action("/locations", a.createLocation, write...)
-
-	// Login: Raw POST so it can set the cookie and issue a Datastar redirect.
-	app.Raw(http.MethodPost, "/login", a.doLogin)
-	app.Raw(http.MethodGet, "/logout", a.logout)
-}
-
-// principalResolver turns a session user id into a rich auth.Principal by
-// reading roles+permissions back from the RBAC tables. Wired as cfg.Principals
-// so c.Principal()/Can() work in guards and handlers.
-func (a *app) principalResolver(ctx context.Context, userID int64) (*beach.Principal, error) {
-	var username string
-	if err := a.pool.QueryRow(ctx, `SELECT username FROM users WHERE id = $1`, userID).Scan(&username); err != nil {
-		return nil, err
-	}
-	roles, err := scanStrings(ctx, a.pool,
-		`SELECT r.slug FROM user_roles ur JOIN roles r ON r.id = ur.role_id WHERE ur.user_id = $1 ORDER BY r.slug`, userID)
-	if err != nil {
-		return nil, err
-	}
-	perms, err := scanStrings(ctx, a.pool,
-		`SELECT DISTINCT rp.permission FROM user_roles ur JOIN role_permissions rp ON rp.role_id = ur.role_id WHERE ur.user_id = $1 ORDER BY rp.permission`, userID)
-	if err != nil {
-		return nil, err
-	}
-	return &beach.Principal{UserID: userID, Username: username, Roles: roles, Permissions: perms}, nil
-}
-
-func scanStrings(ctx context.Context, pool *pgxpool.Pool, q string, args ...any) ([]string, error) {
-	rows, err := pool.Query(ctx, q, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := []string{}
-	for rows.Next() {
-		var s string
-		if err := rows.Scan(&s); err != nil {
-			return nil, err
-		}
-		out = append(out, s)
-	}
-	return out, rows.Err()
-}
-
-// logout revokes the session and clears the cookie.
-func (a *app) logout(w http.ResponseWriter, r *http.Request) {
-	if ck, err := r.Cookie(sessionCookie); err == nil {
-		_ = a.sessions.Revoke(r.Context(), ck.Value)
-	}
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", MaxAge: -1})
-	http.Redirect(w, r, "/login", http.StatusSeeOther)
-}
-
-// setSessionCookieW writes the session cookie on a raw response.
-func (a *app) setSessionCookieW(w http.ResponseWriter, token string) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookie,
-		Value:    token,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   a.release,
-		SameSite: http.SameSiteLaxMode,
-		Expires:  time.Now().Add(14 * 24 * time.Hour),
-	})
 }

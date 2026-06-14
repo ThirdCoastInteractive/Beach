@@ -1,4 +1,4 @@
-package main
+package web
 
 import (
 	"fmt"
@@ -8,6 +8,8 @@ import (
 	"github.com/ThirdCoastInteractive/the-beach/pkg/ch"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
 	"github.com/a-h/templ"
+
+	"github.com/ThirdCoastInteractive/the-beach/examples/pantry/internal/analytics"
 )
 
 // The dashboard widgets read real data: the activity line comes from the
@@ -33,11 +35,11 @@ func anlWidget(id string, build func(c *beach.Ctx) (templ.Component, error)) bea
 // ClickHouse firehose. The firehose is the only "events over time" source; the
 // other widgets read inventory state from Postgres.
 func (a *app) wActivity(c *beach.Ctx) (templ.Component, error) {
-	rows, err := a.activityPerDay(c.Context(), 14)
+	rows, err := a.anl.ActivityPerDay(c.Context(), 14)
 	if err != nil {
 		return nil, err
 	}
-	in := ch.ToLineSeriesData("items added", rows, dayLabel, func(r dayCount) float64 { return float64(r.N) })
+	in := ch.ToLineSeriesData("items added", rows, analytics.DayLabel, func(r analytics.DayCount) float64 { return float64(r.N) })
 	in.ShowArea = true
 	return chart.ChartLineFragment(chart.LayoutLine("w-spend", in, chart.LineOpts{RateUnit: "day"})), nil
 }
@@ -53,7 +55,7 @@ type catRow struct {
 // one segment per grocery category. Read from Postgres — current inventory, not
 // history.
 func (a *app) wCategory(c *beach.Ctx) (templ.Component, error) {
-	rows, err := a.store.pool.Query(c.Context(), `
+	rows, err := a.store.Pool().Query(c.Context(), `
 		SELECT COALESCE(l.kind, 'other') AS loc_kind, i.category, count(*) AS n
 		  FROM pantry_items i
 		  LEFT JOIN pantry_locations l ON l.id = i.location_id
@@ -93,7 +95,7 @@ func (a *app) wCategory(c *beach.Ctx) (templ.Component, error) {
 func (a *app) wExpiry(c *beach.Ctx) (templ.Component, error) {
 	year := time.Now().Year()
 
-	rows, err := a.store.pool.Query(c.Context(), `
+	rows, err := a.store.Pool().Query(c.Context(), `
 		SELECT expires_at::date AS d, count(*) AS n
 		  FROM pantry_items
 		 WHERE deleted_at IS NULL AND expires_at IS NOT NULL
@@ -139,7 +141,7 @@ func (a *app) wExpiry(c *beach.Ctx) (templ.Component, error) {
 // its expiry date (a real waste proxy), from Postgres.
 func (a *app) wWaste(c *beach.Ctx) (templ.Component, error) {
 	var expired, total int
-	if err := a.store.pool.QueryRow(c.Context(), `
+	if err := a.store.Pool().QueryRow(c.Context(), `
 		SELECT count(*) FILTER (WHERE expires_at IS NOT NULL AND expires_at < current_date),
 		       count(*)
 		  FROM pantry_items

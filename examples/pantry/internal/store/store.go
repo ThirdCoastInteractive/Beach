@@ -1,4 +1,9 @@
-package main
+// Package store is pantry's Postgres-backed system of record: inventory,
+// storage locations, and shopping lists. pantry requires a database, so this is
+// the only implementation (no in-memory fallback). The same handlers that call
+// it would, in a generated build, call the sqlc queries; the method surface is
+// intentionally narrow so swapping is mechanical.
+package store
 
 import (
 	"context"
@@ -47,28 +52,29 @@ type ListItem struct {
 	Checked  bool
 }
 
-// pgStore is the Postgres-backed pantry store — the system of record for
-// inventory, locations, and shopping lists. pantry requires a database, so this
-// is the only implementation (no in-memory fallback). The same handlers that
-// call it would, in a generated build, call the sqlc queries; the method surface
-// is intentionally narrow so swapping is mechanical.
-type pgStore struct {
+// Store is the Postgres-backed pantry store — the system of record for
+// inventory, locations, and shopping lists.
+type Store struct {
 	pool *pgxpool.Pool
 }
 
-// newPGStore returns the store and idempotently seeds a fresh database with the
-// sample inventory (3 locations, 6 items, 1 shopping list) so the UI renders
-// something on first run. Safe to run on every boot: it only inserts when
-// pantry_items is empty.
-func newPGStore(ctx context.Context, pool *pgxpool.Pool) (*pgStore, error) {
-	s := &pgStore{pool: pool}
+// New returns the store and idempotently seeds a fresh database with the sample
+// inventory (3 locations, 6 items, 1 shopping list) so the UI renders something
+// on first run. Safe to run on every boot: it only inserts when pantry_items is
+// empty.
+func New(ctx context.Context, pool *pgxpool.Pool) (*Store, error) {
+	s := &Store{pool: pool}
 	if err := s.seed(ctx); err != nil {
 		return nil, err
 	}
 	return s, nil
 }
 
-func (s *pgStore) seed(ctx context.Context) error {
+// Pool exposes the underlying pgx pool so callers (e.g. the dashboard widgets)
+// can run their own inventory queries without reaching into unexported fields.
+func (s *Store) Pool() *pgxpool.Pool { return s.pool }
+
+func (s *Store) seed(ctx context.Context) error {
 	var n int
 	if err := s.pool.QueryRow(ctx, `SELECT count(*) FROM pantry_items`).Scan(&n); err != nil {
 		return fmt.Errorf("pantry: seed count: %w", err)
@@ -144,7 +150,8 @@ func (s *pgStore) seed(ctx context.Context) error {
 
 // --- reads (deleted_at filtered; ordering in SQL) ---
 
-func (s *pgStore) listItems(ctx context.Context) ([]Item, error) {
+// ListItems returns the current inventory, soonest-expiring first.
+func (s *Store) ListItems(ctx context.Context) ([]Item, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT i.id, i.name, i.quantity, i.unit, i.category, i.photo_url, i.expires_at,
 		       COALESCE(i.location_id, 0), COALESCE(l.name, '')
@@ -168,7 +175,8 @@ func (s *pgStore) listItems(ctx context.Context) ([]Item, error) {
 	return out, rows.Err()
 }
 
-func (s *pgStore) listLocations(ctx context.Context) ([]Location, error) {
+// ListLocations returns the storage locations, alphabetically.
+func (s *Store) ListLocations(ctx context.Context) ([]Location, error) {
 	rows, err := s.pool.Query(ctx,
 		`SELECT id, name, kind FROM pantry_locations WHERE deleted_at IS NULL ORDER BY name`)
 	if err != nil {
@@ -186,7 +194,8 @@ func (s *pgStore) listLocations(ctx context.Context) ([]Location, error) {
 	return out, rows.Err()
 }
 
-func (s *pgStore) listLists(ctx context.Context) ([]ShoppingList, error) {
+// ListLists returns the shopping lists with their lines attached.
+func (s *Store) ListLists(ctx context.Context) ([]ShoppingList, error) {
 	rows, err := s.pool.Query(ctx, `
 		SELECT sl.id, sl.name, li.id, li.name, li.quantity, li.checked
 		  FROM pantry_lists sl
@@ -228,7 +237,8 @@ func (s *pgStore) listLists(ctx context.Context) ([]ShoppingList, error) {
 
 // --- writes (callers re-render from a fresh read, so only the error matters) ---
 
-func (s *pgStore) addItem(ctx context.Context, it Item) error {
+// AddItem inserts one inventory row.
+func (s *Store) AddItem(ctx context.Context, it Item) error {
 	var loc any
 	if it.LocationID != 0 {
 		loc = it.LocationID
@@ -240,7 +250,8 @@ func (s *pgStore) addItem(ctx context.Context, it Item) error {
 	return err
 }
 
-func (s *pgStore) addLocation(ctx context.Context, name, kind string) error {
+// AddLocation inserts one storage location.
+func (s *Store) AddLocation(ctx context.Context, name, kind string) error {
 	_, err := s.pool.Exec(ctx,
 		`INSERT INTO pantry_locations (name, kind) VALUES ($1, $2)`, name, kind)
 	return err

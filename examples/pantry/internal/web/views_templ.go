@@ -11,7 +11,7 @@
 
 // per-instance reserved dimensions (the no-layout-shift law).
 
-package main
+package web
 
 //lint:file-ignore SA4006 This context is only used if a nested component is present.
 
@@ -21,6 +21,8 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"github.com/ThirdCoastInteractive/the-beach/pkg/ui"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
+
+	"github.com/ThirdCoastInteractive/the-beach/examples/pantry/internal/store"
 )
 
 // shellView wraps a page body in the document plus the app topbar/sidebar.
@@ -320,7 +322,7 @@ func dashWidget(title, id, src, height string) templ.Component {
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/pantry/views.templ`, Line: 74, Col: 40}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 76, Col: 40}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var11))
 		if templ_7745c5c3_Err != nil {
@@ -333,7 +335,7 @@ func dashWidget(title, id, src, height string) templ.Component {
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues("height:" + height)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/pantry/views.templ`, Line: 76, Col: 58}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 78, Col: 58}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var12))
 		if templ_7745c5c3_Err != nil {
@@ -359,7 +361,7 @@ func dashWidget(title, id, src, height string) templ.Component {
 
 // itemsView lists inventory as a responsive card grid with photos. canWrite
 // shows the create form (gated on pantry:write).
-func (a *app) itemsView(authed, canWrite bool, items []Item, locs []Location) templ.Component {
+func (a *app) itemsView(authed, canWrite bool, items []store.Item, locs []store.Location) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -451,7 +453,7 @@ func (a *app) itemsView(authed, canWrite bool, items []Item, locs []Location) te
 
 // itemGrid renders the item cards under a stable id so the create action can
 // re-render the whole grid with a single patch.
-func (a *app) itemGrid(items []Item) templ.Component {
+func (a *app) itemGrid(items []store.Item) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -510,7 +512,7 @@ func (a *app) itemGrid(items []Item) templ.Component {
 
 // itemCard is one inventory tile: photo (fixed aspect box, no shift), name, a
 // quantity/location meta line, and an expiring-soon badge when relevant.
-func (a *app) itemCard(it Item) templ.Component {
+func (a *app) itemCard(it store.Item) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -559,7 +561,7 @@ func (a *app) itemCard(it Item) templ.Component {
 			var templ_7745c5c3_Var20 string
 			templ_7745c5c3_Var20, templ_7745c5c3_Err = templ.JoinStringErrs(it.Name)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/pantry/views.templ`, Line: 126, Col: 39}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 128, Col: 39}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var20))
 			if templ_7745c5c3_Err != nil {
@@ -572,7 +574,7 @@ func (a *app) itemCard(it Item) templ.Component {
 			var templ_7745c5c3_Var21 string
 			templ_7745c5c3_Var21, templ_7745c5c3_Err = templ.JoinStringErrs(itemMeta(it))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/pantry/views.templ`, Line: 127, Col: 42}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 129, Col: 42}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var21))
 			if templ_7745c5c3_Err != nil {
@@ -604,7 +606,7 @@ func (a *app) itemCard(it Item) templ.Component {
 
 // addItemForm is the create-item form (hypermedia @post). Only rendered for
 // principals that may write.
-func (a *app) addItemForm(locs []Location) templ.Component {
+func (a *app) addItemForm(locs []store.Location) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -776,7 +778,7 @@ func (a *app) addItemForm(locs []Location) templ.Component {
 // --- Locations ---
 
 // locationsView lists storage locations with an optional create form.
-func (a *app) locationsView(authed, canWrite bool, locs []Location) templ.Component {
+func (a *app) locationsView(authed, canWrite bool, locs []store.Location) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -934,7 +936,7 @@ func (a *app) addLocationForm() templ.Component {
 }
 
 // locList renders the locations under a stable id for the create-action patch.
-func (a *app) locList(locs []Location) templ.Component {
+func (a *app) locList(locs []store.Location) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -981,7 +983,7 @@ func (a *app) locList(locs []Location) templ.Component {
 // --- Shopping lists ---
 
 // listsView renders the shopping lists and their lines.
-func (a *app) listsView(authed bool, lists []ShoppingList) templ.Component {
+func (a *app) listsView(authed bool, lists []store.ShoppingList) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
 		if templ_7745c5c3_CtxErr := ctx.Err(); templ_7745c5c3_CtxErr != nil {
@@ -1241,7 +1243,7 @@ func (a *app) loginForm() templ.Component {
 		var templ_7745c5c3_Var46 string
 		templ_7745c5c3_Var46, templ_7745c5c3_Err = templ.JoinStringErrs(a.t(ctx, "login.username"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/pantry/views.templ`, Line: 243, Col: 70}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 245, Col: 70}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var46))
 		if templ_7745c5c3_Err != nil {
@@ -1254,7 +1256,7 @@ func (a *app) loginForm() templ.Component {
 		var templ_7745c5c3_Var47 string
 		templ_7745c5c3_Var47, templ_7745c5c3_Err = templ.JoinStringErrs(a.t(ctx, "login.password"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/pantry/views.templ`, Line: 247, Col: 70}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 249, Col: 70}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var47))
 		if templ_7745c5c3_Err != nil {
@@ -1267,7 +1269,7 @@ func (a *app) loginForm() templ.Component {
 		var templ_7745c5c3_Var48 string
 		templ_7745c5c3_Var48, templ_7745c5c3_Err = templ.JoinStringErrs(a.t(ctx, "login.submit"))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `examples/pantry/views.templ`, Line: 250, Col: 79}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `internal/web/views.templ`, Line: 252, Col: 79}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var48))
 		if templ_7745c5c3_Err != nil {
