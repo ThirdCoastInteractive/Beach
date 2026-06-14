@@ -37,6 +37,16 @@ each mounts the framework's [specimen](16-components.md#the-specimen) at
 `/specimen` — the component/token/chart gallery rides the examples instead of a
 dedicated demo binary.
 
+**Layout.** Each app is split by concern (see [01-layout.md](01-layout.md#what-a-consuming-app-looks-like)):
+a thin `main.go` + `config.go` at the root, and everything else under app-local
+`internal/<concern>` packages — `internal/web` for the app/server struct +
+handlers + `.templ` views, plus sibling packages for the decouplable concerns
+(`internal/store`, `internal/analytics`, and per app `internal/game`,
+`internal/chat`, `internal/content`, `internal/reputation`, `internal/media`,
+`internal/mail`, `internal/auth`). The file names called out below (`views.templ`,
+`game.go`, `board.go`, …) live inside the relevant `internal/<concern>` package
+rather than the app root.
+
 ---
 
 ## `examples/boardwalk` — real-estate game (Monopoly-like)
@@ -345,15 +355,15 @@ INSERT INTO pantry_items (...) VALUES (...) RETURNING ...;
 patched partial), `@requires perm` (guard), `@notify resource` (NOTIFY topic).
 Items, locations, and lists each carry the full list/get/create/update/delete/
 toggle set. In the *running* binary the write paths are **hand-written
-equivalents** in `handlers.go` (its own comment says so) — they are the
+equivalents** in `internal/web` (its own comment says so) — they are the
 falsifiable reference for what apigen emits: bind the signals, run the write,
 patch the `@fragment`. The ratio of generated-to-hand-written is apigen's measure;
 pantry keeps both visible side by side.
 
 ### Data model
 
-`model.go` defines `Item`, `Location`, `ShoppingList`, `ListItem` and the
-`pgStore` (its `newPGStore` boot-seed inserts 6 items, 3 locations, 1 list when
+`internal/store` defines `Item`, `Location`, `ShoppingList`, `ListItem` and the
+`Store` (its `store.New` boot-seed inserts 6 items, 3 locations, 1 list when
 `pantry_items` is empty — the idempotent analogue of the old in-memory seed). The
 migration creates soft-deleting (`deleted_at`) tables `pantry_items`,
 `pantry_locations`, `pantry_lists`, `pantry_list_items` plus the framework's
