@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/ThirdCoastInteractive/the-beach/chart"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
 	"github.com/a-h/templ"
 )
 

@@ -32,14 +32,14 @@ import (
 	"sync"
 	"sync/atomic"
 
-	beach "github.com/ThirdCoastInteractive/the-beach"
-	"github.com/ThirdCoastInteractive/the-beach/auth"
-	"github.com/ThirdCoastInteractive/the-beach/ch"
-	"github.com/ThirdCoastInteractive/the-beach/mailer"
-	"github.com/ThirdCoastInteractive/the-beach/session"
-	"github.com/ThirdCoastInteractive/the-beach/storage"
-	"github.com/ThirdCoastInteractive/the-beach/storage/cfimages"
-	"github.com/ThirdCoastInteractive/the-beach/ui/specimen"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/auth"
+	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ch"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/mailer"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/session"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/storage"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/storage/cfimages"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/specimen"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )

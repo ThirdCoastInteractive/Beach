@@ -19,9 +19,9 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"github.com/ThirdCoastInteractive/the-beach/datastar"
-	"github.com/ThirdCoastInteractive/the-beach/ui"
-	"github.com/ThirdCoastInteractive/the-beach/ui/driftwood"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
 )
 
 // room wraps its children in the single live region every state transition

@@ -1,0 +1,110 @@
+package driftwood
+
+import "github.com/ThirdCoastInteractive/the-beach/pkg/ui"
+
+// --- Feedback ----------------------------------------------------------------
+
+// Alert is an inline callout; the children are the body content. Dismiss is a
+// self-remove click handler on the close button — no page script of its own.
+templ Alert(p AlertProps) {
+	<div class={ "dw-alert", roleClass("dw-alert", p.Role) } role="alert" { p.Attrs.Templ()... }>
+		<span class="dw-alert-icon" aria-hidden="true">
+			@ui.Icon(alertIcon(p.Role))
+		</span>
+		<div class="dw-alert-body">
+			if p.Title != "" {
+				<strong class="dw-alert-title">{ p.Title }</strong>
+			}
+			{ children... }
+		</div>
+		if p.Dismissible {
+			<button class="dw-alert-close" type="button" aria-label="Dismiss" data-on:click="el.closest('.dw-alert').remove()">
+				@ui.Icon("x")
+			</button>
+		}
+	</div>
+}
+
+// Toast is a single notification card. It is SSE-pushable: a handler patches one
+// into the kit's toast region; manual close removes it with the same self-remove
+// handler the Alert uses. Auto-dismiss is CSS.
+templ Toast(p ToastProps) {
+	<div class={ "dw-toast", roleClass("dw-toast", p.Role) } role="status" aria-live="polite" { p.Attrs.Templ()... }>
+		<span class="dw-toast-icon" aria-hidden="true">
+			@ui.Icon(alertIcon(p.Role))
+		</span>
+		<div class="dw-toast-body">
+			if p.Title != "" {
+				<strong class="dw-toast-title">{ p.Title }</strong>
+			}
+			if p.Message != "" {
+				<p class="dw-toast-msg">{ p.Message }</p>
+			}
+		</div>
+		<button class="dw-toast-close" type="button" aria-label="Dismiss" data-on:click="el.closest('.dw-toast').remove()">
+			@ui.Icon("x")
+		</button>
+	</div>
+}
+
+// Progress is a progress bar. Max == 0 makes it indeterminate (unknown-duration
+// loads); otherwise it reflects Value/Max with the proper ARIA range.
+templ Progress(p ProgressProps) {
+	<div
+		class={ "dw-progress", roleClass("dw-progress", p.Role), templ.KV("is-indeterminate", p.Max <= 0) }
+		role="progressbar"
+		if p.Label != "" {
+			aria-label={ p.Label }
+		}
+		if p.Max > 0 {
+			aria-valuenow={ ftoa(p.Value) }
+			aria-valuemin="0"
+			aria-valuemax={ ftoa(p.Max) }
+		}
+		{ p.Attrs.Templ()... }
+	>
+		if p.Max > 0 {
+			<div class="dw-progress-bar" style={ templ.SafeCSS("width:" + progressPct(p.Value, p.Max) + "%") }></div>
+		} else {
+			<div class="dw-progress-bar"></div>
+		}
+	</div>
+}
+
+// EmptyState is the friendly nothing-here block: an optional icon and a message.
+templ EmptyState(p EmptyStateProps) {
+	<div class="dw-empty" { p.Attrs.Templ()... }>
+		if p.Icon != "" {
+			<span class="dw-empty-icon" aria-hidden="true">
+				@ui.Icon(p.Icon)
+			</span>
+		}
+		<p class="dw-empty-msg">{ p.Message }</p>
+	</div>
+}
+
+// Spinner is the loading indicator; Block centers it as a block element.
+templ Spinner(p SpinnerProps) {
+	<span
+		class={ "dw-spinner", sizeClass("dw-spinner", p.Size), templ.KV("is-block", p.Block) }
+		role="status"
+		aria-label="Loading"
+		{ p.Attrs.Templ()... }
+	>
+		@ui.Icon("spinner", ui.Spin)
+	</span>
+}
+
+// Skeleton is a reserved-space placeholder: it holds the exact box of the late
+// content so nothing shifts when it lands (the no-pop-in law).
+templ Skeleton(p SkeletonProps) {
+	{{ s := skeletonStyle(p) }}
+	<div
+		class="dw-skeleton"
+		aria-hidden="true"
+		if s != "" {
+			style={ s }
+		}
+		{ p.Attrs.Templ()... }
+	></div>
+}

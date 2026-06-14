@@ -10,7 +10,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/mailer"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/mailer"
 )
 
 // The pump's knobs: claim cadence, claim size, and how many tries a message

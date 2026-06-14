@@ -52,13 +52,13 @@ import (
 	"syscall"
 	"time"
 
-	beach "github.com/ThirdCoastInteractive/the-beach"
-	"github.com/ThirdCoastInteractive/the-beach/ch"
-	"github.com/ThirdCoastInteractive/the-beach/hub"
-	"github.com/ThirdCoastInteractive/the-beach/pg"
-	"github.com/ThirdCoastInteractive/the-beach/sim"
-	"github.com/ThirdCoastInteractive/the-beach/ui/driftwood"
-	"github.com/ThirdCoastInteractive/the-beach/ui/specimen"
+	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ch"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/pg"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/sim"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/specimen"
 )
 
 //go:embed migrations/*.sql

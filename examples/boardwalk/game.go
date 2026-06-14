@@ -6,9 +6,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/ch"
-	"github.com/ThirdCoastInteractive/the-beach/ecs"
-	"github.com/ThirdCoastInteractive/the-beach/sim"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ch"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ecs"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/sim"
 )
 
 // Topics. The board everyone watches (spectators included) is one hub topic;

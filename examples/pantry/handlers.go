@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	beach "github.com/ThirdCoastInteractive/the-beach"
-	"github.com/ThirdCoastInteractive/the-beach/auth"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/auth"
+	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
 )
 
 // CRUD actions. These are the hand-written equivalents of what beach-apigen

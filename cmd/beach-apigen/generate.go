@@ -352,9 +352,9 @@ import (
 
 	"github.com/a-h/templ"
 {{- end}}
-	"github.com/ThirdCoastInteractive/the-beach"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/beach"
 {{- if .UsesHub}}
-	"github.com/ThirdCoastInteractive/the-beach/hub"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
 {{- end}}
 {{- range .CompImports}}
 	{{printf "%q" .}}

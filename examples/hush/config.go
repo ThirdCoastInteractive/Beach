@@ -1,7 +1,7 @@
 package main
 
 import (
-	bcfg "github.com/ThirdCoastInteractive/the-beach/config"
+	bcfg "github.com/ThirdCoastInteractive/the-beach/pkg/config"
 )
 
 // config is hush's env-driven knobs, loaded once at boot by the framework config

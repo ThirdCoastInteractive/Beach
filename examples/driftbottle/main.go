@@ -50,11 +50,11 @@ import (
 	"sync"
 	"time"
 
-	beach "github.com/ThirdCoastInteractive/the-beach"
-	"github.com/ThirdCoastInteractive/the-beach/ch"
-	"github.com/ThirdCoastInteractive/the-beach/hub"
-	"github.com/ThirdCoastInteractive/the-beach/pg"
-	"github.com/ThirdCoastInteractive/the-beach/ui/specimen"
+	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ch"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/pg"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/specimen"
 	"github.com/a-h/templ"
 
 	"github.com/jackc/pgx/v5/pgxpool"

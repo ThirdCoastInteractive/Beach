@@ -5,11 +5,11 @@ import (
 	"net/http"
 	"time"
 
-	beach "github.com/ThirdCoastInteractive/the-beach"
-	"github.com/ThirdCoastInteractive/the-beach/auth"
-	"github.com/ThirdCoastInteractive/the-beach/passwords"
-	"github.com/ThirdCoastInteractive/the-beach/pg"
-	"github.com/ThirdCoastInteractive/the-beach/session"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/auth"
+	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/passwords"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/pg"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/session"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

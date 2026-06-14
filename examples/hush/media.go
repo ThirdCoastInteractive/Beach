@@ -10,8 +10,8 @@ import (
 	"context"
 	"io"
 
-	"github.com/ThirdCoastInteractive/the-beach/storage/cfimages"
-	"github.com/ThirdCoastInteractive/the-beach/storage/s3"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/storage/cfimages"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/storage/s3"
 )
 
 // initMedia wires a.files (R2) and a.images (Cloudflare Images) from the

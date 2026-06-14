@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	beach "github.com/ThirdCoastInteractive/the-beach"
-	"github.com/ThirdCoastInteractive/the-beach/passwords"
+	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/passwords"
 )
 
 // application is one pending signup application, as the admin queue shows it.

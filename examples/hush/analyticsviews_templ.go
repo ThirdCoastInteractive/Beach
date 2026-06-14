@@ -21,7 +21,7 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"strconv"
 
-	"github.com/ThirdCoastInteractive/the-beach/ui"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui"
 )
 
 // analyticsView is the dashboard: a grid of deferred chart and table widgets.

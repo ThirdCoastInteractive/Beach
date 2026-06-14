@@ -1,0 +1,248 @@
+// Package beach is the-beach's HTTP layer: the framework's front door. It is the
+// module root (package beach) rather than a sub-package — services build their
+// main.go against beach.New and the three typed handler shapes.
+//
+// The builder collapses the boilerplate every service would otherwise repeat: a
+// fixed middleware stack (request log, recover, security headers + CSP, optional
+// session auth), GET /healthz, static file serving with boot-time SHA256 ETags
+// and immutable cache headers, and graceful shutdown. Routes register against
+// typed handler shapes — PageFunc, ActionFunc, StreamFunc — that encode the
+// house rules by construction, with guards (Authed, Role, Can) that make the
+// auth story visible in the route table.
+//
+// Echo is named in the architecture doc, but the frozen go.mod ships no web
+// framework, so the implementation is stdlib net/http with the Go 1.22 ServeMux
+// pattern router underneath. App.Mux() and App.Raw are the escape hatches for
+// the genuinely weird (payment webhooks, plain http.Handler middleware).
+package beach
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"io/fs"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
+
+	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/session"
+)
+
+// Config configures a new App. The zero value is usable: every field worth
+// setting has a sensible default.
+type Config struct {
+	// Service names the running service (used in logs and the default Server
+	// header). e.g. "live".
+	Service string
+
+	// Release reports whether this is a released (production) binary. It selects
+	// stable commit-based asset versioning over dev timestamps, hardens cookies,
+	// and silences the dev page-size warnings.
+	Release bool
+
+	// CSP is the Content-Security-Policy preset applied by the secure-headers
+	// middleware. A zero CSP falls back to CSPDefault().
+	CSP CSP
+
+	// Static is the filesystem served under /static (with boot-time ETags and
+	// immutable cache headers). When nil, the framework serves the embedded
+	// internal/view/static tree (app.css, the Datastar client, and the chart
+	// modules).
+	Static fs.FS
+
+	// Sessions, when non-nil, enables session-backed auth: OptionalAuth runs in
+	// the middleware stack and guards (Authed/Role) resolve against it. Left nil,
+	// the app runs without a database and every principal is anonymous (nil).
+	Sessions *session.Store
+
+	// Principals, when non-nil, resolves a rich auth.Principal from the
+	// session-bound user id. Optional; without it c.User() still works from the
+	// session and c.Principal() is nil.
+	Principals PrincipalResolver
+
+	// Hub is the in-memory topic fan-out backing StreamFunc subscriptions. A nil
+	// hub disables live events (catch-up still runs); set one to serve realtime
+	// streams.
+	Hub *hub.Hub
+
+	// Healthz is the readiness probe behind GET /healthz. A nil probe always
+	// reports healthy (200 ok) — fine for a database-less app.
+	Healthz HealthFunc
+
+	// Logger is the structured logger used by the request-logging and recover
+	// middleware. Defaults to slog.Default().
+	Logger *slog.Logger
+
+	// ShutdownTimeout bounds graceful shutdown. Defaults to 15s.
+	ShutdownTimeout time.Duration
+
+	// SSECompression overrides the default SSE compression mode for StreamFunc /
+	// ActionFunc responses. The zero value is the gzip default.
+	SSECompression SSEMode
+}
+
+// HealthFunc is the readiness probe behind /healthz. Returning an error renders
+// a 503; nil renders 200.
+type HealthFunc func(ctx context.Context) error
+
+// PrincipalResolver turns a session user id into a rich principal. It is called
+// once per authenticated request when Config.Principals is set. Returning a nil
+// principal (and nil error) leaves the request anonymous at the principal level
+// while still carrying the session user.
+type PrincipalResolver func(ctx context.Context, userID int64) (*Principal, error)
+
+// App is a configured the-beach application. Build one with New, register routes
+// with Page/Action/Stream/Raw, then Start. The zero App is not usable.
+type App struct {
+	cfg    Config
+	mux    *http.ServeMux
+	log    *slog.Logger
+	static *staticHandler
+	hub    *hub.Hub
+	srv    *http.Server
+}
+
+// New builds an App from cfg. It wires the static handler (computing boot-time
+// ETags) and registers GET /healthz and the static tree. It does not bind a
+// socket; that happens in Start.
+func New(cfg Config) *App {
+	if cfg.Logger == nil {
+		cfg.Logger = slog.Default()
+	}
+	if cfg.ShutdownTimeout <= 0 {
+		cfg.ShutdownTimeout = 15 * time.Second
+	}
+	if cfg.CSP.IsZero() {
+		cfg.CSP = CSPDefault()
+	}
+
+	a := &App{
+		cfg: cfg,
+		mux: http.NewServeMux(),
+		log: cfg.Logger,
+		hub: cfg.Hub,
+	}
+
+	// Static tree, overlaid framework-first: the framework's canonical assets
+	// (app.css, the Datastar client, the chart modules) always serve and take
+	// precedence, then the app's own static (images, etc.). Apps never copy the
+	// stylesheet or datastar.js — they get the framework copies here.
+	staticFS := fs.FS(embeddedStatic())
+	if cfg.Static != nil {
+		staticFS = overlayFS{layers: []fs.FS{embeddedStatic(), cfg.Static}}
+	}
+	sh, err := newStaticHandler(staticFS, cfg.Release)
+	if err != nil {
+		// A broken static tree is a boot-time programming error.
+		panic(fmt.Sprintf("beach: static handler: %v", err))
+	}
+	a.static = sh
+
+	a.mux.Handle("GET /static/", http.StripPrefix("/static/", sh))
+	a.mux.HandleFunc("GET /healthz", a.handleHealthz)
+
+	return a
+}
+
+// Mux exposes the underlying ServeMux for advanced wiring (mounting a sub-router,
+// a third-party handler). Prefer Page/Action/Stream/Raw; this is the escape hatch.
+func (a *App) Mux() *http.ServeMux { return a.mux }
+
+// Logger returns the app's structured logger.
+func (a *App) Logger() *slog.Logger { return a.log }
+
+// AssetURL returns the cache-busted URL for a static asset path (e.g.
+// "css/app.css" -> "/static/css/app.css?v=..."). Templates call this so
+// every deploy busts caches without a manifest.
+func (a *App) AssetURL(path string) string {
+	return a.static.assetURL(path)
+}
+
+// handleHealthz runs the readiness probe. /healthz is skipped by the request
+// logger so probes do not flood the log.
+func (a *App) handleHealthz(w http.ResponseWriter, r *http.Request) {
+	if a.cfg.Healthz != nil {
+		if err := a.cfg.Healthz(r.Context()); err != nil {
+			http.Error(w, "unhealthy", http.StatusServiceUnavailable)
+			return
+		}
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("ok"))
+}
+
+// handler returns the fully wrapped root handler: the route mux behind the fixed
+// middleware stack. It is built fresh by Start (and by Handler for tests).
+func (a *App) handler() http.Handler {
+	var h http.Handler = a.mux
+
+	// Innermost first; outermost wraps last so it runs first on the way in.
+	// Order on the way in: requestLog -> recover -> secureHeaders -> auth.
+	h = a.injectAuth(h)
+	h = a.secureHeaders(h)
+	h = a.recoverPanic(h)
+	h = a.requestLog(h)
+	return h
+}
+
+// Handler returns the app as a single http.Handler with the full middleware
+// stack applied. Useful for httptest and for embedding the app in another server.
+func (a *App) Handler() http.Handler {
+	return a.handler()
+}
+
+// Start binds addr and serves until an interrupt (SIGINT/SIGTERM), then shuts
+// down gracefully within ShutdownTimeout.
+func (a *App) Start(addr string) error {
+	a.srv = &http.Server{
+		Addr:              addr,
+		Handler:           a.handler(),
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
+	errc := make(chan error, 1)
+	go func() {
+		a.log.Info("beach: listening", "service", a.cfg.Service, "addr", addr)
+		if err := a.srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			errc <- err
+		}
+	}()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+
+	select {
+	case err := <-errc:
+		return err
+	case sig := <-stop:
+		a.log.Info("beach: shutting down", "signal", sig.String())
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), a.cfg.ShutdownTimeout)
+	defer cancel()
+	if err := a.srv.Shutdown(ctx); err != nil {
+		return fmt.Errorf("beach: graceful shutdown: %w", err)
+	}
+	return nil
+}
+
+// Shutdown triggers graceful shutdown of a running server (started via Start).
+// It is a no-op if the server was never started.
+func (a *App) Shutdown(ctx context.Context) error {
+	if a.srv == nil {
+		return nil
+	}
+	return a.srv.Shutdown(ctx)
+}
+
+// pathIsExempt reports whether p should skip request logging (probes and static
+// assets are noise).
+func pathIsExempt(p string) bool {
+	return p == "/healthz" || strings.HasPrefix(p, "/static/")
+}

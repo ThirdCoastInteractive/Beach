@@ -1,0 +1,101 @@
+package driftwood
+
+import "github.com/ThirdCoastInteractive/the-beach/pkg/ui"
+
+// --- Overlays ----------------------------------------------------------------
+
+// Modal is a native <dialog>: open/close is the platform's, never script. The
+// close control uses the dialog's own form method=dialog. Datastar enters only
+// to @get a heavy body under the 14KB budget; stacking sits on
+// var(--zindex-dialog) in the kit CSS.
+templ Modal(p ModalProps) {
+	<dialog
+		class="dw-modal"
+		if p.ID != "" {
+			id={ p.ID }
+		}
+		{ p.Attrs.Templ()... }
+	>
+		<header class="dw-modal-head">
+			if p.Title != "" {
+				<h2 class="dw-modal-title">{ p.Title }</h2>
+			}
+			<form class="dw-modal-x" method="dialog">
+				<button class="dw-iconbtn" type="submit" aria-label="Close">
+					@ui.Icon("x")
+				</button>
+			</form>
+		</header>
+		<div
+			class="dw-modal-body"
+			if p.Get != "" {
+				data-init={ "@get('" + p.Get + "')" }
+			}
+		>
+			{ children... }
+		</div>
+	</dialog>
+}
+
+// Drawer is a slide-over panel built on the native <dialog> (same open/close
+// mechanism as Modal: showModal + method="dialog" close, no script). Side picks
+// the edge; the kit CSS slides it in. Get lazy-loads a heavy body under budget.
+templ Drawer(p DrawerProps) {
+	<dialog
+		class={ "dw-drawer", "dw-drawer-" + drawerSide(p.Side) }
+		if p.ID != "" {
+			id={ p.ID }
+		}
+		{ p.Attrs.Templ()... }
+	>
+		<header class="dw-drawer-head">
+			if p.Title != "" {
+				<h2 class="dw-drawer-title">{ p.Title }</h2>
+			}
+			<form class="dw-drawer-x" method="dialog">
+				<button class="dw-iconbtn" type="submit" aria-label="Close">
+					@ui.Icon("x")
+				</button>
+			</form>
+		</header>
+		<div
+			class="dw-drawer-body"
+			if p.Get != "" {
+				data-init={ "@get('" + p.Get + "')" }
+			}
+		>
+			{ children... }
+		</div>
+	</dialog>
+}
+
+// Popover is a native popover flyout anchored to its trigger: the trigger's
+// popovertarget points at the panel, and the platform toggles it with zero
+// script. The children are the panel body (menu items, info, a form).
+templ Popover(p PopoverProps) {
+	{{ id := defaultID(p.ID, "dw-popover") }}
+	<div class="dw-popover" id={ id } { p.Attrs.Templ()... }>
+		<button type="button" class="dw-btn dw-popover-trigger" popovertarget={ id + "-panel" }>
+			if p.Icon != "" {
+				@ui.Icon(p.Icon)
+			}
+			if p.Label != "" {
+				<span class="dw-btn-label">{ p.Label }</span>
+			}
+		</button>
+		<div class="dw-popover-panel" id={ id + "-panel" } popover anchor={ id }>
+			{ children... }
+		</div>
+	</div>
+}
+
+// Tooltip wraps its children as the trigger; the tip is CSS-positioned off the
+// native focus/hover states — zero script, works before any bundle loads.
+templ Tooltip(p TooltipProps) {
+	<span class="dw-tooltip" { p.Attrs.Templ()... }>
+		<span class="dw-tooltip-trigger" tabindex="0">
+			{ children... }
+		</span>
+		<span class="dw-tooltip-text" role="tooltip">{ p.Text }</span>
+	</span>
+}

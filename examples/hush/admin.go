@@ -13,7 +13,7 @@ import (
 	"strconv"
 	"strings"
 
-	beach "github.com/ThirdCoastInteractive/the-beach"
+	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
 )
 
 // adminStats is the hub's quick read: what needs attention, and how big the

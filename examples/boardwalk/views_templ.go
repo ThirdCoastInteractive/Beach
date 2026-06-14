@@ -19,10 +19,10 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"fmt"
 
-	"github.com/ThirdCoastInteractive/the-beach/chart"
-	"github.com/ThirdCoastInteractive/the-beach/datastar"
-	"github.com/ThirdCoastInteractive/the-beach/ui"
-	"github.com/ThirdCoastInteractive/the-beach/ui/driftwood"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
 )
 
 // indexView is the full board page. data-init on the container opens the three

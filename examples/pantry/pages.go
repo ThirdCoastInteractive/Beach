@@ -4,8 +4,8 @@ import (
 	"strconv"
 	"time"
 
-	beach "github.com/ThirdCoastInteractive/the-beach"
-	"github.com/ThirdCoastInteractive/the-beach/ui/driftwood"
+	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
 )
 
 // Page handlers. Markup lives in views.templ; these shape the data and pick

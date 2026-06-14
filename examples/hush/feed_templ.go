@@ -17,7 +17,7 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"strconv"
 
-	"github.com/ThirdCoastInteractive/the-beach/ui"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui"
 )
 
 // feedPage is a post's page: the focused post expanded (just its media, meta,

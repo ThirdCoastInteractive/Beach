@@ -97,7 +97,7 @@ var componentsTmpl = template.Must(template.New("components").Parse(
 
 package {{.Package}}
 
-import ecs "github.com/ThirdCoastInteractive/the-beach/ecs"
+import ecs "github.com/ThirdCoastInteractive/the-beach/pkg/ecs"
 
 {{range .Components}}
 {{if .Doc}}// {{.Name}} {{.Doc}}{{else}}// {{.Name}} is a generated ECS component.{{end}}

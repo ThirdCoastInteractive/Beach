@@ -1,0 +1,64 @@
+// Representative home pages for the page-size gate. The example apps' handlers
+// live in package main (cross-main import is awkward), so the gate rebuilds
+// each representative above-the-fold page through the real driftwood
+// components — heading, a panel card with an action button, a live region —
+// inside the real Page document. If the real apps grow, these pages grow with
+// the same components, so the gate stays representative.
+package perf
+
+import (
+	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
+)
+
+// demoPage mirrors the scaffolded app's home: heading, one action card, and a
+// container that opens the live SSE stream on mount.
+templ demoPage() {
+	@driftwood.Page(driftwood.PageProps{
+		Title:       "the-beach demo",
+		Description: "A database-less the-beach showcase.",
+	}) {
+		@driftwood.Container(driftwood.ContainerProps{
+			Attrs: datastar.Attrs{datastar.On("load", "@get('/live')")},
+		}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{
+				Title:    "the-beach",
+				Subtitle: "SSR + Datastar, no database, live over SSE.",
+			})
+			@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Tick"}) {
+				@driftwood.Button(driftwood.ButtonProps{
+					Label:    "Increment",
+					Role:     driftwood.RoleAccent,
+					LeadIcon: "plus",
+					Attrs:    datastar.Attrs{datastar.OnClick("@post('/inc')")},
+				})
+			}
+		}
+	}
+}
+
+// driftbottlePage mirrors examples/driftbottle's home: the page heading plus
+// the lobby's "find a stranger" card — the same shape srv.indexPage renders on
+// navigation.
+templ driftbottlePage() {
+	@driftwood.Page(driftwood.PageProps{
+		Title:       "driftbottle — talk to a stranger",
+		Description: "Anonymous, ephemeral stranger chat. No accounts, no history.",
+	}) {
+		@driftwood.Container(driftwood.ContainerProps{
+			Attrs: datastar.Attrs{datastar.On("load", "@get('/events')")},
+		}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{
+				Title:    "driftbottle",
+				Subtitle: "You're about to talk to a complete stranger. Be kind.",
+			})
+			@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Stranger chat"}) {
+				@driftwood.Button(driftwood.ButtonProps{
+					Label: "Talk to a stranger",
+					Role:  driftwood.RoleAccent,
+					Attrs: datastar.Attrs{datastar.OnClick("@post('/start')")},
+				})
+			}
+		}
+	}
+}

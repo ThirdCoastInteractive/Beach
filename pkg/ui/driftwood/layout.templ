@@ -1,0 +1,268 @@
+package driftwood
+
+import "github.com/ThirdCoastInteractive/the-beach/pkg/ui"
+
+// --- Layout ------------------------------------------------------------------
+
+// Shell is the top-level page frame: an optional topbar, an optional fixed
+// left sidebar, and the main content region (the children). With no sidebar it
+// is the default stacked shell; with one it is the sidebar shell — both
+// server-rendered, no JS.
+templ Shell(p AppShellProps) {
+	<div class={ "dw-shell", templ.KV("has-sidebar", p.Sidebar != nil) } { p.Attrs.Templ()... }>
+		if p.Topbar != nil {
+			<header class="dw-shell-top">
+				@p.Topbar
+			</header>
+		}
+		if p.Sidebar != nil {
+			<div class="dw-shell-cols">
+				<aside class="dw-shell-side">
+					@p.Sidebar
+				</aside>
+				<main class="dw-shell-main">
+					{ children... }
+				</main>
+			</div>
+		} else {
+			<main class="dw-shell-main">
+				{ children... }
+			</main>
+		}
+	</div>
+}
+
+// Container constrains content to the page gutter, or to a named size token.
+templ Container(p ContainerProps) {
+	<div
+		class="dw-container"
+		if p.MaxWidth != "" {
+			style={ containerStyle(p.MaxWidth) }
+		}
+		{ p.Attrs.Templ()... }
+	>
+		{ children... }
+	</div>
+}
+
+// Card is the basic content panel; Heading renders the simple one-line header
+// (drop a CardHeading into the body for the richer form).
+templ Card(p CardProps) {
+	<section class={ "dw-card", surfaceClass(p.Surface) } { p.Attrs.Templ()... }>
+		if p.Heading != "" {
+			<header class="dw-card-head">
+				<h3 class="dw-card-title">{ p.Heading }</h3>
+			</header>
+		}
+		<div class="dw-card-body">
+			{ children... }
+		</div>
+	</section>
+}
+
+// PageHeading is the page's h1 with an optional subtitle line.
+templ PageHeading(p PageHeadingProps) {
+	<header class="dw-page-heading" { p.Attrs.Templ()... }>
+		<h1 class="dw-page-title">{ p.Title }</h1>
+		if p.Subtitle != "" {
+			<p class="dw-page-subtitle">{ p.Subtitle }</p>
+		}
+	</header>
+}
+
+// SectionHeading labels a content section.
+templ SectionHeading(p SectionHeadingProps) {
+	<h2 class="dw-section-heading" { p.Attrs.Templ()... }>{ p.Label }</h2>
+}
+
+// Divider is a horizontal rule, optionally labeled.
+templ Divider(p DividerProps) {
+	if p.Label != "" {
+		<div class="dw-divider dw-divider-labeled" role="separator" { p.Attrs.Templ()... }>
+			<span class="dw-divider-label">{ p.Label }</span>
+		</div>
+	} else {
+		<hr class="dw-divider" { p.Attrs.Templ()... }/>
+	}
+}
+
+// CardHeading is the richer card header: a title and optional meta line on the
+// left, an optional action slot on the right (Card's Heading string is the
+// simple case; drop one of these into a Card's body for the full header).
+templ CardHeading(p CardHeadingProps) {
+	<header class="dw-card-head" { p.Attrs.Templ()... }>
+		<div class="dw-card-head-text">
+			<h3 class="dw-card-title">{ p.Title }</h3>
+			if p.Meta != "" {
+				<p class="dw-card-meta">{ p.Meta }</p>
+			}
+		</div>
+		if p.Action != nil {
+			<div class="dw-card-head-action">
+				@p.Action
+			</div>
+		}
+	</header>
+}
+
+// Grid is a responsive dashboard widget grid. The column count rides on a CSS
+// custom property the kit sheet clamps responsively (no media queries in Go).
+templ Grid(p GridProps) {
+	<div class="dw-grid" style={ gridStyle(p.Cols, p.Gap) } { p.Attrs.Templ()... }>
+		{ children... }
+	</div>
+}
+
+// Split is a two-pane master-detail layout: a list pane and a detail pane.
+templ Split(p SplitProps) {
+	<div class="dw-split" { p.Attrs.Templ()... }>
+		<div class="dw-split-list">
+			if p.List != nil {
+				@p.List
+			}
+		</div>
+		<div class="dw-split-detail">
+			if p.Detail != nil {
+				@p.Detail
+			}
+		</div>
+	</div>
+}
+
+// --- Nav ---------------------------------------------------------------------
+
+// Navbar is the horizontal primary navigation: a brand link plus items.
+templ Navbar(p NavbarProps) {
+	<nav class="dw-navbar" aria-label="Primary" { p.Attrs.Templ()... }>
+		if p.Brand != "" {
+			<a class="dw-brand" href="/">{ p.Brand }</a>
+		}
+		<div class="dw-navlinks">
+			for _, it := range p.Items {
+				@navLink(it)
+			}
+		</div>
+	</nav>
+}
+
+templ navLink(it NavItem) {
+	<a
+		class={ "dw-navitem", templ.KV("is-active", it.Active) }
+		href={ it.Href }
+		if it.Active {
+			aria-current="page"
+		}
+	>
+		if it.Icon != "" {
+			@ui.Icon(it.Icon)
+		}
+		{ it.Label }
+	</a>
+}
+
+// Sidebar is the fixed left-rail navigation: labeled sections of items with
+// icons and active state. Active state is a class, never script.
+templ Sidebar(p SidebarNavProps) {
+	<nav class="dw-sidebar" aria-label="Sidebar" { p.Attrs.Templ()... }>
+		for _, s := range p.Sections {
+			<div class="dw-side-section">
+				if s.Label != "" {
+					<p class="dw-side-label">{ s.Label }</p>
+				}
+				<ul class="dw-side-items">
+					for _, it := range s.Items {
+						<li class="dw-side-item">
+							@sideLink(it)
+						</li>
+					}
+				</ul>
+			</div>
+		}
+	</nav>
+}
+
+templ sideLink(it NavItem) {
+	<a
+		class={ "dw-side-link", templ.KV("is-active", it.Active) }
+		href={ it.Href }
+		if it.Active {
+			aria-current="page"
+		}
+	>
+		if it.Icon != "" {
+			@ui.Icon(it.Icon)
+		}
+		<span class="dw-side-text">{ it.Label }</span>
+	</a>
+}
+
+// Breadcrumbs is the ancestry trail; the last item is the current page.
+templ Breadcrumbs(p BreadcrumbsProps) {
+	<nav class="dw-breadcrumbs" aria-label="Breadcrumb" { p.Attrs.Templ()... }>
+		<ol class="dw-crumbs">
+			for i, it := range p.Items {
+				if i == len(p.Items)-1 {
+					<li class="dw-crumb is-current" aria-current="page">{ it.Label }</li>
+				} else {
+					<li class="dw-crumb">
+						<a class="dw-crumb-link" href={ it.Href }>{ it.Label }</a>
+					</li>
+				}
+			}
+		</ol>
+	</nav>
+}
+
+// Tabs is pure CSS: a radio per tab drives :checked panel visibility. Datastar
+// enters only when a tab's panel is deferred (Tab.Get set), wiring an @get.
+templ Tabs(p TabsProps) {
+	{{ group := defaultID(p.Name, "dw-tabs") }}
+	<div class="dw-tabs" { p.Attrs.Templ()... }>
+		for _, t := range p.Tabs {
+			<input
+				type="radio"
+				class="dw-tab-radio"
+				name={ group }
+				id={ group + "-" + t.ID }
+				checked?={ t.Active }
+				if t.Get != "" {
+					data-on:change={ "@get('" + t.Get + "')" }
+				}
+			/>
+		}
+		<div class="dw-tablist" role="tablist">
+			for _, t := range p.Tabs {
+				<label class="dw-tab" for={ group + "-" + t.ID }>{ t.Label }</label>
+			}
+		</div>
+	</div>
+}
+
+// Pagination renders prev/page/next links; each link is both a real href and a
+// hypermedia @get so it works before any bundle loads.
+templ Pagination(p PaginationProps) {
+	<nav class="dw-pagination" aria-label="Pagination" { p.Attrs.Templ()... }>
+		if p.Pages > 1 {
+			@pageLink("Prev", p.GetBase, p.Page-1, p.Page <= 1, false)
+			for n := 1; n <= p.Pages; n++ {
+				@pageLink(itoa(n), p.GetBase, n, false, n == p.Page)
+			}
+			@pageLink("Next", p.GetBase, p.Page+1, p.Page >= p.Pages, false)
+		}
+	</nav>
+}
+
+templ pageLink(label string, base string, n int, disabled bool, current bool) {
+	if disabled {
+		<span class={ "dw-page-link", "is-disabled", templ.KV("is-current", current) } aria-disabled="true">{ label }</span>
+	} else {
+		<a
+			class={ "dw-page-link", templ.KV("is-current", current) }
+			href={ base + "?page=" + itoa(n) }
+			data-on:click={ "@get('" + base + "?page=" + itoa(n) + "')" }
+			if current {
+				aria-current="page"
+			}
+		>{ label }</a>
+	}
+}

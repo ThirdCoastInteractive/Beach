@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"time"
 
-	beach "github.com/ThirdCoastInteractive/the-beach"
-	"github.com/ThirdCoastInteractive/the-beach/ch"
-	"github.com/ThirdCoastInteractive/the-beach/chart"
+	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ch"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
 	"github.com/a-h/templ"
 )
 

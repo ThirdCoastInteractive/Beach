@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 
-	"github.com/ThirdCoastInteractive/the-beach/ecs"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ecs"
 	"github.com/a-h/templ"
 )
 

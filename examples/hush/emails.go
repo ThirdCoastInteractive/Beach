@@ -9,7 +9,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/ThirdCoastInteractive/the-beach/mailer"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/mailer"
 	"github.com/a-h/templ"
 )
 

@@ -15,8 +15,8 @@ import (
 	"net/http"
 	"strings"
 
-	beach "github.com/ThirdCoastInteractive/the-beach"
-	"github.com/ThirdCoastInteractive/the-beach/passwords"
+	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/passwords"
 )
 
 // inviteAllowance is the total number of codes a member may have minted, given

@@ -14,7 +14,7 @@ import (
 	"net/mail"
 	"strings"
 
-	beach "github.com/ThirdCoastInteractive/the-beach"
+	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
 )
 
 // emailSection is what the profile shows its owner about their email: the
