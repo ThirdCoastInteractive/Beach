@@ -1,0 +1,365 @@
+// hush's admin views — the pages with eyes. Same stark black/white shell as
+// the wall, but nothing is withheld here: scores, tiers, chains, counts, IPs,
+// geo, and user agents all print. Handlers live in admin.go; everything is
+// behind app.Can("admin").
+package web
+
+import (
+	"strconv"
+
+	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/content"
+	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/reputation"
+	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/store"
+)
+
+// adminPage is the admin shell: the hush header, the section nav, and a wide
+// column — dense tables don't fit the member pages' 720px.
+templ adminPage(title string, section string) {
+	@shell("hush — " + title) {
+		<div class="hush-adm">
+			<header class="hush-head">
+				<h1 class="hush-title"><a class="hush-home" href="/">hush</a></h1>
+				<p class="hush-sub">{ title }</p>
+			</header>
+			@adminNav(section)
+			{ children... }
+		</div>
+	}
+}
+
+// adminNav links the suite together; the page you're on goes inert.
+templ adminNav(section string) {
+	<nav class="hush-adm-nav">
+		@adminNavLink("hub", "/admin", section)
+		@adminNavLink("review", "/admin/review", section)
+		@adminNavLink("posts", "/admin/posts", section)
+		@adminNavLink("members", "/admin/members", section)
+		@adminNavLink("queue", "/admin/queue", section)
+		@adminNavLink("outbox", "/admin/outbox", section)
+		@adminNavLink("analytics", "/admin/analytics", section)
+		@adminNavLink("settings", "/admin/settings", section)
+	</nav>
+}
+
+templ adminNavLink(name string, href string, current string) {
+	if name == current {
+		<span class="hush-adm-here">{ name }</span>
+	} else {
+		<a class="hush-link" href={ href }>{ name }</a>
+	}
+}
+
+// adminHubPage is /admin: the four numbers, each a way into the section that
+// explains it.
+templ adminHubPage(st adminStats) {
+	@adminPage("admin", "hub") {
+		<div class="hush-adm-stats">
+			@hubStat(st.Pending, "pending applications", "/admin/queue")
+			@hubStat(st.Flagged, "flagged or hidden", "/admin/review")
+			@hubStat(st.Posts, "posts", "/admin/posts")
+			@hubStat(st.Members, "members", "/admin/members")
+		</div>
+	}
+}
+
+// hubStat is one number on the hub, linking into its section.
+templ hubStat(n int, label string, href string) {
+	<a class="hush-stat hush-adm-stat" href={ href }>
+		<span class="hush-stat-n">{ strconv.Itoa(n) }</span>
+		{ label }
+	</a>
+}
+
+// adminReviewPage is the moderation queue: every hidden or flagged post in
+// full — the admin judges the actual content, not a snippet — with the
+// capture meta, who flagged, and the two rulings. A method on *app so the
+// cards can resolve image sources through the media helpers.
+templ (a *App) adminReviewPage(posts []store.Post, flaggers map[int64][]flagRow) {
+	@adminPage("review", "review") {
+		if len(posts) == 0 {
+			<p class="hush-sub hush-adm-empty">nothing to review.</p>
+		}
+		for _, p := range posts {
+			@a.reviewCard(p, flaggers[p.ID])
+		}
+	}
+}
+
+// reviewCard is one post under review, rendered whole.
+templ (a *App) reviewCard(p store.Post, flags []flagRow) {
+	{{ id := strconv.FormatInt(p.ID, 10) }}
+	<div class="hush-revcard">
+		<div class="hush-adm-line">
+			<span>{ "#" + id }</span>
+			if p.Hidden {
+				<span class="hush-adm-badge">hidden</span>
+			}
+			<span class="hush-adm-dim">{ authorLabel(p.Author) }</span>
+			<span class="hush-adm-dim">{ p.CreatedAt.Format("Jan 2 2006 · 15:04") }</span>
+		</div>
+		@cardMedia(p, a.media.PostImageURL(p))
+		<div class="hush-adm-meta">{ metaLine(p.Meta) }</div>
+		<div class="hush-adm-flags">
+			<span>{ strconv.Itoa(p.FlagCount) + " flags" }</span>
+			for _, f := range flags {
+				<span class="hush-adm-dim">{ f.Flagger + " (t" + strconv.Itoa(f.Tier) + ")" }</span>
+			}
+		</div>
+		<div class="hush-adm-actions">
+			@moderateForm(id, "restore", "/admin/review")
+			@moderateForm(id, "purge", "/admin/review")
+		</div>
+	</div>
+}
+
+// moderateForm posts one ruling — hide, restore, or purge — for a post and
+// 303s back to where the form lives. purge is forever; there is no undo and
+// the button doesn't pretend otherwise.
+templ moderateForm(id string, action string, back string) {
+	<form method="post" action="/admin/moderate">
+		<input type="hidden" name="id" value={ id }/>
+		<input type="hidden" name="action" value={ action }/>
+		<input type="hidden" name="back" value={ back }/>
+		<button class="hush-post hush-post--mini" type="submit">{ action }</button>
+	</form>
+}
+
+// adminPostsPage is the everything browser: every post, hidden included,
+// newest-first, every column the wall conceals — with exact-match author/ip
+// filters that survive the moderation round-trip (back carries them).
+templ (a *App) adminPostsPage(posts []store.Post, votes map[int64]voteCount, author string, ip string) {
+	{{ back := postsBack(author, ip) }}
+	@adminPage("posts", "posts") {
+		<form method="get" action="/admin/posts" class="hush-adm-filter">
+			<input class="hush-input hush-adm-in" type="text" name="author" placeholder="author" value={ author }/>
+			<input class="hush-input hush-adm-in" type="text" name="ip" placeholder="ip" value={ ip }/>
+			<button class="hush-post hush-post--mini" type="submit">filter</button>
+			if author != "" || ip != "" {
+				<a class="hush-link" href="/admin/posts">clear</a>
+			}
+		</form>
+		if len(posts) == 0 {
+			<p class="hush-sub hush-adm-empty">no posts match.</p>
+		} else {
+			<table class="hush-adm-table">
+				<thead>
+					<tr>
+						<th>id</th>
+						<th>kind</th>
+						<th>content</th>
+						<th>author</th>
+						<th>ip</th>
+						<th>geo</th>
+						<th>ua</th>
+						<th>likes</th>
+						<th>dislikes</th>
+						<th>flags</th>
+						<th></th>
+						<th></th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, p := range posts {
+						@a.postRow(p, votes[p.ID], back)
+					}
+				</tbody>
+			</table>
+		}
+	}
+}
+
+// postRow is one line of the browser: the full ledger for one post. Hidden
+// posts lose their permalink (it 404s off the wall), so only visible ids link.
+templ (a *App) postRow(p store.Post, v voteCount, back string) {
+	{{ id := strconv.FormatInt(p.ID, 10) }}
+	<tr>
+		<td>
+			if p.Hidden || p.Deleted {
+				{ "#" + id }
+			} else {
+				<a class="hush-link" href={ content.PostHref(p.ID) }>{ "#" + id }</a>
+			}
+		</td>
+		<td>{ p.Kind }</td>
+		<td class="hush-adm-content">
+			if p.Kind == "image" {
+				<img class="hush-adm-thumb" src={ a.media.PostThumbURL(p) } alt="" loading="lazy"/>
+			} else {
+				{ snippet(p.BodyHTML) }
+			}
+		</td>
+		<td>{ authorLabel(p.Author) }</td>
+		<td class="hush-adm-dim">{ p.Meta.IP }</td>
+		<td class="hush-adm-dim">{ geoLabel(p.Meta) }</td>
+		<td class="hush-adm-ua" title={ p.Meta.UA }>{ p.Meta.UA }</td>
+		<td>{ strconv.Itoa(v.Up) }</td>
+		<td>{ strconv.Itoa(v.Down) }</td>
+		<td>{ strconv.Itoa(p.FlagCount) }</td>
+		<td>
+			if p.Deleted {
+				<span class="hush-adm-badge">purged</span>
+			} else if p.Hidden {
+				<span class="hush-adm-badge">hidden</span>
+			}
+		</td>
+		<td>
+			// a purged post is settled — kept as evidence, no further rulings
+			if !p.Deleted {
+				<div class="hush-adm-actions">
+					if p.Hidden {
+						@moderateForm(id, "restore", back)
+					} else {
+						@moderateForm(id, "hide", back)
+					}
+					@moderateForm(id, "purge", back)
+				</div>
+			}
+		</td>
+	</tr>
+}
+
+// adminMembersPage is the member ledger: every account, its roles, the real
+// numbers (score · tier · chain), post count, email (hush_member_emails often
+// has no row — that's the dash), invites minted/used, and last-seen IP.
+templ adminMembersPage(members []memberRow) {
+	@adminPage("members", "members") {
+		if len(members) == 0 {
+			<p class="hush-sub hush-adm-empty">no members yet.</p>
+		} else {
+			<table class="hush-adm-table">
+				<thead>
+					<tr>
+						<th>handle</th>
+						<th>roles</th>
+						<th>score</th>
+						<th>tier</th>
+						<th>chain</th>
+						<th>posts</th>
+						<th>email</th>
+						<th>invites</th>
+						<th>last ip</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, m := range members {
+						<tr>
+							<td>{ m.Handle }</td>
+							<td class="hush-adm-dim">{ m.Roles }</td>
+							<td>{ fmtScore(m.Score) }</td>
+							<td>{ "t" + strconv.Itoa(m.Tier) }</td>
+							<td>{ fmtScore(m.Chain) }</td>
+							<td>{ strconv.Itoa(m.Posts) }</td>
+							<td>
+								if m.Email == "" {
+									<span class="hush-adm-dim">—</span>
+								} else if m.Verified {
+									{ m.Email }
+									<span class="hush-adm-badge">verified</span>
+								} else {
+									{ m.Email }
+									<span class="hush-adm-dim">unverified</span>
+								}
+							</td>
+							<td>{ strconv.Itoa(m.Minted) + " minted · " + strconv.Itoa(m.Used) + " used" }</td>
+							<td class="hush-adm-dim">{ m.LastIP }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	}
+}
+
+// adminOutboxPage is the transactional-mail ledger: what went, what's queued,
+// and what's parked failed with the error that parked it.
+templ adminOutboxPage(mails []mailRow) {
+	@adminPage("outbox", "outbox") {
+		if len(mails) == 0 {
+			<p class="hush-sub hush-adm-empty">no mail yet.</p>
+		} else {
+			<table class="hush-adm-table">
+				<thead>
+					<tr>
+						<th>id</th>
+						<th>to</th>
+						<th>subject</th>
+						<th>template</th>
+						<th>status</th>
+						<th>tries</th>
+						<th>error</th>
+						<th>created</th>
+						<th>sent</th>
+					</tr>
+				</thead>
+				<tbody>
+					for _, m := range mails {
+						<tr>
+							<td>{ strconv.FormatInt(m.ID, 10) }</td>
+							<td>{ m.To }</td>
+							<td>{ m.Subject }</td>
+							<td class="hush-adm-dim">{ m.Template }</td>
+							<td>
+								if m.Status == "failed" {
+									<span class="hush-adm-badge">failed</span>
+								} else {
+									{ m.Status }
+								}
+							</td>
+							<td>{ strconv.Itoa(m.Attempts) }</td>
+							<td class="hush-adm-ua" title={ m.LastErr }>{ m.LastErr }</td>
+							<td class="hush-adm-dim">{ m.Created }</td>
+							<td class="hush-adm-dim">{ m.Sent }</td>
+						</tr>
+					}
+				</tbody>
+			</table>
+		}
+	}
+}
+
+// adminSettingsPage is the live policy editor: the gate-and-moderation knobs
+// as a form, saved to the database and effective on the next request. The
+// numbers the wall never shows members are tuned right here.
+templ adminSettingsPage(s reputation.Live, saved bool) {
+	@adminPage("settings", "settings") {
+		if saved {
+			<p class="hush-sub hush-adm-saved">saved. live now.</p>
+		}
+		<form method="post" action="/admin/settings" class="hush-adm-settings">
+			<p class="hush-sub">the gate and moderation policy. editable here, no restart; the HUSH_* env vars only seed these on first boot.</p>
+			<label class="hush-adm-field">
+				<span>tier 1 score <em>(unlocks the profile + minting invites)</em></span>
+				<input class="hush-input hush-adm-in" type="number" step="0.5" name="tier1" value={ strconv.FormatFloat(s.Tier1, 'g', -1, 64) }/>
+			</label>
+			<label class="hush-adm-field">
+				<span>tier 2 score <em>(unlocks DMs)</em></span>
+				<input class="hush-input hush-adm-in" type="number" step="0.5" name="tier2" value={ strconv.FormatFloat(s.Tier2, 'g', -1, 64) }/>
+			</label>
+			<label class="hush-adm-field">
+				<span>flag tier <em>(a flag from this tier or above insta-hides)</em></span>
+				<input class="hush-input hush-adm-in" type="number" name="flag_tier" value={ strconv.Itoa(s.FlagTier) }/>
+			</label>
+			<label class="hush-adm-field">
+				<span>flag quorum <em>(this many tier-0 flags hide by agreement)</em></span>
+				<input class="hush-input hush-adm-in" type="number" name="flag_quorum" value={ strconv.Itoa(s.FlagQuorum) }/>
+			</label>
+			<label class="hush-adm-field">
+				<span>invite base <em>(a tier-1 member's starting allowance)</em></span>
+				<input class="hush-input hush-adm-in" type="number" name="invite_base" value={ strconv.Itoa(s.InviteBase) }/>
+			</label>
+			<label class="hush-adm-field">
+				<span>invite max <em>(hard cap however high the chain climbs)</em></span>
+				<input class="hush-input hush-adm-in" type="number" name="invite_max" value={ strconv.Itoa(s.InviteMax) }/>
+			</label>
+			<label class="hush-adm-field">
+				<span>open slots <em>(first-come registrations with no review; 0 = queue only)</em></span>
+				<input class="hush-input hush-adm-in" type="number" name="open_slots" value={ strconv.Itoa(s.OpenSlots) }/>
+			</label>
+			<label class="hush-adm-field">
+				<span>admin email <em>(where new-application notices go; blank = none)</em></span>
+				<input class="hush-input hush-adm-in" type="email" name="admin_email" value={ s.AdminEmail }/>
+			</label>
+			<button class="hush-post" type="submit">save</button>
+		</form>
+	}
+}

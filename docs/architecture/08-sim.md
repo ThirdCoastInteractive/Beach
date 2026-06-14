@@ -93,7 +93,7 @@ Component-mirror tables keep the data legible to plain SQL, admin tooling, and
 analytics — no opaque store blob as system of record. The token ledger is an
 append-only journal table regardless of lane.
 
-`examples/boardwalk` is the runnable example of the **snapshot lane**: a ticker
+`cmd/examples/boardwalk` is the runnable example of the **snapshot lane**: a ticker
 periodically `Ask`s the loop for `ecs.Store.Save()` (versioned CBOR) and upserts
 the blob into a single-row Postgres table; on boot it loads the row, `ecs.Load`s
 it, and hands the store to `sim.New` via `sim.Config.Store` so a restart resumes

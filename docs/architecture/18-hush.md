@@ -2,9 +2,11 @@
 
 [← docs index](../README.md) · prev: [Gaps](17-gaps.md) · related: [Examples](15-examples.md)
 
-A fourth example app under `examples/hush`. The other three validate the
-framework's core; hush validates that you can build **custom layouts and
-client-side JS on top of a normal Beach app** without fighting the SSR grain —
+A standalone product under `cmd/hush` — it began as a fourth example and has
+graduated out of the [validation set](15-examples.md) into a real app. The three
+`cmd/examples/` apps validate the framework's core; hush proves you can build
+**custom layouts and client-side JS on top of a normal Beach app** without
+fighting the SSR grain —
 and, as of Block G, that a Beach app can carry a **full production build-out**:
 Postgres-backed content, community moderation, transactional email, ClickHouse
 analytics, and Cloudflare media. It is a curated, anonymous content board —
@@ -68,7 +70,7 @@ the one other script (`static/js/camera.js`, an external module — CSP-clean).
 ## Data model
 
 Everything lives in Postgres — the wall included; `DATABASE_URL` is required.
-The schema lands in four migrations (`examples/hush/migrations`), each shape
+The schema lands in four migrations (`cmd/hush/migrations`), each shape
 shown here as the code reads it:
 
 ```sql
@@ -466,7 +468,7 @@ The count is on stripped plain text, so `**bold**` costs 4 characters, not 8.
 A client-side island that produces a blob and hands it to a normal action.
 Everything around it is SSR; this is the "client JS on top of Beach" showcase.
 
-Pipeline (`examples/hush/static/js/camera.js`), a shader instrument — **still
+Pipeline (`cmd/hush/static/js/camera.js`), a shader instrument — **still
 capture, not video, and WebGPU, not WebGL**:
 
 1. **Two sources, one pipeline.** The camera
@@ -782,7 +784,7 @@ trio: a rendered page is not a working feature.
 hush runs as a container stack — there is no `go run` workflow to babysit.
 
 ```
-cd examples/hush
+cd cmd/hush
 cp .env.example .env                  # then edit it (secrets)
 docker compose up --build             # → http://localhost:8080 (admin / password)
 ```

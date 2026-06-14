@@ -2,23 +2,26 @@
 
 [← docs index](../README.md) · prev: [Analytics](14-analytics.md) · next: [Component catalog](16-components.md)
 
-Four example apps under `examples/`, each shaped exactly like a consuming app
-(`beach new` output + features), each chosen to stress a different slice of the
-framework. Together they are the falsifiable claim that the framework works —
+Three example apps under `cmd/examples/`, each shaped exactly like a consuming
+app (`beach new` output + features), each chosen to stress a different slice of
+the framework. Together they are the falsifiable claim that the framework works —
 every package is exercised by at least one of them.
 
 This doc is the **full architecture of each app**: how it boots, where state
 lives, how a request becomes an SSE patch, and — just as important — what each
-app deliberately does *not* do. The first three are built and runnable; the
-fourth, **hush**, has its own full plan in [18-hush.md](18-hush.md) and is
-summarized here.
+app deliberately does *not* do. All three are built and runnable.
+
+(A fourth app, **hush**, grew out of this validation set into a standalone
+product. It now lives at `cmd/hush` and is **no longer an example**; its full
+architecture is in [18-hush.md](18-hush.md). It still exercises `storage`,
+Repute, custom layout, and a client-JS island, so the coverage note below keeps
+it in view.)
 
 | App | Showcase | State home | Persistence |
 | --- | --- | --- | --- |
 | boardwalk | `sim`/`ecs` realtime | `ecs.Store` in a sim loop | Postgres snapshot + ClickHouse firehose |
 | driftbottle | `hub`/SSE fan-out | in-process maps (hot path) | Postgres transcript archive + ClickHouse firehose |
 | pantry | `apigen`/`auth`/analytics | Postgres | Postgres + ClickHouse |
-| hush | custom layout + client JS | Postgres gate + `storage` | Postgres (gate), ClickHouse (analytics), Cloudflare R2/Images (media) |
 
 Every app requires the **Beach stack** — Postgres and/or ClickHouse — and **fails
 to start** if its configured stack is missing. There is no degraded in-memory
@@ -49,7 +52,7 @@ rather than the app root.
 
 ---
 
-## `examples/boardwalk` — real-estate game (Monopoly-like)
+## `cmd/examples/boardwalk` — real-estate game (Monopoly-like)
 
 The **`sim`/`ecs` showcase**: a multiplayer, tick-driven board game where the
 entire live slice lives in an `ecs.Store` owned by a single-writer `sim` loop and
@@ -178,7 +181,7 @@ Postgres), and a `ch` event firehose + `chart` dashboard.
 
 ---
 
-## `examples/driftbottle` — stranger chat (Omegle-style, text only)
+## `cmd/examples/driftbottle` — stranger chat (Omegle-style, text only)
 
 The **`hub`/SSE showcase**: anonymous, no accounts — the purest possible test of
 the hub, matchmaking, and reconnect with nothing else *on the hot path*. The live
@@ -296,7 +299,7 @@ off-hot-path write-behind to Postgres, and a `ch` firehose + `chart` `/stats`.
 
 ---
 
-## `examples/pantry` — at-home grocery ERP
+## `cmd/examples/pantry` — at-home grocery ERP
 
 The **CRUD/`apigen`/`auth`/analytics showcase**: boring in the good way. It
 requires the full Beach stack — Postgres (the system of record: inventory, auth,
@@ -430,46 +433,21 @@ widget toolbar, `driftwood` (incl. media components), deferred sections, and
 
 ---
 
-## `examples/hush` — gated anonymous board
+## `cmd/hush` — graduated to a product
 
-The **custom-layout + client-JS showcase**, and the only consumer of `storage`
-and Repute. A curated, anonymous wall of square posts — *hush-hush* by design.
-Full architecture in [18-hush.md](18-hush.md); in brief:
-
-- Views live in one `.templ` file per surface (shell, wall, feed, gate, profile,
-  camera, terms, admin, analytics, emails) with a **custom shell**: hush links the
-  framework stylesheet plus its own `hush.css`, loads `datastar.js` but
-  deliberately not `chart.js` — the proof that an app can skip the driftwood page
-  chrome (and the chart layer) without losing the framework.
-- A **gapless grid of square tiles** (pure CSS, container-query text scaling) is
-  the proof that a custom layout sits cleanly on the SSR core.
-- A **WebGPU camera** is the proof that client-side JS can be an isolated island —
-  a WGSL filter pipeline that hands a blob to a normal action; everything else
-  stays SSR.
-- **`storage.Store`** (Cloudflare R2) holds application photos and the
-  Cloudflare-Images delivery-URL fallback; image posts upload to **Cloudflare
-  Images**. **Repute** scores posts and the score gates DMs and profile editing
-  via `app.Can`.
-- Gated signup: apply with a photo + pitch, an admin approves, and reputation
-  tiers unlock features.
-- **Requires the full stack**: Postgres (gate), ClickHouse (analytics), Cloudflare
-  R2 + Images (media), and a real mail transport (Mailgun or SMTP) — hush adopts
-  the `config` library's `required` env tags and exits with the missing list if
-  any of it is unset. No local-files / log-mailer / analytics-off fallbacks.
-
-Built across five gated blocks (A–E in 18-hush.md), each verified in a real
-browser: the gapless wall + 512-char markdown, `storage` image uploads, the WebGPU
-camera island, the Postgres signup gate, and Repute scoring with tier-gated
-profiles. Each example also ships a self-contained `docker-compose.yml` +
-`.env.example`.
-
-**Validates:** `storage` (R2) + Cloudflare Images, Repute, custom layout, a
-client-JS island, `auth` tiers, `beach.Bind`/Patches/hub, `mailer`, a `ch`
-firehose + `chart` analytics, and the `config` library's `required` tags.
+hush began as the custom-layout + client-JS example and has since grown into a
+standalone product (a gated, anonymous social network). It is **no longer one of
+the validation examples** and lives at `cmd/hush`; its full architecture is in
+[18-hush.md](18-hush.md). It remains the only consumer of `storage` and Repute
+and the proof that a custom shell + WebGPU client-JS island sit cleanly on the
+SSR core, so it stays in the coverage matrix below.
 
 ---
 
 ## Coverage matrix
+
+(`hush` is the `cmd/hush` product, not an example — shown here for package
+coverage only.)
 
 | Package                       | boardwalk |  driftbottle  | pantry |  hush  |
 | ----------------------------- | :-------: | :-----------: | :----: | :----: |

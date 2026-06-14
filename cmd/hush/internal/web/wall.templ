@@ -1,0 +1,94 @@
+// The wall: the gapless grid of square tiles and the composer above it.
+package web
+
+import (
+	"strconv"
+
+	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/content"
+	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/store"
+)
+
+// homePage is the wall: the centered header + composer, then the full-bleed
+// gapless grid. Tiles are real links — opening a post is a navigation (the
+// browser owns push/pop state), and the cross-document View Transition morphs
+// the clicked square into its feed card. A method on *app — like every view
+// that renders post images — so it can resolve each post's image source
+// through the media helpers (media.go).
+templ (a *App) homePage(posts []store.Post, handle string, canPost bool, admin bool, tier int, openLeft int, notice string) {
+	@shell("hush") {
+		@accountStrip(handle, admin, tier)
+		<div class="hush-top">
+			<header class="hush-head">
+				<h1 class="hush-title"><a class="hush-home" href="/">hush</a></h1>
+				<p class="hush-sub">a quiet wall — post into it.</p>
+			</header>
+			if canPost {
+				@composer(notice)
+			} else if openLeft > 0 {
+				<p class="hush-sub hush-gateline">{ strconv.Itoa(openLeft) + " seats open — " }<a class="hush-link" href="/apply">claim one</a> or <a class="hush-link" href="/login">sign in</a>.</p>
+			} else {
+				<p class="hush-sub hush-gateline">posting is invite-only — <a class="hush-link" href="/apply">apply</a> or <a class="hush-link" href="/login">sign in</a>.</p>
+			}
+		</div>
+		@a.grid(posts)
+		<p class="hush-foot"><a class="hush-link" href="/terms">terms</a></p>
+	}
+}
+
+// composer is the post box: a textarea bound to the `body` signal and a post
+// button that fires @post('/posts'). No <form> — a bare button avoids needing
+// a submit-prevent modifier, and Datastar carries the signal as JSON. The
+// image upload below it IS a plain multipart form (303 back to the wall) — no
+// Datastar, no inline script, CSP-clean; the camera island adds the
+// fetch-based prepend path.
+templ composer(notice string) {
+	<div class="hush-compose">
+		<textarea id="hush-body" name="body" class="hush-input" data-bind:body aria-label="compose a post" placeholder="say something — **bold**, *italics*, - lists"></textarea>
+		<div class="hush-compose-row">
+			<span class="hush-hint">bold · italics · lists · 512 characters</span>
+			<button class="hush-post" data-on:click="@post('/posts')">post</button>
+		</div>
+		<div id="hush-note" class="hush-note" aria-live="polite">{ notice }</div>
+		<form class="hush-upload" method="post" action="/upload" enctype="multipart/form-data">
+			<div class="hush-upload-row">
+				// required does double duty: the form can't submit empty, and
+				// :valid flips only once a file is chosen — which is what shows
+				// the certification below (the :has rule in hush.css)
+				<input type="file" id="hush-image" name="image" accept="image/*" class="hush-file" required/>
+				<button class="hush-post hush-post--ghost" type="submit">upload image</button>
+				<a class="hush-link hush-cam-link" href="/compose">or open the camera →</a>
+			</div>
+			@certBox2257("hush-2257")
+		</form>
+	</div>
+}
+
+// grid is the full #hush-grid wall. It doubles as the fragment the home
+// handler patches on a Datastar request. Tiles get the thumb source — the
+// square-crop Cloudflare variant when the image has one.
+templ (a *App) grid(posts []store.Post) {
+	<div id="hush-grid" class="hush-grid">
+		for _, p := range posts {
+			@tile(p, a.media.PostThumbURL(p))
+		}
+	</div>
+}
+
+// tile is one square — a real link to the post's feed page. Its data-vt only
+// becomes a live view-transition-name while the tile holds focus (i.e. it was
+// just clicked), so navigating morphs exactly this square into the focused
+// card. A text tile's BodyHTML is already sanitized by renderPost; an image
+// tile renders thumbURL, the caller-resolved square source (postThumbURL).
+templ tile(p store.Post, thumbURL string) {
+	if p.Kind == "image" {
+		<a class="hush-tile hush-tile--image" style={ content.PostStyle(p) } data-vt={ content.VTName(p) } href={ content.PostHref(p.ID) }>
+			<img src={ thumbURL } alt="" loading="lazy"/>
+		</a>
+	} else {
+		<a class="hush-tile hush-tile--text" style={ content.PostStyle(p) } data-vt={ content.VTName(p) } href={ content.PostHref(p.ID) }>
+			<div class="hush-tile-body">
+				@templ.Raw(p.BodyHTML)
+			</div>
+		</a>
+	}
+}

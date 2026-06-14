@@ -59,13 +59,13 @@ example usage. Order is dependency order, not priority tiers.
 10. **The example trio** ([architecture/15-examples.md](../architecture/15-examples.md))
    — three apps, each shaped exactly like a consuming app, together the falsifiable
    claim that the framework works:
-   - `examples/boardwalk` — Monopoly-style real-estate game: the `sim`/`ecs`
+   - `cmd/examples/boardwalk` — Monopoly-style real-estate game: the `sim`/`ecs`
      showcase, all three persistence lanes (trades transact, positions
      write-behind, cash ledger journals).
-   - `examples/driftbottle` — Omegle-style text stranger chat: anonymous
+   - `cmd/examples/driftbottle` — Omegle-style text stranger chat: anonymous
      principals, ephemeral pair topics, matchmaking; hosts the 5k SSE fan-out
      benchmark.
-   - `examples/pantry` — at-home grocery ERP: apigen-generated CRUD, auth/RBAC in
+   - `cmd/examples/pantry` — at-home grocery ERP: apigen-generated CRUD, auth/RBAC in
      fatal-lint mode, ClickHouse-fed `chart` dashboards behind `ui.Defer`.
 
 ## Validation criteria
