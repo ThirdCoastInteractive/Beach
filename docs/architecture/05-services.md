@@ -49,7 +49,7 @@ populate `c.User()` and `c.Principal()` — the full identity and RBAC story is
 
 A real runtime with mechanical verification, kept deliberately flat:
 
-- **Catalog**: `internal/view/i18n/catalog.json` maps each key to a reference
+- **Catalog**: `pkg/beach/view/i18n/catalog.json` maps each key to a reference
   label and a translator comment; `locales/<tag>.json` (e.g. `en-US.json`) maps
   keys to translations. Both embedded via `go:embed`, loaded once at boot.
 - **Lookup**: `i18n.T(ctx, "pantry.items.title")` — **literal keys only**

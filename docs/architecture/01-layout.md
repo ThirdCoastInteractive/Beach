@@ -14,42 +14,49 @@ the other layers are.
 ## Module layout
 
 The layout follows [go.dev/doc/modules/layout](https://go.dev/doc/modules/layout)
-("multiple packages" + "packages and commands in the same repository"): the **module
-root is the primary entry point** (`package beach` — the App builder, `Ctx`, and
-handler shapes live there, not in a `web/` sub-package), importable packages are flat
-top-level directories, private helpers go in `internal/`, binaries in `cmd/`. No
-`pkg/` directory — the layout doc doesn't use one and neither do we.
+("multiple packages" + "packages and commands in the same repository") with an
+explicit public/private split: the **external API lives under `pkg/`**
+(`pkg/beach` is the front door — the App builder, `Ctx`, and handler shapes —
+alongside `pkg/chart`, `pkg/ecs`, `pkg/ui`, …), **private and tooling code lives
+under `internal/`**, and binaries live in `cmd/`. (This revises the original
+flat-root layout — `package beach` at the module root — adopted 2026-06-14 to
+make the importable surface explicit; `pkg/beach` is still the package an app
+touches first.)
 
 ```
 the-beach/                module github.com/ThirdCoastInteractive/the-beach
 ├── go.mod
-├── beach.go …            package beach — the root IS the framework's front door:
-│                         App builder, Ctx, PageFunc/ActionFunc/StreamFunc, guards,
-│                         View/Patches/Sub, NewSSE (per-event gzip), StaticCache,
-│                         MergedFS, CSP presets
-├── config/               env-tag struct loader, MustLoad
-├── pg/                   pool, advisory-lock Migrate, InTx, Listen/Notify
-├── datastar/             typed data-* attribute builders (the only sanctioned way)
-├── ui/                   UI toolkit: Icon + Defer (.templ), the performance laws
-│   ├── driftwood/        the kit — exported package-level templ components
-│   └── specimen/         the living showcase page (tokens, icons, components,
-│                         gamut preview, chart gallery)
-├── chart/                SSR SVG charts, one package: 22 types of pure-Go
-│                         geometry (.go) + templ render (.templ), token-themed
-├── ch/                   ClickHouse: client, goose migrations, generic Batcher
-│                         ingest, query→chart helpers
-├── hub/                  topic registry, per-connection fan-out, ticker producers
-├── cache/                Snapshot[T] and Keyed[K,V] caches + NOTIFY invalidation
-├── session/              Postgres-backed sessions (SHA256 tokens, rotation, CSRF)
-├── i18n/                 flat key catalog, locale files, T(ctx, key), middleware
-├── passwords/            argon2id hashing, PHC strings — zero deps
-├── auth/                 principal model (RBAC), login helpers, pretoken, lockout
-├── ecs/                  standalone engine: schema codegen, archetype Store,
-│                         change ticks, snapshots — zero deps, zero beach imports
-├── sim/                  tick-loop integration over ecs: commands, systems,
+├── pkg/                   the external API surface
+│   ├── beach/            package beach — the framework's front door: App builder,
+│   │                     Ctx, PageFunc/ActionFunc/StreamFunc, guards, View/Patches/
+│   │                     Sub, NewSSE (per-event gzip), StaticCache, MergedFS, CSP
+│   │   └── view/         the framework's embedded asset tree (app.css input +
+│   │                     build output, the datastar/chart client JS, i18n catalog)
+│   ├── config/           env-tag struct loader, MustLoad
+│   ├── pg/               Pool/MustPool, advisory-lock Migrate, InTx, Listen/Notify
+│   ├── datastar/         typed data-* attribute builders (the only sanctioned way)
+│   ├── ui/               UI toolkit: Icon + Defer (.templ), the performance laws
+│   │   ├── driftwood/    the kit — exported package-level templ components
+│   │   └── specimen/     the living showcase page (tokens, icons, components,
+│   │                     gamut preview, chart gallery)
+│   ├── chart/            SSR SVG charts, one package: 22 types of pure-Go
+│   │                     geometry (.go) + templ render (.templ), token-themed
+│   ├── ch/               ClickHouse: client, goose migrations, generic Batcher
+│   │                     ingest, query→chart helpers
+│   ├── hub/              topic registry, per-connection fan-out, ticker producers
+│   ├── cache/            Snapshot[T] and Keyed[K,V] caches + NOTIFY invalidation
+│   ├── session/          Postgres-backed sessions (SHA256 tokens, rotation, CSRF)
+│   ├── i18n/             flat key catalog, locale files, T(ctx, key), middleware
+│   ├── passwords/        argon2id hashing, PHC strings — zero deps
+│   ├── auth/             principal model (RBAC), login helpers, pretoken, lockout
+│   ├── mailer/ storage/ rybitten/    transactional mail · R2/Images · RYB palettes
+│   ├── ecs/              standalone engine: schema codegen, archetype Store,
+│   │                     change ticks, snapshots — zero deps, zero beach imports
+│   └── sim/              tick-loop integration over ecs: commands, systems,
 │                         projections, persistence lanes
-├── internal/             private cross-package helpers (flate writer pooling,
-│                         vet analyzer internals) — not importable externally
+├── internal/             private, not importable externally:
+│                         deps (flate writer pooling), lint (vet analyzers),
+│                         perf (benchmark/page-size harness)
 ├── cmd/
 │   ├── beach/            CLI: beach new / ecs gen / i18n
 │   │   └── templates/    embedded app template stamped by `beach new`
@@ -67,22 +74,22 @@ the-beach/                module github.com/ThirdCoastInteractive/the-beach
 └── docs/
 ```
 
-Import lines read like this (the root package is named `beach`, so callers alias the
-hyphenated module path — the `go-cmp`/`cmp` convention):
+Import lines read like this (the front-door package is named `beach`, so callers
+alias the hyphenated module path — the `go-cmp`/`cmp` convention):
 
 ```go
 import (
-    beach "github.com/ThirdCoastInteractive/the-beach"
-    "github.com/ThirdCoastInteractive/the-beach/sim"
-    "github.com/ThirdCoastInteractive/the-beach/ui"
+    beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+    "github.com/ThirdCoastInteractive/the-beach/pkg/sim"
+    "github.com/ThirdCoastInteractive/the-beach/pkg/ui"
 )
 ```
 
 The package dependency diagram lives in the
 [docs index](../README.md#package-dependencies). The shape in one sentence: the boot
-spine (`config`, `pg`) stands alone; `ecs` imports nothing and is
-importable by anything, the-beach or not; `sim` is the only bridge between `ecs` and
-the web packages; the root `beach` package is what an app touches first.
+spine (`pkg/config`, `pkg/pg`) stands alone; `pkg/ecs` imports nothing and is
+importable by anything, the-beach or not; `pkg/sim` is the only bridge between
+`pkg/ecs` and the web packages; the `pkg/beach` package is what an app touches first.
 
 ## What a consuming app looks like
 
@@ -90,12 +97,23 @@ Each app in `examples/` is this exact shape (what `beach new` stamps):
 
 ```
 myapp/
-├── main.go                wiring: beach.Config, routes, handlers
-├── views.templ            every view, as templ components over driftwood
-├── views_templ.go         committed templ output (make gen regenerates)
-├── internal/db/           sqlc-generated + sql/{migrations,queries}/ + sqlc.yaml
+├── main.go                thin: load config → construct concerns → wire web → run
+├── config.go              typed env loader (pkg/config)
+├── internal/
+│   ├── web/               the app/server struct, handlers, and .templ views — the
+│   │                      HTTP glue stays cohesive in one package
+│   ├── store/             domain types + Postgres access (system of record)
+│   ├── analytics/         ClickHouse firehose + dashboard queries (off hot path)
+│   └── db/                sqlc-generated + sql/{migrations,queries}/ + sqlc.yaml
 ├── components.beach.yaml  ECS component schema (if the app uses sim)
 ├── Makefile               gen (templ + css + sqlc + ecs gen) / vet / up / build
 ├── go.mod                 with a `tool` directive for templ
 └── docker-compose.yml     postgres + services
 ```
+
+The split is **by concern**: `main.go` only wires; the app's `app`/`server`
+struct and its handler methods + `.templ` views live together in `internal/web`
+(splitting handlers off their receiver would just force mass-exporting), and
+genuinely decouplable concerns (data store, sim, scoring, media, mail,
+ch-analytics) each get a sibling `internal/` package. The four `examples/` apps
+are this shape at varying sizes ([15-examples.md](15-examples.md)).

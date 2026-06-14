@@ -34,8 +34,8 @@ subagents there.
 ## Block 0 — done
 
 `config` (tested, zero deps). Stellar tokens generating to
-`internal/view/static/css/stellar.css` *[superseded: Tailwind v4 + rybitten now
-generate `app.css` from `internal/view/css/input.css`]*. The plan/docs.
+`pkg/beach/view/static/css/stellar.css` *[superseded: Tailwind v4 + rybitten now
+generate `app.css` from `pkg/beach/view/css/input.css`]*. The plan/docs.
 
 ---
 

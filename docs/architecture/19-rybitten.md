@@ -22,7 +22,7 @@ The math is a faithful port of upstream `main.ts`: smoothstep easing on each
 axis, then trilinear interpolation across the cube corners.
 
 ```go
-import "github.com/ThirdCoastInteractive/the-beach/rybitten"
+import "github.com/ThirdCoastInteractive/the-beach/pkg/rybitten"
 
 rgb := rybitten.RYBHSL2RGB([3]float64{30, 1, 0.5}, rybitten.Itten, true)
 css := rgb.Hex() // an Itten orange, ~"#f08e1c"
@@ -89,7 +89,7 @@ that vocabulary:
 | `Series(g Gamut, n int)` | The same colors as values (`[]RGB`) — for server-side swatches and image rendering. The specimen's gamut preview uses it. |
 
 **The current default is the `munsell` gamut.** Its `SeriesVars` output lives in
-[`internal/view/css/input.css`](../../internal/view/css/input.css) `:root`, built
+[`pkg/beach/view/css/input.css`](../../pkg/beach/view/css/input.css) `:root`, built
 into the served `app.css`; the `--color-accent*` tokens are a munsell teal picked
 by hand in the same sheet. The eight alternate `[data-chart-theme]` palettes (plus
 a munsell one) redefine the series tokens per scope — the
@@ -116,5 +116,5 @@ fmt.Print(rybitten.SeriesVars(rybitten.Cubes["ippsketch"]))
 ```
 
 ```sh
-make css   # npx @tailwindcss/cli -i internal/view/css/input.css -o internal/view/static/css/app.css
+make css   # npx @tailwindcss/cli -i pkg/beach/view/css/input.css -o pkg/beach/view/static/css/app.css
 ```
