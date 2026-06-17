@@ -57,6 +57,19 @@
   --color-bad: #f87171;
   --color-info: #60a5fa;
 
+  /* Scrollbar — a chunky, retro-bevelled scrollbar (ported from manifold13.tv;
+     see the ::-webkit-scrollbar rules after this block). The DARK default below
+     follows the theme tokens, so a token swap (an app re-skin) repaints the
+     scrollbar too; .dw-scroll-light and .dw-scroll-color are opt-in skins. */
+  --scroll-track:       var(--color-paper);
+  --scroll-border:      var(--color-line-strong);
+  --scroll-thumb:       var(--color-line-strong);
+  --scroll-thumb-hi:    var(--color-fg-muted);
+  --scroll-thumb-hover: var(--color-fg-muted);
+  --scroll-btn:         var(--color-line-strong);
+  --scroll-btn-hi:      var(--color-fg-muted);
+  --scroll-btn-hover:   var(--color-fg-muted);
+
   /* Chart series a–o.
      Munsell Color System — Albert Henry Munsell (1905).
      Generated from rybitten gamut "munsell". */
@@ -75,6 +88,44 @@
   --color-series-m: #73668a;
   --color-series-n: #7f5e7e;
   --color-series-o: #a04c56;
+}
+
+/* Scrollbars (ported from manifold13.tv). A chunky 14px track + thumb with a 2px
+   outset bevel and styled arrow buttons — the "cool" retro look. Driven by the
+   --scroll-* tokens (dark, theme-following by default). Firefox gets a thin
+   tinted bar via scrollbar-color/width; WebKit gets the full bevelled treatment.
+   Add .dw-scroll-light or .dw-scroll-color to any element (or the root) to skin
+   its scrollbars; the --scroll-* vars cascade, so the skin covers descendants. */
+::-webkit-scrollbar { width: 14px; height: 14px; }
+::-webkit-scrollbar-track { background: var(--scroll-track); border: 1px solid var(--scroll-border); }
+::-webkit-scrollbar-thumb { background: var(--scroll-thumb); border: 2px outset var(--scroll-thumb-hi); }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-thumb-hover); }
+::-webkit-scrollbar-button { background: var(--scroll-btn); border: 2px outset var(--scroll-btn-hi); width: 14px; height: 14px; }
+::-webkit-scrollbar-button:hover { background: var(--scroll-btn-hover); }
+::-webkit-scrollbar-corner { background: var(--scroll-track); }
+* { scrollbar-width: thin; scrollbar-color: var(--scroll-thumb) var(--scroll-track); }
+
+/* Light skin — warm-grey track, light bevel (for a light surface). */
+.dw-scroll-light {
+  color-scheme: light;
+  --scroll-track:       #e7e5e4; /* stone-200 */
+  --scroll-border:      #44403c; /* stone-700 */
+  --scroll-thumb:       #a8a29e; /* stone-400 */
+  --scroll-thumb-hi:    #f5f5f4; /* stone-100 */
+  --scroll-thumb-hover: #78716c; /* stone-500 */
+  --scroll-btn:         #d6d3d1; /* stone-300 */
+  --scroll-btn-hi:      #f5f5f4;
+  --scroll-btn-hover:   #a8a29e;
+}
+
+/* Colour skin — thumb + buttons tinted with the theme accent. */
+.dw-scroll-color {
+  --scroll-thumb:       var(--color-accent);
+  --scroll-thumb-hi:    var(--color-accent-hover);
+  --scroll-thumb-hover: var(--color-accent-hover);
+  --scroll-btn:         var(--color-accent);
+  --scroll-btn-hi:      var(--color-accent-hover);
+  --scroll-btn-hover:   var(--color-accent-hover);
 }
 
 /* Chart color themes (from Atlas). Each palette redefines --color-series-a
