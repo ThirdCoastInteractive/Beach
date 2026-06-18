@@ -495,6 +495,174 @@ func TestCommitLanePostgres(t *testing.T) {
 	t.Skip("pg-backed lane wiring lives in the app; see Commit/Flusher/Journal interfaces")
 }
 
+// --- ProjectAny: any-change-in-a-set fires without a manual trigger ----------
+
+// addPresence attaches Presence to an existing entity (a second member component
+// for the any-change set, distinct from XP).
+type addPresence struct {
+	e    ecs.Entity
+	seen int
+}
+
+func (c addPresence) Apply(w *World) {
+	ecs.Add(w.Store, c.e, Presence{Seen: c.seen})
+}
+
+// bumpPresence mutates Presence (stamps its tick) without touching XP.
+type bumpPresence struct {
+	e ecs.Entity
+}
+
+func (c bumpPresence) Apply(w *World) {
+	ecs.Mutate(w.Store, c.e, func(p *Presence) { p.Seen++ })
+}
+
+func TestProjectAnyFiresOnAnyMember(t *testing.T) {
+	h := hub.New()
+	s := New(Config{TickRate: 2, ProjectRate: 2, Hub: h, Seed: 1})
+
+	const surface = "surface"
+	renders := 0
+	// Whole-surface projection: fires when EITHER XP or Presence changed. No
+	// manual trigger component, no touchBoard — the member set is the trigger.
+	ProjectAny(s, AnyProjection{
+		Topic: func(e ecs.Entity) string { return surface },
+		View: func(e ecs.Entity) []byte {
+			renders++
+			return []byte(fmt.Sprintf("render#%d", renders))
+		},
+	}, MemberOf[XP](), MemberOf[Presence]())
+
+	sub := h.Subscribe(surface)
+	defer sub.Close()
+
+	ctx := context.Background()
+	var e ecs.Entity
+	mustSend(t, s, ctx, spawnUser{owner: "alice", out: &e}) // adds XP
+	s.Tick()                                                 // projection pass: XP changed => surface fires
+	drainOne(t, sub, "render#1")
+
+	// Mutate a DIFFERENT member component (Presence). The surface must still fire
+	// even though XP did not change this pass.
+	mustSend(t, s, ctx, addPresence{e: e, seen: 1})
+	s.Tick()
+	drainOne(t, sub, "render#2")
+
+	mustSend(t, s, ctx, bumpPresence{e: e})
+	s.Tick()
+	drainOne(t, sub, "render#3")
+
+	// A pass with no change to any member publishes nothing.
+	s.Tick()
+	select {
+	case ev := <-sub.C:
+		t.Fatalf("surface fired with no member change: %q", ev.Bytes)
+	default:
+	}
+}
+
+func TestProjectAnyRendersOncePerTopic(t *testing.T) {
+	h := hub.New()
+	s := New(Config{TickRate: 1, ProjectRate: 1, Hub: h, Seed: 1})
+
+	renders := 0
+	ProjectAny(s, AnyProjection{
+		Topic: func(e ecs.Entity) string { return "board" }, // one shared surface
+		View: func(e ecs.Entity) []byte {
+			renders++
+			return []byte("board")
+		},
+	}, MemberOf[XP]())
+
+	sub := h.Subscribe("board")
+	defer sub.Close()
+
+	ctx := context.Background()
+	// Two entities both change XP in the same pass: one render, one publish.
+	mustSend(t, s, ctx, spawnUser{owner: "a", out: new(ecs.Entity)})
+	mustSend(t, s, ctx, spawnUser{owner: "b", out: new(ecs.Entity)})
+	s.Tick()
+
+	if renders != 1 {
+		t.Fatalf("render count = %d, want 1 (render once per topic)", renders)
+	}
+	drainOne(t, sub, "board")
+	select {
+	case <-sub.C:
+		t.Fatal("board topic published more than once in a pass")
+	default:
+	}
+}
+
+func TestProjectAnyPanicsOnEmptyMembers(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("ProjectAny with no members should panic")
+		}
+	}()
+	s := New(Config{Seed: 1})
+	ProjectAny(s, AnyProjection{
+		Topic: func(ecs.Entity) string { return "x" },
+		View:  func(ecs.Entity) []byte { return nil },
+	})
+}
+
+// --- Snapshot: off-loop immutable read of the live store ---------------------
+
+func TestSnapshotOffLoopRead(t *testing.T) {
+	s := New(Config{TickRate: 10, ProjectRate: 10, Seed: 1})
+	ctx := context.Background()
+
+	var e ecs.Entity
+	mustSend(t, s, ctx, spawnUser{owner: "alice", out: &e})
+	s.Tick()
+	mustSend(t, s, ctx, awardXP{e: e, amount: 42})
+	s.Tick()
+
+	// Drive the loop in the background so Snapshot's Ask is serviced.
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for {
+			select {
+			case <-stop:
+				return
+			default:
+				s.Tick()
+			}
+		}
+	}()
+
+	v, err := s.Snapshot(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Keep ticking/mutating after the snapshot; the View must stay frozen.
+	mustSend(t, s, ctx, awardXP{e: e, amount: 100})
+
+	close(stop)
+	wg.Wait()
+
+	xp, ok := ecs.ViewGet[XP](v, e)
+	if !ok {
+		t.Fatal("snapshot missing alice's XP")
+	}
+	if xp.Amount != 42 {
+		t.Fatalf("snapshot XP = %d, want 42 (frozen at capture)", xp.Amount)
+	}
+
+	count := 0
+	for range ecs.ViewQuery[XP](v) {
+		count++
+	}
+	if count != 1 {
+		t.Fatalf("snapshot XP rows = %d, want 1", count)
+	}
+}
+
 // --- helpers -----------------------------------------------------------------
 
 func mustSend(t *testing.T, s *Sim, ctx context.Context, c Command) {
