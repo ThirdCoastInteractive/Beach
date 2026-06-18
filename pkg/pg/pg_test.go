@@ -116,6 +116,31 @@ func TestModulePathFallback(t *testing.T) {
 	}
 }
 
+// badDSN is unparseable, so Pool fails synchronously in pgxpool.New (before any
+// network I/O) — letting these tests exercise the error/panic paths without a
+// live Postgres.
+const badDSN = "this is not a valid dsn ::: @@@"
+
+func TestPoolBadDSNReturnsError(t *testing.T) {
+	pool, err := Pool(context.Background(), badDSN)
+	if err == nil {
+		pool.Close()
+		t.Fatal("expected error from Pool on a bad DSN, got nil")
+	}
+	if pool != nil {
+		t.Fatalf("expected nil pool on error, got %v", pool)
+	}
+}
+
+func TestMustPoolBadDSNPanics(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("expected MustPool to panic on a bad DSN")
+		}
+	}()
+	MustPool(context.Background(), badDSN)
+}
+
 // --- Integration tests (gated on TEST_POSTGRES_DSN) ---
 
 func testDSN(t *testing.T) string {
