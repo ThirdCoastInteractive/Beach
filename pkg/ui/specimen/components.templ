@@ -56,6 +56,14 @@ templ buttonsSection() {
 				@driftwood.Button(driftwood.ButtonProps{Label: "Week"})
 				@driftwood.Button(driftwood.ButtonProps{Label: "Season"})
 			}
+			@driftwood.Segmented(driftwood.SegmentedProps{
+				Name: "Tide window",
+				Segments: []driftwood.Segment{
+					{Value: "low", Label: "Low"},
+					{Value: "mid", Label: "Mid", Active: true},
+					{Value: "high", Label: "High"},
+				},
+			})
 			@driftwood.MenuButton(driftwood.MenuButtonProps{
 				ID:    "spec-menu",
 				Label: "Actions",
@@ -145,11 +153,23 @@ templ formsSection() {
 			@driftwood.Field(driftwood.FieldProps{Label: "Board", For: "spec-board"}) {
 				@driftwood.Select(driftwood.SelectProps{
 					ID: "spec-board", Name: "board", Placeholder: "Pick a board…",
-					Options: []driftwood.Option{
-						{Value: "log", Label: "9'2\" log"},
-						{Value: "funboard", Label: "7'6\" funboard", Selected: true},
-						{Value: "fish", Label: "5'10\" fish"},
+					Groups: []driftwood.OptionGroup{
+						{Label: "Longboards", Options: []driftwood.Option{
+							{Value: "log", Label: "9'2\" log"},
+							{Value: "noserider", Label: "9'6\" noserider"},
+						}},
+						{Label: "Shortboards", Options: []driftwood.Option{
+							{Value: "funboard", Label: "7'6\" funboard", Selected: true},
+							{Value: "fish", Label: "5'10\" fish"},
+							{Value: "gun", Label: "7'0\" gun (out of stock)", Disabled: true},
+						}},
 					},
+				})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Party size", For: "spec-party", Help: "Numeric input: step + inputmode + min/max."}) {
+				@driftwood.Input(driftwood.TextInputProps{
+					ID: "spec-party", Name: "party", Type: "number", Value: "2",
+					Min: "1", Max: "12", Step: "1", InputMode: "numeric", Spellcheck: "false",
 				})
 			}
 			@driftwood.Field(driftwood.FieldProps{Label: "Notes", For: "spec-notes"}) {
@@ -174,6 +194,15 @@ templ formsSection() {
 			Input:  driftwood.TextInputProps{Name: "q", Placeholder: "Search rentals…"},
 			Button: driftwood.ButtonProps{Label: "Go", Role: driftwood.RoleAccent, Type: "submit"},
 		})
+		@driftwood.Divider(driftwood.DividerProps{Label: "fieldset"})
+		@driftwood.Fieldset(driftwood.FieldsetProps{Legend: "Emergency contact", Help: "Who to call if the surf turns."}) {
+			@driftwood.Field(driftwood.FieldProps{Label: "Name", For: "spec-ec-name"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "spec-ec-name", Name: "ec_name", Placeholder: "Marina Reyes", Autocomplete: "name"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Phone", For: "spec-ec-phone"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "spec-ec-phone", Name: "ec_phone", Type: "tel", InputMode: "tel", Placeholder: "555-0142", Autocomplete: "tel"})
+			}
+		}
 	}
 }
 

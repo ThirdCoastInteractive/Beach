@@ -106,7 +106,8 @@ The page skeleton and the surfaces content sits on.
 | ------------ | -------------------------------------------------------------------------------------- | --------- |
 | Button       | roles (accent/danger/ghost/quiet), sizes, leading/trailing icon, **loading**, disabled | all       |
 | Icon button  | square, with tooltip                                                                   | all       |
-| Button group | segmented control, single/multi active                                                 | B, P      |
+| Button group | visual join only — pass already-built Buttons as children                              | B, P      |
+| Segmented    | single-select toggle row; `role=group`, `aria-pressed`, active fill; sizes             | Catalog   |
 | Menu button  | label + caret → popover menu (native `popover`)                                        | B, P      |
 
 *Catalog:* split button (primary + menu).
@@ -119,9 +120,10 @@ handler re-renders the form with field errors; no client-side validation library
 | Component             | Variants / states                                                     | Proven by |
 | --------------------- | --------------------------------------------------------------------- | --------- |
 | Form layout           | label / control / help / error rows; stacked + 2-column               | P         |
-| Text input            | sizes, leading/trailing addon, prefix/suffix, **error** state         | P         |
-| Textarea              | auto-grow; char counter                                               | P, D      |
-| Select                | native-styled, with placeholder + error                               | P         |
+| Text input            | leading/trailing addon, prefix/suffix, **error** state; numeric affordances (`step`/`min`/`max`/`inputmode`/`autocomplete`/`spellcheck`) | P         |
+| Textarea              | auto-grow (modern `field-sizing: content`); char counter              | P, D      |
+| Select                | native, custom caret + `appearance` reset; placeholder, error, `<optgroup>` groups, per-option + whole-control disabled; dark-themed option popup | P         |
+| Fieldset / field group | `<fieldset>`/`<legend>` styled for dark; help line; disable whole group | Catalog   |
 | Checkbox              | single + checkbox group                                               | P         |
 | Radio group           | vertical / inline                                                     | P         |
 | Toggle / switch       | with label + description                                              | P         |

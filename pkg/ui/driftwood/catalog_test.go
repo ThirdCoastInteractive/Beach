@@ -22,6 +22,9 @@ func TestCatalogComponentsRender(t *testing.T) {
 		"split":      {c: Split(SplitProps{List: text("list"), Detail: text("detail")})},
 		"sidebar":    {c: side},
 		"btngroup":   {c: ButtonGroup(ButtonGroupProps{Label: "View"}), children: []templ.Component{Button(ButtonProps{Label: "Day"})}},
+		"segmented":  {c: Segmented(SegmentedProps{Name: "Range", Segments: []Segment{{Value: "d", Label: "Day", Active: true}, {Value: "w", Label: "Week", On: "@get('/r/w')"}}})},
+		"fieldset":   {c: Fieldset(FieldsetProps{Legend: "Contact", Help: "who to call", Disabled: true}), children: []templ.Component{text("fields")}},
+		"selectgrp":  {c: Select(SelectProps{Name: "board", Placeholder: "Pick", Groups: []OptionGroup{{Label: "Long", Options: []Option{{Value: "log", Label: "Log", Selected: true}}}}})},
 		"menubtn":    {c: MenuButton(MenuButtonProps{ID: "m", Label: "Actions", Items: []MenuItem{{Label: "Edit", Href: "/e"}, {Label: "Delete", On: "@post('/d')"}}})},
 		"form":       {c: Form(FormProps{Post: "/save", TwoCol: true}), children: []templ.Component{text("fields")}},
 		"checkbox":   {c: Checkbox(CheckboxProps{Name: "agree", Label: "I agree", Checked: true})},
@@ -85,6 +88,50 @@ func TestCatalogStructuralDetails(t *testing.T) {
 	tg := render(t, Toggle(ToggleProps{Name: "x", Label: "L", Checked: true}))
 	if !strings.Contains(tg, `role="switch"`) || !strings.Contains(tg, "checked") {
 		t.Errorf("toggle missing switch/checked: %s", tg)
+	}
+
+	// Segmented is a single-select toggle group: role=group, aria-pressed per
+	// segment (true on the active one), and an @-expression wired on click.
+	seg := render(t, Segmented(SegmentedProps{Name: "Range", Segments: []Segment{
+		{Value: "d", Label: "Day", Active: true},
+		{Value: "w", Label: "Week", On: "@get('/r/w')"},
+	}}))
+	for _, want := range []string{`role="group"`, `aria-label="Range"`, `aria-pressed="true"`, `aria-pressed="false"`, "data-on:click="} {
+		if !strings.Contains(seg, want) {
+			t.Errorf("segmented missing %q: %s", want, seg)
+		}
+	}
+
+	// Grouped Select renders <optgroup> with a disabled option inside.
+	sel := render(t, Select(SelectProps{Name: "board", Groups: []OptionGroup{
+		{Label: "Long", Options: []Option{{Value: "log", Label: "Log"}, {Value: "gun", Label: "Gun", Disabled: true}}},
+	}}))
+	for _, want := range []string{`<optgroup label="Long">`, `disabled`, "</optgroup>"} {
+		if !strings.Contains(sel, want) {
+			t.Errorf("grouped select missing %q: %s", want, sel)
+		}
+	}
+
+	// Disabled Select carries the native disabled attribute on the control.
+	dsel := render(t, Select(SelectProps{Name: "x", Disabled: true, Options: []Option{{Value: "a", Label: "A"}}}))
+	if !strings.Contains(dsel, "<select") || !strings.Contains(dsel, "disabled") {
+		t.Errorf("disabled select missing disabled attr: %s", dsel)
+	}
+
+	// Numeric input threads step/min/max/inputmode/autocomplete/spellcheck through.
+	num := render(t, Input(TextInputProps{Name: "qty", Type: "number", Min: "1", Max: "9", Step: "1", InputMode: "numeric", Autocomplete: "off", Spellcheck: "false"}))
+	for _, want := range []string{`type="number"`, `min="1"`, `max="9"`, `step="1"`, `inputmode="numeric"`, `autocomplete="off"`, `spellcheck="false"`} {
+		if !strings.Contains(num, want) {
+			t.Errorf("numeric input missing %q: %s", want, num)
+		}
+	}
+
+	// Fieldset is a real <fieldset>/<legend>; Disabled disables the whole group.
+	fs := render(t, Fieldset(FieldsetProps{Legend: "Contact", Disabled: true}), text("body"))
+	for _, want := range []string{"<fieldset", `class="dw-fieldset"`, "disabled", "<legend", "Contact", "body"} {
+		if !strings.Contains(fs, want) {
+			t.Errorf("fieldset missing %q: %s", want, fs)
+		}
 	}
 }
 

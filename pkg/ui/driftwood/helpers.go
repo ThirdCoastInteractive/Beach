@@ -94,6 +94,15 @@ func inputType(t string) string {
 	return t
 }
 
+// ariaBool renders a Go bool as the "true"/"false" string ARIA state attributes
+// expect (aria-pressed, aria-expanded, ...).
+func ariaBool(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
+}
+
 // formSubmitExpr picks the form's hypermedia submit action; empty means the
 // form carries no Datastar submit wiring.
 func formSubmitExpr(p FormProps) string {

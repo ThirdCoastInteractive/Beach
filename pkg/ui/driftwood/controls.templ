@@ -66,6 +66,39 @@ templ ButtonGroup(p ButtonGroupProps) {
 	</div>
 }
 
+// Segmented is a single-select toggle-button control: a joined row of buttons
+// where exactly one is the active choice. role=group names the set; each button
+// carries aria-pressed so the selection is announced, and the active segment
+// gets the selected styling (color is paired with aria-pressed, not the only
+// cue). On wires an optional @-expression run when a segment is clicked.
+templ Segmented(p SegmentedProps) {
+	<div
+		class={ "dw-segmented", sizeClass("dw-segmented", p.Size) }
+		role="group"
+		if p.Name != "" {
+			aria-label={ p.Name }
+		}
+		{ p.Attrs.Templ()... }
+	>
+		for _, s := range p.Segments {
+			<button
+				type="button"
+				class={ "dw-segment", templ.KV("is-active", s.Active) }
+				value={ s.Value }
+				aria-pressed={ ariaBool(s.Active) }
+				if s.On != "" {
+					data-on:click={ s.On }
+				}
+			>
+				if s.Icon != "" {
+					@ui.Icon(s.Icon)
+				}
+				<span>{ s.Label }</span>
+			</button>
+		}
+	</div>
+}
+
 // MenuButton is a label + caret that opens a native popover menu. Toggling is
 // the platform popover attribute (popovertarget on the trigger), so it works
 // with zero JavaScript; hypermedia items wire an @-expression on click.
@@ -136,6 +169,27 @@ templ Field(p FieldProps) {
 	</div>
 }
 
+// Fieldset groups related controls under a legend, styled so the group never
+// falls back to the UA default on dark. Disabled disables every control inside
+// at once (native <fieldset disabled>). The grouped controls are the children.
+templ Fieldset(p FieldsetProps) {
+	<fieldset
+		class="dw-fieldset"
+		if p.Disabled {
+			disabled
+		}
+		{ p.Attrs.Templ()... }
+	>
+		if p.Legend != "" {
+			<legend class="dw-legend">{ p.Legend }</legend>
+		}
+		if p.Help != "" {
+			<small class="dw-fieldset-help">{ p.Help }</small>
+		}
+		{ children... }
+	</fieldset>
+}
+
 // Input is a single-line text control. Prefix/Suffix wrap the bare input in an
 // addon group; a named input binds a same-named Datastar signal so a form
 // @post submits the value (Datastar posts signals, not raw form fields).
@@ -145,11 +199,11 @@ templ Input(p TextInputProps) {
 	} else {
 		<div class="dw-input-group">
 			if p.Prefix != "" {
-				<span class="dw-input-addon dw-input-prefix">{ p.Prefix }</span>
+				<span class="dw-input-addon">{ p.Prefix }</span>
 			}
 			@textInput(p)
 			if p.Suffix != "" {
-				<span class="dw-input-addon dw-input-suffix">{ p.Suffix }</span>
+				<span class="dw-input-addon">{ p.Suffix }</span>
 			}
 		</div>
 	}
@@ -171,6 +225,24 @@ templ textInput(p TextInputProps) {
 		}
 		if p.Placeholder != "" {
 			placeholder={ p.Placeholder }
+		}
+		if p.Min != "" {
+			min={ p.Min }
+		}
+		if p.Max != "" {
+			max={ p.Max }
+		}
+		if p.Step != "" {
+			step={ p.Step }
+		}
+		if p.InputMode != "" {
+			inputmode={ p.InputMode }
+		}
+		if p.Autocomplete != "" {
+			autocomplete={ p.Autocomplete }
+		}
+		if p.Spellcheck != "" {
+			spellcheck={ p.Spellcheck }
 		}
 		if p.Disabled {
 			disabled
@@ -204,7 +276,8 @@ templ Textarea(p TextareaProps) {
 }
 
 // Select is a native <select> in kit clothing; Placeholder renders a disabled
-// pre-selected first option.
+// pre-selected first option. Groups render as <optgroup> sets; the custom caret
+// (.dw-select-wrap::after) replaces the OS chevron the appearance reset removes.
 templ Select(p SelectProps) {
 	<div class="dw-select-wrap">
 		<select
@@ -216,6 +289,9 @@ templ Select(p SelectProps) {
 				name={ p.Name }
 				{ bind(p.Name)... }
 			}
+			if p.Disabled {
+				disabled
+			}
 			if p.Error {
 				aria-invalid="true"
 			}
@@ -225,10 +301,22 @@ templ Select(p SelectProps) {
 				<option value="" disabled selected>{ p.Placeholder }</option>
 			}
 			for _, o := range p.Options {
-				<option value={ o.Value } selected?={ o.Selected }>{ o.Label }</option>
+				@optionTag(o)
+			}
+			for _, g := range p.Groups {
+				<optgroup label={ g.Label }>
+					for _, o := range g.Options {
+						@optionTag(o)
+					}
+				</optgroup>
 			}
 		</select>
 	</div>
+}
+
+// optionTag renders one <option>, shared by the flat and grouped Select paths.
+templ optionTag(o Option) {
+	<option value={ o.Value } selected?={ o.Selected } disabled?={ o.Disabled }>{ o.Label }</option>
 }
 
 // Form wraps fields with a layout and an optional hypermedia target. A @post or

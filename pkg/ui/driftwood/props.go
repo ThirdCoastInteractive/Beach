@@ -222,6 +222,26 @@ type ButtonGroupProps struct {
 	Attrs datastar.Attrs
 }
 
+// Segment is one toggle button in a Segmented control.
+type Segment struct {
+	Value  string
+	Label  string
+	Icon   string // optional leading icon
+	Active bool
+	On     string // optional @-expression run on click (e.g. "@get('/range/day')")
+}
+
+// SegmentedProps is a single-select toggle-button control: a joined row of
+// buttons where exactly one is the active choice (aria-pressed). Unlike
+// ButtonGroup (visual join only), the active segment carries selected styling
+// and the group announces its purpose. Name is the accessible group label.
+type SegmentedProps struct {
+	Name     string // accessible group label
+	Segments []Segment
+	Size     Size
+	Attrs    datastar.Attrs
+}
+
 // MenuItem is one entry in a menu-button popover.
 type MenuItem struct {
 	Label string
@@ -252,17 +272,34 @@ type FieldProps struct {
 	Attrs datastar.Attrs
 }
 
+// FieldsetProps groups related fields under a legend (a styled
+// <fieldset>/<legend>, so the group never falls back to the UA default on
+// dark). Help renders a description line under the legend; the grouped controls
+// are the children.
+type FieldsetProps struct {
+	Legend   string
+	Help     string
+	Disabled bool // disable every control in the group at once
+	Attrs    datastar.Attrs
+}
+
 type TextInputProps struct {
-	ID          string
-	Name        string
-	Type        string // "text" (default), "email", "password", "date", ...
-	Value       string
-	Placeholder string
-	Prefix      string
-	Suffix      string
-	Error       bool
-	Disabled    bool
-	Attrs       datastar.Attrs
+	ID           string
+	Name         string
+	Type         string // "text" (default), "email", "password", "date", ...
+	Value        string
+	Placeholder  string
+	Prefix       string
+	Suffix       string
+	Min          string // numeric/date lower bound (min attribute)
+	Max          string // numeric/date upper bound (max attribute)
+	Step         string // numeric step granularity (step attribute; "any" for free)
+	InputMode    string // virtual-keyboard hint: "numeric", "decimal", "tel", ...
+	Autocomplete string // autocomplete token, e.g. "off", "email", "one-time-code"
+	Spellcheck   string // "true"/"false" — disable for codes, units, identifiers
+	Error        bool
+	Disabled     bool
+	Attrs        datastar.Attrs
 }
 
 type TextareaProps struct {
@@ -280,13 +317,24 @@ type Option struct {
 	Value    string
 	Label    string
 	Selected bool
+	Disabled bool
+}
+
+// OptionGroup is a labelled set of options rendered as an <optgroup>. A Select
+// uses Groups for grouped dropdowns and Options for the flat case; when both are
+// set the flat Options render first, then the groups.
+type OptionGroup struct {
+	Label   string
+	Options []Option
 }
 
 type SelectProps struct {
 	ID          string
 	Name        string
-	Options     []Option
+	Options     []Option      // flat options (the simple case)
+	Groups      []OptionGroup // grouped options, rendered as <optgroup>
 	Placeholder string
+	Disabled    bool
 	Error       bool
 	Attrs       datastar.Attrs
 }
