@@ -1,6 +1,7 @@
 -- +goose Up
+-- Idempotent DDL (IF NOT EXISTS); see auth 00001_identity.sql for why.
 -- +goose StatementBegin
-CREATE TABLE sessions (
+CREATE TABLE IF NOT EXISTS sessions (
     token_hash  bytea       PRIMARY KEY,         -- SHA256(token); raw token never stored
     user_id     bigint      NOT NULL,
     roles       text[]      NOT NULL DEFAULT '{}',
@@ -10,11 +11,11 @@ CREATE TABLE sessions (
 -- +goose StatementEnd
 
 -- +goose StatementBegin
-CREATE INDEX sessions_user_id_idx ON sessions (user_id);
+CREATE INDEX IF NOT EXISTS sessions_user_id_idx ON sessions (user_id);
 -- +goose StatementEnd
 
 -- +goose StatementBegin
-CREATE INDEX sessions_expires_at_idx ON sessions (expires_at);
+CREATE INDEX IF NOT EXISTS sessions_expires_at_idx ON sessions (expires_at);
 -- +goose StatementEnd
 
 -- +goose Down

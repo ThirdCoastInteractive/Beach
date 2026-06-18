@@ -108,6 +108,39 @@ func TestHighestMigrationEmpty(t *testing.T) {
 	}
 }
 
+// TestVersionTableStable confirms a source's version-table name does NOT change
+// when a migration is added — the footgun that lost the record of 00001 and
+// re-ran it, failing on "relation already exists" — and that distinct sources
+// still get distinct tables. The name derives from the first filename, so a
+// database created when the source had only that first migration is adopted in
+// place rather than re-run.
+func TestVersionTableStable(t *testing.T) {
+	one := fstest.MapFS{
+		"migrations/00001_identity.sql": {Data: []byte("-- +goose Up")},
+	}
+	two := fstest.MapFS{
+		"migrations/00001_identity.sql":   {Data: []byte("-- +goose Up")},
+		"migrations/00002_api_tokens.sql": {Data: []byte("-- +goose Up")},
+	}
+	if a, b := versionTable(one), versionTable(two); a != b {
+		t.Fatalf("version table changed when a migration was added: %q -> %q", a, b)
+	}
+
+	// Distinct sources (distinct first migrations) keep distinct tables, so they
+	// share a database without colliding on goose's single version sequence.
+	other := fstest.MapFS{
+		"migrations/00001_sessions.sql": {Data: []byte("-- +goose Up")},
+	}
+	if versionTable(one) == versionTable(other) {
+		t.Fatalf("distinct sources collided on version table %q", versionTable(one))
+	}
+
+	// An empty source resolves to a deterministic name, never a panic.
+	if got := versionTable(fstest.MapFS{}); got == "" {
+		t.Fatal("versionTable returned empty for an empty source")
+	}
+}
+
 func TestModulePathFallback(t *testing.T) {
 	// Whatever the build context, modulePath must be non-empty so the advisory
 	// lock key is always derivable.

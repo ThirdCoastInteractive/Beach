@@ -1,4 +1,5 @@
 -- +goose Up
+-- Idempotent DDL (IF NOT EXISTS); see 00001_identity.sql for why.
 
 -- API/bearer tokens for non-interactive principals (service accounts, CLIs).
 -- A token has the shape "<prefix>.<secret>": the prefix is a public, indexed
@@ -7,7 +8,7 @@
 -- may appear in a RETURNING clause or SELECT *. Tokens resolve to a user, whose
 -- roles/permissions are resolved exactly as for an interactive login.
 -- +goose StatementBegin
-CREATE TABLE api_tokens (
+CREATE TABLE IF NOT EXISTS api_tokens (
     prefix      text        PRIMARY KEY,          -- public lookup handle
     token_hash  bytea       NOT NULL,             -- SHA256(secret); raw secret never stored
     user_id     bigint      NOT NULL REFERENCES users (id) ON DELETE CASCADE,
@@ -20,7 +21,7 @@ CREATE TABLE api_tokens (
 -- +goose StatementEnd
 
 -- +goose StatementBegin
-CREATE INDEX api_tokens_user_id_idx ON api_tokens (user_id);
+CREATE INDEX IF NOT EXISTS api_tokens_user_id_idx ON api_tokens (user_id);
 -- +goose StatementEnd
 
 -- +goose Down

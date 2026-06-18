@@ -49,16 +49,25 @@ func MustPool(ctx context.Context, dsn string) *pgxpool.Pool {
 // migrationsDir is the conventional embed directory name for goose migrations.
 const migrationsDir = "migrations"
 
-// versionTable derives a stable, per-source goose version-table name from a
-// migration source's filenames. Distinct sources (different file sets) get
-// distinct tables, so they can share one database without their version
-// sequences colliding; the same source always resolves to the same table.
+// versionTable derives a stable, per-source goose version-table name from the
+// source's FIRST migration filename. Distinct sources start with distinct first
+// migrations (e.g. 00001_identity vs 00001_sessions), so they get distinct tables
+// and can share one database without colliding on goose's single version
+// sequence.
+//
+// Only the first filename is hashed, NOT the whole set: that is what keeps the
+// name stable as a source grows. Hashing every filename meant adding 00002_*.sql
+// renamed the table, so on the next boot goose could not find the record that
+// 00001 was applied and re-ran it — failing with "relation already exists". It is
+// also backward compatible: a version table created when the source had only its
+// first migration was already named for that first filename (the old code hashed
+// the single name), so existing databases are adopted in place, not re-run.
 func versionTable(fsys fs.FS) string {
 	names, _ := fs.Glob(fsys, migrationsDir+"/*.sql")
 	sort.Strings(names)
 	h := fnv.New32a()
-	for _, n := range names {
-		_, _ = h.Write([]byte(n))
+	if len(names) > 0 {
+		_, _ = h.Write([]byte(names[0]))
 	}
 	return fmt.Sprintf("goose_db_version_%08x", h.Sum32())
 }
