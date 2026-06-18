@@ -539,7 +539,7 @@ func TestProjectAnyFiresOnAnyMember(t *testing.T) {
 	ctx := context.Background()
 	var e ecs.Entity
 	mustSend(t, s, ctx, spawnUser{owner: "alice", out: &e}) // adds XP
-	s.Tick()                                                 // projection pass: XP changed => surface fires
+	s.Tick()                                                // projection pass: XP changed => surface fires
 	drainOne(t, sub, "render#1")
 
 	// Mutate a DIFFERENT member component (Presence). The surface must still fire
