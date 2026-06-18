@@ -11,7 +11,7 @@ content negotiation, and no body-shaping annotations — machine APIs are a char
 [non-goal](../rfc/01-charter.md#non-goals). If a beach app ever genuinely needs
 one, that's its own RFC.
 
-## The annotation grammar — six annotations
+## The annotation grammar — seven annotations
 
 Annotations are comments on named sqlc queries
 (`internal/db/sql/queries/<entity>/*.sql`, one directory per entity, so each
@@ -28,6 +28,7 @@ FROM items WHERE id = @id AND deleted_at IS NULL;
 -- name: CreateItem :one
 -- @api POST /items
 -- @requires pantry:write
+-- @scoped customer_id
 -- @notify items
 -- @fragment page.ItemCard
 INSERT INTO items (...) VALUES (...) RETURNING id, name, quantity, location_id;
@@ -40,6 +41,7 @@ INSERT INTO items (...) VALUES (...) RETURNING id, name, quantity, location_id;
 | `@fragment pkg.Component` | The Datastar fragment for refresh/mutation patches                                                     |
 | `@notify channel`         | Mutation publishes `{table,id,op}` to Postgres NOTIFY + hub topic                                      |
 | `@requires permission`    | Generated handler calls the principal check ([auth](12-auth.md)); the authz analyzer verifies coverage |
+| `@scoped paramName`       | Generate-time scope-coverage rule: the query must take `paramName`, or the build fails (see below)      |
 | `@handler skip`           | Stub suppressed; hand-write the handler (analyzer still checks it)                                     |
 
 ## What gets generated
@@ -54,6 +56,29 @@ INSERT INTO items (...) VALUES (...) RETURNING id, name, quantity, location_id;
 
 Generated handlers are stubs the same way sqlc output is: regenerate, never edit.
 Anything custom goes through `@handler skip` and a hand-written handler.
+
+## `@scoped` — tenant coverage at generate time
+
+`@scoped <paramName>` is a scope-coverage rule, not a generator directive: it emits
+no extra code. It asserts that a customer-scoped query actually constrains by its
+tenant — the predicate for a scoped table lives in the SQL as a named parameter, so
+if that parameter is missing the query selects or mutates across every customer.
+
+When a query is marked `@scoped customer_id`, generation walks the query's lifted
+parameters and fails the build unless one of them is `customer_id`. The check runs
+on both apigen paths — the standalone parser and the sqlc-plugin path — so there is
+no way to regenerate around it. The error names the query so the gap is obvious:
+
+```
+CreateItem: @scoped parameter "customer_id" is not a parameter of the query — a customer-scoped query must constrain by it
+```
+
+This is the static, generate-time complement to the runtime `Principal` scope in
+[`pkg/auth`](12-auth.md): `@requires` and the principal's `InScope` check decide at
+request time whether *this* caller may touch *this* customer's row, while `@scoped`
+guarantees at `make gen` time that the query was even written with a tenant
+predicate to enforce. A customer-scoped query therefore cannot silently leak across
+tenants — it fails the build before it can ship.
 
 ## Build wiring
 

@@ -55,6 +55,32 @@ flowchart LR
 Sim rate and projection fan-out rate are decoupled (20Hz sim / 4–10Hz projection is
 plenty for a website — the Unity Netcode snapshot-rate pattern).
 
+## Off-loop reads: `Snapshot`
+
+Projections push *changes* to subscribers, but a handler serving a page-nav or
+opening an SSE stream needs the *current whole board* to catch up — and the store
+belongs to the loop. The old answer was a per-nav `Ask` round-trip for every read;
+the first-class one is `Sim.Snapshot`:
+
+```go
+v, err := s.Snapshot(ctx)              // one capture on the loop
+if err != nil { return err }
+for e, t := range ecs.ViewQuery[comp.Tile](v) {
+    catchUpRender(e, t)                // read freely off-loop
+}
+```
+
+`Snapshot` runs `ecs.Store.View()` inside a command on the loop goroutine (via the
+same `AskFunc` machinery as `Ask`), so the copy is taken under exclusive store access
+and is consistent as of that tick. The returned `*ecs.View` shares no memory with the
+store, so the handler reads it (with [`ecs.ViewQuery` / `ViewGet` / `ViewChanged` /
+`ViewHas`](07-ecs.md#off-loop-reads-view)) on its own goroutine while the loop keeps
+ticking — no locks, no further round-trips. It blocks until the loop processes the
+capture (returning `ctx.Err()` if `ctx` is cancelled first), so call it only once
+`Run` owns the loop; before `Run`, copy `s.Store().View()` on the constructing
+goroutine instead. One capture replaces the per-read `Ask` chatter the catch-up path
+used to need.
+
 ## Projections: change detection → patches
 
 A **projection** maps a component change onto a hub topic and a templ view — the
@@ -78,6 +104,41 @@ and publishes the patch to its topic; the hub writes it to every subscribed SSE
 connection as a `datastar-patch-elements` event. "Only send what changed to who can
 see it" is interest management, and it falls out of the dirty set — nothing diffs the
 DOM, nothing polls.
+
+### Whole-surface projections: `ProjectAny`
+
+`Projection[T]` keys on one named component. But a surface often derives from several
+components, and "re-render the surface when *any* of them changed" used to mean a
+workaround: every mutating command had to also `touch` a singleton trigger component
+(boardwalk's `touchBoard`) just to flag the shared board dirty — implicit coupling
+that every new command had to remember. `ProjectAny` makes the trigger set explicit:
+
+```go
+sim.ProjectAny(s, sim.AnyProjection{
+    Topic: func(e ecs.Entity) string { return "board" },        // one shared surface
+    View:  func(e ecs.Entity) []byte { return renderBoard() },  // reads its own state
+},
+    sim.MemberOf[comp.Tile](),
+    sim.MemberOf[comp.Piece](),
+    sim.MemberOf[comp.Score](),
+)
+```
+
+It fires when any listed `MemberOf[T]` member's column was stamped since the last
+pass. Unlike `Projection[T]`, the callbacks get only the changed entity, not a
+component value — a whole-surface render reads the state it needs itself (typically
+through an [`ecs.View`](07-ecs.md#off-loop-reads-view) or a closure over the store on
+the loop). Each pass unions the dirty entities across every member (deduped, so an
+entity that changed in two member columns counts once), maps them to topics, and
+renders **each distinct topic exactly once** — a shared surface fed by many changed
+members emits a single frame, not one per entity. When several entities map to the
+same topic, the first encountered represents it.
+
+`ProjectAny` composes with `Project`: both feed the same per-topic dedupe map each
+pass (later registration wins a contested topic). It must be given at least one member
+— a projection that can never fire is a bug, and it panics. Listing the components a
+surface derives from retires the manual-touch pattern: there is no trigger component
+to keep in sync, so no command can forget it.
 
 ## Persistence
 

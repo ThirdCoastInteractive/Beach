@@ -40,6 +40,47 @@ The container is an `ecs.Store` — entities and component columns, nothing more
 - **Snapshots**: versioned CBOR with stable schema ids — crash recovery and
   restarts survive schema evolution.
 
+## Off-loop reads: `View`
+
+Once [`sim`](08-sim.md)'s loop goroutine owns a `Store`, reading it from any other
+goroutine is a data race. A **`View`** is the lightweight in-memory answer: an
+immutable, off-loop-safe read snapshot of the live slice, made by `Store.View()`.
+
+```go
+v := s.View()                          // call with exclusive store access
+for e, xp := range ecs.ViewQuery[comp.XP](v) {
+    render(e, xp)                      // safe off-loop while the loop mutates
+}
+```
+
+The concurrency guarantee is the whole point, and it is concrete: `View()` deep-copies
+every live component column — values and their per-row last-write ticks — into a
+fresh, owned structure. It must be called with exclusive store access (on the loop
+goroutine, e.g. inside a command or via [`sim.Sim.Snapshot`](08-sim.md#off-loop-reads-snapshot),
+or before `Run` starts), so the copy is consistent as of one tick. Once built, a
+`View` shares **no memory** with the `Store`: the loop may mutate the `Store` while
+any number of goroutines read the `View`. A `View` never changes after construction —
+it is frozen at its capture tick. To observe later state, take a fresh one.
+
+A `View` is read-only, with the read mirrors of the `Store` helpers:
+
+- `ViewQuery[T](v)` — iterate every entity that held `T` at capture, yielding a copy
+  of its value (mirror of `Query`); iterate it from any goroutine, as often as you like.
+- `ViewGet[T](v, e)` — `(value, true)` if `e` held `T` at capture, else `(zero, false)`
+  (mirror of `Get`).
+- `ViewChanged[T](v, sinceTick)` — iterate every entity whose `T` column was stamped
+  strictly after `sinceTick` as of capture, the dirty set frozen into the `View`
+  (mirror of `Changed`). Because the copy carries the per-row ticks, change detection
+  works off-loop too; pass `0` for every entity holding `T`.
+- `ViewHas[T](v, e)` — whether `e` held `T` at capture.
+- `v.Tick()` — the store tick the `View` was captured at; `v.Len()` — distinct live
+  entities captured.
+
+It deliberately has no mutators and no relation reads — it is the rendered-state read
+model for the catch-up path, not a second store. The heavyweight alternative is the
+CBOR `Save`/`Load` path (snapshots, below), which also copies on the loop but marshals
+the whole store; `View` is the cheap in-memory equivalent aimed at catch-up rendering.
+
 ## The core boundary
 
 The engine is four things and stays four things: archetype tables, queries, change

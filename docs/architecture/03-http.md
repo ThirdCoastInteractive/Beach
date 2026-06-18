@@ -42,6 +42,13 @@ recover, secure headers + CSP, optional session auth (runs when `Config.Sessions
 is set). Gzip is not middleware — SSE responses compress inside the SSE writer
 (below).
 
+`Config.Middleware []func(http.Handler) http.Handler` injects app-supplied
+`net/http` wrappers *around* that fixed stack — outermost-first, so the first entry
+sees the request first and the response last, ahead of even request logging. It is
+the seam for cross-cutting concerns the framework does not own (an i18n locale
+resolver, a custom request id); `App.Handler()` applies it. Left nil, the handler
+is exactly the fixed stack.
+
 The static handler computes SHA256 ETags for every file at boot and serves with
 `immutable` Cache-Control and 304s; `Config.Static` is overlaid on the framework's
 embedded tree (`app.css`, the Datastar client, the chart modules) so one `/static`
@@ -113,6 +120,16 @@ func PurchaseCoins(pool *pgxpool.Pool, s *sim.Sim) beach.ActionFunc {
     }
 }
 ```
+
+An action does not have to drop to a `Raw` handler to redirect or drive the client.
+A `Patch` carries two escapes that ride the normal Datastar SSE flush:
+`Patch{Redirect: "/wallet"}` navigates the client (a location script) and
+`Patch{Script: "..."}` runs client JS (`ExecuteScript`). Within one patch the
+framework flushes in a fixed order — signals, then script, then fragment, then
+redirect — so any fragment or signal updates land before the client navigates away.
+Paired with `c.SetCookie(*http.Cookie)` (response headers flush when the SSE stream
+opens, after the handler body runs), an action can set a session cookie *and*
+redirect on the same response — the post-login bounce without a `Raw` handler.
 
 ### `beach.StreamFunc` — SSE subscriptions
 

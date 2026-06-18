@@ -17,6 +17,13 @@ Plus the paved road: `cache.InvalidateOn(ctx, pool, "channel", c)` wires a
 `pg.Listen` listener that parses an id payload and invalidates the entry —
 NOTIFY-driven invalidation is the default, not a per-cache afterthought.
 
+The pool both of these lean on opens two ways. `pg.MustPool(ctx, dsn)` is the
+boot-time path — a dead database means the process can't serve, so it panics.
+`pg.Pool(ctx, dsn) (*pgxpool.Pool, error)` is the same constructor (new pool, then
+ping) returning the error instead, for a caller that wants to report a clean boot
+failure itself; `MustPool` now just wraps it. (Full pool/migration/transaction story
+is [02-boot-spine.md](02-boot-spine.md).)
+
 ## session
 
 Postgres-backed sessions with auth middleware: one `sessions` table, queried through
@@ -40,6 +47,18 @@ The sliding write is throttled — a session past, say, half its TTL takes one
 a write. The `sessions` migration ships in the auth skeleton alongside the
 users/credentials/RBAC tables.
 
+**DB-less anonymous sessions.** A fully-ephemeral app with no Postgres can still
+hand every visitor a stable identity. `session.AnonStore` is the cookie-only store —
+the same 32-byte `crypto/rand` token the DB store mints, but never persisted: the
+cookie value *is* the session, so there is no row to look up. Its `Ensure`
+middleware reads-or-mints the id, refreshes the cookie each request (the idle window
+slides), and puts the id on the context for `c.AnonID()`. Wire it through
+`beach.Config{AnonymousSessions: ...}`: the App carries an `auth.AnonymousPrincipal`,
+so `c.Principal()` is non-nil (and `IsAnonymous()` true) for the anonymous kind
+without a database — but it holds no roles or permissions, so the guards still reject
+it. `Config.Sessions` takes precedence: a DB-backed app resolves real identities and
+the anonymous store is ignored.
+
 The route-level surface is the guards in [03-http.md](03-http.md#errors-and-guards):
 `beach.Authed()` / `beach.Role(...)` / `beach.Can(...)` wrap this middleware and
 populate `c.User()` and `c.Principal()` — the full identity and RBAC story is
@@ -61,6 +80,13 @@ A real runtime with mechanical verification, kept deliberately flat:
   `beach.Config{Locales: ...}` is present. Apps that never configure it pay
   nothing: `T` resolves against the default locale and the whole feature is
   inert.
+- **Catalog resolution**: the package-level `i18n.T(ctx, key)` resolves app
+  strings without threading a `*Catalog`. The catalog is picked in order: one
+  carried on the request context (the middleware now installs `i18n.WithCatalog`
+  alongside the locale, so the active app catalog rides each request), then the
+  process default registered once at boot via `i18n.SetDefault(c)`, then the
+  framework's embedded catalog as the ultimate fallback. A key absent everywhere
+  is returned verbatim, never fatal.
 - **Tooling**: `beach i18n` extracts every `i18n.T` call from templ source and
   verifies (or `--write`s) the catalog; the `beach-vet` analyzer
   ([10-tooling.md](10-tooling.md)) fails the build on non-literal keys or a stale

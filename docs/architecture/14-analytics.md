@@ -114,13 +114,72 @@ ing.Add(ev)                                           // non-blocking; drops are
   analytics, never the app.
 - **Query → chart**: `ch.Rows[T]` scans into a typed struct; the adapters in
   `ch/chart.go` (`ToSeries`, `ToHBarSeries`, `ToStackedBarSeries`, `ToLineSeries`,
-  `ToLineSeriesData`) turn the row slice into a `chart` input via small projector
-  funcs — no reflection, no struct-tag coupling. A `PageFunc` returning a
-  `chart.Chart*Fragment` behind `ui.Defer` is the whole dashboard-widget wiring;
-  `ToSeries` feeds the bar race (`chart.BarRaceInput.Bars`). Time bucketing is
-  plain SQL (`toStartOfInterval`); the query is the API.
+  `ToLineSeriesData`, `ToLineSeriesByEntity`) turn the row slice into a `chart`
+  input via small projector funcs — no reflection, no struct-tag coupling.
+  `ToLineSeriesByEntity` is the multi-line case: one `chart.LineSeries` per
+  distinct entity, taken in first-seen order, the natural pair for the per-entity
+  bucket/rollup shapes below. A `PageFunc` returning a `chart.Chart*Fragment`
+  behind `ui.Defer` is the whole dashboard-widget wiring; `ToSeries` feeds the bar
+  race (`chart.BarRaceInput.Bars`). Time bucketing is plain SQL
+  (`toStartOfInterval`); the query is the API.
 - **Optional everywhere**: no `CLICKHOUSE_DSN` → `ch` features off, app boots fine.
   docker-compose in the skeleton carries a commented-out clickhouse service.
+
+### Time-series builders — the reusable layer over hand-written SQL
+
+The four recurring analytics shapes — bucket, gap-fill, last-value-as-of, rollup —
+were being copy-pasted bespoke and mis-aligned every time. `ch/timeseries.go`
+factors them into a small set of composable builders. They are emphatically **not a
+query DSL or ORM**: each builder emits a plain ClickHouse SQL string — a
+well-tested fragment you can read, edit, and feed to `ch.Rows` exactly like the
+hand-written SQL above. SQL stays the query language; these just stop the four
+shapes from being re-typed.
+
+Each builder is a struct with a `.SQL()` method (and a package-level `*SQL(b)`
+twin for callers who prefer a function call), plus a `Query*[T]` convenience that
+runs the built SQL through `ch.Rows`. Going through `ch.Rows` means the
+**nil-`Conn` contract is inherited for free**: a nil `Conn` yields no rows and a
+nil error, so ch-optional callers stay branch-free — the optional-`ch` story above
+holds for the builders too. Because the builders are pure string functions, the
+tests assert bucket alignment, the `WITH FILL` gap-fill, and the `argMax` as-of
+against the emitted SQL with no live ClickHouse needed.
+
+| Builder | Shape | Emits |
+| --- | --- | --- |
+| `Bucket` | aggregate a value column into aligned interval buckets; one row per non-empty bucket | `toStartOfInterval(time, INTERVAL n unit)` group-by, ordered by bucket |
+| `GapFill` | embeds `Bucket`; one row per bucket across `[From, To)`, holes included | the `Bucket` query plus `ORDER BY bucket WITH FILL … STEP INTERVAL … INTERPOLATE (v AS fill)` |
+| `AsOf` | latest reading per entity at/before a cutoff — "current state from an append-only log" | `argMax(value, time)` grouped per entity |
+| `Rollup` | fine→coarse downsample for trend / exhaustion-projection queries | delegates to `Bucket` with `Interval = Every` (a wider `toStartOfInterval`) |
+
+Two small pieces back them: the `Agg` enum (`Avg`, `Sum`, `Min`, `Max`, `Count`,
+`Last` — a fixed set, never free-form SQL, so a builder can't emit an injectable
+function name) and a duration→ClickHouse-interval helper that picks the coarsest
+exact unit (`15 MINUTE`, `1 HOUR`, `1 DAY`) so bucket edges land on natural clock
+boundaries. `Bucket` and `Rollup` take an optional `By` entity column — one series
+per entity — which lines up with the `ORDER BY entity, bucket` the builders emit
+and feeds straight into `ToLineSeriesByEntity` for a multi-line chart.
+
+```go
+// Bucket raw samples to 15-minute aligned boundaries, then chart them.
+sql := ch.BucketSQL(ch.Bucket{
+    Table: "rack_draw", Time: "ts", Value: "kw",
+    Interval: 15 * time.Minute, Agg: ch.Avg,
+})
+type row struct {
+    Bucket time.Time `ch:"bucket"`
+    V      float64   `ch:"v"`
+}
+rows, _ := ch.Rows[row](ctx, conn, sql, since)   // nil conn → no rows, nil err
+in := ch.ToLineSeriesData("kW", rows,
+    func(r row) string { return r.Bucket.Format("15:04") },
+    func(r row) float64 { return r.V })
+```
+
+The placeholder order is part of each builder's contract, and the `Query*`
+wrappers bind it for you: `QueryBucket`/`QueryRollup`/`QueryAsOf` each take one
+positional arg (the `since`/cutoff lower bound), while `QueryGapFill` binds four —
+`From, To` for the scan filter then `From, To` again for the literal `WITH FILL`
+bounds (pre-aligned to the bucket grid).
 
 SQL is the query language — the `Batcher` and `ch.Rows[T]` are the whole API. `ch` is
 app analytics: high-volume observations you aggregate and chart, with Postgres still the
