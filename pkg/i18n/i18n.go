@@ -34,6 +34,11 @@ var builtin embed.FS
 // stored. Middleware sets it; localeFrom reads it.
 type ctxKey struct{}
 
+// catKey is the unexported context key under which the active Catalog is
+// stored. Middleware sets it; catalogFrom reads it, letting the package-level T
+// resolve app strings without an app threading its own *Catalog.
+type catKey struct{}
+
 // Catalog is a loaded set of locales with a default fallback. The zero value is
 // not usable; build one with Load or rely on the package-default initialised in
 // init from the embedded files.
@@ -51,9 +56,28 @@ type Catalog struct {
 	log *slog.Logger
 }
 
-// def is the package-default catalog, built from the embedded files. It makes T
-// usable with no configuration at all.
-var def = mustBuiltin()
+// builtinCat is the framework's embedded catalog, built from the embedded
+// files. It is the immutable ultimate fallback for the package-level T.
+var builtinCat = mustBuiltin()
+
+// def is the package-level default catalog the package-level T resolves
+// against. It starts as the framework's embedded catalog so T is usable with no
+// configuration; an app may replace it once at boot via SetDefault.
+var def = builtinCat
+
+// SetDefault registers c as the catalog the package-level T resolves against
+// when no catalog is carried on the request context. It lets an app expose its
+// own strings through i18n.T after a single call at boot, instead of threading
+// a *Catalog through every handler. A nil c restores the framework's embedded
+// catalog. It is not safe for concurrent use with T; call it during startup
+// before serving requests.
+func SetDefault(c *Catalog) {
+	if c == nil {
+		def = builtinCat
+		return
+	}
+	def = c
+}
 
 func mustBuiltin() *Catalog {
 	c, err := Load(builtin, "en-US")
@@ -181,11 +205,16 @@ func (c *Catalog) resolveTag(tag string) (string, bool) {
 func sameTag(a, b string) bool { return strings.EqualFold(a, b) }
 
 // T translates key against the active locale carried by ctx, substituting args
-// fmt-style when the message contains verbs. With no configured locale the
-// default catalog is used; a key absent everywhere is returned verbatim so
-// missing translations are visible, never fatal.
+// fmt-style when the message contains verbs. The catalog is resolved in order:
+// one carried on ctx (set by Middleware), then the package default (see
+// SetDefault), then the framework's embedded catalog. A key absent everywhere
+// is returned verbatim so missing translations are visible, never fatal.
 func T(ctx context.Context, key string, args ...any) string {
-	return def.T(ctx, key, args...)
+	c := catalogFrom(ctx)
+	if c == nil {
+		c = def
+	}
+	return c.T(ctx, key, args...)
 }
 
 // T is the Catalog-scoped form of the package-level T.
@@ -215,6 +244,25 @@ func localeFrom(ctx context.Context) string {
 		return v
 	}
 	return ""
+}
+
+// WithCatalog returns a copy of ctx carrying c as the catalog the package-level
+// T resolves against for this request, taking precedence over the package
+// default. Middleware sets it so app strings resolve through i18n.T without an
+// app threading its own *Catalog.
+func WithCatalog(ctx context.Context, c *Catalog) context.Context {
+	return context.WithValue(ctx, catKey{}, c)
+}
+
+// catalogFrom reads the catalog carried by ctx; nil when unset.
+func catalogFrom(ctx context.Context) *Catalog {
+	if ctx == nil {
+		return nil
+	}
+	if c, ok := ctx.Value(catKey{}).(*Catalog); ok {
+		return c
+	}
+	return nil
 }
 
 // Locale returns the active locale tag carried by ctx, or "" when unset. It is

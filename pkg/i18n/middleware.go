@@ -10,13 +10,17 @@ import (
 const CookieName = "locale"
 
 // Middleware resolves the request locale — cookie, then Accept-Language, then
-// the catalog's default — and stores it on the request context for T to read.
-// An App with no configured locales never installs this; T then resolves
-// against the default locale and the feature is inert.
+// the catalog's default — and stores both the locale and c itself on the
+// request context. Carrying c lets the package-level T resolve this catalog's
+// strings without an app threading its own *Catalog through handlers. An App
+// with no configured locales never installs this; T then resolves against the
+// package default and the feature is inert.
 func (c *Catalog) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tag := c.Resolve(r)
-		next.ServeHTTP(w, r.WithContext(WithLocale(r.Context(), tag)))
+		ctx := WithLocale(r.Context(), tag)
+		ctx = WithCatalog(ctx, c)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 

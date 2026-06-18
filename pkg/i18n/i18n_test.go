@@ -106,6 +106,72 @@ func TestInertWhenUnconfigured(t *testing.T) {
 	}
 }
 
+// TestSetDefault verifies that SetDefault makes the package-level T resolve an
+// app catalog's strings, and that restoring nil falls back to the framework's
+// embedded catalog.
+func TestSetDefault(t *testing.T) {
+	// Before SetDefault, an app key is unknown to the framework catalog.
+	if got := T(context.Background(), "greeting"); got != "greeting" {
+		t.Fatalf("pre-SetDefault T(greeting) = %q, want verbatim", got)
+	}
+
+	app := testCat(t)
+	t.Cleanup(func() { SetDefault(nil) })
+	SetDefault(app)
+
+	// Now the package-level T resolves the app catalog.
+	if got := T(context.Background(), "greeting"); got != "Hello" {
+		t.Errorf("post-SetDefault T(greeting) = %q, want Hello", got)
+	}
+	ctx := WithLocale(context.Background(), "fr-FR")
+	if got := T(ctx, "greeting"); got != "Bonjour" {
+		t.Errorf("post-SetDefault T(fr greeting) = %q, want Bonjour", got)
+	}
+
+	// Restoring nil falls back to the framework's embedded catalog.
+	SetDefault(nil)
+	if got := T(context.Background(), "framework.error.not_found"); got != "Not found" {
+		t.Errorf("after reset T(framework key) = %q, want %q", got, "Not found")
+	}
+	if got := T(context.Background(), "greeting"); got != "greeting" {
+		t.Errorf("after reset T(app key) = %q, want verbatim", got)
+	}
+}
+
+// TestCatalogFromContextWins verifies a catalog carried on the request context
+// (as Middleware sets it) takes precedence over the package default for the
+// package-level T.
+func TestCatalogFromContextWins(t *testing.T) {
+	// Default stays the framework catalog; a context catalog must still win.
+	app := testCat(t)
+	ctx := WithCatalog(context.Background(), app)
+	if got := T(ctx, "greeting"); got != "Hello" {
+		t.Errorf("ctx-catalog T(greeting) = %q, want Hello", got)
+	}
+	// Combined with a locale, the context catalog resolves the right language.
+	ctx = WithLocale(ctx, "fr-FR")
+	if got := T(ctx, "greeting"); got != "Bonjour" {
+		t.Errorf("ctx-catalog T(fr greeting) = %q, want Bonjour", got)
+	}
+}
+
+// TestMiddlewareCarriesCatalog verifies Middleware puts its catalog on the
+// request context so the package-level T resolves app strings without an app
+// threading its own *Catalog.
+func TestMiddlewareCarriesCatalog(t *testing.T) {
+	c := testCat(t)
+	var seen string
+	h := c.Middleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		seen = T(r.Context(), "greeting") // package-level T, no threaded catalog
+	}))
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
+	r.AddCookie(&http.Cookie{Name: CookieName, Value: "fr-FR"})
+	h.ServeHTTP(httptest.NewRecorder(), r)
+	if seen != "Bonjour" {
+		t.Errorf("package-level T under middleware = %q, want Bonjour", seen)
+	}
+}
+
 func TestWithLocaleRoundTrip(t *testing.T) {
 	ctx := WithLocale(context.Background(), "fr-FR")
 	if got := Locale(ctx); got != "fr-FR" {
