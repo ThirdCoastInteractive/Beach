@@ -115,7 +115,13 @@ func (a *App) secureHeaders(next http.Handler) http.Handler {
 // (Authed/Role/Can) enforce; this stage only populates.
 func (a *App) injectAuth(next http.Handler) http.Handler {
 	if a.cfg.Sessions == nil {
-		// No session store: nothing to resolve. The app still runs; guards reject.
+		// No DB-backed store. A cookie-only anonymous store still gives every
+		// request a well-defined anonymous principal (a stable id, no privileges);
+		// without one the app is fully anonymous (nil principal). Guards reject
+		// either way.
+		if a.cfg.AnonymousSessions != nil {
+			return a.injectAnonymous(next)
+		}
 		return next
 	}
 	store := a.cfg.Sessions
@@ -129,6 +135,21 @@ func (a *App) injectAuth(next http.Handler) http.Handler {
 					r = r.WithContext(auth.WithPrincipal(r.Context(), p))
 				}
 			}
+		}
+		next.ServeHTTP(w, r)
+	}))
+}
+
+// injectAnonymous wraps the cookie-only anonymous store: AnonStore.Ensure mints
+// or reads the stable per-browser id, then this attaches the explicit anonymous
+// principal carrying it so c.Principal() is well-defined (not nil) without a
+// database. The anonymous principal holds no roles or permissions, so guards
+// still reject it.
+func (a *App) injectAnonymous(next http.Handler) http.Handler {
+	anon := a.cfg.AnonymousSessions
+	return anon.Ensure(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if id, ok := session.AnonFrom(r.Context()); ok {
+			r = r.WithContext(auth.WithPrincipal(r.Context(), auth.AnonymousPrincipal(id)))
 		}
 		next.ServeHTTP(w, r)
 	}))

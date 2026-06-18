@@ -92,6 +92,37 @@ func TestHasRole(t *testing.T) {
 	}
 }
 
+func TestAnonymousPrincipal(t *testing.T) {
+	p := AnonymousPrincipal("anon-xyz")
+	if p == nil {
+		t.Fatal("AnonymousPrincipal returned nil")
+	}
+	if !p.IsAnonymous() {
+		t.Fatal("anonymous principal must report IsAnonymous()")
+	}
+	if p.AnonID != "anon-xyz" {
+		t.Fatalf("AnonID = %q, want anon-xyz", p.AnonID)
+	}
+	// No privileges: every authz check denies it.
+	if p.Can("x:y") || p.HasRole("admin") || p.HasPermission("x:y") || p.InScope("cust-1") {
+		t.Fatal("anonymous principal must hold no roles, permissions, or scope")
+	}
+}
+
+func TestIsAnonymousDistinguishesKinds(t *testing.T) {
+	var absent *Principal // unauthenticated, not the anonymous kind
+	if absent.IsAnonymous() {
+		t.Fatal("a nil (absent) principal is unauthenticated, not anonymous")
+	}
+	authed := &Principal{UserID: 1, Username: "alice"}
+	if authed.IsAnonymous() {
+		t.Fatal("a real principal must not report IsAnonymous()")
+	}
+	if !AnonymousPrincipal("id").IsAnonymous() {
+		t.Fatal("the anonymous kind must report IsAnonymous()")
+	}
+}
+
 func TestPrincipalContextRoundTrip(t *testing.T) {
 	ctx := context.Background()
 

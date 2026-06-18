@@ -56,7 +56,8 @@ type streamPatcher struct {
 	sse *datastar.SSE
 }
 
-// Patch renders p onto the SSE stream, honoring Target, Mode, and Signals.
+// Patch renders p onto the SSE stream, honoring Target, Mode, Signals, Script and
+// Redirect.
 func (sp streamPatcher) Patch(p Patch) error {
 	if p.Mode == PatchRemove && p.Target != "" {
 		return sp.sse.RemoveElement("#" + p.Target)
@@ -66,14 +67,26 @@ func (sp streamPatcher) Patch(p Patch) error {
 			return err
 		}
 	}
-	if p.Fragment == nil {
-		return nil
+	if p.Script != "" {
+		if err := sp.sse.ExecuteScript(p.Script); err != nil {
+			return err
+		}
 	}
-	opts := patchOptions(p.Target, p.Mode)
-	if p.ViewTransition {
-		opts = append(opts, sdk.WithViewTransitions())
+	if p.Fragment != nil {
+		opts := patchOptions(p.Target, p.Mode)
+		if p.ViewTransition {
+			opts = append(opts, sdk.WithViewTransitions())
+		}
+		if err := sp.sse.PatchElementTempl(p.Fragment, opts...); err != nil {
+			return err
+		}
 	}
-	return sp.sse.PatchElementTempl(p.Fragment, opts...)
+	// Redirect last: any fragment/signal patches in the same Patch are flushed
+	// before the client navigates away.
+	if p.Redirect != "" {
+		return sp.sse.Redirect(p.Redirect)
+	}
+	return nil
 }
 
 // patchOptions builds the SDK patch options for a target id and mode.

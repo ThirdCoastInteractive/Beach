@@ -54,9 +54,11 @@ func (c *Ctx) MustUser() User {
 }
 
 // Principal returns the rich auth principal and whether one is present. It is nil
-// for anonymous requests and for apps that configured no PrincipalResolver. A
-// nil principal answers false to every Can/HasRole check, so handlers can call
-// methods on it without a nil guard.
+// for an unauthenticated request and for apps that configured no
+// PrincipalResolver. With Config.AnonymousSessions it is the cookie-only
+// anonymous principal (IsAnonymous() true) instead of nil. A nil principal
+// answers false to every Can/HasRole check, so handlers can call methods on it
+// without a nil guard.
 func (c *Ctx) Principal() (*Principal, bool) {
 	return auth.PrincipalFrom(c.R.Context())
 }
@@ -66,6 +68,13 @@ func (c *Ctx) Principal() (*Principal, bool) {
 func (c *Ctx) MustPrincipal() *Principal {
 	p, _ := auth.PrincipalFrom(c.R.Context())
 	return p
+}
+
+// AnonID returns the stable cookie-only anonymous session id and whether one is
+// present. It is set by Config.AnonymousSessions; an app without it (or behind a
+// real login) has no anonymous id. Apps key ephemeral per-visitor state on it.
+func (c *Ctx) AnonID() (string, bool) {
+	return session.AnonFrom(c.R.Context())
 }
 
 // IsDatastar reports whether the request came from Datastar's fetch client. The
@@ -91,6 +100,13 @@ func (c *Ctx) Header(name string) string { return c.R.Header.Get(name) }
 // SetHeader sets a response header. Useful for cache directives on a fragment
 // response or a redirect target.
 func (c *Ctx) SetHeader(name, value string) { c.W.Header().Set(name, value) }
+
+// SetCookie writes a Set-Cookie response header. An action that mints a session
+// calls this before returning its Patches (the response headers are flushed when
+// the SSE stream opens, after the handler body runs), so a Patch{Redirect: ...}
+// can carry the cookie on the same response — the post-login bounce without a Raw
+// handler.
+func (c *Ctx) SetCookie(cookie *http.Cookie) { http.SetCookie(c.W, cookie) }
 
 // Redirect writes an HTTP redirect to the given location with the given status
 // (use http.StatusSeeOther for POST-redirect-GET). For Datastar requests prefer

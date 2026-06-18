@@ -10,8 +10,12 @@
 // is a slice lookup on a struct already in memory. Changing a user's roles rotates
 // their sessions, so a stale principal cannot outlive a privilege change.
 //
-// Anonymous is the absence of a Principal: PrincipalFrom returns (nil, false) and
-// the guards treat that as unauthenticated. There is no Kind enum.
+// Anonymous has two shapes. The absence of a Principal — PrincipalFrom returns
+// (nil, false) — is the unauthenticated request the guards reject. A DB-less app
+// that wants a stable, cookie-only identity instead uses an explicit anonymous
+// principal (AnonymousPrincipal): it carries an opaque id, holds no roles or
+// permissions, and answers true to IsAnonymous. It satisfies no Can/Role/Scope
+// check, so the guards still treat it as unprivileged.
 package auth
 
 import (
@@ -36,6 +40,33 @@ type Principal struct {
 	// only provides the primitive and the InScope check the guard layer enforces.
 	// An empty Scope is unscoped: it satisfies no specific-scope check.
 	Scope string
+
+	// AnonID, when non-empty, is the stable cookie-only identity of an anonymous
+	// principal (see AnonymousPrincipal). It is opaque to Beach — apps key
+	// ephemeral per-visitor state on it. A DB-backed (logged-in) principal leaves
+	// it empty.
+	AnonID string
+
+	// Anonymous marks a principal minted from a cookie-only session rather than a
+	// real account. An anonymous principal holds no roles or permissions, so every
+	// Can/Role/Scope check denies it; handlers that simply need a well-defined,
+	// stable identity read AnonID.
+	Anonymous bool
+}
+
+// AnonymousPrincipal builds the cookie-only anonymous principal for a DB-less
+// session: a stable opaque id, no roles, no permissions. It is the explicit
+// anonymous kind the charter calls for — c.Principal() returns one (not nil) for
+// an ephemeral app, so handlers have a well-defined identity without Postgres. It
+// satisfies no Can/Role/Scope check.
+func AnonymousPrincipal(id string) *Principal {
+	return &Principal{AnonID: id, Anonymous: true}
+}
+
+// IsAnonymous reports whether the principal is the cookie-only anonymous kind. A
+// nil (absent) principal is not anonymous in this sense — it is unauthenticated.
+func (p *Principal) IsAnonymous() bool {
+	return p != nil && p.Anonymous
 }
 
 // HasRole reports whether the principal holds the given role slug.

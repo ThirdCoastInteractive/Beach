@@ -79,6 +79,18 @@ type Patch struct {
 	// the element patch (e.g. to clear a form's input signals after a submit).
 	Signals any
 
+	// Redirect, when non-empty, navigates the client to the given URL through the
+	// Datastar SSE flow (a location script). It is the escape hatch for an action
+	// that must redirect — a post-login bounce — without dropping to a Raw handler.
+	// Combine it with SetHeader/SetCookie on the *Ctx to set a session cookie on
+	// the same response. An empty Redirect is a no-op.
+	Redirect string
+
+	// Script, when non-empty, runs the given JavaScript in the client browser
+	// (Datastar ExecuteScript). It is the escape hatch for an action that must
+	// drive the client directly. An empty Script is a no-op.
+	Script string
+
 	// ViewTransition applies this patch inside the browser View Transitions API
 	// so CSS ::view-transition-* rules animate the change.
 	ViewTransition bool

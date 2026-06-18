@@ -57,8 +57,18 @@ type Config struct {
 
 	// Sessions, when non-nil, enables session-backed auth: OptionalAuth runs in
 	// the middleware stack and guards (Authed/Role) resolve against it. Left nil,
-	// the app runs without a database and every principal is anonymous (nil).
+	// the app runs without a database and every principal is anonymous (nil),
+	// unless AnonymousSessions is set.
 	Sessions *session.Store
+
+	// AnonymousSessions, when non-nil, enables a cookie-only anonymous identity:
+	// the middleware mints a stable per-browser id (no database) and c.Principal()
+	// returns a well-defined anonymous principal carrying it, instead of nil. It is
+	// the DB-less path for a fully-ephemeral app that wants a stable visitor
+	// identity without minting its own cookie. The anonymous principal holds no
+	// roles or permissions, so guards (Authed/Role/Can) still reject it. Ignored
+	// when Sessions is set — a DB-backed app resolves real identities there.
+	AnonymousSessions *session.AnonStore
 
 	// Principals, when non-nil, resolves a rich auth.Principal from the
 	// session-bound user id. Optional; without it c.User() still works from the
@@ -90,6 +100,15 @@ type Config struct {
 	// SSECompression overrides the default SSE compression mode for StreamFunc /
 	// ActionFunc responses. The zero value is the gzip default.
 	SSECompression SSEMode
+
+	// Middleware are app-supplied net/http wrappers applied around the whole
+	// handler, outside the fixed framework stack. They run outermost-first: the
+	// first entry is the outermost wrapper, so it sees the request first and the
+	// response last. A wrapper here runs before request logging, recover, secure
+	// headers and auth — the place for cross-cutting concerns (an i18n locale
+	// resolver, a custom request id) the framework does not own. Left nil, the
+	// handler is exactly the fixed stack, unchanged.
+	Middleware []func(http.Handler) http.Handler
 }
 
 // HealthFunc is the readiness probe behind /healthz. Returning an error renders
@@ -200,6 +219,14 @@ func (a *App) handler() http.Handler {
 	h = a.secureHeaders(h)
 	h = a.recoverPanic(h)
 	h = a.requestLog(h)
+
+	// App-supplied middleware wraps outside the fixed stack, outermost-first: the
+	// first entry ends up the outermost wrapper, so it runs first on the way in.
+	for i := len(a.cfg.Middleware) - 1; i >= 0; i-- {
+		if mw := a.cfg.Middleware[i]; mw != nil {
+			h = mw(h)
+		}
+	}
 	return h
 }
 
