@@ -106,6 +106,52 @@ func TestToLineSeries(t *testing.T) {
 	}
 }
 
+func TestToLineSeriesByEntity(t *testing.T) {
+	// Rows grouped by entity (rack), as the per-entity bucket/rollup builders
+	// emit them: ORDER BY entity, then bucket. One LineSeries per rack, points
+	// in row order.
+	type erow struct {
+		Rack string
+		Hour string
+		Draw float64
+	}
+	rows := []erow{
+		{"A1", "00:00", 1},
+		{"A1", "01:00", 2},
+		{"B1", "00:00", 5},
+		{"B1", "01:00", 6},
+	}
+	in := ToLineSeriesByEntity(rows,
+		func(r erow) string { return r.Rack },
+		func(r erow) string { return r.Hour },
+		func(r erow) float64 { return r.Draw })
+
+	if len(in.Series) != 2 {
+		t.Fatalf("Series len = %d, want 2 (one per rack)", len(in.Series))
+	}
+	if in.Series[0].Label != "A1" || in.Series[1].Label != "B1" {
+		t.Errorf("series labels = %q,%q, want A1,B1", in.Series[0].Label, in.Series[1].Label)
+	}
+	if len(in.Series[0].Points) != 2 || len(in.Series[1].Points) != 2 {
+		t.Fatalf("points per series = %d,%d, want 2,2",
+			len(in.Series[0].Points), len(in.Series[1].Points))
+	}
+	if in.Series[1].Points[1].X != "01:00" || in.Series[1].Points[1].Y != 6 {
+		t.Errorf("B1 last point = (%q,%v), want (01:00,6)",
+			in.Series[1].Points[1].X, in.Series[1].Points[1].Y)
+	}
+}
+
+func TestToLineSeriesByEntityEmpty(t *testing.T) {
+	in := ToLineSeriesByEntity[fakeRow](nil,
+		func(r fakeRow) string { return r.Rack },
+		func(r fakeRow) string { return r.Hour },
+		func(r fakeRow) float64 { return r.Draw })
+	if len(in.Series) != 0 {
+		t.Fatalf("Series len = %d, want 0", len(in.Series))
+	}
+}
+
 func TestToLineSeriesData(t *testing.T) {
 	in := ToLineSeriesData("draw", sampleRows,
 		func(r fakeRow) string { return r.Hour },

@@ -120,3 +120,25 @@ func ToLineSeries[T any](name string, rows []T, x func(T) string, y func(T) floa
 func ToLineSeriesData[T any](name string, rows []T, x func(T) string, y func(T) float64) chart.LineSeriesData {
 	return chart.LineSeriesData{Series: []chart.LineSeries{ToLineSeries(name, rows, x, y)}}
 }
+
+// ToLineSeriesByEntity turns rows grouped by entity into a multi-line
+// chart.LineSeriesData — one chart.LineSeries per distinct entity. It is the
+// adapter for the per-entity bucket/rollup shapes (Bucket/Rollup with By set,
+// or AsOf-over-time): name pulls the series name, x the bucket label, y the
+// value. Series and points are taken in first-seen order, so an ORDER BY in the
+// SQL (entity then time, as the builders emit) gives stable, monotone lines.
+func ToLineSeriesByEntity[T any](rows []T, name func(T) string, x func(T) string, y func(T) float64) chart.LineSeriesData {
+	var data chart.LineSeriesData
+	idx := make(map[string]int) // entity name -> index into data.Series
+	for _, r := range rows {
+		n := name(r)
+		i, ok := idx[n]
+		if !ok {
+			i = len(data.Series)
+			idx[n] = i
+			data.Series = append(data.Series, chart.LineSeries{Label: n})
+		}
+		data.Series[i].Points = append(data.Series[i].Points, chart.LinePoint{X: x(r), Y: y(r)})
+	}
+	return data
+}
