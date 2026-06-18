@@ -32,6 +32,64 @@ func TestEventRender(t *testing.T) {
 	}
 }
 
+func TestEventModeDefaultIsMorph(t *testing.T) {
+	// The zero value must be the default outer morph: no patch mode set, so the
+	// flush path adds no Datastar option and existing publishers are unchanged.
+	var ev Event
+	if ev.Mode != PatchMorph {
+		t.Fatalf("zero-value Mode = %d, want PatchMorph (%d)", ev.Mode, PatchMorph)
+	}
+	if got := ev.DatastarMode(); got != "" {
+		t.Fatalf("default DatastarMode = %q, want \"\" (Datastar default morph)", got)
+	}
+}
+
+func TestEventDatastarMode(t *testing.T) {
+	cases := []struct {
+		name string
+		mode PatchMode
+		want string
+	}{
+		{"morph", PatchMorph, ""},
+		{"append", PatchAppend, "append"},
+		{"prepend", PatchPrepend, "prepend"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ev := Event{Bytes: []byte("x"), Mode: tc.mode}
+			if got := ev.DatastarMode(); got != tc.want {
+				t.Fatalf("DatastarMode() = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestPublishCarriesModeAndTarget(t *testing.T) {
+	h := New()
+	sub := h.Subscribe("chat:room1")
+	defer sub.Close()
+
+	want := Event{Bytes: []byte("<li>line</li>"), Mode: PatchAppend, Target: "history"}
+	h.Publish("chat:room1", want)
+
+	got, ok := recv(t, sub.C, time.Second)
+	if !ok {
+		t.Fatal("channel closed unexpectedly")
+	}
+	if !bytes.Equal(got.Bytes, want.Bytes) {
+		t.Fatalf("bytes: got %q want %q", got.Bytes, want.Bytes)
+	}
+	if got.Mode != PatchAppend {
+		t.Fatalf("mode: got %d want PatchAppend", got.Mode)
+	}
+	if got.Target != "history" {
+		t.Fatalf("target: got %q want %q", got.Target, "history")
+	}
+	if got.DatastarMode() != "append" {
+		t.Fatalf("datastar mode: got %q want %q", got.DatastarMode(), "append")
+	}
+}
+
 func TestSubscribePublish(t *testing.T) {
 	h := New()
 	sub := h.Subscribe("chat:room1")

@@ -26,12 +26,64 @@ import (
 // because the buffer is full are dropped (see Publish).
 const subBuffer = 64
 
+// PatchMode selects how a fanned-out Event's fragment is merged into the DOM. It
+// mirrors the Datastar element-patch modes; the zero value is the default outer
+// morph by the fragment's own id, so existing publishers are unchanged.
+//
+// A high-volume incremental feed (e.g. driftbottle chat) sets PatchAppend or
+// PatchPrepend so each message inserts a single line into a container instead of
+// re-rendering the whole rolling history and morphing the container every time.
+type PatchMode uint8
+
+const (
+	// PatchMorph is the default: morph the target element by its own id.
+	PatchMorph PatchMode = iota
+	// PatchAppend inserts the fragment as the target's last child.
+	PatchAppend
+	// PatchPrepend inserts the fragment as the target's first child.
+	PatchPrepend
+)
+
+// datastarMode maps a PatchMode to the corresponding Datastar element-patch mode
+// string. The zero value (PatchMorph) maps to "", which the flush path reads as
+// "use Datastar's default outer morph" — so it adds no patch option. The non-zero
+// values return the Datastar mode strings ("append", "prepend") verbatim.
+func (m PatchMode) datastarMode() string {
+	switch m {
+	case PatchAppend:
+		return "append"
+	case PatchPrepend:
+		return "prepend"
+	default:
+		return ""
+	}
+}
+
 // Event is a pre-rendered patch fanned out to subscribers. The bytes are rendered
 // once by the publisher; the hub shares them across every connection. Render
 // writes those bytes to a single connection's writer (e.g. its gzip stream).
 type Event struct {
 	Bytes []byte
+
+	// Mode selects how the fragment is merged into the DOM when the event is
+	// flushed to SSE subscribers. The zero value (PatchMorph) keeps the default
+	// outer-morph-by-id behavior, so existing publishers need no change. Set
+	// PatchAppend or PatchPrepend on an incremental feed to insert a single line
+	// into a container rather than re-rendering and morphing the container.
+	Mode PatchMode
+
+	// Target is the DOM id (without the leading '#') the fragment patches into.
+	// It is required when Mode is append/prepend — the insert needs a container
+	// to insert into — and ignored for the default morph, which targets the
+	// fragment's own id.
+	Target string
 }
+
+// DatastarMode reports the Datastar element-patch mode string for this event's
+// Mode: "" for the default outer morph (add no patch option), or "append" /
+// "prepend" for an incremental insert. The SSE flush path maps this to the
+// Datastar patch option when writing the event to a subscriber's stream.
+func (e Event) DatastarMode() string { return e.Mode.datastarMode() }
 
 // Render writes the pre-rendered bytes to w. It is called once per subscriber
 // connection so each connection's own writer (compressor) sees the shared bytes.

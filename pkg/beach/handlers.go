@@ -162,9 +162,12 @@ func (a *App) adaptStream(h StreamFunc) http.HandlerFunc {
 				if !ok {
 					return
 				}
-				// Hub events carry a pre-rendered fragment; patch it as an element
-				// update so Datastar morphs it by the fragment's own id.
-				if err := sse.PatchElements(string(ev.Bytes)); err != nil {
+				// Hub events carry a pre-rendered fragment. By default Datastar
+				// morphs it by the fragment's own id; an event may instead carry an
+				// append/prepend mode and a target container id so a high-volume
+				// feed inserts a single line rather than re-rendering the container.
+				opts := patchOptions(ev.Target, PatchMode(ev.DatastarMode()))
+				if err := sse.PatchElements(string(ev.Bytes), opts...); err != nil {
 					// Write failure means the client is gone; end the loop.
 					return
 				}
