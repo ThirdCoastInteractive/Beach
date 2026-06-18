@@ -65,6 +65,12 @@ type Config struct {
 	// session and c.Principal() is nil.
 	Principals PrincipalResolver
 
+	// Tokens, when non-nil, resolves a rich auth.Principal from a raw bearer
+	// token. It backs the TokenAuthed() guard for non-interactive callers
+	// (service accounts, CLIs). Without it TokenAuthed() rejects every request,
+	// which is the safe failure.
+	Tokens TokenResolver
+
 	// Hub is the in-memory topic fan-out backing StreamFunc subscriptions. A nil
 	// hub disables live events (catch-up still runs); set one to serve realtime
 	// streams.
@@ -95,6 +101,12 @@ type HealthFunc func(ctx context.Context) error
 // principal (and nil error) leaves the request anonymous at the principal level
 // while still carrying the session user.
 type PrincipalResolver func(ctx context.Context, userID int64) (*Principal, error)
+
+// TokenResolver verifies a raw bearer token and returns the principal it
+// resolves to. It backs the TokenAuthed() guard. A non-nil error (or a nil
+// principal) means the token is invalid; the guard rejects with 401. It wraps
+// auth.Authenticator.ResolveToken.
+type TokenResolver func(ctx context.Context, token string) (*Principal, error)
 
 // App is a configured the-beach application. Build one with New, register routes
 // with Page/Action/Stream/Raw, then Start. The zero App is not usable.

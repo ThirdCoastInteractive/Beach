@@ -29,6 +29,13 @@ type Principal struct {
 	Username    string
 	Roles       []string // role slugs
 	Permissions []string // "resource:action" strings
+
+	// Scope is the owner/customer boundary the principal acts within — a generic
+	// string the framework carries and checks but never interprets. Which scopes
+	// exist (a customer id, an org slug, a tenant) is an app-side decision; Beach
+	// only provides the primitive and the InScope check the guard layer enforces.
+	// An empty Scope is unscoped: it satisfies no specific-scope check.
+	Scope string
 }
 
 // HasRole reports whether the principal holds the given role slug.
@@ -77,6 +84,18 @@ func (p *Principal) HasAnyOf(perms ...string) bool {
 // principal can do nothing.
 func (p *Principal) Can(perm string) bool {
 	return p.HasPermission(perm)
+}
+
+// InScope reports whether the principal acts within the given owner/customer
+// scope. It is the in-memory half of the scope guard: a nil (anonymous) or
+// unscoped principal is denied, and a principal carrying a different scope is
+// denied. The scope string is opaque to Beach — the app decides what a scope
+// means; this only enforces an exact match.
+func (p *Principal) InScope(scope string) bool {
+	if p == nil || p.Scope == "" {
+		return false
+	}
+	return p.Scope == scope
 }
 
 // --- request context ---
