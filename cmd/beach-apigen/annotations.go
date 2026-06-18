@@ -5,13 +5,14 @@ import (
 	"strings"
 )
 
-// Annotations are the six directives beach-apigen reads from the comment block
-// above a named sqlc query. They are the entire grammar — there is no other
+// Annotations are the directives beach-apigen reads from the comment block above
+// a named sqlc query. They are the entire grammar — there is no other
 // configuration surface. See docs/architecture/13-apigen.md.
 //
 //	-- name: CreateItem :one
 //	-- @api POST /items
 //	-- @requires pantry:write
+//	-- @scoped customer_id
 //	-- @notify items
 //	-- @fragment page.ItemCard
 //
@@ -30,6 +31,11 @@ type Annotations struct {
 	Notify string
 	// Requires is the "resource:action" permission the handler enforces.
 	Requires string
+	// Scoped is the name of the query parameter that constrains a customer-scoped
+	// entity, declared via "@scoped <paramName>". When set, generation fails unless
+	// the query actually takes that parameter — so a query over a scoped table can
+	// never silently omit its tenant predicate and leak across customers.
+	Scoped string
 	// Skip suppresses the generated handler stub ("@handler skip"); the route is
 	// still recorded so the authz analyzer can check the hand-written handler.
 	Skip bool
@@ -50,7 +56,7 @@ func (a Annotations) IsMutation() bool {
 	}
 }
 
-// parseAnnotations extracts the six annotations from a query's comment text. The
+// parseAnnotations extracts the annotations from a query's comment text. The
 // input is the raw comment block sqlc hands us (each physical line may or may not
 // carry a leading "--"); we tolerate both so the parser works on raw .sql text in
 // tests and on sqlc-stripped comments in the plugin path.
@@ -98,6 +104,11 @@ func parseAnnotations(comment string) (Annotations, error) {
 				return a, fmt.Errorf("@requires needs a permission")
 			}
 			a.Requires = arg
+		case "@scoped":
+			if arg == "" {
+				return a, fmt.Errorf("@scoped needs a parameter name")
+			}
+			a.Scoped = arg
 		case "@handler":
 			if arg != "skip" {
 				return a, fmt.Errorf("@handler only supports \"skip\", got %q", arg)

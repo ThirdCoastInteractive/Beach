@@ -164,6 +164,45 @@ func TestGenerate_NotifyMigration(t *testing.T) {
 	}
 }
 
+func TestGenerate_ScopedPresent(t *testing.T) {
+	// A @scoped query whose scope parameter IS present generates as any other
+	// query — the rule is invisible on the happy path.
+	q := Query{
+		Name: "ListCustomerOrders", Cmd: ":many",
+		Ann:     Annotations{Method: "GET", Path: "/orders", Page: "page.OrderList", Scoped: "customer_id"},
+		ArgType: "ListCustomerOrdersParams",
+		Params: []Param{
+			{Field: "CustomerID", JSONName: "customer_id", Type: "int64"},
+			{Field: "Status", JSONName: "status", Type: "string"},
+		},
+	}
+	src := genOne(t, q)
+	assertParses(t, src)
+	if !strings.Contains(src, `app.Page("/orders", handleListCustomerOrders(q))`) {
+		t.Errorf("scoped-ok query should generate normally\n---\n%s", src)
+	}
+}
+
+func TestGenerate_ScopedMissingFails(t *testing.T) {
+	// A @scoped query whose scope parameter is absent must fail generation with a
+	// query-named error that names the missing parameter.
+	q := Query{
+		Name: "ListAllOrders", Cmd: ":many",
+		Ann:     Annotations{Method: "GET", Path: "/orders", Page: "page.OrderList", Scoped: "customer_id"},
+		ArgType: "ListAllOrdersParams",
+		Params:  []Param{{Field: "Status", JSONName: "status", Type: "string"}},
+	}
+	_, err := Generate(GenConfig{Package: "api", QuerierType: "*Queries"}, []Query{q})
+	if err == nil {
+		t.Fatal("expected @scoped validation to fail when the scope parameter is missing")
+	}
+	for _, want := range []string{"ListAllOrders", "customer_id"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q must name %q", err, want)
+		}
+	}
+}
+
 func TestGenerate_SkipsNonAPIQueries(t *testing.T) {
 	q := Query{Name: "InternalOnly", Cmd: ":one"} // no @api
 	files, err := Generate(GenConfig{Package: "api", QuerierType: "*Queries"}, []Query{q})

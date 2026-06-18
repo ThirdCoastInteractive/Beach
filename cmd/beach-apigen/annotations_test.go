@@ -30,6 +30,16 @@ func TestParseAnnotations_Full(t *testing.T) {
 	}
 }
 
+func TestParseAnnotations_Scoped(t *testing.T) {
+	a, err := parseAnnotations("-- @api GET /orders\n-- @page page.OrderList\n-- @scoped customer_id")
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if a.Scoped != "customer_id" {
+		t.Errorf("scoped = %q, want customer_id", a.Scoped)
+	}
+}
+
 func TestParseAnnotations_GETPage(t *testing.T) {
 	a, err := parseAnnotations("-- @api GET /items/{id}\n-- @page page.ItemDetail\n-- @fragment page.ItemCard")
 	if err != nil {
@@ -86,6 +96,7 @@ func TestParseAnnotations_Errors(t *testing.T) {
 		"requires empty":    "-- @requires",
 		"handler bad arg":   "-- @handler nope",
 		"notify empty":      "-- @notify",
+		"scoped empty":      "-- @scoped",
 	}
 	for name, in := range cases {
 		t.Run(name, func(t *testing.T) {

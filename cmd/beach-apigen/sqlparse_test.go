@@ -46,6 +46,37 @@ func TestParseSQLDir_Fixture(t *testing.T) {
 	}
 }
 
+// TestStandalone_ScopedOK drives the parser path on a fixture whose @scoped
+// queries all carry their scope parameter: parsing and generation both succeed.
+func TestStandalone_ScopedOK(t *testing.T) {
+	queries, err := parseSQLDir("testdata/scoped_ok")
+	if err != nil {
+		t.Fatalf("parseSQLDir: %v", err)
+	}
+	if _, err := Generate(GenConfig{Package: "api", QuerierType: "*Queries"}, queries); err != nil {
+		t.Fatalf("correctly scoped queries should generate: %v", err)
+	}
+}
+
+// TestStandalone_ScopedMissingFails drives the parser path on a fixture whose
+// @scoped query omits its scope parameter: generation fails, naming the query and
+// the missing parameter.
+func TestStandalone_ScopedMissingFails(t *testing.T) {
+	queries, err := parseSQLDir("testdata/scoped_bad")
+	if err != nil {
+		t.Fatalf("parseSQLDir: %v", err)
+	}
+	_, err = Generate(GenConfig{Package: "api", QuerierType: "*Queries"}, queries)
+	if err == nil {
+		t.Fatal("expected the scope-coverage rule to fail the build")
+	}
+	for _, want := range []string{"ListAllOrders", "customer_id"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q must name %q", err, want)
+		}
+	}
+}
+
 // TestStandalone_EndToEnd drives the full standalone path: parse fixture SQL,
 // generate, and confirm the emitted Go compiles (parses) and wires the routes.
 func TestStandalone_EndToEnd(t *testing.T) {

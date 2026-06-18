@@ -52,6 +52,9 @@ func Generate(cfg GenConfig, queries []Query) ([]File, error) {
 		if err := q.Ann.validate(q.Name); err != nil {
 			return nil, err
 		}
+		if err := q.validateScope(); err != nil {
+			return nil, err
+		}
 		wired = append(wired, q)
 	}
 	if len(wired) == 0 {
@@ -77,6 +80,24 @@ func Generate(cfg GenConfig, queries []Query) ([]File, error) {
 		files = append(files, File{Name: "notify.gen.sql", Contents: mig})
 	}
 	return files, nil
+}
+
+// validateScope enforces the scope-coverage rule: a query marked @scoped <p>
+// must actually take p as a parameter. A scoped entity's tenant predicate lives
+// in the SQL as that parameter, so if it is missing the query selects/mutates
+// across every customer — exactly the cross-tenant leak the annotation guards
+// against. The check needs the query's lifted params (not just its annotations),
+// so it lives here on Query rather than on Annotations.validate.
+func (q Query) validateScope() error {
+	if q.Ann.Scoped == "" {
+		return nil
+	}
+	for _, p := range q.Params {
+		if p.JSONName == q.Ann.Scoped {
+			return nil
+		}
+	}
+	return fmt.Errorf("%s: @scoped parameter %q is not a parameter of the query — a customer-scoped query must constrain by it", q.Name, q.Ann.Scoped)
 }
 
 // genHandlers renders the Go source for every wired query and gofmt's it.

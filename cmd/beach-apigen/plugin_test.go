@@ -97,6 +97,48 @@ func TestPlugin_ScalarParam(t *testing.T) {
 	}
 }
 
+func TestPlugin_ScopedOK(t *testing.T) {
+	// A @scoped query whose scope parameter is among its params generates through
+	// the plugin path with no error.
+	qmsg := buildQueryMsg(
+		"ListCustomerOrders", "many",
+		[]string{"@api GET /orders", "@page page.OrderList", "@scoped customer_id"},
+		[]string{"customer_id", "status"},
+	)
+	req := pbField(6, qmsg)
+
+	var out bytes.Buffer
+	if err := runPlugin(bytes.NewReader(req), &out); err != nil {
+		t.Fatalf("runPlugin on correctly scoped query: %v", err)
+	}
+	files := decodeResponseForTest(t, out.Bytes())
+	if files["api.gen.go"] == "" {
+		t.Fatal("plugin path produced no api.gen.go for scoped-ok query")
+	}
+}
+
+func TestPlugin_ScopedMissingFails(t *testing.T) {
+	// A @scoped query whose scope parameter is absent must fail the plugin run,
+	// naming the offending query and the missing parameter.
+	qmsg := buildQueryMsg(
+		"ListAllOrders", "many",
+		[]string{"@api GET /orders", "@page page.OrderList", "@scoped customer_id"},
+		[]string{"status"},
+	)
+	req := pbField(6, qmsg)
+
+	var out bytes.Buffer
+	err := runPlugin(bytes.NewReader(req), &out)
+	if err == nil {
+		t.Fatal("expected the plugin run to fail on a query missing its scope parameter")
+	}
+	for _, want := range []string{"ListAllOrders", "customer_id"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error %q must name %q", err, want)
+		}
+	}
+}
+
 // decodeResponseForTest parses a GenerateResponse{ files=1 [ File{name=1, contents=2} ] }.
 func decodeResponseForTest(t *testing.T, b []byte) map[string]string {
 	t.Helper()
