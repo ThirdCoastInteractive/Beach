@@ -20,7 +20,8 @@ import (
 //
 // Wire format reference (sqlc codegen.proto):
 //
-//	message GenerateRequest { ... repeated Query queries = 6; Settings settings = 4; }
+//	message GenerateRequest { Settings settings = 1; Catalog catalog = 2;
+//	                          repeated Query queries = 3; string sqlc_version = 4; ... }
 //	message Query   { string text=1; string name=2; string cmd=3;
 //	                  repeated Column columns=4; repeated Parameter params=5;
 //	                  repeated string comments=6; }
@@ -166,11 +167,19 @@ type pbParam struct {
 // --- decode ---
 
 // decodeGenerateRequest reads the fields apigen needs from a GenerateRequest.
+//
+// Field numbers are from sqlc's codegen.proto GenerateRequest:
+//
+//	settings=1, catalog=2, queries=3, sqlc_version=4, plugin_options=5, ...
+//
+// The repeated Query list is field 3 (an earlier revision of this decoder read
+// field 6 — sqlc's global_options — and so saw zero queries against a real sqlc
+// run, emitting nothing). The proto-compatibility tests pin this number.
 func decodeGenerateRequest(b []byte) (pbRequest, error) {
 	var req pbRequest
 	err := walkFields(b, func(field int, wt int, val []byte) error {
 		switch field {
-		case 6: // repeated Query queries
+		case 3: // repeated Query queries
 			q, err := decodeQuery(val)
 			if err != nil {
 				return err

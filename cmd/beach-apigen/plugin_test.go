@@ -32,13 +32,13 @@ func buildQueryMsg(name, cmd string, comments []string, paramNames []string) []b
 }
 
 func TestPlugin_RoundTrip(t *testing.T) {
-	// GenerateRequest{ queries=6 [ CreateItem ] }
+	// GenerateRequest{ queries=3 [ CreateItem ] } — queries is field 3 in sqlc codegen.proto
 	qmsg := buildQueryMsg(
 		"CreateItem", "one",
 		[]string{"@api POST /items", "@notify items", "@fragment page.ItemCard", "@requires pantry:write"},
 		[]string{"name", "quantity"},
 	)
-	req := pbField(6, qmsg)
+	req := pbField(3, qmsg)
 
 	var out bytes.Buffer
 	if err := runPlugin(bytes.NewReader(req), &out); err != nil {
@@ -81,7 +81,7 @@ func TestPlugin_ScalarParam(t *testing.T) {
 		[]string{"@api GET /items/{id}", "@page page.ItemDetail"},
 		[]string{"id"},
 	)
-	req := pbField(6, qmsg)
+	req := pbField(3, qmsg)
 
 	var out bytes.Buffer
 	if err := runPlugin(bytes.NewReader(req), &out); err != nil {
@@ -105,7 +105,7 @@ func TestPlugin_ScopedOK(t *testing.T) {
 		[]string{"@api GET /orders", "@page page.OrderList", "@scoped customer_id"},
 		[]string{"customer_id", "status"},
 	)
-	req := pbField(6, qmsg)
+	req := pbField(3, qmsg)
 
 	var out bytes.Buffer
 	if err := runPlugin(bytes.NewReader(req), &out); err != nil {
@@ -125,7 +125,7 @@ func TestPlugin_ScopedMissingFails(t *testing.T) {
 		[]string{"@api GET /orders", "@page page.OrderList", "@scoped customer_id"},
 		[]string{"status"},
 	)
-	req := pbField(6, qmsg)
+	req := pbField(3, qmsg)
 
 	var out bytes.Buffer
 	err := runPlugin(bytes.NewReader(req), &out)
