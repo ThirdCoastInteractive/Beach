@@ -121,6 +121,13 @@ templ ChartSankeyFragment(id string, s Sankey) {
 	</figure>
 }
 
+// ChartSingleLineFragment wraps a server-rendered electrical single-line diagram.
+templ ChartSingleLineFragment(id string, s SingleLine) {
+	<figure id={ id } class="chart-frag chart-frag-col">
+		@SingleLineSVG(s)
+	</figure>
+}
+
 // ChartChordFragment wraps a server-rendered chord diagram.
 templ ChartChordFragment(id string, c Chord) {
 	<figure id={ id } class="chart-frag">
@@ -139,6 +146,13 @@ templ ChartSparklineFragment(id string, s Sparkline) {
 templ ChartHeatmapFragment(id string, h Heatmap) {
 	<figure id={ id } class="chart-frag">
 		@HeatmapSVG(h)
+	</figure>
+}
+
+// ChartPhaseFragment wraps a server-rendered phase diagram (banded field + points).
+templ ChartPhaseFragment(id string, p Phase) {
+	<figure id={ id } class="chart-frag chart-frag-col">
+		@PhaseChartSVG(p)
 	</figure>
 }
 

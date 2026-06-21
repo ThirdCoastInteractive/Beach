@@ -317,6 +317,72 @@ templ ScatterSVG(s Scatter) {
 	</svg>
 }
 
+// SingleLineSVG renders an electrical single-line diagram: tiered gear/PDU/rack
+// nodes, continuous busbar runs, and role-typed conductors. The viewBox is derived
+// from the laid-out height. It reuses the sankey hover contract (the sankey-svg
+// class + sankey-link conductors carrying data-src/data-dst + nodes carrying
+// data-node-id) so the shipped chart-sankey-hover module traces the connected chain
+// on hover with no new client module. Every node is wrapped in a drill-in link when
+// it carries an Href. All colors are CSS-variable tokens — no hard-coded fills.
+templ SingleLineSVG(s SingleLine) {
+	<svg width="100%" height="100%" class="chart-svg sankey-svg single-line-svg" role="img" viewBox={ SingleLineViewBox(s) } preserveAspectRatio="xMidYMid meet">
+		// Busbars first (behind the conductors + nodes): a thick horizontal run.
+		for _, b := range s.Buses {
+			<line class="single-line-bus" x1={ F(b.X1) } y1={ F(b.Y) } x2={ F(b.X2) } y2={ F(b.Y) } stroke={ b.Color } stroke-width="6" stroke-linecap="round" data-node-id={ b.ID } data-tip={ b.Tip } style="cursor:pointer"></line>
+			<text class="single-line-bus-label" x={ F(b.LabelX) } y={ F(b.LabelY) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="9" pointer-events="none">{ b.Label }</text>
+		}
+		// Conductors: role-typed orthogonal runs. Reuse sankey-link so the hover
+		// module dims off-chain edges; dashed for tie/continuation couplers.
+		for _, e := range s.Conductors {
+			if e.Dashed {
+				<path class="sankey-link single-line-conductor" d={ e.PathD } fill="none" stroke={ e.Color } stroke-width="1.4" stroke-dasharray="5 4" opacity="0.7" data-tip={ e.Tip } data-src={ e.FromID } data-dst={ e.ToID }></path>
+			} else {
+				<path class="sankey-link single-line-conductor" d={ e.PathD } fill="none" stroke={ e.Color } stroke-width="1.6" opacity="0.7" data-tip={ e.Tip } data-src={ e.FromID } data-dst={ e.ToID }></path>
+			}
+		}
+		// Nodes: a glyph box, the label, an optional sub line, and a live badge.
+		for _, n := range s.Nodes {
+			@singleLineNode(n)
+		}
+	</svg>
+}
+
+// singleLineNode renders one node: the drill-in link wrapper, the kind glyph, the
+// label + sub line, and the live-state badge. The stable id (n.ID) is on the glyph
+// group so a live patch targets the node in place without a re-layout.
+templ singleLineNode(n SingleLineLayoutNode) {
+	<a
+		if n.Href != "" {
+			href={ templ.SafeURL(n.Href) }
+			data-on-click={ "@get('" + n.Href + "')" }
+		}
+		style="cursor:pointer"
+	>
+		<g id={ n.ID } class="single-line-node" data-node-id={ n.ID } data-tip={ n.Tip }>
+			if n.Glyph == "transformer" {
+				<rect class="chart-hover-node" x={ F(n.X) } y={ F(n.Y) } width={ F(n.W) } height={ F(n.H) } rx="0" fill="var(--color-panel)" stroke={ n.Color } stroke-width="1.5"></rect>
+				<circle cx={ F(n.CX - 8) } cy={ F(n.CY) } r={ F(TransformerCircleR()) } fill="none" stroke={ n.Color } stroke-width="1.3"></circle>
+				<circle cx={ F(n.CX + 8) } cy={ F(n.CY) } r={ F(TransformerCircleR()) } fill="none" stroke={ n.Color } stroke-width="1.3"></circle>
+			} else if n.Glyph == "circle" {
+				<rect class="chart-hover-node" x={ F(n.X) } y={ F(n.Y) } width={ F(n.W) } height={ F(n.H) } rx="0" fill="var(--color-panel)" stroke={ n.Color } stroke-width="1.5"></rect>
+				<circle cx={ F(n.CX) } cy={ F(n.CY) } r={ F(TransformerCircleR()) } fill="none" stroke={ n.Color } stroke-width="1.3"></circle>
+			} else if n.Glyph == "source" {
+				<rect class="chart-hover-node" x={ F(n.X) } y={ F(n.Y) } width={ F(n.W) } height={ F(n.H) } rx="0" fill="var(--color-panel)" stroke={ n.Color } stroke-width="2"></rect>
+				<line x1={ F(n.X + 6) } y1={ F(n.Y + n.H - 5) } x2={ F(n.X + 18) } y2={ F(n.Y + 5) } stroke={ n.Color } stroke-width="1.3"></line>
+			} else {
+				<rect class="chart-hover-node" x={ F(n.X) } y={ F(n.Y) } width={ F(n.W) } height={ F(n.H) } rx="0" fill="var(--color-panel)" stroke={ n.Color } stroke-width="1.5"></rect>
+			}
+			<text x={ F(n.CX) } y={ F(n.Y + n.H/2) } dy="0.35em" text-anchor="middle" fill="var(--color-fg-default)" font-family="var(--font-mono)" font-size="11" pointer-events="none">{ n.Label }</text>
+			if n.Sub != "" {
+				<text x={ F(n.CX) } y={ F(n.LabelY) } text-anchor="middle" fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="8.5" pointer-events="none">{ n.Sub }</text>
+			}
+			if n.Badge != "" {
+				<text x={ F(n.BadgeX) } y={ F(n.BadgeY) } text-anchor="end" fill={ BadgeColorVar(n.BadgeRole) } font-family="var(--font-mono)" font-size="9" font-weight="700" pointer-events="none">{ n.Badge }</text>
+			}
+		</g>
+	</a>
+}
+
 templ SankeySVG(s Sankey) {
 	<svg width="100%" height="100%" class="chart-svg sankey-svg" role="img" viewBox="0 0 1000 210" preserveAspectRatio="xMidYMid meet">
 		for _, link := range s.Links {
@@ -481,6 +547,40 @@ templ SparklineSVG(s Sparkline) {
 			<text class="cbar-value" x="50%" y="90%" dy="0.35em" text-anchor="middle" style="font-size:0.85rem">
 				{ s.Value }
 			</text>
+		}
+	</svg>
+}
+
+// PhaseChartSVG renders a phase diagram: a banded 2-D field with labeled points
+// plotted on top (e.g. a VPD / psychrometric chart). The field cells are painted
+// first, then axes, then the points with haloed labels so they read on any band.
+templ PhaseChartSVG(p Phase) {
+	<div class="cline-legend">
+		for _, it := range p.Legend {
+			<span class="cline-legend-item">
+				<svg class="cline-legend-swatch" viewBox="0 0 16 8" width="16" height="8">
+					<rect width="16" height="8" fill={ it.Fill } rx="1"></rect>
+				</svg>
+				{ it.Label }
+			</span>
+		}
+	</div>
+	<svg class="chart-svg chart-fill" role="img" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet">
+		for _, c := range p.Cells {
+			<rect x={ F(c.X) } y={ F(c.Y) } width={ F(c.W) } height={ F(c.H) } fill={ c.Fill }></rect>
+		}
+		for _, t := range p.YTicks {
+			<text x={ F(p.PlotL - 10) } y={ F(t.Pos) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="32" text-anchor="end" dy="0.35em">{ t.Label }</text>
+		}
+		for _, t := range p.XTicks {
+			<text x={ F(t.Pos) } y={ F(p.PlotB + 44) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="32" text-anchor="middle">{ t.Label }</text>
+		}
+		<rect x={ F(p.PlotL) } y={ F(p.PlotT) } width={ F(p.PlotR - p.PlotL) } height={ F(p.PlotB - p.PlotT) } fill="none" stroke="var(--color-line-soft)" stroke-width="1.5"></rect>
+		for _, d := range p.Dots {
+			<circle cx={ F(d.CX) } cy={ F(d.CY) } r={ F(d.R) } fill="#16181f" stroke="#ffffff" stroke-width="3" style="cursor:pointer" data-tip={ d.Tip }></circle>
+			if d.Label != "" {
+				<text x={ F(d.LabelX) } y={ F(d.LabelY) } fill="#16181f" font-family="var(--font-sans)" font-weight="600" font-size="30" text-anchor={ d.LabelAnchor } dy="0.35em" pointer-events="none" paint-order="stroke" stroke="#ffffff" stroke-width="6" stroke-linejoin="round">{ d.Label }</text>
+			}
 		}
 	</svg>
 }
