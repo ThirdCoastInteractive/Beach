@@ -51,6 +51,13 @@
   --color-accent-text: #64a1b1;  /* accent as text/link on dark */
   --color-accent-soft: #354b45;  /* tinted background wash */
 
+  /* Secondary + tertiary accents — generic category tokens for A/B/C and phase
+     coding (feed sides, redundancy legs, chart segments). The ratified Atlas
+     visual-language hues; dark-first here (this :root is the dark theme), with
+     a light override in the prefers-color-scheme block below. */
+  --color-accent-2: #7fb6ad;     /* secondary brand / category */
+  --color-accent-3: #d7b360;     /* tertiary brand / category */
+
   /* Status semantics */
   --color-good: #34d399;
   --color-warn: #fbbf24;
@@ -88,6 +95,17 @@
   --color-series-m: #73668a;
   --color-series-n: #7f5e7e;
   --color-series-o: #a04c56;
+}
+
+/* Light-scheme accent stops. The kit is dark-first, but the secondary/tertiary
+   category accents carry the ratified light-mode hues too, so feed-side / A-B
+   color coding resolves correctly when a light surface is in play. Only these
+   two tokens flip — the rest of the dark theme is intentional. */
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-accent-2: #1f6f68; /* secondary brand / category — light */
+    --color-accent-3: #b98224; /* tertiary brand / category — light */
+  }
 }
 
 /* Scrollbars (ported from manifold13.tv). A chunky 14px track + thumb with a 2px

@@ -465,6 +465,8 @@
   --color-accent-hover: #4091ac;
   --color-accent-text: #64a1b1;
   --color-accent-soft: #354b45;
+  --color-accent-2: #7fb6ad;
+  --color-accent-3: #d7b360;
   --color-good: #34d399;
   --color-warn: #fbbf24;
   --color-bad: #f87171;
@@ -492,6 +494,12 @@
   --color-series-m: #73668a;
   --color-series-n: #7f5e7e;
   --color-series-o: #a04c56;
+}
+@media (prefers-color-scheme: light) {
+  :root {
+    --color-accent-2: #1f6f68;
+    --color-accent-3: #b98224;
+  }
 }
 ::-webkit-scrollbar {
   width: 14px;
