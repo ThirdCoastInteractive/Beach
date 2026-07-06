@@ -21,6 +21,9 @@ type Guard func(http.Handler) http.Handler
 // Page registers a PageFunc at GET pattern. Tabs, filters, pagination and sort
 // reuse this URL with query params — they never get their own routes. Optional
 // guards wrap it outermost-first.
+//
+// Page("/") is the home page, an exact match — not ServeMux's catch-all (see
+// register). For a true catch-all, register a "/{path...}" wildcard or use Mux().
 func (a *App) Page(pattern string, h PageFunc, guards ...Guard) {
 	a.register(http.MethodGet, pattern, a.adaptPage(h), guards)
 }
