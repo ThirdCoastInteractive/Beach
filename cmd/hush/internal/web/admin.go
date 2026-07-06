@@ -121,6 +121,7 @@ func (a *App) adminPosts(c *beach.Ctx) (beach.View, error) {
 type memberRow struct {
 	Handle   string
 	Roles    string
+	IsAdmin  bool // carries the admin role right now — drives the grant/revoke toggle
 	Score    float64
 	Tier     int
 	Chain    float64
@@ -140,6 +141,7 @@ func (a *App) adminMembers(c *beach.Ctx) (beach.View, error) {
 	rows, err := a.pool.Query(ctx,
 		`SELECT u.username,
 		        coalesce(string_agg(DISTINCT r.slug, ' '), ''),
+		        coalesce(bool_or(r.slug = 'admin'), false),
 		        coalesce(max(e.email), ''),
 		        bool_or(e.verified_at IS NOT NULL)
 		 FROM users u
@@ -154,7 +156,7 @@ func (a *App) adminMembers(c *beach.Ctx) (beach.View, error) {
 	var members []memberRow
 	for rows.Next() {
 		var m memberRow
-		if err := rows.Scan(&m.Handle, &m.Roles, &m.Email, &m.Verified); err != nil {
+		if err := rows.Scan(&m.Handle, &m.Roles, &m.IsAdmin, &m.Email, &m.Verified); err != nil {
 			return beach.View{}, err
 		}
 		members = append(members, m)
@@ -210,7 +212,49 @@ func (a *App) adminMembers(c *beach.Ctx) (beach.View, error) {
 		members[i].LastIP = lastIPs[h]
 		members[i].Minted, members[i].Used = invites[h].minted, invites[h].used
 	}
-	return beach.View{Page: adminMembersPage(members)}, nil
+	me, _, _ := a.acct(c)
+	return beach.View{Page: adminMembersPage(members, me)}, nil
+}
+
+// doMemberRole grants or revokes the admin role on one member, then revokes
+// every session that member holds. The session row freezes its role slugs at
+// login (session.User.Roles); a bare user_roles edit leaves a live session
+// carrying the old roles — admin-shaped nav and any Role()-guarded route keep
+// working until the cookie expires. RevokeAll forces a fresh login that
+// re-reads user_roles, so a demotion bites on the member's next request, not
+// in two weeks. Self-demotion is refused: an admin can't strip their own admin
+// (it would 403 their very next click and there'd be no way back).
+func (a *App) doMemberRole(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	handle := strings.TrimSpace(r.FormValue("handle"))
+	grant := r.FormValue("action") == "grant"
+	ctx := r.Context()
+
+	me, _, _ := a.acct(&beach.Ctx{W: w, R: r})
+	if handle == "" || handle == me {
+		http.Redirect(w, r, "/admin/members", http.StatusSeeOther)
+		return
+	}
+
+	var uid int64
+	if err := a.pool.QueryRow(ctx, `SELECT id FROM users WHERE username = $1`, handle).Scan(&uid); err != nil {
+		http.Redirect(w, r, "/admin/members", http.StatusSeeOther)
+		return
+	}
+	if grant {
+		_, _ = a.pool.Exec(ctx,
+			`INSERT INTO user_roles (user_id, role_id)
+			 SELECT $1, id FROM roles WHERE slug = 'admin' ON CONFLICT DO NOTHING`, uid)
+	} else {
+		_, _ = a.pool.Exec(ctx,
+			`DELETE FROM user_roles ur USING roles r
+			 WHERE ur.role_id = r.id AND ur.user_id = $1 AND r.slug = 'admin'`, uid)
+	}
+	// The attribute changed — kill every session this member holds so the next
+	// request re-resolves their roles (or bounces them to the gate).
+	_ = a.auth.Sessions.RevokeAll(ctx, uid)
+	a.anl.Track(r, "member_role", handle, 0)
+	http.Redirect(w, r, "/admin/members", http.StatusSeeOther)
 }
 
 // doModerate applies one admin ruling to a post — hide, restore, or purge —
@@ -353,6 +397,14 @@ func authorLabel(author string) string {
 		return "anon"
 	}
 	return author
+}
+
+// flagCountLabel is a review card's flag tally: "1 flag", "3 flags".
+func flagCountLabel(n int) string {
+	if n == 1 {
+		return "1 flag"
+	}
+	return strconv.Itoa(n) + " flags"
 }
 
 // metaLine is the capture-time request context as one terse line:

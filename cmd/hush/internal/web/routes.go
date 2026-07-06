@@ -55,6 +55,9 @@ func (a *App) Routes(app *beach.App) {
 	app.Page("/admin/members", a.adminMembers, adminGuard...)
 	app.Page("/admin/outbox", a.adminOutbox, adminGuard...)
 	app.Raw(http.MethodPost, "/admin/moderate", a.doModerate, adminGuard...)
+	// Toggling a member's admin role revokes their sessions (admin.go), so a
+	// demotion takes hold on their next request rather than at cookie expiry.
+	app.Raw(http.MethodPost, "/admin/role", a.doMemberRole, adminGuard...)
 	// The live policy editor: read on every page through a.live(), edited here
 	// and effective on the next request, no restart.
 	app.Page("/admin/settings", a.adminSettings, adminGuard...)

@@ -100,7 +100,7 @@ templ (a *App) reviewCard(p store.Post, flags []flagRow) {
 		@cardMedia(p, a.media.PostImageURL(p))
 		<div class="hush-adm-meta">{ metaLine(p.Meta) }</div>
 		<div class="hush-adm-flags">
-			<span>{ strconv.Itoa(p.FlagCount) + " flags" }</span>
+			<span>{ flagCountLabel(p.FlagCount) }</span>
 			for _, f := range flags {
 				<span class="hush-adm-dim">{ f.Flagger + " (t" + strconv.Itoa(f.Tier) + ")" }</span>
 			}
@@ -221,7 +221,7 @@ templ (a *App) postRow(p store.Post, v voteCount, back string) {
 // adminMembersPage is the member ledger: every account, its roles, the real
 // numbers (score · tier · chain), post count, email (hush_member_emails often
 // has no row — that's the dash), invites minted/used, and last-seen IP.
-templ adminMembersPage(members []memberRow) {
+templ adminMembersPage(members []memberRow, me string) {
 	@adminPage("members", "members") {
 		if len(members) == 0 {
 			<p class="hush-sub hush-adm-empty">no members yet.</p>
@@ -238,6 +238,7 @@ templ adminMembersPage(members []memberRow) {
 						<th>email</th>
 						<th>invites</th>
 						<th>last ip</th>
+						<th>admin</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -262,12 +263,32 @@ templ adminMembersPage(members []memberRow) {
 							</td>
 							<td>{ strconv.Itoa(m.Minted) + " minted · " + strconv.Itoa(m.Used) + " used" }</td>
 							<td class="hush-adm-dim">{ m.LastIP }</td>
+							<td>
+								if m.Handle == me {
+									<span class="hush-adm-dim">you</span>
+								} else if m.IsAdmin {
+									@roleForm(m.Handle, "revoke")
+								} else {
+									@roleForm(m.Handle, "grant")
+								}
+							</td>
 						</tr>
 					}
 				</tbody>
 			</table>
 		}
 	}
+}
+
+// roleForm flips a member's admin role. The handler revokes the member's
+// sessions after the edit, so a revoke logs them out of admin immediately
+// rather than whenever their cookie would have expired.
+templ roleForm(handle string, action string) {
+	<form method="post" action="/admin/role">
+		<input type="hidden" name="handle" value={ handle }/>
+		<input type="hidden" name="action" value={ action }/>
+		<button class="hush-post hush-post--mini" type="submit">{ action + " admin" }</button>
+	</form>
 }
 
 // adminOutboxPage is the transactional-mail ledger: what went, what's queued,
