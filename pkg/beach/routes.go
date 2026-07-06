@@ -47,7 +47,15 @@ func (a *App) Raw(method, pattern string, h http.HandlerFunc, guards ...Guard) {
 
 // register installs handler at "METHOD pattern" on the mux, wrapping it with the
 // guards (outermost-first so the first guard listed runs first).
+//
+// The bare "/" pattern means "the home page", so it registers as the exact-match
+// "/{$}" — never ServeMux's match-everything subtree. Otherwise every stray path
+// (a browser's /favicon.ico, a scanner's /wp-login.php) would render the home
+// page and pollute whatever the handler tracks. Unknown paths 404.
 func (a *App) register(method, pattern string, handler http.HandlerFunc, guards []Guard) {
+	if pattern == "/" {
+		pattern = "/{$}"
+	}
 	var h http.Handler = handler
 	for i := len(guards) - 1; i >= 0; i-- {
 		h = guards[i](h)
