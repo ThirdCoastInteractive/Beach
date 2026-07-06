@@ -8,6 +8,7 @@ package web
 
 import (
 	"html"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -241,14 +242,21 @@ func (a *App) doMemberRole(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/admin/members", http.StatusSeeOther)
 		return
 	}
+	var err error
 	if grant {
-		_, _ = a.pool.Exec(ctx,
+		_, err = a.pool.Exec(ctx,
 			`INSERT INTO user_roles (user_id, role_id)
 			 SELECT $1, id FROM roles WHERE slug = 'admin' ON CONFLICT DO NOTHING`, uid)
 	} else {
-		_, _ = a.pool.Exec(ctx,
+		_, err = a.pool.Exec(ctx,
 			`DELETE FROM user_roles ur USING roles r
 			 WHERE ur.role_id = r.id AND ur.user_id = $1 AND r.slug = 'admin'`, uid)
+	}
+	if err != nil {
+		// The role edit didn't happen — don't kill the member's sessions over it.
+		slog.Error("hush: member role edit", "handle", handle, "grant", grant, "err", err)
+		http.Redirect(w, r, "/admin/members", http.StatusSeeOther)
+		return
 	}
 	// The attribute changed — kill every session this member holds so the next
 	// request re-resolves their roles (or bounces them to the gate).
