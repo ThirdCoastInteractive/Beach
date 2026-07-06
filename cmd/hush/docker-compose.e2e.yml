@@ -35,7 +35,7 @@ services:
       POSTGRES_USER: beach
       POSTGRES_PASSWORD: beach
       POSTGRES_DB: hush
-    ports: ["5434:5432"]
+    ports: ["127.0.0.1:5434:5432"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U beach -d hush"]
       interval: 5s
@@ -47,7 +47,7 @@ services:
     environment:
       CLICKHOUSE_DB: hush
       CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
-    ports: ["9012:9000"]
+    ports: ["127.0.0.1:9012:9000"]
     healthcheck:
       test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
       interval: 5s
@@ -58,5 +58,5 @@ services:
   mailpit:
     image: axllent/mailpit:latest
     ports:
-      - "1025:1025" # SMTP in
-      - "8025:8025" # web UI + JSON API (http://localhost:8025)
+      - "127.0.0.1:1025:1025" # SMTP in
+      - "127.0.0.1:8025:8025" # web UI + JSON API (http://localhost:8025)
