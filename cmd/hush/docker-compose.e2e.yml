@@ -1,0 +1,62 @@
+name: hush-e2e
+
+# The E2E/dev harness: ONLY the backing services, with ports published to the
+# host, so the app itself runs natively for a fast edit-run loop:
+#
+#   docker compose -f docker-compose.e2e.yml up -d
+#   # then, from the repo root (see the env block below):
+#   go run ./cmd/hush
+#
+# Differences from the production docker-compose.yml on purpose:
+#   - no hush service (you run it with `go run`)
+#   - ports published on localhost (5434 Postgres, 9012 ClickHouse, 1025/8025 Mailpit)
+#   - Mailpit stands in for the mail transport: plain SMTP on 1025, browse the
+#     mailbox at http://localhost:8025 (verification + welcome + admin mail all
+#     land there instead of leaving the machine)
+#
+# R2 and Cloudflare Images have no local stand-ins: give the app syntactically
+# valid dummy credentials (they are only exercised on photo/image upload) and
+# keep the E2E pass to text posts and photo-less applications, or point them at
+# real credentials to cover the image paths.
+#
+# Env for the natively-run app:
+#   DATABASE_URL=postgres://beach:beach@localhost:5434/hush?sslmode=disable
+#   CLICKHOUSE_DSN=clickhouse://default:@localhost:9012/hush
+#   BASE_URL=http://localhost:8087   PORT=8087
+#   SMTP_HOST=localhost SMTP_PORT=1025 MAIL_FROM_ADDR=hush@hush.test MAIL_FROM_NAME=hush
+#   HUSH_ADMIN_EMAIL=admin@hush.test
+#   R2_ENDPOINT=e2e.invalid R2_BUCKET=hush R2_ACCESS_KEY_ID=e2e R2_SECRET_ACCESS_KEY=e2e
+#   CF_IMAGES_ACCOUNT_ID=e2e CF_IMAGES_TOKEN=e2e CF_IMAGES_HASH=e2e
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: beach
+      POSTGRES_PASSWORD: beach
+      POSTGRES_DB: hush
+    ports: ["5434:5432"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U beach -d hush"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8-alpine
+    environment:
+      CLICKHOUSE_DB: hush
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ports: ["9012:9000"]
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "1025:1025" # SMTP in
+      - "8025:8025" # web UI + JSON API (http://localhost:8025)
