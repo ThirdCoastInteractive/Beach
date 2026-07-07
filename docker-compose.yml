@@ -1,8 +1,17 @@
 name: the-beach
 
-# Postgres + ClickHouse and the three example apps. The databases are reachable
-# only on the internal compose network (no `ports:` → no host publishing), so
-# nothing maps a DB port to the host. Only the apps publish ports.
+# Postgres + ClickHouse and the four example apps. Every example requires the
+# Beach stack and fails to boot without it (15-examples.md) — boardwalk keeps
+# its game in memory but snapshots to Postgres and firehoses to ClickHouse;
+# driftbottle archives transcripts and firehoses off the hot path;
+# booking-manager is the Postgres-only app. The databases are reachable only on
+# the internal compose network (no `ports:` → no host publishing), so nothing
+# maps a DB port to the host. Only the apps publish ports.
+#
+# One Postgres serves every app: the image's POSTGRES_DB creates "pantry" and
+# scripts/pg-init creates the sibling databases on first init of the pgdata
+# volume. ClickHouse is shared as one "beach" database — every app's tables are
+# name-prefixed.
 
 services:
   postgres:
@@ -13,6 +22,7 @@ services:
       POSTGRES_DB: pantry
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./scripts/pg-init:/docker-entrypoint-initdb.d:ro
     networks: [internal]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U beach -d pantry"]
@@ -44,25 +54,37 @@ services:
   boardwalk:
     build:
       context: .
-      args: { APP: boardwalk }
+      args: { APP: cmd/examples/boardwalk }
+    environment:
+      # Reached by service name on the internal network; never published to host.
+      DATABASE_URL: postgres://beach:beach@postgres:5432/boardwalk?sslmode=disable
+      CLICKHOUSE_DSN: clickhouse://beach:beach@clickhouse:9000/beach
     networks: [internal]
-    ports: ["8081:8080"] # in-memory game, no DB
+    ports: ["8081:8080"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      clickhouse: { condition: service_healthy }
     restart: unless-stopped
 
   driftbottle:
     build:
       context: .
-      args: { APP: driftbottle }
+      args: { APP: cmd/examples/driftbottle }
+    environment:
+      DATABASE_URL: postgres://beach:beach@postgres:5432/driftbottle?sslmode=disable
+      CLICKHOUSE_DSN: clickhouse://beach:beach@clickhouse:9000/beach
     networks: [internal]
-    ports: ["8082:8080"] # ephemeral chat, no DB
+    ports: ["8082:8080"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      clickhouse: { condition: service_healthy }
     restart: unless-stopped
 
   pantry:
     build:
       context: .
-      args: { APP: pantry }
+      args: { APP: cmd/examples/pantry }
     environment:
-      # Reached by service name on the internal network; never published to host.
       DATABASE_URL: postgres://beach:beach@postgres:5432/pantry?sslmode=disable
       CLICKHOUSE_DSN: clickhouse://beach:beach@clickhouse:9000/beach
     networks: [internal]
