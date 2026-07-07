@@ -1,6 +1,9 @@
 package beach
 
 import (
+	"encoding/json"
+	"html"
+
 	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
 	sdk "github.com/starfederation/datastar-go/datastar"
@@ -84,9 +87,26 @@ func (sp streamPatcher) Patch(p Patch) error {
 	// Redirect last: any fragment/signal patches in the same Patch are flushed
 	// before the client navigates away.
 	if p.Redirect != "" {
-		return sp.sse.Redirect(p.Redirect)
+		return sp.redirect(p.Redirect)
 	}
 	return nil
+}
+
+// redirect emits a CSP-safe client navigation. The SDK's Redirect helper
+// appends an inline <script> that the framework's strict script-src CSP
+// blocks, so instead we append a tiny fragment whose data-init expression
+// (evaluated by the Datastar runtime under the CSP's 'unsafe-eval') assigns
+// window.location. The URL is JSON-encoded into a JS string literal and then
+// attribute-escaped, so quotes and angle brackets in it can't break out.
+func (sp streamPatcher) redirect(url string) error {
+	expr, err := json.Marshal(url)
+	if err != nil {
+		return err
+	}
+	el := `<div id="beach-redirect" data-init="` +
+		html.EscapeString("window.location = "+string(expr)) + `"></div>`
+	return sp.sse.PatchElements(el,
+		sdk.WithSelector("body"), sdk.WithMode(sdk.ElementPatchModeAppend))
 }
 
 // patchOptions builds the SDK patch options for a target id and mode.

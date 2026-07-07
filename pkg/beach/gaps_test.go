@@ -125,7 +125,7 @@ func datastarPost(t *testing.T, h http.Handler, path string) string {
 	return rec.Body.String()
 }
 
-func TestActionPatchRedirectEmitsLocationScript(t *testing.T) {
+func TestActionPatchRedirectEmitsCSPSafeNavigation(t *testing.T) {
 	a, h := testApp(t)
 	a.Action("/login", func(c *Ctx) (Patches, error) {
 		return Patches{{Redirect: "/dashboard"}}, nil
@@ -134,8 +134,14 @@ func TestActionPatchRedirectEmitsLocationScript(t *testing.T) {
 	if !strings.Contains(body, "/dashboard") {
 		t.Fatalf("redirect patch body = %q, want the target url", body)
 	}
-	if !strings.Contains(body, "location") {
-		t.Fatalf("redirect patch body = %q, want a location script", body)
+	if !strings.Contains(body, "window.location") {
+		t.Fatalf("redirect patch body = %q, want a window.location assignment", body)
+	}
+	// The navigation must ride a data-init expression, not an inline <script>:
+	// the framework's own script-src CSP blocks inline scripts, which is what
+	// broke the SDK's Redirect helper in a real browser.
+	if strings.Contains(body, "<script") {
+		t.Fatalf("redirect patch body = %q, must not emit an inline script under the strict CSP", body)
 	}
 }
 
