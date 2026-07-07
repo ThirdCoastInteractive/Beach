@@ -34,8 +34,8 @@ test: build
 # needs the full stack configured (Cloudflare R2/Images + a mail transport) in
 # its .env or it exits at boot.
 
-.PHONY: up-pantry up-driftbottle up-boardwalk up-hush examples-up \
-        down-pantry down-driftbottle down-boardwalk down-hush examples-down
+.PHONY: up-pantry up-driftbottle up-boardwalk up-booking-manager up-hush examples-up \
+        down-pantry down-driftbottle down-boardwalk down-booking-manager down-hush examples-down
 
 up-pantry:
 	cd cmd/examples/pantry && docker compose up -d --build
@@ -46,13 +46,16 @@ up-driftbottle:
 up-boardwalk:
 	cd cmd/examples/boardwalk && docker compose up -d --build
 
+up-booking-manager:
+	cd cmd/examples/booking-manager && docker compose up -d --build
+
 up-hush:
 	cd cmd/hush && docker compose up -d --build
 
-# Bring up the three public example stacks (each needs a distinct PORT in its
+# Bring up the public example stacks (each needs a distinct PORT in its
 # .env to avoid a host-port clash). hush is excluded — it needs real Cloudflare
 # + mail config in its .env to boot, so start it with `make up-hush`.
-examples-up: up-pantry up-driftbottle up-boardwalk
+examples-up: up-pantry up-driftbottle up-boardwalk up-booking-manager
 
 down-pantry:
 	cd cmd/examples/pantry && docker compose down
@@ -63,7 +66,10 @@ down-driftbottle:
 down-boardwalk:
 	cd cmd/examples/boardwalk && docker compose down
 
+down-booking-manager:
+	cd cmd/examples/booking-manager && docker compose down
+
 down-hush:
 	cd cmd/hush && docker compose down
 
-examples-down: down-pantry down-driftbottle down-boardwalk down-hush
+examples-down: down-pantry down-driftbottle down-boardwalk down-booking-manager down-hush

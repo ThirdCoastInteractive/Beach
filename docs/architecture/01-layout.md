@@ -49,7 +49,7 @@ the-beach/                module github.com/ThirdCoastInteractive/the-beach
 │   ├── i18n/             flat key catalog, locale files, T(ctx, key), middleware
 │   ├── passwords/        argon2id hashing, PHC strings — zero deps
 │   ├── auth/             principal model (RBAC), login helpers, pretoken, lockout
-│   ├── mailer/ storage/ rybitten/    transactional mail · R2/Images · RYB palettes
+│   ├── mailer/ sms/ storage/ rybitten/   transactional mail · SMS (Twilio) · R2/Images · RYB palettes
 │   ├── ecs/              standalone engine: schema codegen, archetype Store,
 │   │                     change ticks, snapshots — zero deps, zero beach imports
 │   └── sim/              tick-loop integration over ecs: commands, systems,

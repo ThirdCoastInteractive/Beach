@@ -2,7 +2,7 @@
 
 [← docs index](../README.md) · prev: [Analytics](14-analytics.md) · next: [Component catalog](16-components.md)
 
-Three example apps under `cmd/examples/`, each shaped exactly like a consuming
+Four example apps under `cmd/examples/`, each shaped exactly like a consuming
 app (`beach new` output + features), each chosen to stress a different slice of
 the framework. Together they are the falsifiable claim that the framework works —
 every package is exercised by at least one of them.
@@ -22,6 +22,7 @@ it in view.)
 | boardwalk | `sim`/`ecs` realtime | `ecs.Store` in a sim loop | Postgres snapshot + ClickHouse firehose |
 | driftbottle | `hub`/SSE fan-out | in-process maps (hot path) | Postgres transcript archive + ClickHouse firehose |
 | pantry | `apigen`/`auth`/analytics | Postgres | Postgres + ClickHouse |
+| booking-manager | `mailer`/`sms` add-ons, Postgres-only stack | Postgres | Postgres |
 
 Every app requires the **Beach stack** — Postgres and/or ClickHouse — and **fails
 to start** if its configured stack is missing. There is no degraded in-memory
@@ -433,6 +434,94 @@ widget toolbar, `driftwood` (incl. media components), deferred sections, and
 
 ---
 
+## `cmd/examples/booking-manager` — seasonal rental operator
+
+The **add-on showcase** (`mailer` + the new `sms`) and the proof of the
+**Postgres-only stack**: a self-hostable manager for a handful of seasonal
+rentals — cottages, cabins, getaways — for operators who don't want a monthly
+SaaS fee and can run one binary plus one database themselves. No ClickHouse,
+deliberately: the "and/or" in the stack rule is real, and this is the app that
+proves the smaller half.
+
+### Boot & wiring (`main.go`)
+
+```go
+conf := loadConfig()                       // config.MustLoad: DATABASE_URL required, mail/SMS optional
+pool := pg.Pool(ctx, conf.DSN); migrate(…) // session + auth + booking schema, three goose sources
+st, _ := store.New(ctx, pool)              // idempotent seed: 3 properties, staff, bookings
+sessions := session.NewStore(…); authn := auth.NewAuthenticator(…); seedAdmin(…)
+
+mlr    := mailer.New(mailer.Config{…})     // Mailgun > SMTP > LogMailer
+txts   := sms.New(sms.Config{…})           // Twilio > LogSender
+guests := notify.New(mlr, txts, logger)    // best-effort guest messaging
+lock   := &locks.LogProvider{}             // the smart-lock boundary, log impl
+
+a := web.New(st, authn, sessions, pool, guests, lock, release)
+```
+
+Both guest-messaging transports and the lock are **interfaces picked by
+config**: a fresh checkout "delivers" email, texts, and door-code programming
+to the terminal; production sets `MAILGUN_*`/`SMTP_*` and `TWILIO_*` and
+nothing in the app changes. `pkg/sms` is deliberately the same shape as
+`pkg/mailer` — one `Sender` interface, a `Config`, `New` picking the strongest
+transport, a log fallback — because `mailer` *is* the add-on convention.
+
+| Surface | Routes | Guard |
+| --- | --- | --- |
+| Public landing + intake | GET `/`, POST `/inquire` | — (guests use these) |
+| Dashboard / inquiries / bookings / properties / inventory pages | GET | `Can("bookings:read")` |
+| Property + key-code writes | POST | `Can("properties:write")` |
+| Pipeline + booking writes | POST | `Can("bookings:write")` |
+| Hiring / staff / shifts | GET + POST | `Can("staffing:read")` / `staffing:write` |
+| Supply writes + counts | POST | `Can("inventory:write")` |
+| Login/logout | Raw POST/GET | plain form → 303 |
+
+Two roles: `owner` (everything) and `staff` (see bookings and the schedule,
+punch the clock, keep counts honest). Seeded login `admin` / `password`.
+
+### The confirmation flow (the app's spine)
+
+A guest submits the public inquiry form → the inquiry works a pipeline
+(new → quoted → won/lost) → "Book it" converts it into a pending booking after
+an overlap check (`check_in < other.check_out AND check_out > other.check_in`,
+cancelled stays ignored) → **Confirm** re-checks the overlap, mints a random
+per-stay door code, programs it through `locks.Provider.SetCode`, stores it on
+the booking, and fans the confirmation out — email via `mailer`, text via
+`sms` — with the code included. Cancelling clears the code off the lock.
+Refused writes (date collisions) patch a reason into the page's note slot;
+lifecycle changes are real navigations (a `Redirect` patch), not in-page state.
+
+### Around the stays
+
+- **Bookings calendar** — a month grid built server-side (`buildCalendar`,
+  unit-tested), stays chipped onto their nights colored by status; month and
+  property filter ride the query string as plain links.
+- **Staffing** — applicants work applied → interview → offer → hired (hire
+  creates the staff row); shifts schedule against properties; the time clock
+  is one toggle (`ClockToggle` closes the open entry or opens one) and the
+  week's hours are summed in SQL.
+- **Inventory** — per-property supplies with par levels; at-or-under par is
+  "low" and feeds the dashboard's restock list; −1/+1 adjusters patch the
+  list in place (the one control staff hammer during a turnover).
+- **Smart locks** — `internal/locks` is the integration boundary: a
+  three-method `Provider` (SetCode/ClearCode/Status). No hardware
+  implementation exists yet; the `LogProvider` narrates what a real one would
+  do, and the property page renders the lock's `Status` as online/battery.
+
+### Deliberately not there
+
+No payments, no channel-sync (Airbnb/VRBO iCal), no guest accounts, no
+mail/SMS outbox (sends are best-effort and logged; hush owns the outbox
+pattern), no ClickHouse analytics. One operator, a handful of properties —
+that scale is the point.
+
+**Validates:** `mailer` + `sms` (the add-on convention, exercised from an
+example for the first time), the Postgres-only stack, `auth`/RBAC with two
+real roles, public + guarded routes in one app, query-param filters, the
+note-slot refusal pattern, and Redirect patches as real navigation.
+
+---
+
 ## `cmd/hush` — graduated to a product
 
 hush began as the custom-layout + client-JS example and has since grown into a
@@ -449,18 +538,19 @@ SSR core, so it stays in the coverage matrix below.
 (`hush` is the `cmd/hush` product, not an example — shown here for package
 coverage only.)
 
-| Package                       | boardwalk |  driftbottle  | pantry |  hush  |
-| ----------------------------- | :-------: | :-----------: | :----: | :----: |
-| beach (root) / datastar / ui  |     ●     |       ●       |   ●    |   ●    |
-| hub                           |     ●     |    **●●**     |   ○    |   ●    |
-| ecs / sim                     |  **●●**   |       ○       |   —    |   —    |
-| auth / passwords              |     —     | ● (anonymous) | **●●** | **●●** |
-| apigen                        |     —     |       —       | **●●** |   ○    |
-| ch / chart                    |     ●     |       ●       | **●●** |   ●    |
-| i18n                          |     —     |       —       | **●●** |   ○    |
-| storage                       |     —     |       —       |   —    | **●●** |
-| Repute                        |     —     |       —       |   —    | **●●** |
-| cache / session / pg / config |     ●     |       ●       |   ●    |   ●    |
+| Package                       | boardwalk |  driftbottle  | pantry | booking-manager |  hush  |
+| ----------------------------- | :-------: | :-----------: | :----: | :-------------: | :----: |
+| beach (root) / datastar / ui  |     ●     |       ●       |   ●    |        ●        |   ●    |
+| hub                           |     ●     |    **●●**     |   ○    |        —        |   ●    |
+| ecs / sim                     |  **●●**   |       ○       |   —    |        —        |   —    |
+| auth / passwords              |     —     | ● (anonymous) | **●●** |        ●        | **●●** |
+| apigen                        |     —     |       —       | **●●** |        —        |   ○    |
+| ch / chart                    |     ●     |       ●       | **●●** |        —        |   ●    |
+| i18n                          |     —     |       —       | **●●** |        —        |   ○    |
+| mailer / sms                  |     —     |       —       |   —    |     **●●**      | ● (mailer) |
+| storage                       |     —     |       —       |   —    |        —        | **●●** |
+| Repute                        |     —     |       —       |   —    |        —        | **●●** |
+| cache / session / pg / config |     ●     |       ●       |   ●    |        ●        |   ●    |
 
 ●● = the showcase, ● = exercised, ○ = incidental, — = unused (deliberately: not
 every app needs every package, and the examples should prove that too).

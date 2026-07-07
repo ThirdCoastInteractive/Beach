@@ -72,6 +72,19 @@ services:
       clickhouse: { condition: service_healthy }
     restart: unless-stopped
 
+  booking-manager:
+    build:
+      context: .
+      args: { APP: cmd/examples/booking-manager }
+    environment:
+      # Postgres only — no ClickHouse. Mail/SMS/lock fall back to log transports.
+      DATABASE_URL: postgres://beach:beach@postgres:5432/booking?sslmode=disable
+    networks: [internal]
+    ports: ["8084:8080"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+
 networks:
   internal:
     driver: bridge
