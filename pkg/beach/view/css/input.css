@@ -954,6 +954,7 @@
 .icon-arrow-right::before    { content: "→"; }
 .icon-arrow-up::before       { content: "↑"; }
 .icon-box::before            { content: "📦\FE0E"; }
+.icon-calendar::before       { content: "📅\FE0E"; }
 .icon-chart::before          { content: "📊\FE0E"; }
 .icon-check::before          { content: "✓"; }
 .icon-check-circle::before   { content: "✔\FE0E"; }
@@ -963,7 +964,9 @@
 .icon-home::before           { content: "⌂"; }
 .icon-inbox::before          { content: "📥\FE0E"; }
 .icon-info-circle::before    { content: "ℹ\FE0E"; }
+.icon-key::before            { content: "🔑\FE0E"; }
 .icon-list::before           { content: "☰"; }
+.icon-mail::before           { content: "✉\FE0E"; }
 .icon-pencil::before         { content: "✎"; }
 .icon-pin::before            { content: "📌\FE0E"; }
 .icon-play::before           { content: "▶\FE0E"; }
@@ -976,6 +979,7 @@
 .icon-thumb-down::before     { content: "👎\FE0E"; }
 .icon-thumb-up::before       { content: "👍\FE0E"; }
 .icon-trash::before          { content: "🗑\FE0E"; }
+.icon-user::before           { content: "👤\FE0E"; }
 .icon-x::before              { content: "✕"; }
 
 /* ==========================================================================

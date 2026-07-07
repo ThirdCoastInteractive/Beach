@@ -243,8 +243,14 @@
   .end-2 {
     inset-inline-end: calc(var(--spacing) * 2);
   }
+  .top-0 {
+    top: calc(var(--spacing) * 0);
+  }
   .top-0\.5 {
     top: calc(var(--spacing) * 0.5);
+  }
+  .top-10 {
+    top: calc(var(--spacing) * 10);
   }
   .isolate {
     isolation: isolate;
@@ -266,6 +272,9 @@
     @media (width >= 96rem) {
       max-width: 96rem;
     }
+  }
+  .m-6 {
+    margin: calc(var(--spacing) * 6);
   }
   .\!inline {
     display: inline !important;
@@ -341,6 +350,9 @@
   .flex-shrink {
     flex-shrink: 1;
   }
+  .shrink {
+    flex-shrink: 1;
+  }
   .flex-grow {
     flex-grow: 1;
   }
@@ -414,6 +426,10 @@
     outline-style: var(--tw-outline-style);
     outline-width: 1px;
   }
+  .blur {
+    --tw-blur: blur(8px);
+    filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
+  }
   .drop-shadow {
     --tw-drop-shadow-size: drop-shadow(0 1px 2px var(--tw-drop-shadow-color, rgb(0 0 0 / 0.1))) drop-shadow(0 1px 1px var(--tw-drop-shadow-color, rgb(0 0 0 / 0.06)));
     --tw-drop-shadow: drop-shadow(0 1px 2px rgb(0 0 0 / 0.1)) drop-shadow( 0 1px 1px rgb(0 0 0 / 0.06));
@@ -425,6 +441,10 @@
   }
   .invert {
     --tw-invert: invert(100%);
+    filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
+  }
+  .sepia {
+    --tw-sepia: sepia(100%);
     filter: var(--tw-blur,) var(--tw-brightness,) var(--tw-contrast,) var(--tw-grayscale,) var(--tw-hue-rotate,) var(--tw-invert,) var(--tw-saturate,) var(--tw-sepia,) var(--tw-drop-shadow,);
   }
   .filter {
@@ -1239,6 +1259,9 @@
 .icon-box::before {
   content: "📦\FE0E";
 }
+.icon-calendar::before {
+  content: "📅\FE0E";
+}
 .icon-chart::before {
   content: "📊\FE0E";
 }
@@ -1266,8 +1289,14 @@
 .icon-info-circle::before {
   content: "ℹ\FE0E";
 }
+.icon-key::before {
+  content: "🔑\FE0E";
+}
 .icon-list::before {
   content: "☰";
+}
+.icon-mail::before {
+  content: "✉\FE0E";
 }
 .icon-pencil::before {
   content: "✎";
@@ -1304,6 +1333,9 @@
 }
 .icon-trash::before {
   content: "🗑\FE0E";
+}
+.icon-user::before {
+  content: "👤\FE0E";
 }
 .icon-x::before {
   content: "✕";

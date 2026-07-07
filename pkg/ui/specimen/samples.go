@@ -96,9 +96,10 @@ const sampleImageSrc = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/
 // ui.Icon records each render for the font subsetter, so showing the set here
 // also guarantees the specimen build ships every glyph.
 var iconNames = []string{
-	"alert-octagon", "box", "chart", "check", "chevron-down", "chevron-up-down",
-	"gear", "home", "inbox", "list", "pencil", "pin", "play", "plus", "refresh",
-	"search", "send", "skip-forward", "spinner", "trash", "x",
+	"alert-octagon", "box", "calendar", "chart", "check", "chevron-down",
+	"chevron-up-down", "gear", "home", "inbox", "key", "list", "mail", "pencil",
+	"pin", "play", "plus", "refresh", "search", "send", "skip-forward",
+	"spinner", "trash", "user", "x",
 }
 
 // --- gamut preview -------------------------------------------------------------
