@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" font-family="Georgia, 'Times New Roman', serif">
+  <defs>
+    <radialGradient id="bg" cx="34%" cy="34%" r="92%">
+      <stop offset="0%" stop-color="#1d44a0"/>
+      <stop offset="46%" stop-color="#163a86"/>
+      <stop offset="100%" stop-color="#0d2a63"/>
+    </radialGradient>
+    <filter id="stippleDots" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.5" numOctaves="1" seed="8" stitchTiles="stitch" result="t"/>
+      <feColorMatrix in="t" type="matrix"
+        values="0 0 0 0 0.93  0 0 0 0 0.96  0 0 0 0 0.99  0 0 0 9 -3.9"/>
+    </filter>
+    <pattern id="stip" x="0" y="0" width="120" height="120" patternUnits="userSpaceOnUse">
+      <rect width="120" height="120" filter="url(#stippleDots)"/>
+    </pattern>
+    <linearGradient id="lotusShade" x1="500" y1="232" x2="500" y2="772" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#eef5f9" stop-opacity="0.8"/>
+      <stop offset="48%" stop-color="#bcdcef" stop-opacity="0.26"/>
+      <stop offset="100%" stop-color="#5e93c4" stop-opacity="0.4"/>
+    </linearGradient>
+    <radialGradient id="sun" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#f0d479"/><stop offset="62%" stop-color="#d8b24c"/><stop offset="100%" stop-color="#bd9636"/>
+    </radialGradient>
+    <path id="petal" d="M500 500 C452 426 456 318 500 240 C544 318 548 426 500 500 Z"/>
+    <g id="lotus">
+      <use href="#petal" transform="rotate(0 500 500)"/><use href="#petal" transform="rotate(30 500 500)"/>
+      <use href="#petal" transform="rotate(60 500 500)"/><use href="#petal" transform="rotate(90 500 500)"/>
+      <use href="#petal" transform="rotate(120 500 500)"/><use href="#petal" transform="rotate(150 500 500)"/>
+      <use href="#petal" transform="rotate(180 500 500)"/><use href="#petal" transform="rotate(210 500 500)"/>
+      <use href="#petal" transform="rotate(240 500 500)"/><use href="#petal" transform="rotate(270 500 500)"/>
+      <use href="#petal" transform="rotate(300 500 500)"/><use href="#petal" transform="rotate(330 500 500)"/>
+      <use href="#petal" transform="rotate(15 500 500) translate(500 500) scale(0.74) translate(-500 -500)"/>
+      <use href="#petal" transform="rotate(45 500 500) translate(500 500) scale(0.74) translate(-500 -500)"/>
+      <use href="#petal" transform="rotate(75 500 500) translate(500 500) scale(0.74) translate(-500 -500)"/>
+      <use href="#petal" transform="rotate(105 500 500) translate(500 500) scale(0.74) translate(-500 -500)"/>
+      <use href="#petal" transform="rotate(135 500 500) translate(500 500) scale(0.74) translate(-500 -500)"/>
+      <use href="#petal" transform="rotate(165 500 500) translate(500 500) scale(0.74) translate(-500 -500)"/>
+      <use href="#petal" transform="rotate(195 500 500) translate(500 500) scale(0.74) translate(-500 -500)"/>
+      <use href="#petal" transform="rotate(225 500 500) translate(500 500) scale(0.74) translate(-500 -500)"/>
+      <use href="#petal" transform="rotate(255 500 500) translate(500 500) scale(0.74) translate(-500 -500)"/>
+      <use href="#petal" transform="rotate(285 500 500) translate(500 500) scale(0.74) translate(-500 -500)"/>
+      <use href="#petal" transform="rotate(315 500 500) translate(500 500) scale(0.74) translate(-500 -500)"/>
+      <use href="#petal" transform="rotate(345 500 500) translate(500 500) scale(0.74) translate(-500 -500)"/>
+      <use href="#petal" transform="rotate(0 500 500) translate(500 500) scale(0.46) translate(-500 -500)"/>
+      <use href="#petal" transform="rotate(45 500 500) translate(500 500) scale(0.46) translate(-500 -500)"/>
+      <use href="#petal" transform="rotate(90 500 500) translate(500 500) scale(0.46) translate(-500 -500)"/>
+      <use href="#petal" transform="rotate(135 500 500) translate(500 500) scale(0.46) translate(-500 -500)"/>
+      <use href="#petal" transform="rotate(180 500 500) translate(500 500) scale(0.46) translate(-500 -500)"/>
+      <use href="#petal" transform="rotate(225 500 500) translate(500 500) scale(0.46) translate(-500 -500)"/>
+      <use href="#petal" transform="rotate(270 500 500) translate(500 500) scale(0.46) translate(-500 -500)"/>
+      <use href="#petal" transform="rotate(315 500 500) translate(500 500) scale(0.46) translate(-500 -500)"/>
+    </g>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- ruled frame + corner ticks -->
+  <g stroke="#dceaf6" stroke-opacity="0.45" fill="none">
+    <rect x="24" y="24" width="1152" height="582" stroke-width="1.4"/>
+    <g stroke="#dceaf6" stroke-opacity="0.8" stroke-width="2.4">
+      <path d="M24 48 V24 H48"/><path d="M1176 48 V24 H1152"/>
+      <path d="M24 582 V606 H48"/><path d="M1176 582 V606 H1152"/>
+    </g>
+  </g>
+
+  <!-- emblem -->
+  <svg x="70" y="72" width="486" height="486" viewBox="0 0 1000 1000">
+    <g fill="none" stroke="#dceaf6" stroke-opacity="0.26" stroke-width="1.5">
+      <rect x="178" y="160" width="644" height="644"/>
+      <rect x="178" y="160" width="644" height="644" transform="rotate(45 500 482)"/>
+    </g>
+    <g fill="none" stroke="#dceaf6" stroke-opacity="0.42" stroke-width="1.6">
+      <path d="M500 140 L820 740 L180 740 Z"/>
+      <line x1="128" y1="740" x2="872" y2="740"/><line x1="128" y1="768" x2="872" y2="768"/>
+    </g>
+    <circle cx="500" cy="196" r="60" fill="url(#sun)"/>
+    <use href="#lotus" fill="url(#lotusShade)"/>
+    <use href="#lotus" fill="url(#stip)"/>
+    <use href="#lotus" fill="none" stroke="#eef5f9" stroke-width="1.7"/>
+    <circle cx="500" cy="500" r="42" fill="#a9d2ec" fill-opacity="0.16"/>
+    <circle cx="500" cy="500" r="42" fill="none" stroke="#eef5f9" stroke-width="1.7"/>
+  </svg>
+
+  <!-- text block -->
+  <text x="600" y="262" fill="#eef5f9" font-size="58" font-weight="600" letter-spacing="6" style="text-transform:uppercase">LOTOPHAGES</text>
+  <text x="603" y="312" fill="#a9d2ec" font-family="Archivo, system-ui, sans-serif" font-size="19" font-weight="600" letter-spacing="6" style="text-transform:uppercase">The Order of the Lotus-Eaters</text>
+  <text x="602" y="362" fill="#eef5f9" font-size="27" letter-spacing="6" opacity="0.82">ἥλιος · λωτός · λόγος</text>
+  <text x="601" y="436" fill="#eef5f9" font-size="31" font-style="italic" opacity="0.9">They ate the lotus, and did not return.</text>
+</svg>

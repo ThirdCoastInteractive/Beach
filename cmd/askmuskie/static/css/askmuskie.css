@@ -1,0 +1,404 @@
+/* askmuskie.com — brand skin layered over the framework's app.css.
+   Lake palette: deep water, reed green, warm parchment for the wisdom. The
+   stage has reserved dimensions so the three.js canvas never shifts layout. */
+
+:root {
+  --am-water-top: #2e6b78;
+  --am-water-bottom: #0e2a33;
+  --am-reed: #4a6b3f;
+  --am-parchment: #f4efe2;
+  --am-ink: #1c2b22;
+  --am-gold: #c8a24a;
+}
+
+.am-body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(125% 90% at 50% -10%, #5c1626 0%, #340b14 60%, #230810 100%) fixed;
+  color: var(--am-parchment);
+  font-family: ui-serif, Georgia, "Times New Roman", serif;
+}
+
+/* Top bar: brand + auth/leaderboard nav. */
+.am-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.6rem clamp(1rem, 3vw, 2rem);
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.am-brand {
+  font-family: ui-serif, Georgia, serif;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--am-parchment);
+  text-decoration: none;
+  letter-spacing: 0.01em;
+}
+
+.am-topnav {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+.am-toplink {
+  color: var(--am-parchment);
+  text-decoration: none;
+  font-size: 0.92rem;
+  opacity: 0.85;
+}
+
+.am-toplink:hover { opacity: 1; }
+
+.am-topbtn {
+  appearance: none;
+  background: rgba(244, 239, 226, 0.1);
+  border: 1px solid rgba(244, 239, 226, 0.3);
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+}
+
+.am-topuser {
+  font-weight: 600;
+  color: var(--am-gold);
+}
+
+.am-autherr {
+  margin: 0 0 0.5rem;
+  color: #f0a6a6;
+  font-size: 0.9rem;
+}
+
+.am-back {
+  margin-top: 1rem;
+}
+
+.am-back a {
+  color: var(--am-gold);
+  text-decoration: none;
+}
+
+/* Customize modal: shape + color + skin swatch grids. */
+.am-customize { display: flex; flex-direction: column; gap: 1rem; }
+.am-cust-row { display: flex; flex-direction: column; gap: 0.4rem; }
+.am-cust-label { font-size: 0.85rem; letter-spacing: 0.04em; opacity: 0.8; }
+.am-swatches { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.am-swatch {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  padding: 0;
+}
+.am-swatch.is-active { border-color: var(--am-gold); box-shadow: 0 0 0 2px var(--am-gold); }
+.am-swatch-shape {
+  width: auto;
+  min-width: 3.4rem;
+  height: 2rem;
+  border-radius: 8px;
+  background: rgba(244, 239, 226, 0.1);
+  color: var(--am-parchment);
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+}
+
+/* Chat. */
+.am-chat {
+  width: 100%;
+  max-width: 640px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: left;
+}
+
+.am-chat-log {
+  height: 9rem;
+  overflow-y: auto;
+  background: rgba(8, 18, 18, 0.4);
+  border-radius: 12px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.am-chat-line { margin: 0.1rem 0; }
+.am-chat-who { color: var(--am-gold); font-weight: 600; }
+
+.am-chat-form { display: flex; gap: 0.5rem; }
+.am-chat-input {
+  flex: 1;
+  background: rgba(244, 239, 226, 0.95);
+  border: none;
+  border-radius: 999px;
+  padding: 0.6rem 1rem;
+  font: inherit;
+  color: var(--am-ink);
+}
+.am-chat-hint { margin: 0; opacity: 0.6; font-size: 0.85rem; }
+
+.am-stage-wrap {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0.5rem clamp(0.75rem, 3vw, 2rem) 2.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+}
+
+.am-head { margin-bottom: 0.25rem; }
+
+.am-title {
+  font-size: clamp(2rem, 6vw, 3.25rem);
+  letter-spacing: 0.01em;
+  margin: 0;
+  color: var(--am-parchment);
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+}
+
+.am-tagline {
+  margin: 0.35rem 0 0;
+  font-style: italic;
+  opacity: 0.8;
+  font-size: 1.05rem;
+}
+
+/* The stage: fixed aspect, full width up to the wrap. Reserving the box here
+   means the canvas mounting later causes zero layout shift. */
+.am-stage {
+  position: relative;
+  width: 100%;
+  height: clamp(360px, 68svh, 860px);
+  border-radius: 18px;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, var(--am-water-top) 0%, var(--am-water-bottom) 100%);
+  box-shadow:
+    inset 0 0 90px rgba(0, 0, 0, 0.5),
+    0 14px 40px rgba(0, 0, 0, 0.4);
+}
+
+.am-stage canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.am-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  font-style: italic;
+  letter-spacing: 0.04em;
+  color: rgba(244, 239, 226, 0.85);
+  pointer-events: none;
+}
+
+/* The wisdom card. */
+.am-quote {
+  margin: 0;
+  background: var(--am-parchment);
+  color: var(--am-ink);
+  border-radius: 14px;
+  padding: 1.4rem 1.6rem;
+  width: 100%;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  border-top: 4px solid var(--am-gold);
+}
+
+.am-quote blockquote {
+  margin: 0;
+  font-size: clamp(1.15rem, 3vw, 1.5rem);
+  line-height: 1.45;
+}
+
+.am-quote figcaption {
+  margin-top: 0.75rem;
+  font-style: italic;
+  opacity: 0.7;
+  font-size: 0.95rem;
+}
+
+/* The placeholder shown before the Muskie has surfaced with his first quote. */
+.am-quote-empty {
+  opacity: 0.5;
+  font-style: italic;
+}
+
+/* The ask button. */
+.am-ask {
+  appearance: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #11201a;
+  background: linear-gradient(180deg, #e2c272 0%, var(--am-gold) 100%);
+  padding: 0.85rem 1.9rem;
+  border-radius: 999px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+  transition: transform 0.08s ease, filter 0.15s ease;
+}
+
+.am-ask:hover { filter: brightness(1.06); }
+.am-ask:active { transform: translateY(1px) scale(0.99); }
+.am-ask:disabled { cursor: default; filter: saturate(0.6) brightness(0.9); }
+
+.am-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.6;
+}
+
+/* HUD overlaid on the pond. */
+.am-hud {
+  position: absolute;
+  top: 0.75rem;
+  left: 0.75rem;
+  right: 0.75rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  pointer-events: none;
+}
+
+.am-hud-left,
+.am-hud-right {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.am-hud-right {
+  justify-content: flex-end;
+}
+
+.am-hud-count {
+  color: #cfe6ff;
+}
+
+.am-hud-mood {
+  font-style: italic;
+  color: #d8e8ff;
+}
+
+.am-hud-pill {
+  background: rgba(8, 18, 18, 0.55);
+  color: var(--am-parchment);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(2px);
+}
+
+.am-hud-queue {
+  color: #ffe6a6;
+}
+
+/* Neopet-style stat meters. */
+.am-stats {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+  flex-wrap: wrap;
+}
+
+.am-stat {
+  flex: 1 1 0;
+  min-width: 150px;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.am-stat-label {
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  opacity: 0.85;
+  min-width: 4.2rem;
+  text-align: right;
+}
+
+.am-stat-track {
+  flex: 1;
+  height: 0.7rem;
+  border-radius: 999px;
+  background: rgba(244, 239, 226, 0.12);
+  overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.am-stat-fill {
+  display: block;
+  height: 100%;
+  width: 0%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.is-hunger .am-stat-fill { background: linear-gradient(90deg, #e0a24a, #d8632e); }
+.is-energy .am-stat-fill { background: linear-gradient(90deg, #57b6d8, #3f7fd8); }
+.is-happy .am-stat-fill { background: linear-gradient(90deg, #8ed86a, #4fae54); }
+
+/* Optional message to the Muskie (logged-in), reacted to by the oracle. */
+.am-msg {
+  width: 100%;
+  max-width: 520px;
+  background: rgba(244, 239, 226, 0.95);
+  border: none;
+  border-radius: 999px;
+  padding: 0.65rem 1.1rem;
+  font: inherit;
+  color: var(--am-ink);
+}
+
+.am-msg::placeholder { color: rgba(28, 43, 34, 0.55); }
+
+/* Ask / skip controls. */
+.am-controls {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.am-skip {
+  appearance: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--am-parchment);
+  background: rgba(244, 239, 226, 0.08);
+  border: 1px solid rgba(244, 239, 226, 0.35);
+  padding: 0.7rem 1.3rem;
+  border-radius: 999px;
+  transition: filter 0.15s ease, opacity 0.15s ease;
+}
+
+.am-skip:hover:not(:disabled) {
+  background: rgba(244, 239, 226, 0.16);
+}
+
+.am-skip:disabled,
+.am-ask:disabled {
+  cursor: default;
+  opacity: 0.45;
+}

@@ -132,11 +132,12 @@ the solid `ui --> rybitten` edge is the specimen's gamut preview — see
 | [12 — Auth](architecture/12-auth.md)                    | argon2id passwords, login flow, principal/RBAC, guards                                   |
 | [13 — API codegen](architecture/13-apigen.md)           | `beach-apigen`: six SQL annotations → routes, handlers, NOTIFY (hypermedia-only)         |
 | [14 — Analytics](architecture/14-analytics.md)          | `chart` (one package: geometry + templ render, 22 types, fragments, the client interaction layer) + `ch` (ClickHouse client, batcher, migrations, query→chart adapters) |
-| [15 — Example apps](architecture/15-examples.md)        | boardwalk (sim + live bar race), driftbottle (hub), pantry (apigen+analytics), hush (custom layout/storage) |
+| [15 — Example apps](architecture/15-examples.md)        | boardwalk (sim + live bar race), driftbottle (hub), pantry (apigen+analytics), booking-manager (mailer+sms, Postgres-only), hush (custom layout/storage) |
 | [16 — Component catalog](architecture/16-components.md) | The concrete driftwood component inventory, and the `ui/specimen` page every example mounts |
 | [17 — Gaps](architecture/17-gaps.md)                    | Framework rough edges the example apps surfaced, with proposed fixes                     |
 | [18 — hush](architecture/18-hush.md)                    | Gated anon board: custom gapless grid, WebGPU camera island, `storage` + Repute scoring  |
 | [19 — rybitten](architecture/19-rybitten.md)            | RYB color model port, 36 gamut presets, `SeriesVars` → the `--color-series-*` tokens, the specimen gamut preview |
+| [20 — sync boundary](architecture/20-sync.md)          | Why no sync engine; the sync unit is HTML, not data; read-path liveness via the hub; the topic-scope rule; the offline exit condition |
 
 ## Reading paths
 
@@ -146,3 +147,4 @@ the solid `ui --> rybitten` edge is the specimen's gamut preview — see
 - **Auditing auth & codegen?** Architecture 12 → 13 → 10.
 - **Building project 1?** Architecture 1 → 2, RFC 4 for scope.
 - **Changing the color palette?** Architecture 19 → 14 (chart theming) → 6 (UI tokens).
+- **Auditing the sync/realtime story?** Architecture 4 (hub) → 8 (sim) → 20 (the sync boundary).

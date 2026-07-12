@@ -113,6 +113,22 @@ templ Grid(p GridProps) {
 	</div>
 }
 
+// DashGrid is the responsive dashboard grid — see DashGridProps. Fill it with
+// DashCol cells; they stack into rows on mobile and lay out as columns on wider
+// screens.
+templ DashGrid(p DashGridProps) {
+	<div class="dash-grid" { p.Attrs.Templ()... }>
+		{ children... }
+	</div>
+}
+
+// DashCol is one spanning cell of a DashGrid — see DashColProps.
+templ DashCol(p DashColProps) {
+	<div class={ dashColClass(p.Span, p.Rows) } { p.Attrs.Templ()... }>
+		{ children... }
+	</div>
+}
+
 // Split is a two-pane master-detail layout: a list pane and a detail pane.
 templ Split(p SplitProps) {
 	<div class="dw-split" { p.Attrs.Templ()... }>

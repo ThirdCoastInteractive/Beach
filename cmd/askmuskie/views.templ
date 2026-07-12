@@ -1,0 +1,165 @@
+// views.templ is askmuskie's markup. The document carries the visitor's session
+// id (data-sid) plus, when logged in, their account (data-username) and whether
+// accounts are enabled (data-auth) so the three.js island and the top bar can
+// adapt. Live state arrives over SSE and is rendered by static/js/muskie.js.
+// Auth is the reusable driftwood.AuthModal; the handlers live in auth.go.
+package main
+
+import (
+	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
+)
+
+// document is the complete HTML document for GET /. sid is the visitor id;
+// jsURL/cssURL are content-hashed asset URLs; authEnabled reports whether a DB
+// is wired (login available); username is the logged-in account ("" if anon).
+templ document(sid, jsURL, cssURL string, authEnabled bool, username, authErr, authTab string, lbWisdom, lbFed, lbChats chart.BarChart) {
+	<!DOCTYPE html>
+	<html lang="en" class="dw-root">
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>Ask the Muskie</title>
+			<meta name="description" content="Visit the Muskie in his tank and ask him for a little fishy wisdom."/>
+			<link rel="stylesheet" href="/static/css/app.css"/>
+			<link rel="stylesheet" href={ cssURL }/>
+			<script type="module" src="/static/js/datastar.js" defer></script>
+		</head>
+		<body class="dw-body am-body" data-sid={ sid } data-username={ username } data-auth={ authBool(authEnabled) }>
+			<header class="am-topbar">
+				<a class="am-brand" href="/">Ask the Muskie</a>
+				<nav class="am-topnav">
+					if authEnabled {
+						<button class="am-toplink am-topbtn" type="button" data-on:click="document.getElementById('leaderboard-modal').showModal()">Leaderboard</button>
+						if username != "" {
+							<span class="am-topuser">{ username }</span>
+							<form method="post" action="/auth/logout" class="am-logoutform">
+								<button class="am-toplink am-topbtn" type="submit">Log out</button>
+							</form>
+						} else {
+							<button class="am-toplink am-topbtn" type="button" data-on:click="document.getElementById('auth-modal').showModal()">Log in</button>
+						}
+					}
+				</nav>
+			</header>
+			<main class="am-stage-wrap">
+				<div id="muskie-stage" class="am-stage">
+					<canvas id="muskie-canvas" aria-label="The Muskie's tank"></canvas>
+					<p id="muskie-loading" class="am-loading">Filling the tank…</p>
+					<div class="am-hud">
+						<div class="am-hud-left">
+							<span class="am-hud-pill" id="am-food">food: …</span>
+							<span class="am-hud-pill am-hud-mood" id="am-mood">…</span>
+						</div>
+						<div class="am-hud-right">
+							<span class="am-hud-pill am-hud-count" id="am-count">…</span>
+							<span class="am-hud-pill am-hud-queue" id="am-queue" hidden></span>
+						</div>
+					</div>
+				</div>
+				<div class="am-stats">
+					@statBar("Hunger", "stat-hunger", "is-hunger")
+					@statBar("Energy", "stat-energy", "is-energy")
+					@statBar("Happy", "stat-happy", "is-happy")
+				</div>
+				<figure class="am-quote" id="muskie-quote">
+					<blockquote id="muskie-quote-text" class="am-quote-empty">Ask, and the Muskie will surface.</blockquote>
+					<figcaption id="muskie-quote-attr" hidden></figcaption>
+				</figure>
+				if authEnabled && username != "" {
+					<input id="muskie-msg" class="am-msg" type="text" autocomplete="off" maxlength="200" placeholder="Say something to the Muskie (optional)…"/>
+				}
+				<div class="am-controls">
+					<button id="muskie-ask" class="am-ask" type="button">Ask the Muskie</button>
+					<button id="muskie-skip" class="am-skip" type="button">Skip the line (1 food)</button>
+					if authEnabled && username != "" {
+						<button id="muskie-customize" class="am-skip" type="button">Customize</button>
+					}
+				</div>
+				<p class="am-hint">Click the floor to walk (or WASD). Tap the water to feed him. Sound on for his voice.</p>
+				if authEnabled {
+					<section class="am-chat">
+						<div id="chat-log" class="am-chat-log" aria-live="polite"></div>
+						if username != "" {
+							<form id="chat-form" class="am-chat-form">
+								<input id="chat-input" class="am-chat-input" type="text" autocomplete="off" maxlength="280" placeholder="Say something to the pond…"/>
+								<button class="am-ask" type="submit">Send</button>
+							</form>
+						} else {
+							<p class="am-chat-hint">Log in to chat.</p>
+						}
+					</section>
+				}
+			</main>
+			if authEnabled {
+				@driftwood.AuthModal(driftwood.AuthModalProps{
+					ID:           "auth-modal",
+					Title:        "Welcome to the pond",
+					LoginPost:    "/auth/login",
+					RegisterPost: "/auth/register",
+					TOSHref:      "/tos",
+					OpenOnLoad:   authErr != "",
+					Error:        authErr,
+					Tab:          authTab,
+				})
+			}
+			if authEnabled && username != "" {
+				@driftwood.Modal(driftwood.ModalProps{ID: "customize-modal", Title: "Your look"}) {
+					<div id="customize-body" class="am-customize"></div>
+				}
+			}
+			if authEnabled {
+				@driftwood.Modal(driftwood.ModalProps{ID: "leaderboard-modal", Title: "Leaderboard — who the Muskie favors"}) {
+					@driftwood.Card(driftwood.CardProps{Heading: "Most wisdom received"}) {
+						@chart.ChartBarFragment("lb-wisdom", lbWisdom)
+					}
+					@driftwood.Card(driftwood.CardProps{Heading: "Most generous (food fed)"}) {
+						@chart.ChartBarFragment("lb-fed", lbFed)
+					}
+					@driftwood.Card(driftwood.CardProps{Heading: "Most talkative"}) {
+						@chart.ChartBarFragment("lb-chats", lbChats)
+					}
+				}
+			}
+			<script type="module" src={ jsURL }></script>
+		</body>
+	</html>
+}
+
+// statBar is one labeled Neopet-style stat meter; the island sets its fill width.
+templ statBar(label, id, cls string) {
+	<div class={ "am-stat", cls }>
+		<span class="am-stat-label">{ label }</span>
+		<span class="am-stat-track"><span class="am-stat-fill" id={ id + "-fill" }></span></span>
+	</div>
+}
+
+// tosPage is the terms of service — the short version. Linked from the register
+// form; acceptance is recorded at registration.
+templ tosPage() {
+	@driftwood.Page(driftwood.PageProps{Title: "Terms — Ask the Muskie", Description: "The terms for askmuskie.com."}) {
+		@driftwood.Container(driftwood.ContainerProps{MaxWidth: "13"}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: "Terms of Service", Subtitle: "The short, plain version."})
+			@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel}) {
+				<p>askmuskie.com is a silly toy: a fish in a tank who says profound things. By using it you agree to the following.</p>
+				<ul>
+					<li><strong>You must be 18 or older.</strong></li>
+					<li><strong>Be as blunt, sarcastic, or mean as you like</strong> — this is not a polite place. But:</li>
+					<li><strong>Nothing illegal.</strong> No threats of violence, harassment campaigns, doxxing, sexual content involving minors, or anything else against the law. We remove it and ban you, and may report it.</li>
+					<li>Everything here is <strong>ephemeral and unserious</strong>. There is no privacy, no guarantees, and the whole pond can be wiped at any time.</li>
+					<li>We can remove content or accounts for any reason. The Muskie's wisdom is not advice.</li>
+				</ul>
+				<p>That's it. Don't be the reason we need more rules.</p>
+			}
+			<p class="am-back"><a href="/">← Back to the pond</a></p>
+		}
+	}
+}
+
+// authBool renders the data-auth attribute value.
+func authBool(b bool) string {
+	if b {
+		return "1"
+	}
+	return ""
+}

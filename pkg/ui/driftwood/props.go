@@ -137,6 +137,24 @@ type SplitProps struct {
 	Attrs  datastar.Attrs
 }
 
+// DashGridProps is the responsive 12-column dashboard grid: a single column on a
+// phone, six columns at the md breakpoint and twelve at lg (denser again past an
+// ultrawide 1920px). Children are DashCol cells that declare their span, so a
+// layout reads as stacked rows on mobile and side-by-side columns on a desktop.
+type DashGridProps struct {
+	Attrs datastar.Attrs
+}
+
+// DashColProps is one cell of a DashGrid. Span is the column span at the widest
+// breakpoint (one of 3, 4, 6, 8, 12 of 12); the grid collapses it toward a
+// full-width row as the viewport narrows. Rows optionally spans 1–4 grid rows for
+// a taller cell.
+type DashColProps struct {
+	Span  int // 3, 4, 6, 8, or 12 (defaults to 12)
+	Rows  int // optional row span 1–4 (0 = single row)
+	Attrs datastar.Attrs
+}
+
 // --- Nav ---
 
 // NavItem is one link in a navbar/sidebar/breadcrumb trail.
@@ -529,6 +547,72 @@ type ModalProps struct {
 	Title string
 	Get   string // optional @get that lazy-loads a heavy body under budget
 	Attrs datastar.Attrs
+}
+
+// AuthModalProps configures a reusable login/register modal: a Modal (native
+// <dialog>) holding two tabbed Forms. Each form posts its bound signals
+// (username/password, + email/agree on register) to the given endpoints; the
+// handler sets the session cookie and redirects on success, or patches an error
+// fragment into the ErrorTarget slot on failure. Open it from a trigger with
+// datastar.OnClick("document.getElementById('<ID>').showModal()").
+// The forms submit as plain POSTs (native navigation), so the handler sets the
+// session cookie and 303-redirects on success — no inline script, CSP-clean. On
+// failure the handler redirects back with an error and the app re-renders this
+// modal with OpenOnLoad + Error set so it reopens showing the message.
+type AuthModalProps struct {
+	ID           string // dialog id (default "auth-modal")
+	Title        string // header text (default "Welcome")
+	LoginPost    string // form action for login (e.g. "/auth/login")
+	RegisterPost string // form action for register (e.g. "/auth/register")
+	ErrorTarget  string // id of the error slot (default <ID>-error)
+	ShowEmail    bool   // include an optional email field on the register form
+	TOSHref      string // when set, register shows an "I accept the terms" checkbox + link
+	OpenOnLoad   bool   // reopen the dialog on page load (after a failed attempt)
+	Error        string // a message to show in the error slot
+	Tab          string // initial tab: "login" (default) or "register"
+	Attrs        datastar.Attrs
+}
+
+// authErrorID returns the error-slot id for an AuthModal (ErrorTarget or a
+// derived default).
+func authErrorID(p AuthModalProps) string {
+	if p.ErrorTarget != "" {
+		return p.ErrorTarget
+	}
+	return defaultID(p.ID, "auth-modal") + "-error"
+}
+
+// authTitle returns the AuthModal header (Title or a default).
+func authTitle(p AuthModalProps) string {
+	if p.Title != "" {
+		return p.Title
+	}
+	return "Welcome"
+}
+
+// The following hold the Datastar expressions for the AuthModal tab signal. They
+// live in Go (not inline in the .templ) because templ's attribute-expression
+// parser is not string-aware and mis-balances the braces.
+
+// authTab returns the initial tab ("login" default; "register" if requested).
+func authTab(p AuthModalProps) string {
+	if p.Tab == "register" {
+		return "register"
+	}
+	return "login"
+}
+
+// authSignalsTab is the data-signals init for the tab signal.
+func authSignalsTab(tab string) string { return "{authtab: '" + tab + "'}" }
+
+// authOpenScript is the data-init expression that reopens the dialog on load.
+func authOpenScript(id string) string {
+	return "document.getElementById('" + id + "').showModal()"
+}
+
+// authTabClass is the data-class expression that accents the active tab button.
+func authTabClass(tab string) string {
+	return "{'dw-btn-accent': $authtab === '" + tab + "'}"
 }
 
 type TooltipProps struct {

@@ -354,6 +354,11 @@ templ overlaysSection() {
 				Label: "Open left drawer",
 				Attrs: datastar.Attrs{datastar.OnClick("document.getElementById('spec-drawer-left').showModal()")},
 			})
+			@driftwood.Button(driftwood.ButtonProps{
+				Label: "Log in / register",
+				Role:  driftwood.RoleAccent,
+				Attrs: datastar.Attrs{datastar.OnClick("document.getElementById('spec-auth').showModal()")},
+			})
 			@driftwood.Popover(driftwood.PopoverProps{ID: "spec-popover", Label: "Conditions", Icon: "chart"}) {
 				<p>4.5 ft @ 11s NW — offshore till noon.</p>
 			}
@@ -361,6 +366,14 @@ templ overlaysSection() {
 				@driftwood.Badge(driftwood.BadgeProps{Label: "Live", Role: driftwood.RoleGood, Dot: true})
 			}
 		</div>
+		@driftwood.AuthModal(driftwood.AuthModalProps{
+			ID:           "spec-auth",
+			Title:        "Welcome to the beach",
+			LoginPost:    "/specimen/login",
+			RegisterPost: "/specimen/register",
+			ShowEmail:    true,
+			TOSHref:      "/specimen",
+		})
 		@driftwood.Modal(driftwood.ModalProps{ID: "spec-modal", Title: "Confirm return"}) {
 			<p>Close out locker B-17 and release the deposit?</p>
 			@driftwood.Button(driftwood.ButtonProps{Label: "Release deposit", Role: driftwood.RoleAccent})

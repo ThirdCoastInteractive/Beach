@@ -37,6 +37,67 @@ templ Modal(p ModalProps) {
 	</dialog>
 }
 
+// AuthModal is a reusable login/register dialog: a Modal holding two tabbed
+// Forms. The tab is a Datastar signal (no script beyond Datastar); each Form
+// posts its bound signals to the configured endpoint, and the handler sets the
+// session cookie + redirects on success or patches an error into the error slot
+// on failure. Open it from a trigger with
+// datastar.OnClick("document.getElementById('<ID>').showModal()").
+templ AuthModal(p AuthModalProps) {
+	{{ id := defaultID(p.ID, "auth-modal") }}
+	{{ errID := authErrorID(p) }}
+	@Modal(ModalProps{ID: id, Title: authTitle(p), Attrs: p.Attrs}) {
+		<div
+			class="dw-authmodal"
+			data-signals={ authSignalsTab(authTab(p)) }
+			if p.OpenOnLoad {
+				data-init={ authOpenScript(id) }
+			}
+		>
+			<div class="dw-authmodal-tabs">
+				<button type="button" class="dw-btn" data-on:click={ "$authtab = 'login'" } data-class={ authTabClass("login") }>Log in</button>
+				<button type="button" class="dw-btn" data-on:click={ "$authtab = 'register'" } data-class={ authTabClass("register") }>Register</button>
+			</div>
+			<div id={ errID } class="dw-authmodal-error" role="alert">
+				if p.Error != "" {
+					<p class="dw-authmodal-msg">{ p.Error }</p>
+				}
+			</div>
+			<div data-show={ "$authtab === 'login'" }>
+				<form class="dw-form" method="post" action={ p.LoginPost }>
+					@Field(FieldProps{Label: "Username", For: id + "-lu"}) {
+						@Input(TextInputProps{ID: id + "-lu", Name: "username", Autocomplete: "username"})
+					}
+					@Field(FieldProps{Label: "Password", For: id + "-lp"}) {
+						@Input(TextInputProps{ID: id + "-lp", Name: "password", Type: "password", Autocomplete: "current-password"})
+					}
+					@Button(ButtonProps{Label: "Log in", Role: RoleAccent, Type: "submit"})
+				</form>
+			</div>
+			<div data-show={ "$authtab === 'register'" }>
+				<form class="dw-form" method="post" action={ p.RegisterPost }>
+					@Field(FieldProps{Label: "Username", For: id + "-ru"}) {
+						@Input(TextInputProps{ID: id + "-ru", Name: "username", Autocomplete: "username"})
+					}
+					if p.ShowEmail {
+						@Field(FieldProps{Label: "Email (optional)", For: id + "-re"}) {
+							@Input(TextInputProps{ID: id + "-re", Name: "email", Type: "email", Autocomplete: "email"})
+						}
+					}
+					@Field(FieldProps{Label: "Password", For: id + "-rp"}) {
+						@Input(TextInputProps{ID: id + "-rp", Name: "password", Type: "password", Autocomplete: "new-password"})
+					}
+					if p.TOSHref != "" {
+						@Checkbox(CheckboxProps{Name: "agree", Label: "I am 18+ and accept the terms"})
+						<p class="dw-authmodal-tos"><a href={ p.TOSHref } target="_blank" rel="noopener">Read the terms</a></p>
+					}
+					@Button(ButtonProps{Label: "Create account", Role: RoleAccent, Type: "submit"})
+				</form>
+			</div>
+		</div>
+	}
+}
+
 // Drawer is a slide-over panel built on the native <dialog> (same open/close
 // mechanism as Modal: showModal + method="dialog" close, no script). Side picks
 // the edge; the kit CSS slides it in. Get lazy-loads a heavy body under budget.

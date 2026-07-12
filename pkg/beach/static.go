@@ -28,11 +28,14 @@ func embeddedStatic() fs.FS {
 	return sub
 }
 
-// staticHandler serves a static FS with boot-time SHA256 ETags and immutable
-// Cache-Control. Every file's ETag is computed once at construction; serving is
-// then a map lookup plus a conditional-request check. Asset URLs carry a
-// ?v=<version> query so each deploy busts caches without a manifest: a released
-// binary uses a stable commit-based version, a dev build a boot timestamp.
+// staticHandler serves a static FS with boot-time SHA256 ETags. Every file's
+// ETag is computed once at construction; serving is then a map lookup plus a
+// conditional-request check. Asset URLs carry a ?v=<version> query so each
+// deploy busts caches without a manifest: a released binary uses a stable
+// commit-based version, a dev build a boot timestamp. Versioned requests are
+// served immutable for a year; bare requests (e.g. browser-issued ES module
+// sub-imports, which don't carry ?v=) revalidate via ETag so a deploy's changed
+// bytes are picked up rather than pinned by a stale immutable cache.
 type staticHandler struct {
 	fsys    fs.FS
 	etags   map[string]string // clean path -> quoted ETag
@@ -145,9 +148,19 @@ func (s *staticHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("ETag", etag)
-	// Immutable: the ?v= query changes when content changes, so a given URL's
-	// bytes never change and the client may cache for a year.
-	w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	// Cache policy hinges on the ?v= cache-buster. A request that carries a
+	// version is content-addressed — its bytes never change for that URL — so it
+	// may be cached for a year as immutable. A bare request must revalidate
+	// instead: that is how the browser fetches ES module sub-imports (a module
+	// doing import "/static/js/foo.js" does not inherit the importing module's
+	// ?v=), and marking those immutable would pin a stale copy across a deploy.
+	// Revalidation is cheap here — the boot-time ETag yields a 304 until the file
+	// actually changes, at which point the next deploy's bytes are served.
+	if r.URL.Query().Get("v") != "" {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+	} else {
+		w.Header().Set("Cache-Control", "no-cache")
+	}
 
 	if match := r.Header.Get("If-None-Match"); match != "" && etagMatch(match, etag) {
 		w.WriteHeader(http.StatusNotModified)

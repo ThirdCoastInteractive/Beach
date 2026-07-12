@@ -1,0 +1,218 @@
+:root{
+  /* true cyanotype — Prussian / cobalt blue, white-printed */
+  --blue-bright: #1d44a0;
+  --blue:        #163a86;
+  --blue-deep:   #0f2a63;
+  --blue-ink:    #0a1f4d;
+
+  --paper:       #eef5f9;   /* cyanotype highlight white */
+  --cyan:        #a9d2ec;
+  --cyan-mid:    #6f9fcb;
+  --gold:        #d8b24c;
+
+  --line:        rgba(225,238,248,.72);
+  --line-soft:   rgba(225,238,248,.42);
+  --line-faint:  rgba(225,238,248,.16);
+  --ink-dim:     rgba(223,236,247,.6);
+
+  --display: "Cinzel", "Times New Roman", serif;
+  --sans:    "Archivo", system-ui, sans-serif;
+}
+
+*{ box-sizing:border-box; }
+html,body{ height:100%; }
+
+body{
+  margin:0;
+  min-height:100svh;
+  color:var(--paper);
+  font-family:var(--sans);
+  background:
+    radial-gradient(120% 96% at 50% 30%, var(--blue-bright) 0%, var(--blue) 38%, var(--blue-deep) 72%, var(--blue-ink) 100%),
+    var(--blue);
+  background-attachment:fixed;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+/* hand-coated brush vignette at the edges */
+body::after{
+  content:"";
+  position:fixed; inset:0; z-index:1; pointer-events:none;
+  background:radial-gradient(128% 108% at 50% 36%, transparent 58%, rgba(8,20,52,.6) 100%);
+}
+
+/* ---- coated paper grain + cloudy wash ---- */
+.grain{ position:fixed; inset:0; z-index:0; width:100%; height:100%; pointer-events:none; }
+.cloud-rect{ opacity:.4; mix-blend-mode:soft-light; }
+.paper-rect{ opacity:.5; mix-blend-mode:overlay; }
+
+/* ---- ruled frame, straight edges + corners ---- */
+.frame{
+  position:fixed; inset:20px; z-index:3; pointer-events:none;
+  border:1px solid var(--line-soft);
+  box-shadow:inset 0 0 0 6px transparent, inset 0 0 0 7px var(--line-faint);
+}
+.frame .c{ position:absolute; width:26px; height:26px; }
+.frame .c::before, .frame .c::after{ content:""; position:absolute; background:var(--line); }
+.frame .c::before{ width:100%; height:2px; }
+.frame .c::after{ width:2px; height:100%; }
+.frame .tl{ top:-1px; left:-1px; }
+.frame .tr{ top:-1px; right:-1px; } .frame .tr::before{ right:0; } .frame .tr::after{ right:0; }
+.frame .bl{ bottom:-1px; left:-1px; } .frame .bl::before{ bottom:0; } .frame .bl::after{ bottom:0; }
+.frame .br{ bottom:-1px; right:-1px; } .frame .br::before{ right:0; bottom:0; } .frame .br::after{ right:0; bottom:0; }
+
+/* ---- the plate ---- */
+.plate{
+  position:relative; z-index:2;
+  min-height:100svh;
+  max-width:760px; margin:0 auto;
+  display:flex; flex-direction:column; align-items:center;
+  text-align:center;
+  padding:clamp(30px,4.5vh,56px) 30px clamp(26px,4vh,50px);
+}
+
+/* registers (top / bottom rows of marks) */
+.reg{
+  width:100%;
+  display:flex; justify-content:space-between; align-items:center; gap:16px;
+}
+.reg.top{ margin-bottom:auto; }
+.reg.bot{ margin-top:auto; padding-top:18px; }
+.reg .mark{
+  font-family:var(--sans); font-weight:600;
+  font-size:11px; letter-spacing:.22em; text-transform:uppercase;
+  color:var(--ink-dim);
+}
+
+/* ---- emblem ---- */
+.emblem{
+  margin:clamp(8px,1.6vh,18px) 0 0;
+  width:clamp(196px, 38vmin, 340px);
+  aspect-ratio:1;
+}
+.emblem svg{ display:block; width:100%; height:100%; overflow:visible; }
+
+.geo line, .geo path{ fill:none; stroke:var(--line-soft); stroke-width:1.6; }
+.geo-faint rect{ fill:none; stroke:rgba(225,238,248,.26); stroke-width:1.4; }
+
+.sun{ filter:drop-shadow(0 0 14px rgba(216,178,76,.4)); }
+.stars{ opacity:.7; }
+
+.lotus-shade{ fill:url(#lotusShade); }
+.lotus-stip{ fill:url(#stip); }
+.lotus-line{ fill:none; stroke:var(--paper); stroke-width:1.7; stroke-linejoin:round; }
+
+.boss-disk{ fill:rgba(169,210,236,.16); }
+.boss-ring{ fill:none; stroke:var(--paper); stroke-width:1.7; }
+.boss .seeds circle{ fill:var(--paper); }
+
+/* ---- type ---- */
+.wordmark{
+  margin:clamp(10px,2.2vh,22px) 0 0;
+  font-family:var(--display); font-weight:600;
+  text-transform:uppercase;
+  font-size:clamp(1.9rem, 6vw, 4rem);
+  line-height:1;
+  letter-spacing:.16em; text-indent:.16em;
+  color:var(--paper);
+  text-shadow:0 0 22px rgba(120,170,230,.25);
+}
+.order{
+  margin:.9em 0 0;
+  font-family:var(--sans); font-weight:600;
+  font-size:clamp(.66rem,1.6vw,.82rem);
+  letter-spacing:.34em; text-indent:.34em; text-transform:uppercase;
+  color:var(--cyan);
+}
+.triad{
+  margin:.95em 0 0;
+  font-family:var(--display); font-weight:400;
+  font-size:clamp(.84rem,2vw,1.05rem);
+  letter-spacing:.28em; text-indent:.28em;
+  color:var(--paper); opacity:.8;
+}
+
+.rule{
+  width:min(280px,72%); height:0; margin:1.25em 0 0;
+  border:0; border-top:1px solid var(--line-faint);
+  position:relative;
+}
+.rule::before{
+  content:""; position:absolute; left:50%; top:-3px; width:6px; height:6px;
+  transform:translateX(-50%) rotate(45deg);
+  background:var(--blue); border:1px solid var(--line-soft);
+}
+
+.aphorism{
+  margin:1.15em 0 0;
+  max-width:30ch;
+  font-family:var(--display); font-style:italic; font-weight:400;
+  font-size:clamp(1.02rem, 2.5vw, 1.36rem);
+  line-height:1.4;
+  color:var(--paper); opacity:.92;
+  transition:opacity 1s ease;
+}
+.aphorism.fade{ opacity:0; }
+
+/* ---- petition ---- */
+.petition{ margin-top:1.4em; width:min(420px, 100%); }
+.petition-label{
+  display:block;
+  font-family:var(--sans); font-weight:600;
+  font-size:10.5px; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--ink-dim); margin-bottom:14px;
+}
+.petition-row{
+  display:flex; align-items:stretch; gap:0;
+  border:1px solid var(--line-faint);
+  transition:border-color .4s ease;
+}
+.petition-row:focus-within{ border-color:var(--cyan); }
+.petition input{
+  flex:1 1 auto; min-width:0;
+  background:transparent; border:0; outline:0;
+  color:var(--paper);
+  font-family:var(--display); font-style:italic; font-size:1.04rem;
+  padding:13px 14px;
+}
+.petition input::placeholder{ color:var(--ink-dim); font-style:italic; }
+.petition button{
+  flex:0 0 auto;
+  background:var(--line-faint); border:0; cursor:pointer;
+  color:var(--paper);
+  font-family:var(--sans); font-weight:600;
+  font-size:11px; letter-spacing:.18em; text-transform:uppercase;
+  padding:0 20px;
+  transition:background .35s ease, color .35s ease;
+}
+.petition button:hover{ background:var(--gold); color:var(--blue-ink); }
+.petition-note{
+  margin:14px 0 0; min-height:1.1em;
+  font-family:var(--sans); font-weight:600;
+  font-size:10.5px; letter-spacing:.2em; text-transform:uppercase;
+  color:var(--gold); opacity:0; transition:opacity .7s ease;
+}
+.petition-note.show{ opacity:.95; }
+.petition.done .petition-row{ opacity:.3; pointer-events:none; }
+
+/* ---- the print develops on load ---- */
+@keyframes develop{ from{ opacity:0; filter:brightness(.4) blur(2px); } to{ opacity:1; filter:none; } }
+.develop{ animation:develop 1.7s ease-out both; }
+
+/* ---- a few stars breathe ---- */
+@keyframes twinkle{ 0%,100%{ opacity:.6; } 50%{ opacity:.85; } }
+.stars{ animation:twinkle 5.5s ease-in-out infinite; }
+
+/* ---- narrow screens ---- */
+@media (max-width:560px){
+  .reg .mark{ font-size:9.5px; letter-spacing:.14em; }
+  .frame{ inset:12px; }
+}
+
+/* ---- respect stillness ---- */
+@media (prefers-reduced-motion:reduce){
+  .develop, .stars-rect{ animation:none; }
+  .aphorism{ transition:opacity .3s ease; }
+}

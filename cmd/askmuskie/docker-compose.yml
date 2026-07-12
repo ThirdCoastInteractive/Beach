@@ -1,0 +1,45 @@
+# Optional services for askmuskie. The app runs fine with NEITHER (anonymous
+# pond, flat-file wisdom). Bring up what you want:
+#
+#   docker compose up -d db       # accounts, chat, stats, leaderboard
+#   docker compose up -d ollama   # LLM-voiced Muskie (the "oracle")
+#   docker exec askmuskie-ollama-1 ollama pull qwen3:4b   # one-time model pull
+#
+#   DATABASE_URL=postgres://askmuskie:askmuskie@localhost:5439/askmuskie \
+#   MUSKIE_LLM_URL=http://localhost:11434 MUSKIE_LLM_MODEL=qwen3:4b \
+#   go run ./cmd/askmuskie
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: askmuskie
+      POSTGRES_PASSWORD: askmuskie
+      POSTGRES_DB: askmuskie
+    ports:
+      - "5439:5432" # host 5439 to avoid clashing with a local Postgres on 5432
+    volumes:
+      - askmuskie_pg:/var/lib/postgresql/data
+
+  # CPU-only LLM sidecar. Use a STOCK small instruct model (not abliterated) — its
+  # native refusals are a backstop for the untrusted visitor messages. On a busy,
+  # multi-socket box, keep it a good neighbour: pin to one NUMA node and cap RAM
+  # (uncomment cpuset/mem_limit and tune to your host) so it never starves other
+  # services. num-parallel 1 matches the Muskie speaking to one visitor at a time.
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    environment:
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_KEEP_ALIVE: "-1" # keep the model resident (dedicated sidecar) — avoids
+      # slow cold reloads that the app's request timeout would otherwise abort.
+      # OLLAMA_NUM_THREADS: "16"   # cap worker threads (≈ one socket)
+    volumes:
+      - askmuskie_ollama:/root/.ollama
+    restart: unless-stopped
+    # cpuset: "0-21"   # pin to NUMA node 0 (avoid cross-socket memory traffic)
+    # mem_limit: 8g
+
+volumes:
+  askmuskie_pg:
+  askmuskie_ollama:

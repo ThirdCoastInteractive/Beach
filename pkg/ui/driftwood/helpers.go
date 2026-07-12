@@ -164,6 +164,21 @@ func containerStyle(maxWidth string) templ.SafeCSS {
 	return templ.SafeCSS("max-width:var(--size-" + maxWidth + ")")
 }
 
+// dashColClass builds a DashCol's span classes: a column span clamped to the
+// sheet's supported set (3/4/6/8/12, default 12) plus an optional row span (1–4).
+func dashColClass(span, rows int) string {
+	switch span {
+	case 3, 4, 6, 8, 12:
+	default:
+		span = 12
+	}
+	c := "dash-col-" + strconv.Itoa(span)
+	if rows >= 1 && rows <= 4 {
+		c += " dash-row-" + strconv.Itoa(rows)
+	}
+	return c
+}
+
 // skeletonStyle reserves the placeholder's exact box up front so late content
 // fills reserved space and never shifts pixels (the no-pop-in law).
 func skeletonStyle(p SkeletonProps) templ.SafeCSS {

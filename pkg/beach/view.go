@@ -38,6 +38,18 @@ type View struct {
 	ViewTransition bool
 }
 
+// Swap builds the View for a page that participates in SPA-style navigation (the
+// client half is in pkg/datastar: Navigate / PopstateNav / ActiveWhen). On a full
+// page load the framework renders page (the whole document, shell included); on a
+// Datastar nav it streams fragment into the target region's inner HTML under a
+// browser view transition, so the persistent shell stays put and only the main
+// content slides. target is the region element's id (without '#').
+//
+//	return beach.Swap("main", FullPage(v), pageBody(v)), nil
+func Swap(target string, page, fragment templ.Component) View {
+	return View{Page: page, Fragment: fragment, Target: target, Mode: PatchInner, ViewTransition: true}
+}
+
 // PatchMode selects how a fragment is merged into the DOM. It mirrors the
 // Datastar element-patch modes; the zero value is the default outer morph.
 type PatchMode string

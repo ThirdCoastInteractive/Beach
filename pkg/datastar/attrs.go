@@ -98,6 +98,27 @@ func Init(expr string) Attr {
 	return Attr{Name: "data-init", Val: expr}
 }
 
+// OnInterval builds a data-on-interval attribute that re-runs expr on a fixed
+// client-side timer (Datastar's on-interval plugin). The cadence comes from a
+// static "duration" modifier — e.g. data-on-interval__duration.5s — read once at
+// element mount and NOT reactive to a signal; to change the cadence, re-render
+// the element with a different dur. The client parses "ms", "s", and bare-number
+// (ms) units ONLY, so pass "60s"/"300s", never "1m"/"5m" (which would parse to
+// ~1ms — a runaway poll). Append ".leading" to dur (e.g. "5s.leading") to fire
+// once immediately on mount instead of waiting a full interval.
+//
+//	OnInterval("5s", "@get('/x')")         -> data-on-interval__duration.5s="@get('/x')"
+//	OnInterval("5s.leading", "@get('/x')") -> data-on-interval__duration.5s.leading="@get('/x')"
+//
+// dur "" omits the modifier, leaving the plugin's 1s default.
+func OnInterval(dur, expr string) Attr {
+	name := "data-on-interval"
+	if dur != "" {
+		name += "__duration." + dur
+	}
+	return Attr{Name: name, Val: expr}
+}
+
 // OnClick is the common case of On("click", expr).
 func OnClick(expr string) Attr { return On("click", expr) }
 
@@ -156,6 +177,17 @@ func Text(expr string) Attr {
 //	Class(map[string]string{"active": "$open"}) -> data-class="{\"active\":\"$open\"}"
 func Class(v any) Attr {
 	return Attr{Name: "data-class", Val: jsonValue(v)}
+}
+
+// ClassToggle builds a data-class-<name> attribute that toggles a single CSS
+// class on when expr is truthy. Prefer this over Class for a class driven by a
+// signal expression: the object form data-class="{name: expr}" needs the
+// expression UNQUOTED, which JSON marshalling (what Class does) cannot produce —
+// a quoted "expr" is read as a constant truthy string, so the class sticks on.
+//
+//	ClassToggle("open", "$menu") -> data-class:open="$menu"
+func ClassToggle(name, expr string) Attr {
+	return Attr{Name: "data-class:" + name, Val: expr}
 }
 
 // Attr builds a data-attr:<name> attribute that binds a DOM attribute to an

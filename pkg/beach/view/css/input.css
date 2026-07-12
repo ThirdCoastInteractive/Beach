@@ -606,13 +606,17 @@
 
 /* Line / area chart. Outer-layer text is rem (fixed size); the line
    stroke is held constant through the stretchy inner SVG via
-   vector-effect. */
+   vector-effect. The legend caps at ~3 rows and scrolls beyond that, so
+   many-series charts keep their plot height instead of shrinking. */
 .cline-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.9rem;
+  gap: 0.35rem 0.9rem;
   padding: 0.1rem 0.25rem 0.4rem;
   flex-shrink: 0;
+  max-height: 4.5rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .cline-legend-item {
@@ -1220,7 +1224,10 @@
   .dw-progress.is-indeterminate .dw-progress-bar { @apply w-2/5 animate-pulse; }
 
   /* --- overlays --------------------------------------------------------- */
-  .dw-modal { @apply z-50 w-[calc(100%-3rem)] max-w-lg rounded-xl border border-(--color-line-soft) bg-(--color-panel) p-0 text-(--color-fg-default) shadow-2xl; }
+  /* fixed inset-0 m-auto re-centers the native modal: Preflight's `margin:0` on *
+     wipes the UA `dialog:modal { margin:auto }` that would otherwise center it.
+     No `display` here, so a closed dialog stays hidden by the UA rule. */
+  .dw-modal { @apply fixed inset-0 z-50 m-auto max-h-[85svh] w-[calc(100%-3rem)] max-w-lg overflow-auto rounded-xl border border-(--color-line-soft) bg-(--color-panel) p-0 text-(--color-fg-default) shadow-2xl; }
   .dw-modal::backdrop { @apply bg-black/60; }
   .dw-modal-head { @apply flex items-center justify-between border-b border-(--color-line-soft) px-4 py-3; }
   .dw-modal-title { @apply m-0 text-base font-semibold; }

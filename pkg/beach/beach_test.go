@@ -52,8 +52,11 @@ func TestHealthzProbeFails(t *testing.T) {
 
 func TestStaticServesWithETag(t *testing.T) {
 	_, h := testApp(t)
+
+	// A versioned request (how the server references assets) is content-addressed
+	// and may be cached immutably for a year.
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/static/css/app.css", nil))
+	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/static/css/app.css?v=abc", nil))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("static status = %d, want 200", rec.Code)
 	}
@@ -62,13 +65,24 @@ func TestStaticServesWithETag(t *testing.T) {
 		t.Fatal("missing ETag on static asset")
 	}
 	if cc := rec.Header().Get("Cache-Control"); !strings.Contains(cc, "immutable") {
-		t.Fatalf("Cache-Control = %q, want immutable", cc)
+		t.Fatalf("versioned Cache-Control = %q, want immutable", cc)
 	}
 	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/css") {
 		t.Fatalf("Content-Type = %q, want text/css", ct)
 	}
 
-	// Conditional request returns 304.
+	// A bare request (how the browser fetches ES module sub-imports) must
+	// revalidate, not be pinned immutable, so a deploy is picked up.
+	recBare := httptest.NewRecorder()
+	h.ServeHTTP(recBare, httptest.NewRequest(http.MethodGet, "/static/css/app.css", nil))
+	if cc := recBare.Header().Get("Cache-Control"); strings.Contains(cc, "immutable") {
+		t.Fatalf("bare Cache-Control = %q, want revalidate (no-cache)", cc)
+	}
+	if recBare.Header().Get("ETag") == "" {
+		t.Fatal("missing ETag on bare static request")
+	}
+
+	// Conditional request returns 304 regardless of versioning.
 	req := httptest.NewRequest(http.MethodGet, "/static/css/app.css", nil)
 	req.Header.Set("If-None-Match", etag)
 	rec2 := httptest.NewRecorder()
