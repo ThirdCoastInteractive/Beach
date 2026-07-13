@@ -4,14 +4,29 @@
 # Generated *_templ.go files are committed, so plain `go build` works without
 # running gen first; run `make gen` after editing any .templ or css file.
 
-.PHONY: gen css build vet test
+.PHONY: gen css build vet test gen-geo demos
 
 gen:
 	go tool templ generate
 	$(MAKE) css
 
+# Regenerate the geo chart data from the Natural Earth TopoJSON under
+# cmd/beach-geogen/data/: pkg/chart/geodata_gen.go (Equal Earth country/state
+# paths + city gazetteer), pkg/chart/geodata_rings_gen.go (raw lon/lat rings
+# for 3D/orthographic rendering), and pkg/beach/view/static/geo/world-geo.json
+# (the client-side globe payload). Only needed when that data or a projection
+# changes; all outputs are committed.
+gen-geo:
+	go run ./cmd/beach-geogen
+
 css:
 	npx @tailwindcss/cli -i pkg/beach/view/css/input.css -o pkg/beach/view/static/css/app.css
+
+# Writes the static geo-chart demo site to demos/ — self-contained HTML files
+# (stylesheet, JS modules, and globe geometry inlined) that open from disk with
+# no server. Regenerate after changing the geo charts or their assets.
+demos:
+	go run ./cmd/beach-demos
 
 build: gen
 	go build ./...

@@ -8,8 +8,9 @@ import (
 	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
 )
 
-// chartGallery renders all 22 chart types plus a static bar-race frame on the
-// dashboard grid.
+// chartGallery renders every chart type in the suite — including the geo
+// family (choropleth, interactive map, globes, sun clock) — plus a static
+// bar-race frame, on the dashboard grid.
 templ chartGallery() {
 	@driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Charts"})
 	<div class="dash-grid">
@@ -78,6 +79,21 @@ templ chartGallery() {
 		}
 		@chartWidget("Heatmap — crowd by hour", "dash-col-6 dash-row-2") {
 			@chart.ChartHeatmapFragment("spec-heatmap", sampleHeatmap())
+		}
+		@chartWidget("Geo map — visitor origins", "dash-col-12 dash-row-2") {
+			@chart.ChartGeoMapFragment("spec-geomap", sampleGeoMap())
+		}
+		@chartWidget("Geo map — interactive", "dash-col-6 dash-row-2") {
+			@chart.ChartGeoMapFragment("spec-geomap-interactive", sampleGeoMapInteractive())
+		}
+		@chartWidget("Globe — themed", "dash-col-3 dash-row-2") {
+			@chart.ChartGlobeFragment("spec-globe-themed", sampleGlobeThemed())
+		}
+		@chartWidget("Globe — wireframe", "dash-col-3 dash-row-2") {
+			@chart.ChartGlobeFragment("spec-globe-wire", sampleGlobeWire())
+		}
+		@chartWidget("Sun clock", "dash-col-12 dash-row-2") {
+			@chart.ChartGeoClockFragment("spec-sun-clock", sampleSunClock())
 		}
 		@chartWidget("Bar race — static frame", "dash-col-6 dash-row-2") {
 			@chart.BarRaceSVG(sampleBarRace())

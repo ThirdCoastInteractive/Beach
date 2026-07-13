@@ -11,6 +11,9 @@
 *.exe
 /dist/
 
+# Generated static demo site (make demos)
+/demos/
+
 # Environment & secrets (.env.example is the tracked template)
 .env
 .env.local

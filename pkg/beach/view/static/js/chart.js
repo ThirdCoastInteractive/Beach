@@ -12,3 +12,5 @@ import './chart-chord-hover.js';
 import './chart-bundle-hover.js';
 import './chart-vb-hover.js';
 import './chart-toolbar.js';
+import './geomap-interact.js';
+import './globe.js';

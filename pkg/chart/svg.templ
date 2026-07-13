@@ -655,3 +655,80 @@ templ BarChartSVG(c BarChart) {
 		}
 	</svg>
 }
+
+// GeoMapSVG renders an Equal Earth choropleth from precomputed geometry.
+// Shapes without data draw as neutral landmass; valued shapes carry the
+// OKLCH ramp fill plus a tooltip. Cities and points layer on top.
+templ GeoMapSVG(g GeoMap) {
+	if g.Legend.Show {
+		<div class="cline-legend geomap-legend">
+			<span class="cline-legend-item">{ g.Legend.MinLabel }</span>
+			for _, c := range g.Legend.Swatches {
+				<svg class="cline-legend-swatch" viewBox="0 0 16 8" width="16" height="8">
+					<rect width="16" height="8" fill={ c } rx="1"></rect>
+				</svg>
+			}
+			<span class="cline-legend-item">{ g.Legend.MaxLabel }</span>
+		</div>
+	}
+	<svg
+		width="100%"
+		height="100%"
+		class="chart-svg geomap-svg"
+		role="img"
+		viewBox={ g.ViewBox }
+		preserveAspectRatio="xMidYMid meet"
+		if g.Interactive {
+			data-geomap-interact="1"
+			data-vb0={ g.ViewBox }
+		}
+	>
+		if g.Outline != "" {
+			<path class="geomap-outline" vector-effect="non-scaling-stroke" d={ g.Outline }></path>
+		}
+		for _, m := range g.Parallels {
+			<path class="geomap-graticule" vector-effect="non-scaling-stroke" d={ m }></path>
+		}
+		for _, m := range g.Meridians {
+			<path class="geomap-graticule" vector-effect="non-scaling-stroke" d={ m }></path>
+		}
+		for _, m := range g.MajorMeridians {
+			<path class="geomap-graticule-major" vector-effect="non-scaling-stroke" d={ m }></path>
+		}
+		if g.Equator != "" {
+			<path class="geomap-equator" vector-effect="non-scaling-stroke" d={ g.Equator }></path>
+		}
+		for _, m := range g.Tropics {
+			<path class="geomap-tropic" vector-effect="non-scaling-stroke" d={ m }></path>
+		}
+		for _, m := range g.PolarCircles {
+			<path class="geomap-polar" vector-effect="non-scaling-stroke" d={ m }></path>
+		}
+		for _, f := range g.Insets {
+			<rect class="geomap-inset" vector-effect="non-scaling-stroke" x={ f.X } y={ f.Y } width={ f.W } height={ f.H } rx="3"></rect>
+		}
+		for _, s := range g.Shapes {
+			<path
+				class="geomap-shape" vector-effect="non-scaling-stroke"
+				d={ s.Path }
+				fill={ s.Fill }
+				fill-rule="evenodd"
+				style="cursor:pointer"
+				data-tip={ s.Tip }
+				if s.Code != "" {
+					data-region={ s.Code }
+				}
+				if s.Drill != "" {
+					data-on:click={ s.Drill }
+				}
+			></path>
+		}
+		for _, c := range g.Cities {
+			<circle class="geomap-city" vector-effect="non-scaling-stroke" cx={ c.CX } cy={ c.CY } r="4" style="cursor:pointer" data-tip={ c.Tip }></circle>
+			<text class="geomap-city-label" x={ c.CX } y={ c.CY } dy="-9" text-anchor="middle" pointer-events="none">{ c.Label }</text>
+		}
+		for _, p := range g.Points {
+			<circle class="geomap-point" cx={ p.CX } cy={ p.CY } r={ p.R } fill={ p.Fill } style="cursor:pointer" data-tip={ p.Tip }></circle>
+		}
+	</svg>
+}

@@ -177,3 +177,10 @@ templ ChartLineFragment(c LineChart) {
 		<div class="sr-only" role="status" aria-live="polite"></div>
 	</figure>
 }
+
+// ChartGeoMapFragment wraps a server-rendered Equal Earth choropleth map.
+templ ChartGeoMapFragment(id string, g GeoMap) {
+	<figure id={ id } class="chart-frag chart-frag-col">
+		@GeoMapSVG(g)
+	</figure>
+}

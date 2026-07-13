@@ -561,3 +561,76 @@ func sampleBarRace() chart.BarRaceLayout {
 		Top: 6,
 	})
 }
+
+// --- geo map -----------------------------------------------------------------------------
+
+// sampleGeoMap is the visitor-origin choropleth: where the season's guests
+// came from, with the megacity reference layer on.
+func sampleGeoMap() chart.GeoMap {
+	return chart.LayoutGeoMap(chart.GeoMapData{
+		Regions: []chart.GeoRegion{
+			{Code: "US", Value: 9420}, {Code: "CA", Value: 3110}, {Code: "MX", Value: 1240},
+			{Code: "GB", Value: 980}, {Code: "DE", Value: 720}, {Code: "FR", Value: 640},
+			{Code: "BR", Value: 410}, {Code: "JP", Value: 350}, {Code: "AU", Value: 290},
+			{Code: "NO", Value: 120},
+		},
+		ShowCities: true,
+		Unit:       "visitors",
+	})
+}
+
+// sampleGeoMapInteractive is the same choropleth with the client-side zoom/pan
+// module enabled. No DrillAction — the specimen has no backend to drill into,
+// so the map is explorable but does not fetch.
+func sampleGeoMapInteractive() chart.GeoMap {
+	return chart.LayoutGeoMap(chart.GeoMapData{
+		Regions: []chart.GeoRegion{
+			{Code: "US", Value: 9420}, {Code: "CA", Value: 3110}, {Code: "MX", Value: 1240},
+			{Code: "GB", Value: 980}, {Code: "DE", Value: 720}, {Code: "FR", Value: 640},
+			{Code: "BR", Value: 410}, {Code: "JP", Value: 350}, {Code: "AU", Value: 290},
+			{Code: "NO", Value: 120},
+		},
+		Unit:        "visitors",
+		Ramp:        "royal",
+		Interactive: true,
+	})
+}
+
+// sampleGlobeThemed is a static themed-globe frame: the visitor choropleth on
+// the orthographic sphere, camera over the Atlantic.
+func sampleGlobeThemed() chart.Globe {
+	return chart.LayoutGlobe(chart.GlobeData{
+		Style: "themed",
+		Regions: []chart.GeoRegion{
+			{Code: "US", Value: 9420}, {Code: "CA", Value: 3110}, {Code: "MX", Value: 1240},
+			{Code: "GB", Value: 980}, {Code: "DE", Value: 720}, {Code: "FR", Value: 640},
+			{Code: "BR", Value: 410}, {Code: "NO", Value: 120},
+		},
+		Unit:      "visitors",
+		Ramp:      "ocean",
+		Lon0:      -30,
+		Lat0:      25,
+		Graticule: true,
+	})
+}
+
+// sampleGlobeWire is a static wireframe globe: fill-less country outlines with
+// the graticule always on, camera over the Pacific.
+func sampleGlobeWire() chart.Globe {
+	return chart.LayoutGlobe(chart.GlobeData{
+		Style: "wire",
+		Lon0:  150,
+		Lat0:  10,
+	})
+}
+
+// sampleSunClock is the day/night terminator at a FIXED instant (northern
+// solstice, mid-afternoon UTC) so the specimen renders identically on every
+// build — a live clock would drift the terminator each load.
+func sampleSunClock() chart.GeoClock {
+	return chart.LayoutGeoClock(chart.GeoClockData{
+		Time:         time.Date(2026, 6, 21, 15, 30, 0, 0, time.UTC),
+		ShowCities:   true,
+		ShowTwilight: true,
+	})
+}
