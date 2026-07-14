@@ -38,8 +38,12 @@ function hide() {
     if (tipEl) tipEl.style.display = 'none';
 }
 
+// Capture-phase listeners on document see every pointerenter/pointerleave,
+// including ones whose target is the document itself (the pointer entering or
+// leaving the window). Those targets are not Elements and have no .closest,
+// so guard before walking up — same idiom as geomap-interact.js.
 document.addEventListener('pointerenter', (e) => {
-    const el = e.target.closest('[data-tip]');
+    const el = e.target.closest && e.target.closest('[data-tip]');
     if (el) show(el.getAttribute('data-tip'), e);
 }, true);
 
@@ -48,6 +52,6 @@ document.addEventListener('pointermove', (e) => {
 }, true);
 
 document.addEventListener('pointerleave', (e) => {
-    const el = e.target.closest('[data-tip]');
+    const el = e.target.closest && e.target.closest('[data-tip]');
     if (el) hide();
 }, true);

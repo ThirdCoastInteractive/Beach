@@ -9,7 +9,9 @@
   var SELECTORS = '.chart-hover-fade, .chart-hover-node, .chord-arc, .chord-ribbon, .bundle-node';
 
   document.addEventListener('click', function (e) {
-    var el = e.target.closest(SELECTORS);
+    // e.target is not always an Element (document/window on synthetic or
+    // boundary events) and then has no .closest; treat those as "no hit".
+    var el = e.target.closest && e.target.closest(SELECTORS);
     if (!el) {
       if (pinned) unpin();
       return;
@@ -41,7 +43,9 @@
   // Block mouseleave resets while pinned.
   document.addEventListener('mouseleave', function (e) {
     if (!pinnedSvg || !pinnedSvg.dataset.pinFrozen) return;
-    var el = e.target.closest(SELECTORS);
+    // Capture-phase mouseleave fires for the window/document boundary too,
+    // where the target is not an Element and has no .closest.
+    var el = e.target.closest && e.target.closest(SELECTORS);
     if (el && pinnedSvg.contains(el)) {
       e.stopPropagation();
     }
