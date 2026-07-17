@@ -101,6 +101,11 @@ type Config struct {
 	// ActionFunc responses. The zero value is the gzip default.
 	SSECompression SSEMode
 
+	// Sockets tunes the WebSocket machinery behind App.Socket (message size
+	// cap, keepalive cadence, write-queue depth, allowed origins). The zero
+	// value applies the documented defaults; same-origin only.
+	Sockets SocketConfig
+
 	// Middleware are app-supplied net/http wrappers applied around the whole
 	// handler, outside the fixed framework stack. They run outermost-first: the
 	// first entry is the outermost wrapper, so it sees the request first and the
@@ -130,12 +135,13 @@ type TokenResolver func(ctx context.Context, token string) (*Principal, error)
 // App is a configured the-beach application. Build one with New, register routes
 // with Page/Action/Stream/Raw, then Start. The zero App is not usable.
 type App struct {
-	cfg    Config
-	mux    *http.ServeMux
-	log    *slog.Logger
-	static *staticHandler
-	hub    *hub.Hub
-	srv    *http.Server
+	cfg     Config
+	mux     *http.ServeMux
+	log     *slog.Logger
+	static  *staticHandler
+	hub     *hub.Hub
+	srv     *http.Server
+	sockets socketRegistry
 }
 
 // New builds an App from cfg. It wires the static handler (computing boot-time
@@ -265,19 +271,25 @@ func (a *App) Start(addr string) error {
 
 	ctx, cancel := context.WithTimeout(context.Background(), a.cfg.ShutdownTimeout)
 	defer cancel()
-	if err := a.srv.Shutdown(ctx); err != nil {
+	if err := a.Shutdown(ctx); err != nil {
 		return fmt.Errorf("beach: graceful shutdown: %w", err)
 	}
 	return nil
 }
 
-// Shutdown triggers graceful shutdown of a running server (started via Start).
-// It is a no-op if the server was never started.
+// Shutdown triggers graceful shutdown: live WebSockets get close 1001 (going
+// away, their contexts cancel), the HTTP server drains normal requests, and
+// socket handlers are waited on until ctx expires. Hijacked connections are
+// invisible to http.Server.Shutdown, which is why the sockets close first and
+// are waited on explicitly.
 func (a *App) Shutdown(ctx context.Context) error {
-	if a.srv == nil {
-		return nil
+	a.sockets.closeAll()
+	var err error
+	if a.srv != nil {
+		err = a.srv.Shutdown(ctx)
 	}
-	return a.srv.Shutdown(ctx)
+	a.sockets.wait(ctx)
+	return err
 }
 
 // pathIsExempt reports whether p should skip request logging (probes and static

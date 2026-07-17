@@ -1,16 +1,23 @@
 package beach
 
 import (
+	"context"
+	"errors"
 	"net/http"
+	"runtime/debug"
+	"time"
+
+	"github.com/coder/websocket"
 
 	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
 )
 
-// The three typed handler shapes. Each is a function from *Ctx to a typed result
+// The four typed handler shapes. Each is a function from *Ctx to a typed result
 // plus an error; the framework adapts each to an http.HandlerFunc, owning the
-// branch (PageFunc), the method/Datastar discipline (ActionFunc), and the SSE
-// loop (StreamFunc). Handlers stay standalone factory functions that take only
-// their deps — never methods on a server struct.
+// branch (PageFunc), the method/Datastar discipline (ActionFunc), the SSE
+// loop (StreamFunc), and the upgrade + connection lifecycle (SocketFunc).
+// Handlers stay standalone factory functions that take only their deps — never
+// methods on a server struct.
 
 // PageFunc handles anything you can navigate to. It returns one View that knows
 // how to render both ways: the framework writes the full document on a normal GET
@@ -29,6 +36,14 @@ type ActionFunc func(c *Ctx) (Patches, error)
 // since-cursor catch-up, select over the hub channel and the request context,
 // flush per event, and clean up on disconnect.
 type StreamFunc func(c *Ctx) (Sub, error)
+
+// SocketFunc owns an upgraded WebSocket connection for its lifetime. It runs
+// after a successful upgrade (guards run before, so a rejection is plain HTTP,
+// never a half-open socket) and holds the connection for as long as it runs.
+// Returning nil closes with 1000 (normal); returning an unexpected error
+// closes with 1011 and logs. A peer close, canceled context, or ErrSocketClosed
+// returned from the read loop counts as normal.
+type SocketFunc func(c *Ctx, s *Socket) error
 
 // --- adapters ---
 
@@ -173,6 +188,66 @@ func (a *App) adaptStream(h StreamFunc) http.HandlerFunc {
 				}
 			}
 		}
+	}
+}
+
+// errSocketPanic marks a SocketFunc panic so the close-code mapping (1011)
+// stays in one place. The recover here, not the recoverPanic middleware, must
+// catch it: after the hijack a 500 page has no transport, a close frame does.
+var errSocketPanic = errors.New("beach: socket handler panicked")
+
+// adaptSocket turns a SocketFunc into an http.HandlerFunc that upgrades the
+// connection and owns its lifecycle. The upgrade happens after the fixed
+// middleware stack and any guards, so auth context is populated and a rejected
+// guard returns plain HTTP, never a half-open socket. The handler runs on the
+// request goroutine for the connection's lifetime; returning nil closes 1000,
+// a peer close / canceled context closes 1000, anything else closes 1011.
+func (a *App) adaptSocket(h SocketFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		cfg := a.cfg.Sockets.withDefaults()
+		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
+			OriginPatterns: cfg.Origins,
+		})
+		if err != nil {
+			// Accept wrote the HTTP rejection (403 bad origin, 4xx bad handshake).
+			a.log.Warn("socket: upgrade rejected", "path", r.URL.Path, "err", err)
+			return
+		}
+		start := time.Now()
+
+		// The request context is unreliable after a hijack; keep its values
+		// (session, principal) but let the socket own its cancellation.
+		s := newSocket(context.WithoutCancel(r.Context()), conn, cfg)
+		a.sockets.add(s)
+		defer a.sockets.remove(s)
+		defer s.teardown()
+
+		c := a.newCtx(w, r)
+		err = func() (err error) {
+			defer func() {
+				if v := recover(); v != nil {
+					a.log.Error("socket: panic recovered",
+						"path", r.URL.Path,
+						"panic", v,
+						"stack", string(debug.Stack()),
+					)
+					err = errSocketPanic
+				}
+			}()
+			return h(c, s)
+		}()
+
+		code, reason := websocket.StatusNormalClosure, ""
+		if !socketCloseIsNormal(err) {
+			code, reason = websocket.StatusInternalError, "internal error"
+			a.log.Error("socket: handler error", "path", r.URL.Path, "err", err)
+		}
+		_ = s.Close(int(code), reason)
+		a.log.Info("socket: closed",
+			"path", r.URL.Path,
+			"code", s.closeCode,
+			"dur", time.Since(start).String(),
+		)
 	}
 }
 

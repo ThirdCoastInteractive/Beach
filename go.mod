@@ -6,9 +6,12 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.46.0
 	github.com/ThirdCoastInteractive/Repute v0.0.0-20260602032549-c1ac133fc6a6
 	github.com/a-h/templ v0.3.1020
+	github.com/coder/websocket v1.8.15
 	github.com/fxamacker/cbor/v2 v2.9.2
 	github.com/jackc/pgx/v5 v5.10.0
+	github.com/mailgun/mailgun-go/v5 v5.15.0
 	github.com/microcosm-cc/bluemonday v1.0.27
+	github.com/minio/minio-go/v7 v7.2.0
 	github.com/pressly/goose/v3 v3.27.1
 	github.com/starfederation/datastar-go v1.2.2
 	github.com/yuin/goldmark v1.8.2
@@ -38,13 +41,11 @@ require (
 	github.com/klauspost/compress v1.18.6 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.11 // indirect
 	github.com/klauspost/crc32 v1.3.0 // indirect
-	github.com/mailgun/mailgun-go/v5 v5.15.0 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.21 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
 	github.com/minio/crc64nvme v1.1.1 // indirect
 	github.com/minio/md5-simd v1.1.2 // indirect
-	github.com/minio/minio-go/v7 v7.2.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/natefinch/atomic v1.0.1 // indirect

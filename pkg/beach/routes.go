@@ -40,6 +40,14 @@ func (a *App) Stream(pattern string, h StreamFunc, guards ...Guard) {
 	a.register(http.MethodGet, pattern, a.adaptStream(h), guards)
 }
 
+// Socket registers a SocketFunc at GET pattern (WebSocket upgrades ride a GET).
+// Guards run before the upgrade, so a rejection is a plain HTTP 401/403, never
+// a half-open socket. The socket carries payloads that are not hypermedia —
+// UI sync stays on Stream; a page wanting both keeps them side by side.
+func (a *App) Socket(pattern string, h SocketFunc, guards ...Guard) {
+	a.register(http.MethodGet, pattern, a.adaptSocket(h), guards)
+}
+
 // Raw is the documented escape hatch: a plain http.HandlerFunc mounted at
 // method+pattern, outside the typed shapes. Payment webhooks live here — they
 // must mount outside auth and the Datastar discipline to run reliably. Guards may

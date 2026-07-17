@@ -48,6 +48,10 @@ func (r *statusRecorder) Flush() {
 	}
 }
 
+// Unwrap exposes the underlying writer (the http.ResponseController pattern)
+// so a WebSocket upgrade can reach the http.Hijacker through the recorder.
+func (r *statusRecorder) Unwrap() http.ResponseWriter { return r.ResponseWriter }
+
 // requestLog logs one line per request at completion, skipping probes and static
 // assets so they do not flood the log.
 func (a *App) requestLog(next http.Handler) http.Handler {
