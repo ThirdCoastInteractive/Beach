@@ -113,6 +113,7 @@ the solid `ui --> rybitten` edge is the specimen's gamut preview — see
 | [2 — Scope](rfc/02-scope.md)             | Every package and its responsibility; the framework laws     |
 | [3 — The ECS pitch](rfc/03-ecs.md)       | Why a custom engine, the design pillars, the hybrid boundary |
 | [4 — Program & risks](rfc/04-program.md) | The 10 shippable projects, validation criteria, risks        |
+| [5 — WebSockets](rfc/05-websockets.md)   | `App.Socket`: the non-hypermedia channel, coalescing, relay  |
 
 ## Architecture — the how
 
@@ -120,7 +121,7 @@ the solid `ui --> rybitten` edge is the specimen's gamut preview — see
 | ------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
 | [1 — Layout](architecture/01-layout.md)                 | Stack contract, module layout per go.dev/doc/modules/layout                              |
 | [2 — Boot spine](architecture/02-boot-spine.md)         | `config`, `pg` (pool, advisory-lock migrate, InTx, Listen/Notify)                        |
-| [3 — HTTP layer](architecture/03-http.md)               | Root `beach` package: App builder, handler shapes, guards, SSE gzip                      |
+| [3 — HTTP layer](architecture/03-http.md)               | Root `beach` package: App builder, handler shapes (incl. `Socket`), guards, SSE gzip     |
 | [4 — Hub](architecture/04-hub.md)                       | Topic fan-out, render-once-per-topic, tickers                                            |
 | [5 — Cache, session, i18n](architecture/05-services.md) | Snapshot/keyed caches, NOTIFY invalidation, Postgres sessions, i18n                      |
 | [6 — UI toolkit](architecture/06-ui.md)                 | Views as templ, the driftwood kit, tokens, no pop-in, no blocking, the 14KB rule, deferred sections |

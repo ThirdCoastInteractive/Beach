@@ -157,6 +157,19 @@ This is our (much smaller) version of the partial-replication problem: we choose
 granularity instead of maintaining per-client materialized views, but the discipline is
 mandatory — it is the one place server-side authorization can leak.
 
+## The WebSocket lane (RFC 05)
+
+The sync unit for UI remains the rendered fragment over SSE — that boundary is
+unchanged. Some apps additionally need a high-rate, bidirectional, **binary** channel
+that is not UI sync at all: 60 Hz simulation state, controller input upstream, binary
+telemetry. That is [`App.Socket`](03-http.md#beachsocketfunc--websockets-not-hypermedia),
+and the doctrine is one line: **SSE carries hypermedia; WebSocket carries payloads
+that are not hypermedia.** A socket never patches the DOM through the framework — no
+hub↔socket bridge, no Datastar over WS. If a socket consumer wants UI updates, the
+page keeps a normal `Stream` alongside. The one sync idea the socket does inherit is
+latest-state-wins: `WriteLatest` coalesces so a slow client skips frames instead of
+building a queue — the same drop-on-full stance the hub takes.
+
 ## The offline exit condition (non-goal)
 
 SSE, the hub, and Datastar all require a live connection. **Offline writes are the explicit

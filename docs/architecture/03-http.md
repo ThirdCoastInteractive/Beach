@@ -28,13 +28,14 @@ app.Page("/wallet",                handler.Wallet(pool),           app.Authed())
 app.Action("/coins/purchase/{id}", handler.PurchaseCoins(pool, s), app.Authed())
 app.Stream("/stream",              handler.LiveStream(hubRef, pool), app.Authed())
 app.Page("/admin/orders",          handler.Orders(pool),           app.Role("admin"))
+app.Socket("/ws/state",            handler.StateSocket(s),         app.Authed())
 app.Raw(http.MethodPost, "/webhooks/stripe", billing.Webhook())  // escape hatch: plain net/http
 
 app.Start(":" + cfg.Port)                                // graceful shutdown inside
 ```
 
 Stdlib `net/http` is underneath (`app.Raw` and `app.Mux()` exist for webhooks and the
-genuinely weird), but the paved road is three typed handler shapes that encode the
+genuinely weird), but the paved road is four typed handler shapes that encode the
 house rules by construction.
 
 Middleware stack, in fixed order: request logger (skips /healthz, /static),
@@ -56,7 +57,7 @@ prefix serves both. Asset URLs carry a `?v=` version: released binaries get stab
 commit-based versioning, dev rebuilds get boot timestamps, and every deploy busts
 caches without a manifest.
 
-## Handlers: three typed shapes
+## Handlers: four typed shapes
 
 The load-bearing rules — dual-purpose handlers branch on `IsDatastar`,
 `db.New(pool)` per request, never duplicate page + fragment routes, SSE loops follow
@@ -149,6 +150,46 @@ func LiveStream(h *hub.Hub, pool *pgxpool.Pool) beach.StreamFunc {
     }
 }
 ```
+
+### `beach.SocketFunc` — WebSockets (not hypermedia)
+
+The doctrine ([20-sync.md](20-sync.md)): **SSE carries hypermedia; WebSocket carries
+payloads that are not hypermedia** — 60 Hz binary simulation state, upstream
+controller input, telemetry. A socket never patches the DOM through the framework;
+a page that also wants UI updates keeps a normal `Stream` alongside.
+
+```go
+func StateSocket(s *sim.Sim) beach.SocketFunc {
+    return func(c *beach.Ctx, sock *beach.Socket) error {
+        t := time.NewTicker(time.Second / 60)
+        defer t.Stop()
+        for {
+            select {
+            case <-sock.Context().Done():   // canceled on close/shutdown
+                return nil
+            case <-t.C:
+                sock.WriteLatest(encodeState(s)) // latest-state-wins, never blocks
+            }
+        }
+    }
+}
+```
+
+The framework owns the wire: guards run **before** the upgrade (a rejection is plain
+HTTP, never a half-open socket), one writer goroutine serializes frames, a read pump
+keeps ping/pong keepalive working even for write-only handlers, and graceful
+shutdown sends close 1001 to every live socket (hijacked connections are invisible
+to `http.Server.Shutdown`, so the app closes them itself). `Write` is the bounded
+ordered queue (acks, control); `WriteLatest` is the depth-1 coalescing mailbox for
+state streams — a slow client skips frames instead of building a queue. Returning
+nil (or the read loop's terminal error) closes 1000; a panic or unexpected error
+closes 1011. `Config.Sockets` tunes size cap, keepalive, queue depth, and allowed
+origins (same-origin only by default — browser WS ignores CORS, so the check is
+ours). `beach.DialSocket` + `beach.Relay` cover the proxy pattern: terminate the
+public socket via `App.Socket`, relay frames to a private backend worker. The
+client side is `view/static/js/beach-ws.js` (reconnect with backoff, ArrayBuffer
+frames, queue-while-connecting). Wire dependency: vendored `coder/websocket`
+(MIT, zero transitive deps) — see [RFC 05](../rfc/05-websockets.md).
 
 ### Errors and guards
 

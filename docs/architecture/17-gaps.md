@@ -26,6 +26,14 @@ ui, ch) and spawn their own items.
   **Shipped:** `Config.Middleware []func(http.Handler) http.Handler`, applied outermost-first
   around the fixed stack.
 
+- [x] **No WebSocket path.** A high-rate, bidirectional, binary channel (live simulation
+  state, controller input, telemetry) had no framework shape — apps would mount a foreign
+  handler behind `Raw` and carry their own WS dependency. **Fix:** RFC 05.
+  **Shipped:** `App.Socket` (the fourth typed shape) with framework-owned keepalive,
+  `WriteLatest` coalescing, guard-before-upgrade, and shutdown close 1001; plus
+  `beach.DialSocket` + `beach.Relay` for the proxy pattern and `beach-ws.js` client-side.
+  Wire dependency: vendored `coder/websocket`. Demo: driftbottle `/sockets`.
+
 ## Actions / SSE surface
 
 - [x] **An `ActionFunc` can't redirect, run a script, or set a cookie.** It returns only

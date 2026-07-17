@@ -4,7 +4,9 @@ A hypermedia-first, server-rendered web framework for Go, with an entity compone
 system for realtime app state.
 
 **Stack (non-negotiable):** net/http · templ · Datastar (free core) · Tailwind v4 +
-rybitten · pgx · sqlc · goose · Postgres LISTEN/NOTIFY · SSE · custom `ecs` engine.
+rybitten · pgx · sqlc · goose · Postgres LISTEN/NOTIFY · SSE · custom `ecs` engine ·
+WebSocket via vendored `coder/websocket` for the non-hypermedia channel
+([RFC 05](docs/rfc/05-websockets.md)).
 
 Hypermedia-first. Server-driven. The first paint is the final paint. Boring in the
 good way.
