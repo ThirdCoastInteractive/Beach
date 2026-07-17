@@ -32,6 +32,7 @@ package main
 import (
 	"context"
 	"embed"
+	"io/fs"
 	"log"
 	"log/slog"
 	"os"
@@ -44,10 +45,14 @@ import (
 
 	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/driftbottle/internal/analytics"
 	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/driftbottle/internal/chat"
+	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/driftbottle/internal/sockets"
 )
 
 //go:embed migrations/*.sql
 var migrationsFS embed.FS
+
+//go:embed static
+var staticFS embed.FS
 
 func main() {
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -83,9 +88,15 @@ func main() {
 
 	h := hub.New()
 
+	static, err := fs.Sub(staticFS, "static")
+	if err != nil {
+		log.Fatalf("driftbottle: static sub-fs: %v", err)
+	}
+
 	app := beach.New(beach.Config{
 		Service: "driftbottle",
 		Hub:     h,
+		Static:  static,
 		Logger:  logger,
 	})
 
@@ -96,6 +107,10 @@ func main() {
 	// The live chat server: in-memory matchmaking + fan-out, firing events at anl.
 	srv := chat.New(h, logger, anl)
 	srv.Routes(app)
+
+	// The WebSocket demo surface (RFC 05): /sockets + /ws/echo + /ws/tick — the
+	// non-hypermedia channel next door to the SSE fan-out.
+	sockets.Routes(app)
 
 	// The public analytics page (internal/analytics): aggregates only, no auth —
 	// driftbottle is anonymous. Each widget is a deferred fragment route.
@@ -109,7 +124,7 @@ func main() {
 	})
 
 	logger.Info("driftbottle: starting", "addr", addr,
-		"routes", "GET / , GET /events , POST /start , POST /say , POST /next , GET /stats , GET /specimen , GET /static/...")
+		"routes", "GET / , GET /events , POST /start , POST /say , POST /next , GET /stats , GET /sockets , GET /ws/echo , GET /ws/tick , GET /specimen , GET /static/...")
 	if err := app.Start(addr); err != nil {
 		log.Fatalf("driftbottle: %v", err)
 	}
