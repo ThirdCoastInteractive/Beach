@@ -174,30 +174,42 @@ func ruleNakedHandlerFunc(fc *fileCtx, out *[]Finding) {
 // scriptOpenRe matches an opening <script ...> tag in markup.
 var scriptOpenRe = regexp.MustCompile(`(?i)<script\b`)
 
-// datastarBundleRe recognizes the one sanctioned script: the framework's
-// datastar module bundle served from /static/js/datastar*.js.
+// datastarBundleRe recognizes the framework's datastar module bundle served
+// from /static/js/datastar*.js.
 var datastarBundleRe = regexp.MustCompile(`(?i)/static/js/datastar[\w.-]*\.js`)
 
+// selfStaticScriptRe recognizes a self-hosted, bodyless ES module reference: a
+// <script> whose src is the app's own /static/js tree and whose element carries
+// no inline body. A socket-consuming page needs page script (RFC 05: a Socket
+// carries payloads that are not hypermedia, and beach-ws.js + its consumer are
+// served like every other framework asset), so same-origin static modules are
+// sanctioned. Inline bodies and external origins remain findings.
+var selfStaticScriptRe = regexp.MustCompile(`(?i)<script\b[^>]*\bsrc="/static/js/[\w.-]+\.js"[^>]*>\s*</script>`)
+
 // ruleCustomScript flags <script> blocks in string-literal markup. HTML+CSS is
-// the default; the only allowed script is the framework's datastar bundle, which
-// the ui kit's Page shell emits. App code (and any non-ui package) embedding a
-// custom <script> — inline reload hacks, third-party snippets — is a finding.
+// the default; allowed scripts are the framework's datastar bundle (which the
+// ui kit's Page shell emits) and bodyless same-origin modules under
+// /static/js/. A custom inline <script> — reload hacks, third-party snippets —
+// is a finding.
 func ruleCustomScript(fc *fileCtx, out *[]Finding) {
 	if fc.onPath("ui", "lint") {
 		return // the kit owns the document shell; lint owns the <script> regex
 	}
 	fc.stringLits2(func(val string, line int) {
-		if !scriptOpenRe.MatchString(val) {
+		// Strip every sanctioned same-origin module reference; whatever
+		// <script> remains is unsanctioned.
+		rest := selfStaticScriptRe.ReplaceAllString(val, "")
+		if !scriptOpenRe.MatchString(rest) {
 			return
 		}
-		if datastarBundleRe.MatchString(val) {
+		if datastarBundleRe.MatchString(rest) {
 			return // sanctioned datastar bundle reference
 		}
 		*out = append(*out, Finding{
 			File:    fc.path,
 			Line:    line,
 			Rule:    "custom-script",
-			Message: "custom <script> block in app markup; the-beach is HTML+CSS-first and only the framework's datastar bundle is allowed — move behavior to a Datastar action or SSE",
+			Message: "custom <script> block in app markup; only the datastar bundle and bodyless same-origin /static/js/ modules are allowed — move behavior to a Datastar action, SSE, or a served ES module",
 		})
 	})
 }
