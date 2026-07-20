@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>saltbox — scan &amp; calibrate (mockup)</title>
+<style>
+  :root{
+    --paper:#f0e6d2; --paper-2:#e6d9bd; --paper-3:#faf4e6; --sheet:#f3ead6;
+    --ink:#26211a; --faded:#8a7a63; --line:#b9a988; --scan:#6b5b45;
+    --carmine:#a93b2c; --olive:#6f6f4c; --blue:#31536b;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{
+    background:var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.15 0 0 0 0 0.12 0 0 0 0 0.08 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+    color:var(--ink);
+    font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+    min-height:100vh; display:flex; flex-direction:column;
+  }
+  a{color:inherit; text-decoration:none}
+  .mono{font-family: ui-monospace, Consolas, 'Courier New', monospace}
+
+  header{
+    display:flex; align-items:baseline; gap:1.6rem;
+    padding:1rem 2.2rem .7rem;
+    border-bottom:2.5px solid var(--ink); box-shadow:0 3px 0 -1px var(--ink);
+  }
+  .wordmark{font-size:1rem; letter-spacing:.5em; font-weight:700}
+  .crumb{font-style:italic; color:var(--faded)}
+  .crumb b{color:var(--ink); font-weight:600}
+  header .right{margin-left:auto; font-style:italic; color:var(--carmine)}
+
+  main{flex:1; display:flex; align-items:stretch; min-height:0}
+
+  /* ---- the drafting board ---- */
+  .board{
+    flex:1 1 61.8%; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; padding:2rem; gap:.9rem;
+    background:
+      repeating-linear-gradient(0deg, transparent 0 39px, rgba(38,33,26,.045) 39px 40px),
+      repeating-linear-gradient(90deg, transparent 0 39px, rgba(38,33,26,.045) 39px 40px),
+      var(--paper-2);
+  }
+  .sheet-wrap{position:relative; transform:rotate(-.7deg)}
+  .sheet-wrap svg.plan{
+    display:block; width:min(62vw, 820px); height:auto;
+    background:var(--sheet);
+    box-shadow: 0 1px 0 rgba(38,33,26,.4), 0 14px 34px rgba(38,33,26,.35);
+  }
+  .board .caption{font-size:.72rem; color:var(--faded)}
+  .board .caption b{color:var(--ink)}
+
+  /* calibration overlay bits (drawn inside the plan svg, styled here) */
+  .cal-line{stroke:var(--carmine); stroke-width:2.5}
+  .cal-guide{stroke:var(--carmine); stroke-width:1; stroke-dasharray:4 5; opacity:.55}
+  .cal-handle{fill:var(--paper-3); stroke:var(--carmine); stroke-width:2.5}
+  .cal-tag rect{fill:var(--carmine)}
+  .cal-tag text{fill:var(--paper-3); font:700 15px ui-monospace, Consolas, monospace; letter-spacing:.06em}
+
+  /* ---- the rail ---- */
+  .rail{
+    flex:0 0 38.2%; max-width:430px; border-left:2.5px solid var(--ink);
+    padding:1.4rem 1.6rem 1.2rem; display:flex; flex-direction:column; gap:1rem;
+    overflow:auto;
+  }
+  .step{border:1.5px solid var(--ink); background:var(--paper-3)}
+  .step.done{opacity:.75}
+  .step.todo{opacity:.55; border-style:dashed}
+  .step-head{
+    display:flex; align-items:baseline; gap:.6rem; padding:.55rem .8rem;
+    border-bottom:1px solid var(--line); font-size:.72rem; letter-spacing:.22em;
+  }
+  .step.active .step-head{background:var(--ink); color:var(--paper-3); border-bottom:1.5px solid var(--ink)}
+  .step-head .n{font-weight:700}
+  .step-head .state{margin-left:auto; letter-spacing:.05em; font-style:italic}
+  .step-body{padding:.8rem .9rem; font-size:.85rem; line-height:1.45}
+  .step-body .hint{color:var(--faded); font-size:.76rem; font-style:italic; margin-top:.45rem}
+
+  .filerow{display:flex; gap:.7rem; align-items:center}
+  .filerow .chip-ext{border:1px solid var(--ink); padding:.15rem .4rem; font-size:.65rem; letter-spacing:.12em}
+  .scale-row{display:flex; align-items:center; gap:.55rem; margin-top:.2rem}
+  .scale-row input{
+    width:6.5ch; font:700 1.5rem ui-monospace, Consolas, monospace;
+    background:var(--paper); border:1.5px solid var(--ink); padding:.2rem .4rem;
+    color:var(--ink); text-align:right;
+  }
+  .unit{border:1.5px solid var(--ink); padding:.42rem .5rem; font-size:.8rem; background:var(--paper)}
+  .enter{margin-left:auto; font-size:.68rem; color:var(--faded); font-style:italic}
+
+  .storey-pick{display:flex; flex-direction:column; gap:.35rem; margin-top:.2rem}
+  .storey-pick label{display:flex; gap:.6rem; align-items:baseline}
+  .dot{font-size:.9em}
+
+  .facts{border-top:1px double var(--ink); padding-top:.8rem; font-size:.74rem; color:var(--faded)}
+  .facts table{width:100%; border-collapse:collapse}
+  .facts td{padding:.18rem 0; vertical-align:baseline}
+  .facts td:last-child{text-align:right; color:var(--ink)}
+
+  .nudge{display:flex; align-items:center; gap:.6rem; font-size:.8rem}
+  .nudge .btn-sq{
+    border:1.5px solid var(--ink); background:var(--paper-3); width:1.9rem; height:1.9rem;
+    display:inline-flex; align-items:center; justify-content:center; font-size:.9rem;
+  }
+  .nudge .val{margin-left:auto}
+
+  .cta{
+    display:block; text-align:center; padding:.7rem 1rem; margin-top:.2rem;
+    background:var(--carmine); color:var(--paper-3); letter-spacing:.18em;
+    font-size:.85rem; border:1.5px solid var(--ink); box-shadow:3px 3px 0 var(--ink);
+  }
+  .cta.ghost{background:transparent; color:var(--ink); box-shadow:none; border-style:dashed; font-style:italic; letter-spacing:.03em}
+
+  .titleblock{
+    border:1.5px solid var(--ink); background:var(--paper-3);
+    font-size:.6rem; letter-spacing:.12em; margin-top:auto;
+  }
+  .titleblock .tb-row{display:flex; border-top:1px solid var(--ink)}
+  .titleblock .tb-row:first-child{border-top:0}
+  .titleblock .tb-cell{padding:.3rem .55rem; border-left:1px solid var(--ink); flex:1}
+  .titleblock .tb-cell:first-child{border-left:0; flex:0 0 auto; color:var(--faded)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wordmark">SALTBOX</div>
+  <div class="crumb">the shelf / <b>The Beaumont Cottage</b> — scan &amp; calibrate</div>
+  <a class="right" href="#">to the tracing room →</a>
+</header>
+
+<main>
+  <section class="board">
+    <div class="sheet-wrap">
+      <svg class="plan" viewBox="0 0 760 560" xmlns="http://www.w3.org/2000/svg">
+        <!-- sheet border -->
+        <rect x="20" y="20" width="720" height="520" fill="none" stroke="var(--scan)" stroke-width="1.6"/>
+        <rect x="28" y="28" width="704" height="504" fill="none" stroke="var(--scan)" stroke-width=".7"/>
+        <text x="380" y="50" text-anchor="middle" fill="var(--scan)" style="font:600 13px Georgia; letter-spacing:.28em">PLAN OF A COTTAGE FOR MR. E. BEAUMONT · GALVESTON, TEX. · 1887</text>
+
+        <g stroke="var(--scan)" fill="none">
+          <!-- outer walls, double line -->
+          <rect x="80" y="70" width="600" height="400" stroke-width="3"/>
+          <rect x="89" y="79" width="582" height="382" stroke-width="1.2"/>
+
+          <!-- partitions -->
+          <g stroke-width="1.8">
+            <path d="M400,79 V145 M400,179 V325 M400,359 V461"/>
+            <path d="M89,270 H285 M319,270 H400"/>
+            <path d="M560,79 V200"/>
+            <path d="M400,200 H470 M500,200 H596 M624,200 H671"/>
+          </g>
+
+          <!-- door masks + swings -->
+          <g>
+            <rect x="222" y="464" width="46" height="9" fill="var(--sheet)" stroke="none"/>
+            <path d="M225,470 L225,430 M265,470 A40,40 0 0 0 225,430" stroke-width="1"/>
+            <path d="M285,270 L285,304 M319,270 A34,34 0 0 1 285,304" stroke-width="1"/>
+            <path d="M400,145 L366,145 M400,179 A34,34 0 0 1 366,145" stroke-width="1"/>
+            <path d="M400,359 L434,359 M400,325 A34,34 0 0 1 434,359" stroke-width="1"/>
+            <path d="M470,200 L470,230 M500,200 A30,30 0 0 1 470,230" stroke-width="1"/>
+            <path d="M624,200 L624,228 M596,200 A28,28 0 0 0 624,228" stroke-width="1"/>
+          </g>
+
+          <!-- windows: mask the double wall, tick the frame -->
+          <g stroke-width="1">
+            <g>
+              <rect x="150" y="66" width="40" height="17" fill="var(--sheet)" stroke="none"/>
+              <path d="M150,70 V79 M190,70 V79 M150,74.5 H190"/>
+            </g>
+            <g>
+              <rect x="480" y="66" width="40" height="17" fill="var(--sheet)" stroke="none"/>
+              <path d="M480,70 V79 M520,70 V79 M480,74.5 H520"/>
+            </g>
+            <g>
+              <rect x="330" y="457" width="40" height="17" fill="var(--sheet)" stroke="none"/>
+              <path d="M330,461 V470 M370,461 V470 M330,465.5 H370"/>
+            </g>
+            <g>
+              <rect x="560" y="457" width="40" height="17" fill="var(--sheet)" stroke="none"/>
+              <path d="M560,461 V470 M600,461 V470 M560,465.5 H600"/>
+            </g>
+            <g>
+              <rect x="76" y="140" width="17" height="40" fill="var(--sheet)" stroke="none"/>
+              <path d="M80,140 H89 M80,180 H89 M84.5,140 V180"/>
+            </g>
+            <g>
+              <rect x="76" y="330" width="17" height="40" fill="var(--sheet)" stroke="none"/>
+              <path d="M80,330 H89 M80,370 H89 M84.5,330 V370"/>
+            </g>
+            <g>
+              <rect x="667" y="260" width="17" height="40" fill="var(--sheet)" stroke="none"/>
+              <path d="M671,260 H680 M671,300 H680 M675.5,260 V300"/>
+            </g>
+            <g>
+              <rect x="667" y="380" width="17" height="40" fill="var(--sheet)" stroke="none"/>
+              <path d="M671,380 H680 M671,420 H680 M675.5,380 V420"/>
+            </g>
+          </g>
+
+          <!-- stair -->
+          <g stroke-width="1">
+            <rect x="110" y="300" width="80" height="120"/>
+            <path d="M110,315 H190 M110,330 H190 M110,345 H190 M110,360 H190 M110,375 H190 M110,390 H190 M110,405 H190"/>
+            <path d="M150,414 V308 M150,308 L145,318 M150,308 L155,318"/>
+          </g>
+
+          <!-- porch -->
+          <g stroke-width="1.2" stroke-dasharray="7 5">
+            <rect x="160" y="470" width="270" height="50"/>
+          </g>
+          <circle cx="172" cy="512" r="3" stroke-width="1.2"/>
+          <circle cx="295" cy="512" r="3" stroke-width="1.2"/>
+          <circle cx="418" cy="512" r="3" stroke-width="1.2"/>
+        </g>
+
+        <!-- room labels -->
+        <g fill="var(--scan)" text-anchor="middle" style="font:italic 17px Georgia; letter-spacing:.2em">
+          <text x="235" y="180">PARLOR</text>
+          <text x="270" y="355">DINING ROOM</text>
+          <text x="478" y="140">BED ROOM</text>
+          <text x="615" y="140">PANTRY</text>
+          <text x="537" y="335">KITCHEN</text>
+          <text x="295" y="502" style="font:italic 13px Georgia; letter-spacing:.25em">PORCH</text>
+        </g>
+        <g fill="var(--scan)" text-anchor="middle" style="font:11px Georgia; letter-spacing:.08em" opacity=".85">
+          <text x="235" y="200">16' × 13'</text>
+          <text x="270" y="375">16' × 13'</text>
+          <text x="478" y="158">11' × 8'</text>
+          <text x="537" y="353">18' × 17'</text>
+          <text x="150" y="435" style="font:10px Georgia">UP</text>
+        </g>
+
+        <!-- compass + scale bar -->
+        <g stroke="var(--scan)" fill="none">
+          <circle cx="712" cy="104" r="15" stroke-width="1"/>
+          <path d="M712,116 V92 M712,92 L707,102 M712,92 L717,102" stroke-width="1.2"/>
+          <text x="712" y="86" text-anchor="middle" fill="var(--scan)" stroke="none" style="font:10px Georgia">N</text>
+          <g stroke-width="1">
+            <rect x="470" y="502" width="45" height="7" fill="var(--scan)"/>
+            <rect x="515" y="502" width="45" height="7"/>
+            <rect x="560" y="502" width="90" height="7" fill="var(--scan)"/>
+          </g>
+          <g fill="var(--scan)" stroke="none" style="font:9px Georgia" text-anchor="middle">
+            <text x="470" y="497">0</text><text x="515" y="497">5</text>
+            <text x="560" y="497">10</text><text x="650" y="497">20 FT</text>
+          </g>
+        </g>
+
+        <!-- age -->
+        <g fill="#8a6b3d" stroke="none">
+          <ellipse cx="620" cy="430" rx="60" ry="40" opacity=".05"/>
+          <ellipse cx="140" cy="110" rx="45" ry="30" opacity=".04"/>
+        </g>
+        <circle cx="600" cy="92" r="24" fill="none" stroke="#8a6b3d" stroke-width="5" opacity=".08"/>
+
+        <!-- ============ calibration overlay ============ -->
+        <g>
+          <line class="cal-guide" x1="92" y1="205" x2="92" y2="272"/>
+          <line class="cal-guide" x1="397" y1="205" x2="397" y2="272"/>
+          <line class="cal-line" x1="92" y1="238" x2="397" y2="238"/>
+          <line class="cal-line" x1="92" y1="231" x2="92" y2="245"/>
+          <line class="cal-line" x1="397" y1="231" x2="397" y2="245"/>
+          <circle class="cal-handle" cx="92" cy="238" r="6"/>
+          <circle class="cal-handle" cx="397" cy="238" r="6"/>
+          <g class="cal-tag">
+            <rect x="205" y="222" width="80" height="30" rx="2"/>
+            <text x="245" y="242" text-anchor="middle">3.60 m</text>
+          </g>
+        </g>
+      </svg>
+    </div>
+    <div class="caption mono">sheet 1 of 2 — ground storey · <b>beaumont-ground.jpg</b> · drag the carmine handles along something you know</div>
+  </section>
+
+  <aside class="rail">
+
+    <div class="step done">
+      <div class="step-head"><span class="n">1</span> UPLOAD A SHEET <span class="state">done ✓</span></div>
+      <div class="step-body">
+        <div class="filerow">
+          <span class="chip-ext mono">JPG</span>
+          <div>
+            <div><b>beaumont-ground.jpg</b></div>
+            <div class="mono" style="font-size:.72rem; color:var(--faded)">2400 × 1800 px · 4.2 MB</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="step active">
+      <div class="step-head"><span class="n">2</span> SET THE SCALE <span class="state">measuring…</span></div>
+      <div class="step-body">
+        The carmine line spans the parlor. How long is that in the world?
+        <div class="scale-row">
+          <input class="mono" value="3.60" aria-label="measured length">
+          <span class="unit">m ▾</span>
+          <span class="enter">⏎ to set</span>
+        </div>
+        <div class="hint">Old sheets note their own scale — “⅛ in = 1 ft” works too.
+        Feet are fine; the document stores metres.</div>
+      </div>
+    </div>
+
+    <div class="step todo">
+      <div class="step-head"><span class="n">3</span> ASSIGN A STOREY <span class="state">next</span></div>
+      <div class="step-body">
+        <div class="storey-pick">
+          <label><span class="dot">●</span> Ground — this sheet</label>
+          <label><span class="dot">○</span> First <span class="mono" style="color:var(--faded);font-size:.72rem">(no sheet yet)</span></label>
+          <label><span class="dot">＋</span> <i>new storey…</i></label>
+        </div>
+      </div>
+    </div>
+
+    <div class="facts">
+      <table>
+        <tr><td>after calibration</td><td class="mono">1 px = 8.33 mm</td></tr>
+        <tr><td>plan footprint</td><td class="mono">15.2 × 10.1 m</td></tr>
+        <tr><td>rotation</td><td class="mono">−0.7°</td></tr>
+      </table>
+    </div>
+
+    <div class="nudge">
+      <span>rotate</span>
+      <span class="btn-sq">⟲</span><span class="btn-sq">⟳</span>
+      <span class="hint" style="margin:0">¼° taps · ⇧ for 5°</span>
+      <span class="val mono">−0.7°</span>
+    </div>
+
+    <a class="cta" href="#">CONTINUE TO TRACING →</a>
+    <a class="cta ghost" href="#">＋ add another sheet (first storey)</a>
+
+    <div class="titleblock">
+      <div class="tb-row"><div class="tb-cell">SHEET</div><div class="tb-cell">02 — SCAN &amp; CALIBRATE</div></div>
+      <div class="tb-row"><div class="tb-cell">HOUSE</div><div class="tb-cell">THE BEAUMONT COTTAGE · est. 1887</div></div>
+      <div class="tb-row"><div class="tb-cell">NOTE</div><div class="tb-cell mono">static mockup — multipart Raw upload + calibration Action</div></div>
+    </div>
+
+  </aside>
+</main>
+
+</body>
+</html>

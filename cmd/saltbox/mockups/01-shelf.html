@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>saltbox — the shelf (mockup)</title>
+<style>
+  :root{
+    --paper:#f0e6d2; --paper-2:#e6d9bd; --paper-3:#faf4e6;
+    --ink:#26211a; --faded:#8a7a63; --line:#b9a988;
+    --carmine:#a93b2c; --olive:#6f6f4c; --blue:#31536b;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{
+    background:var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.15 0 0 0 0 0.12 0 0 0 0 0.08 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+    color:var(--ink);
+    font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+    min-height:100vh;
+  }
+  a{color:inherit; text-decoration:none}
+  .mono{font-family: ui-monospace, Consolas, 'Courier New', monospace}
+
+  header{
+    display:flex; align-items:baseline; gap:2rem;
+    padding:1.4rem 3rem .9rem;
+    border-bottom:2.5px solid var(--ink);
+    box-shadow:0 3px 0 -1px var(--ink);
+  }
+  .wordmark{font-size:1.35rem; letter-spacing:.55em; font-weight:700}
+  .wordmark .glyph{letter-spacing:0; margin-right:.4em}
+  header nav{margin-left:auto; display:flex; gap:1.8rem; font-style:italic; color:var(--faded)}
+  header nav .active{color:var(--ink); border-bottom:1px solid var(--ink)}
+
+  .hero{display:flex; gap:3rem; padding:3.2rem 3rem 2.4rem; align-items:center}
+  .hero-copy{flex:1 1 61.8%}
+  .hero-copy h1{font-size:2.7rem; font-weight:400; font-style:italic; line-height:1.15; max-width:21ch}
+  .hero-copy p{margin-top:1rem; max-width:52ch; color:var(--faded); font-size:1.05rem; line-height:1.55}
+  .cta{
+    display:inline-block; margin-top:1.6rem; padding:.65rem 1.5rem;
+    background:var(--carmine); color:var(--paper-3);
+    letter-spacing:.18em; font-size:.85rem; border:1.5px solid var(--ink);
+    box-shadow:3px 3px 0 var(--ink);
+  }
+  .cta.ghost{background:transparent; color:var(--ink); box-shadow:none; margin-left:1rem}
+  .hero-art{flex:1 1 38.2%; text-align:center}
+
+  .shelf-head{
+    display:flex; align-items:baseline; gap:1.2rem; padding:0 3rem; margin-top:1.2rem;
+  }
+  .shelf-head h2{font-size:.85rem; letter-spacing:.35em; font-weight:700}
+  .shelf-head .rule{flex:1; border-top:1px solid var(--ink)}
+  .shelf-head .count{font-size:.8rem; color:var(--faded)}
+
+  .grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(285px,1fr));
+    gap:1.6rem; padding:1.4rem 3rem 3rem;
+  }
+  .card{
+    background:var(--paper-3); border:1.5px solid var(--ink);
+    box-shadow:4px 4px 0 rgba(38,33,26,.22);
+    display:flex; flex-direction:column;
+  }
+  .thumb{
+    background:var(--paper-2); border-bottom:1.5px solid var(--ink);
+    aspect-ratio:1.618; display:flex; align-items:center; justify-content:center;
+  }
+  .thumb svg{width:88%; height:88%}
+  .card-body{padding: .85rem 1rem 1rem}
+  .card-body h3{font-size:1.12rem; font-style:italic; font-weight:600}
+  .meta{margin-top:.3rem; font-size:.72rem; color:var(--faded); letter-spacing:.04em}
+  .chips{margin-top:.6rem; display:flex; gap:.5rem}
+  .chip{
+    font-size:.62rem; letter-spacing:.14em; padding:.18rem .5rem;
+    border:1px solid var(--ink); background:var(--paper)
+  }
+  .chip.live{background:var(--carmine); color:var(--paper-3); border-color:var(--ink)}
+  .chip.live::before{content:'●'; margin-right:.4em; animation:blink 2.2s infinite}
+  .chip.new{background:var(--olive); color:var(--paper-3)}
+  @keyframes blink{50%{opacity:.35}}
+
+  .card.cta-card{
+    border-style:dashed; background:transparent; align-items:center; justify-content:center;
+    text-align:center; color:var(--faded); box-shadow:none; min-height:260px; gap:.6rem;
+    padding:1rem;
+  }
+  .card.cta-card .big{font-size:2.4rem; line-height:1; color:var(--ink)}
+  .card.cta-card em{font-size:1.05rem}
+  .card.cta-card .sub{font-size:.75rem; max-width:26ch}
+
+  footer{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    padding:1rem 3rem 1.6rem; color:var(--faded); font-size:.72rem;
+  }
+  .titleblock{
+    border:1.5px solid var(--ink); background:var(--paper-3);
+    font-size:.6rem; letter-spacing:.12em; color:var(--ink); min-width:270px;
+  }
+  .titleblock .tb-row{display:flex; border-top:1px solid var(--ink)}
+  .titleblock .tb-row:first-child{border-top:0}
+  .titleblock .tb-cell{padding:.3rem .55rem; border-left:1px solid var(--ink); flex:1}
+  .titleblock .tb-cell:first-child{border-left:0; flex:0 0 auto; color:var(--faded)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wordmark"><span class="glyph">⌂</span>SALTBOX</div>
+  <nav>
+    <a class="active" href="#">the shelf</a>
+    <a href="#">build a house</a>
+    <a href="#">sign in</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="hero-copy">
+    <h1>Historic floorplans, rebuilt in miniature.</h1>
+    <p>Upload a scan — a fire-insurance sheet, an archive blueprint, the pencil
+       plan of a farmhouse — trace its walls with a snapping pen, and keep the
+       result as a 3D dollhouse: open-topped rooms cut from card, the original
+       drawing lying on every floor.</p>
+    <a class="cta" href="#">BUILD A HOUSE</a>
+    <a class="cta ghost" href="#"><em>how it works ↓</em></a>
+  </div>
+  <div class="hero-art">
+    <!-- axonometric dollhouse, two storeys lifted apart -->
+    <svg viewBox="0 0 240 210" aria-label="dollhouse drawing">
+      <g stroke="#26211a" stroke-width="2" fill="none" stroke-linejoin="round">
+        <!-- ground shadow -->
+        <polygon points="122,196 180,167 128,141 70,170" fill="rgba(38,33,26,.12)" stroke="none"/>
+        <!-- ground storey outer faces -->
+        <polygon points="118,192 176,163 176,127 118,156" fill="#faf4e6"/>
+        <polygon points="118,192 66,166 66,130 118,156" fill="#efe5cf"/>
+        <!-- ground opening + scan floor -->
+        <polygon points="118,156 176,127 124,101 66,130" fill="#faf4e6"/>
+        <polygon points="118,149 166,125 122,103 74,127" fill="#dcc69c" stroke-width="1.2"/>
+        <line x1="98" y1="115" x2="142" y2="137" stroke-width="1.2"/>
+        <line x1="120" y1="104" x2="96" y2="116" stroke-width="1.2"/>
+        <!-- lift guides -->
+        <line x1="66"  y1="130" x2="66"  y2="84"  stroke-dasharray="3 4" stroke-width="1"/>
+        <line x1="176" y1="127" x2="176" y2="81"  stroke-dasharray="3 4" stroke-width="1"/>
+        <line x1="124" y1="101" x2="124" y2="55"  stroke-dasharray="3 4" stroke-width="1"/>
+        <!-- upper storey, lifted -->
+        <polygon points="118,110 176,81 176,55 118,84" fill="#faf4e6"/>
+        <polygon points="118,110 66,84 66,58 118,84" fill="#efe5cf"/>
+        <polygon points="118,84 176,55 124,29 66,58" fill="#faf4e6"/>
+        <polygon points="118,78 164,55 122,34 76,57" fill="#f0e6d2" stroke-width="1.2"/>
+        <line x1="97" y1="45" x2="140" y2="66" stroke-width="1.2" stroke="#31536b"/>
+      </g>
+    </svg>
+  </div>
+</section>
+
+<div class="shelf-head">
+  <h2>THE SHELF</h2>
+  <span class="rule"></span>
+  <span class="count mono">6 houses · 2 live · newest first</span>
+</div>
+
+<section class="grid">
+
+  <a class="card" href="#">
+    <div class="thumb">
+      <svg viewBox="0 0 220 150">
+        <g stroke="#26211a" stroke-width="2" fill="none" stroke-linejoin="round">
+          <polygon points="111,132 163,106 117,83 65,109" fill="rgba(38,33,26,.10)" stroke="none"/>
+          <polygon points="108,128 160,102 160,68 108,94" fill="#faf4e6"/>
+          <polygon points="108,128 62,105 62,71 108,94" fill="#efe5cf"/>
+          <polygon points="108,94 160,68 114,45 62,71" fill="#faf4e6"/>
+          <polygon points="109,90 151,68 113,49 72,71" fill="#dcc69c" stroke-width="1.2"/>
+          <line x1="92" y1="60" x2="130" y2="79" stroke-width="1.2"/>
+          <line x1="113" y1="50" x2="93" y2="60" stroke-width="1.2"/>
+          <line x1="60" y1="40" x2="60" y2="40"/>
+        </g>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>The Beaumont Cottage</h3>
+      <div class="meta mono">est. 1887 · Galveston, TX · 2 storeys · 9 rooms</div>
+      <div class="chips"><span class="chip live">LIVE · 3 WATCHING</span></div>
+    </div>
+  </a>
+
+  <a class="card" href="#">
+    <div class="thumb">
+      <svg viewBox="0 0 220 150">
+        <g stroke="#26211a" stroke-width="2" fill="none" stroke-linejoin="round">
+          <polygon points="111,134 159,110 119,90 71,113" fill="rgba(38,33,26,.10)" stroke="none"/>
+          <polygon points="108,130 156,106 156,58 108,82" fill="#faf4e6"/>
+          <polygon points="108,130 68,110 68,62 108,82" fill="#efe5cf"/>
+          <line x1="68" y1="86" x2="108" y2="106" stroke-width="1.2"/>
+          <line x1="108" y1="106" x2="156" y2="82" stroke-width="1.2"/>
+          <polygon points="108,82 156,58 116,38 68,62" fill="#faf4e6"/>
+          <polygon points="108,78 148,58 114,42 75,61" fill="#c8d3da" stroke-width="1.2"/>
+          <line x1="94" y1="50" x2="128" y2="67" stroke-width="1.2"/>
+        </g>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>Widow’s Walk House</h3>
+      <div class="meta mono">est. 1851 · Nantucket, MA · 3 storeys · 12 rooms</div>
+      <div class="chips"><span class="chip">PUBLIC</span></div>
+    </div>
+  </a>
+
+  <a class="card" href="#">
+    <div class="thumb">
+      <svg viewBox="0 0 220 150">
+        <g stroke="#26211a" stroke-width="2" fill="none" stroke-linejoin="round">
+          <polygon points="113,128 173,98 123,73 63,102" fill="rgba(38,33,26,.10)" stroke="none"/>
+          <polygon points="110,124 170,94 170,66 110,96" fill="#faf4e6"/>
+          <polygon points="110,124 60,99 60,71 110,96" fill="#efe5cf"/>
+          <polygon points="110,96 170,66 120,41 60,71" fill="#faf4e6"/>
+          <polygon points="111,91 161,66 119,45 70,69" fill="#e3b7a8" stroke-width="1.2"/>
+          <line x1="90" y1="57" x2="136" y2="80" stroke-width="1.2"/>
+          <line x1="118" y1="46" x2="90" y2="58" stroke-width="1.2"/>
+          <line x1="140" y1="56" x2="122" y2="64" stroke-width="1.2"/>
+        </g>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>Sanborn Sheet 12, Block 4</h3>
+      <div class="meta mono">surveyed 1904 · Monterey, CA · 1 storey · 6 rooms</div>
+      <div class="chips"><span class="chip new">TRACED TODAY</span></div>
+    </div>
+  </a>
+
+  <a class="card" href="#">
+    <div class="thumb">
+      <svg viewBox="0 0 220 150">
+        <g stroke="#26211a" stroke-width="2" fill="none" stroke-linejoin="round">
+          <polygon points="111,132 163,106 117,83 65,109" fill="rgba(38,33,26,.10)" stroke="none"/>
+          <polygon points="108,128 160,102 160,68 108,94" fill="#faf4e6"/>
+          <polygon points="108,128 62,105 62,71 108,94" fill="#efe5cf"/>
+          <line x1="62" y1="88" x2="108" y2="111" stroke-width="1.2"/>
+          <polygon points="108,94 160,68 114,45 62,71" fill="#faf4e6"/>
+          <polygon points="109,90 151,68 113,49 72,71" fill="#d9c9a4" stroke-width="1.2"/>
+          <line x1="86" y1="57" x2="126" y2="77" stroke-width="1.2"/>
+        </g>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>Grandma Ruth’s Farmhouse</h3>
+      <div class="meta mono">c. 1910 · Door County, WI · 2 storeys · 8 rooms</div>
+      <div class="chips"><span class="chip">PUBLIC</span></div>
+    </div>
+  </a>
+
+  <a class="card" href="#">
+    <div class="thumb">
+      <svg viewBox="0 0 220 150">
+        <g stroke="#26211a" stroke-width="2" fill="none" stroke-linejoin="round">
+          <polygon points="113,130 157,108 115,87 71,108" fill="rgba(38,33,26,.10)" stroke="none"/>
+          <polygon points="110,126 154,104 154,72 110,94" fill="#faf4e6"/>
+          <polygon points="110,126 68,105 68,73 110,94" fill="#efe5cf"/>
+          <polygon points="110,94 154,72 112,51 68,73" fill="#faf4e6"/>
+          <polygon points="110,89 146,71 112,54 76,71" fill="#c8d3da" stroke-width="1.2"/>
+          <line x1="93" y1="62" x2="128" y2="79" stroke-width="1.2"/>
+          <circle cx="111" cy="71" r="7" stroke-width="1.2"/>
+        </g>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>The Lightkeeper’s Quarters</h3>
+      <div class="meta mono">est. 1874 · Au Sable Point, MI · 1 storey · 5 rooms</div>
+      <div class="chips"><span class="chip live">LIVE · 1 WATCHING</span></div>
+    </div>
+  </a>
+
+  <a class="card" href="#">
+    <div class="thumb">
+      <svg viewBox="0 0 220 150">
+        <g stroke="#26211a" stroke-width="2" fill="none" stroke-linejoin="round">
+          <polygon points="115,127 191,89 141,64 65,101" fill="rgba(38,33,26,.10)" stroke="none"/>
+          <polygon points="112,123 188,85 188,57 112,95" fill="#faf4e6"/>
+          <polygon points="112,123 62,98 62,70 112,95" fill="#efe5cf"/>
+          <polygon points="112,95 188,57 138,32 62,70" fill="#faf4e6"/>
+          <polygon points="113,90 179,57 137,36 71,69" fill="#dcc69c" stroke-width="1.2"/>
+          <line x1="93" y1="58" x2="135" y2="79" stroke-width="1.2"/>
+          <line x1="115" y1="47" x2="157" y2="68" stroke-width="1.2"/>
+        </g>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>Shotgun Row №3</h3>
+      <div class="meta mono">est. 1898 · New Orleans, LA · 1 storey · 4 rooms</div>
+      <div class="chips"><span class="chip">PUBLIC</span></div>
+    </div>
+  </a>
+
+  <a class="card cta-card" href="#">
+    <div class="big">⌂</div>
+    <em>Found a plan?</em>
+    <div class="sub">County archives, the Library of Congress Sanborn collection,
+    the shoebox in the attic — one sheet per storey.</div>
+    <span class="cta" style="margin-top:.4rem">BUILD A HOUSE</span>
+  </a>
+
+</section>
+
+<footer>
+  <div>
+    static mockup — the built app renders this as templ views over driftwood;<br>
+    live cards morph in over the <span class="mono">shelf</span> SSE topic.
+  </div>
+  <div class="titleblock">
+    <div class="tb-row"><div class="tb-cell">SHEET</div><div class="tb-cell">01 — THE SHELF</div></div>
+    <div class="tb-row"><div class="tb-cell">APP</div><div class="tb-cell">SALTBOX · saltbox.house</div></div>
+    <div class="tb-row"><div class="tb-cell">DRAWN</div><div class="tb-cell mono">mockup · not to scale</div></div>
+  </div>
+</footer>
+
+</body>
+</html>

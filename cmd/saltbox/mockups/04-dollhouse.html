@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>saltbox — the dollhouse (mockup)</title>
+<style>
+  :root{
+    --paper:#f0e6d2; --paper-2:#e6d9bd; --paper-3:#faf4e6; --sheet:#f3ead6;
+    --ink:#26211a; --faded:#8a7a63; --line:#b9a988; --scan:#6b5b45;
+    --carmine:#a93b2c; --olive:#6f6f4c; --blue:#31536b; --felt:#312e27;
+  }
+  *{box-sizing:border-box; margin:0}
+  html,body{height:100%}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  a{color:inherit; text-decoration:none}
+  .mono{font-family: ui-monospace, Consolas, 'Courier New', monospace}
+
+  header{
+    display:flex; align-items:baseline; gap:1.6rem; padding:.8rem 2rem .6rem;
+    border-bottom:2.5px solid var(--ink); box-shadow:0 3px 0 -1px var(--ink);
+    background:var(--paper); flex:0 0 auto; z-index:5;
+  }
+  .wordmark{font-size:.95rem; letter-spacing:.5em; font-weight:700}
+  .crumb{font-style:italic; color:var(--faded)}
+  .crumb b{color:var(--ink); font-weight:600}
+  header .right{margin-left:auto; font-style:italic; color:var(--carmine); font-size:.9rem}
+
+  main{flex:1; display:flex; min-height:0}
+
+  /* ================= the scene ================= */
+  .scene{
+    flex:1 1 61.8%; position:relative; overflow:hidden;
+    background:
+      radial-gradient(ellipse at 50% 42%, rgba(240,230,210,.14), transparent 62%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.9 0 0 0 0 0.85 0 0 0 0 0.7 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E"),
+      var(--felt);
+  }
+  .stage{position:absolute; inset:0; perspective:1500px; perspective-origin:50% 34%}
+  .tilt{
+    position:absolute; left:50%; top:57%;
+    transform-style:preserve-3d; transform:rotateX(58deg);
+  }
+  .spin{
+    transform-style:preserve-3d;
+    animation:orbit 30s linear infinite;
+  }
+  @keyframes orbit{from{transform:rotateZ(0deg)}to{transform:rotateZ(360deg)}}
+  @media (prefers-reduced-motion: reduce){ .spin{animation:none; transform:rotateZ(35deg)} }
+  .house{transform-style:preserve-3d; transform:translate3d(-210px,-155px,0)}
+
+  .shadow{
+    position:absolute; left:-14px; top:-12px; width:448px; height:334px;
+    background:rgba(0,0,0,.42); filter:blur(16px);
+    transform:translateZ(-6px);
+  }
+  .slab{
+    position:absolute; left:0; top:0; width:420px; height:310px;
+    background:var(--sheet); outline:2px solid var(--ink);
+  }
+  .slab svg{position:absolute; inset:0; width:100%; height:100%; opacity:.92}
+
+  .wall{
+    position:absolute; left:0; top:0;
+    width:calc(var(--l) * 1px); height:var(--h, 80px);
+    transform-origin:0 0;
+    transform:translate3d(calc(var(--x) * 1px), calc(var(--y) * 1px), 0)
+              rotateZ(calc(var(--a) * 1deg)) rotateX(90deg);
+    background:linear-gradient(rgba(38,33,26,.16), rgba(38,33,26,.03) 26%, transparent 60%), var(--paper-3);
+    box-shadow:inset 0 0 0 1px rgba(38,33,26,.42);
+  }
+
+  .storey1{transform-style:preserve-3d; transform:translateZ(195px)}
+  .slab1{
+    position:absolute; left:60px; top:50px; width:300px; height:200px;
+    background:var(--paper-3); outline:2px solid var(--ink); opacity:.97;
+  }
+  .slab1 svg{position:absolute; inset:0; width:100%; height:100%}
+  .storey1 .wall{--h:70px; background:linear-gradient(rgba(38,33,26,.13), transparent 55%), rgba(250,244,230,.94)}
+
+  .post{
+    position:absolute; left:0; top:0; width:0; height:195px;
+    transform-origin:0 0;
+    transform:translate3d(calc(var(--x) * 1px), calc(var(--y) * 1px), 0) rotateX(90deg);
+    border-left:2px dashed rgba(243,234,214,.55);
+  }
+
+  .scene .chip{
+    position:absolute; font-size:.66rem; letter-spacing:.14em;
+    padding:.28rem .6rem; border:1.5px solid var(--ink); z-index:4;
+  }
+  .chip.live{left:1.2rem; top:1.1rem; background:var(--carmine); color:var(--paper-3)}
+  .chip.live::before{content:'●'; margin-right:.45em; animation:blink 2.2s infinite}
+  @keyframes blink{50%{opacity:.3}}
+  .chip.hint{
+    left:1.2rem; bottom:1.1rem; background:rgba(243,234,214,.92); color:var(--ink);
+    font-style:italic; letter-spacing:.03em;
+  }
+  .scene .titleblock{
+    position:absolute; right:1.2rem; bottom:1.1rem; z-index:4;
+    border:1.5px solid var(--ink); background:var(--paper-3);
+    font-size:.56rem; letter-spacing:.12em;
+  }
+  .titleblock .tb-row{display:flex; border-top:1px solid var(--ink)}
+  .titleblock .tb-row:first-child{border-top:0}
+  .titleblock .tb-cell{padding:.26rem .5rem; border-left:1px solid var(--ink); flex:1; white-space:nowrap}
+  .titleblock .tb-cell:first-child{border-left:0; flex:0 0 auto; color:var(--faded)}
+
+  /* ================= the rail ================= */
+  .rail{
+    flex:0 0 38.2%; max-width:430px; border-left:2.5px solid var(--ink);
+    background:var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.15 0 0 0 0 0.12 0 0 0 0 0.08 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+    padding:1.4rem 1.6rem 1.2rem; display:flex; flex-direction:column; gap:1rem;
+    overflow:auto;
+  }
+  .house-title h1{font-size:1.7rem; font-style:italic; font-weight:600; line-height:1.1}
+  .house-title .meta{margin-top:.35rem; font-size:.74rem; color:var(--faded); letter-spacing:.04em}
+
+  .panel{border:1.5px solid var(--ink); background:var(--paper-3)}
+  .panel h4{font-size:.62rem; letter-spacing:.28em; padding:.45rem .7rem; border-bottom:1px solid var(--line); font-weight:700}
+  .panel .row{display:flex; align-items:center; gap:.6rem; padding:.5rem .7rem; font-size:.84rem}
+  .panel .row + .row{border-top:1px dashed var(--line)}
+  .panel .row .right{margin-left:auto}
+  .sub{font-size:.68rem; color:var(--faded)}
+  .storey-name{font-style:italic; font-weight:600}
+
+  input[type=range]{flex:1; accent-color:var(--carmine)}
+  .toggle{
+    width:2.5rem; height:1.25rem; border:1.5px solid var(--ink); background:var(--paper);
+    position:relative; display:inline-block;
+  }
+  .toggle::after{
+    content:''; position:absolute; left:2px; top:2px; width:.85rem; height:.85rem;
+    background:var(--faded);
+  }
+  .linkpill{
+    flex:1; border:1.5px solid var(--ink); background:var(--paper); padding:.4rem .6rem;
+    font-size:.78rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .btn-sq{border:1.5px solid var(--ink); background:var(--paper-3); padding:.4rem .7rem; font-size:.72rem; letter-spacing:.12em}
+  .cta.ghost{
+    display:block; text-align:center; padding:.6rem; border:1.5px dashed var(--ink);
+    color:var(--faded); font-style:italic; font-size:.82rem;
+  }
+  .provenance{font-size:.72rem; color:var(--faded); font-style:italic; line-height:1.5; border-top:1px double var(--ink); padding-top:.7rem}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wordmark">SALTBOX</div>
+  <div class="crumb">the shelf / <b>The Beaumont Cottage</b> — dollhouse</div>
+  <a class="right" href="#">back to the tracing room →</a>
+</header>
+
+<main>
+  <section class="scene">
+    <span class="chip live">LIVE · 3 WATCHING</span>
+    <span class="chip hint">drag to orbit · scroll to zoom — mockup auto-orbits</span>
+
+    <div class="stage">
+      <div class="tilt">
+        <div class="spin">
+          <div class="house">
+            <div class="shadow"></div>
+
+            <!-- ground storey: the scan is the carpet -->
+            <div class="slab">
+              <svg viewBox="80 70 600 400" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <g stroke="var(--scan)" fill="none">
+                  <rect x="80" y="70" width="600" height="400" stroke-width="3"/>
+                  <rect x="89" y="79" width="582" height="382" stroke-width="1.2"/>
+                  <g stroke-width="1.8">
+                    <path d="M400,79 V145 M400,179 V325 M400,359 V461"/>
+                    <path d="M89,270 H285 M319,270 H400"/>
+                    <path d="M560,79 V200"/>
+                    <path d="M400,200 H470 M500,200 H596 M624,200 H671"/>
+                  </g>
+                  <g stroke-width="1">
+                    <path d="M225,470 L225,430 M265,470 A40,40 0 0 0 225,430"/>
+                    <path d="M285,270 L285,304 M319,270 A34,34 0 0 1 285,304"/>
+                    <path d="M400,145 L366,145 M400,179 A34,34 0 0 1 366,145"/>
+                    <path d="M400,359 L434,359 M400,325 A34,34 0 0 1 434,359"/>
+                    <path d="M470,200 L470,230 M500,200 A30,30 0 0 1 470,230"/>
+                    <path d="M624,200 L624,228 M596,200 A28,28 0 0 0 624,228"/>
+                    <rect x="110" y="300" width="80" height="120"/>
+                    <path d="M110,315 H190 M110,330 H190 M110,345 H190 M110,360 H190 M110,375 H190 M110,390 H190 M110,405 H190"/>
+                  </g>
+                </g>
+                <g fill="var(--scan)" text-anchor="middle" style="font:italic 15px Georgia; letter-spacing:.18em">
+                  <text x="235" y="180">PARLOR</text>
+                  <text x="270" y="355">DINING ROOM</text>
+                  <text x="478" y="140">BED ROOM</text>
+                  <text x="615" y="140">PANTRY</text>
+                  <text x="537" y="335">KITCHEN</text>
+                </g>
+                <g fill="#8a6b3d" stroke="none">
+                  <ellipse cx="620" cy="430" rx="60" ry="40" opacity=".06"/>
+                  <ellipse cx="140" cy="110" rx="45" ry="30" opacity=".05"/>
+                </g>
+              </svg>
+            </div>
+
+            <!-- ground walls (openings punched; heights extrude on rotateX) -->
+            <div class="wall" style="--x:44;    --y:39;    --l:332;  --a:0"></div>
+            <div class="wall" style="--x:376;   --y:39;    --l:221;  --a:90"></div>
+            <div class="wall" style="--x:44;    --y:260;   --l:80;   --a:0"></div>
+            <div class="wall" style="--x:146;   --y:260;   --l:230;  --a:0"></div>
+            <div class="wall" style="--x:44;    --y:39;    --l:221;  --a:90"></div>
+            <div class="wall" style="--x:221;   --y:39;    --l:41.4; --a:90"></div>
+            <div class="wall" style="--x:221;   --y:99.2;  --l:80.7; --a:90"></div>
+            <div class="wall" style="--x:221;   --y:198.7; --l:61.3; --a:90"></div>
+            <div class="wall" style="--x:44;    --y:149.5; --l:113.3;--a:0"></div>
+            <div class="wall" style="--x:176.1; --y:149.5; --l:44.9; --a:0"></div>
+            <div class="wall" style="--x:309.3; --y:39;    --l:71.8; --a:90"></div>
+            <div class="wall" style="--x:309.3; --y:110.8; --l:19.9; --a:0"></div>
+            <div class="wall" style="--x:344.7; --y:110.8; --l:31.3; --a:0"></div>
+            <div class="wall" style="--x:221;   --y:110.8; --l:38.6; --a:0"></div>
+            <div class="wall" style="--x:276.2; --y:110.8; --l:33.1; --a:0"></div>
+
+            <!-- lift guides -->
+            <div class="post" style="--x:60;  --y:50"></div>
+            <div class="post" style="--x:360; --y:50"></div>
+            <div class="post" style="--x:360; --y:250"></div>
+            <div class="post" style="--x:60;  --y:250"></div>
+
+            <!-- first storey, lifted 1.6 m: traced but no scan — plain card -->
+            <div class="storey1">
+              <div class="slab1">
+                <svg viewBox="0 0 300 200" xmlns="http://www.w3.org/2000/svg">
+                  <g stroke="var(--blue)" fill="none" opacity=".8">
+                    <rect x="3" y="3" width="294" height="194" stroke-width="2"/>
+                    <path d="M150,3 V80 M150,100 V197" stroke-width="1.4"/>
+                    <path d="M150,80 L128,80 M150,100 A22,22 0 0 0 128,80" stroke-width=".9"/>
+                    <path d="M60,3 V10 M110,3 V10 M200,3 V10 M250,3 V10" stroke-width=".9"/>
+                  </g>
+                  <g fill="var(--blue)" text-anchor="middle" opacity=".75" style="font:italic 13px Georgia; letter-spacing:.16em">
+                    <text x="78" y="105">CHAMBER</text>
+                    <text x="225" y="105">CHAMBER</text>
+                  </g>
+                </svg>
+              </div>
+              <div class="wall" style="--x:60;  --y:50;  --l:300; --a:0"></div>
+              <div class="wall" style="--x:360; --y:50;  --l:200; --a:90"></div>
+              <div class="wall" style="--x:60;  --y:250; --l:300; --a:0"></div>
+              <div class="wall" style="--x:60;  --y:50;  --l:200; --a:90"></div>
+              <div class="wall" style="--x:210; --y:50;  --l:80;  --a:90"></div>
+              <div class="wall" style="--x:210; --y:150; --l:100; --a:90"></div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="titleblock">
+      <div class="tb-row"><div class="tb-cell">SHEET</div><div class="tb-cell">04 — THE DOLLHOUSE</div></div>
+      <div class="tb-row"><div class="tb-cell">NOTE</div><div class="tb-cell mono">CSS-3D stand-in — built app = three.js island</div></div>
+    </div>
+  </section>
+
+  <aside class="rail">
+    <div class="house-title">
+      <h1>The Beaumont Cottage</h1>
+      <div class="meta mono">est. 1887 · Galveston, TX · 2 storeys · 9 rooms · rev 214</div>
+    </div>
+
+    <div class="panel">
+      <h4>STOREYS</h4>
+      <div class="row"><span class="storey-name">Ground</span><span class="right sub mono">scan + tracing</span></div>
+      <div class="row"><span class="storey-name">First</span><span class="right sub mono">tracing only — plain card</span></div>
+      <div class="row">
+        <span>storey lift</span>
+        <input type="range" min="0" max="100" value="62" aria-label="storey lift">
+        <span class="mono" style="font-size:.76rem">1.6 m</span>
+      </div>
+      <div class="row">
+        <span>cutaway</span>
+        <span class="right toggle" role="switch" aria-checked="false" title="ghosts the walls facing you"></span>
+      </div>
+      <div class="row"><span>orbit</span><span class="right sub">slow · <i>reset view</i></span></div>
+    </div>
+
+    <div class="panel">
+      <h4>SHARE</h4>
+      <div class="row"><span>visibility</span><span class="right btn-sq mono">PUBLIC ▾</span></div>
+      <div class="row">
+        <span class="linkpill mono">saltbox.house/h/mv3k9q</span>
+        <span class="btn-sq">COPY</span>
+      </div>
+      <div class="row sub" style="font-style:italic">on the shelf — watchers see strokes land live</div>
+    </div>
+
+    <a class="cta ghost" href="#">export .glb — arrives with M3</a>
+
+    <div class="provenance">
+      Scan: Sanborn Fire Insurance Map, Galveston 1904, sheet 12 — Library of
+      Congress, public domain. Traced by <b>meggawatts</b> over two evenings.
+      The drawing lies on the ground floor of the model, the way it should.
+    </div>
+  </aside>
+</main>
+
+</body>
+</html>
