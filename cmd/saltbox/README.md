@@ -28,10 +28,13 @@ England coast — a historic house that is also, conveniently, a little box.)
 1. **Found a plan.** Create a house (title, year, place) and upload the scan —
    JPEG/PNG, one sheet per storey. Or skip the attic entirely: **adopt an
    untraced sheet** straight from a collection in the archive.
-2. **Calibrate.** OCR looks for the sheet's own scale note ("SCALE ⅛ IN = 1
-   FT") and offers it; otherwise draw one line along something whose length you
-   know and type it — `11' 10"` or `3.6m`, the parser takes both. Dominant-axis
-   detection suggests the deskew rotation.
+2. **Crop & calibrate.** A catalog page is rarely one storey: crop each plan
+   region — two storeys stacked, side by side, or "Plan No. 1 / No. 2"
+   variants — and assign it; the perspective rendering crops into the house's
+   portrait. Then scale: OCR offers the page's printed size caption ("Width,
+   21 feet 6 inches") or a dimension line ("34'-0""); otherwise draw one line
+   along something whose length you know and type it — `11' 10"` or `3.6m`,
+   the parser takes both. Dominant-axis detection suggests the deskew rotation.
 3. **Trace.** The vision pass drafts ghost walls; you accept, redraw, or ignore
    them, then finish with the pen — walls chain and snap, doors and windows
    punch onto walls, rooms are named (*Parlor*, *Scullery*) and kinded
@@ -185,6 +188,7 @@ cmd/saltbox/
 ├── static/js/            trace.js, vision.js, dollhouse.js, vendored three.js ESM;
 │                         beach-ws.js comes from the framework's embedded assets
 ├── static/models/        quantized ONNX wall model + OCR data, versioned, cache-immutable
+├── floorplans/           the seed corpus: 929 catalog pages, 25 collections (see The archive)
 ├── docker-compose.yml    postgres
 └── README.md             this file
 ```
@@ -246,6 +250,9 @@ CREATE TABLE sb_houses (
     native_units text       NOT NULL DEFAULT 'ft',    -- ft|m: the sheet's own units,
                                                       -- drives quantize increments
     cover_key   text        NOT NULL DEFAULT '',      -- storage key of the cover snapshot
+    portrait    jsonb       NOT NULL DEFAULT '{}',    -- {scan_id, crop}: the catalog's
+                                                      -- perspective rendering, shown beside
+                                                      -- the dollhouse on the house page
     -- derived facets (the catalog filters on these):
     storeys     int,
     rooms       int,
@@ -278,6 +285,9 @@ CREATE TABLE sb_scans (
     house_id      bigint      REFERENCES sb_houses (id) ON DELETE SET NULL,
     collection_id bigint      REFERENCES sb_collections (id) ON DELETE SET NULL,
     sheet_no      text        NOT NULL DEFAULT '',    -- "sheet 12", "design No. 158"
+    model_name    text        NOT NULL DEFAULT '',    -- "The Ashmore", "Beaumont"
+    role          text        NOT NULL DEFAULT 'page',-- page|plan|portrait|cover — what the
+                                                      -- image is (the d/p import pairing)
     source_url    text        NOT NULL DEFAULT '',    -- deep link into the source archive
     storage_key   text        NOT NULL,               -- scans/<collection|house>/<rand>.<ext>
     filename      text        NOT NULL,
@@ -370,6 +380,15 @@ wall that meets it — the snap graph is the data model. Wall height comes from
 the floor (`height_m`); a per-wall `h` override is allowed for the odd
 half-height parapet.
 
+`sb_floors.calibration` is `{ "crop": [x, y, w, h], "ppm": 120.4,
+"origin": [x, y], "rot": -0.013, "opacity": 0.4 }` — a page *region* plus
+enough to place it under the tracing and as the floor texture, nothing more.
+`crop` is what lets one catalog page underlay two storeys: each floor
+references the same scan with its own crop (Standard Homes and 1935 Sears
+stack both plans on one sheet; Hodgson prints them side by side; Aladdin and
+the 1956 ranches print "Plan No. 1 / No. 2" *variants* — crop the one you are
+building).
+
 **Room kinds** power the catalog facets. The historic *name* is kept verbatim;
 the *kind* is suggested from it and always overridable: Chamber / Bed Room →
 `bedroom`; Bath / W.C. / Privy → `bathroom`; Scullery / Pantry / Kitchen →
@@ -387,6 +406,17 @@ commits.** Nothing an assist produces touches the document until the owner
 accepts it, and acceptance turns into ordinary ops through the same
 `internal/geometry.Apply` as hand tracing — the server cannot tell the
 difference, and never trusts a model directly.
+
+**Ground truth from the corpus.** The seed pages (`floorplans/`, see
+[The archive](#the-archive)) are 300–650 px halftone catalog scans, not
+archival TIFFs: a page mixes a perspective rendering, one or two plan regions,
+a printed size caption, room dims, price, and copy — and one pixel is an inch
+or more of house. At that resolution the printed numbers are load-bearing:
+pixel-measuring the ~200 px plan region of a 21'6"-wide Radford cement house
+cannot beat reading "Width, 21 feet 6 inches" off the caption. Quantize and
+printed-dimension constraints are the accuracy mechanism, not garnish — the
+pixels say *where*, the type says *how big*. (The wall model trains against
+halftone screening and the occasional colour page — the 1956 ranches.)
 
 ### Quantize — the sheet's own inches
 
@@ -419,11 +449,14 @@ too. `native_units` on the house (default `ft`) drives:
 - **OCR.** A client-side pass (Tesseract.js WASM to start — printed lettering
   only; 1880s copperplate hand is out of scope) over the scan reads three
   narrow things, each surfaced as a confirmation chip, never auto-applied:
-  1. **The scale note** — "SCALE ⅛ IN = 1 FT" on the sheet margin becomes a
-     one-click calibration ("sheet says ⅛ in = 1 ft — apply?").
-  2. **Room dimension strings** — "16' × 13'" inside a room becomes a pair of
+  1. **Size captions and dimension lines** — "Width, 21 feet 6 inches; Length,
+     43 feet 6 inches" (the Radford/Hodgson caption convention) or an in-plan
+     dimension line reading "34'-0"" becomes a one-click calibration; a
+     printed "Living Area 1,325 sq. ft." lands as an est-hint on the sheet.
+  2. **The scale note** — "SCALE ⅛ IN = 1 FT" on a sheet margin, same chip.
+  3. **Room dimension strings** — "16' × 13'" inside a room becomes a pair of
      `dims` constraints attached to that room's loop ("read 5 room dims ✓").
-  3. **Room names** — "PARLOR" seeds the room's name and suggested kind when
+  4. **Room names** — "PARLOR" seeds the room's name and suggested kind when
      you close its loop.
   The raw OCR result is cached on `sb_scans.ocr` so re-opening the editor
   doesn't re-run it.
@@ -549,10 +582,10 @@ where every entry is (or can become) a real 3D model, and the filters are
 computed from tracings, not typed into a form.
 
 - **Collections** are the unit of import: a coherent public-domain body of
-  sheets (`sb_collections` + `sb_scans` rows with `house_id IS NULL`).
-  Candidate seeds: Library of Congress Sanborn sheets, Sears Modern Homes and
-  other pattern-book catalogs, HABS survey drawings. License is recorded per
-  collection and the importer refuses sources without one.
+  sheets (`sb_collections` + `sb_scans` rows with `house_id IS NULL`). The
+  first 25 are already in the tree (the seed corpus, below); candidate seeds
+  beyond it: Library of Congress Sanborn sheets, HABS survey drawings. License
+  is recorded per collection and the importer refuses sources without one.
 - **`saltbox import`** (a subcommand of the same binary, run off-process) takes
   a collection manifest (source URLs or a directory, license, year range),
   transcodes originals to web derivatives — this is where TIFF/JP2 masters get
@@ -570,6 +603,48 @@ computed from tracings, not typed into a form.
   *claim about the plan*, not about someone's data entry.
 - **Counts on the rail** ("Sears Modern Homes 1908 · 447") are one grouped
   query, cached with `cache.Snapshot` and invalidated on publish.
+
+### The seed corpus (in-tree)
+
+`floorplans/` holds the starter corpus: **929 catalog pages** from the saved
+*Old Houses For Sale* catalog captures in `Y:\research\old_floorplans/` (25
+saved pages, HTML + images). The import manifest for this corpus should parse
+the **saved HTML pages, not just the images** — the pages carry model names,
+captions, and the `d`/`p` (portrait/plan) pairing as text, so the importer
+recovers `model_name`, `role`, and est-hints without OCR. Filename prefixes
+map to collections:
+
+| Prefix | Collection | Year |
+| --- | --- | --- |
+| `03r-` | Radford American Houses (100 designs) | c. 1903 |
+| `h-` | Hodgson House Plans | 1905 |
+| `r1-` / `r2-` | Radford Cement Houses, one-/two-story | 1909 |
+| `16s…` | Sears Roebuck kit houses | 1916 |
+| `16sterling…` | Sterling System (International Mill & Timber) | 1916 |
+| `a-` | Aladdin | 1916 |
+| `20<name>` | Bennett Homes | 1920 |
+| `20h-m####` | Harris Homes | 1920 |
+| `21f` | Fenner Ready Built (Portland) | 1921 |
+| `24bw-` | Bilt-Well Homes of Comfort | 1924 |
+| `25w` | Wardway (Montgomery Ward) | 1920s |
+| `rm…` | Radford Home & Fireside | 1925 |
+| `26<name>d/p` | Standard Homes | 1926 |
+| `27b-` | Common Brick Manufacturers | 1927 |
+| `se-` | Sears Honor Bilt supplement | 1928 |
+| `s29…` | Sears Honor Bilt, brick veneer | c. 1929 |
+| `35s…d/p` | Sears Honor-Bilt | 1935 |
+| `l-…-d/p` | Liberty Homes (Lewis Mfg) | 1939 |
+| `45s-` | Sterling | 1945 |
+| `n<name>` | National Homes of Moderate Cost | 1949 |
+| `53<name>` | Aladdin | 1953 |
+| `56n-r###` | Modern Ranch Homes | 1956 |
+| `gvt` | Gordon Van Tine | n.d. |
+| `<name>d/p` (unprefixed) | Aladdin | 1961 — confirm vs saved page |
+
+Licensing: everything published before 1931 is public domain outright; the
+1935–1961 catalogs are almost certainly unrenewed commercial catalogs (also
+PD) but each wants a renewal check before its collection goes on the public
+shelf. Per-collection `license`, and the importer refuses blanks.
 
 ## Uploads & storage
 
@@ -747,5 +822,14 @@ card is derived from a tracing, none typed.
 - **Half-storeys.** "1½ storey" is a real and common historic form (the
   saltbox itself!) — does `storeys` stay an int with an attic flag, or become
   a half-step numeric?
+- **Plan variants.** Aladdin and the ranch catalogs print "Plan No. 1 / Plan
+  No. 2" alternates of one model on a single page. Is a variant a second
+  house, a second crop on the same house, or a first-class concept the
+  catalog groups by?
+- **Estimated facets for untraced sheets.** Printed captions ("Living Area
+  1,325 sq. ft.") could pre-fill est-hints so adoption-hunters can filter
+  untraced sheets — but the facet columns' purity rule is "derived from
+  tracings only." Display ests without filtering on them, or add
+  clearly-marked est filters?
 - **Unlisted + crawlers** — `noindex` on unlisted pages is table stakes; is the
   slug alphabet (6 × base32) enough capability entropy, or 8?
