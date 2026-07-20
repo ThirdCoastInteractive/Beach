@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>saltbox — the catalog (mockup)</title>
+<style>
+  :root{
+    --paper:#f0e6d2; --paper-2:#e6d9bd; --paper-3:#faf4e6; --sheet:#f3ead6;
+    --ink:#26211a; --faded:#8a7a63; --line:#b9a988; --scan:#6b5b45;
+    --carmine:#a93b2c; --olive:#6f6f4c; --blue:#31536b;
+  }
+  *{box-sizing:border-box; margin:0}
+  body{
+    background:var(--paper) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.15 0 0 0 0 0.12 0 0 0 0 0.08 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E");
+    color:var(--ink);
+    font-family: Georgia, 'Iowan Old Style', 'Times New Roman', serif;
+    min-height:100vh;
+  }
+  a{color:inherit; text-decoration:none}
+  .mono{font-family: ui-monospace, Consolas, 'Courier New', monospace}
+
+  header{
+    display:flex; align-items:baseline; gap:2rem;
+    padding:1.4rem 3rem .9rem;
+    border-bottom:2.5px solid var(--ink); box-shadow:0 3px 0 -1px var(--ink);
+  }
+  .wordmark{font-size:1.35rem; letter-spacing:.55em; font-weight:700}
+  .wordmark .glyph{letter-spacing:0; margin-right:.4em}
+  header nav{margin-left:auto; display:flex; gap:1.8rem; font-style:italic; color:var(--faded)}
+  header nav .active{color:var(--ink); border-bottom:1px solid var(--ink)}
+
+  main{display:flex; align-items:flex-start}
+
+  /* ---------- filter rail ---------- */
+  .filters{
+    flex:0 0 300px; border-right:2.5px solid var(--ink); min-height:calc(100vh - 70px);
+    padding:1.3rem 1.2rem 2rem; display:flex; flex-direction:column; gap:.95rem;
+    font-size:.85rem;
+  }
+  .panel{border:1.5px solid var(--ink); background:var(--paper-3)}
+  .panel h4{font-size:.6rem; letter-spacing:.28em; padding:.42rem .7rem; border-bottom:1px solid var(--line); font-weight:700}
+  .panel .body{padding:.6rem .7rem; display:flex; flex-direction:column; gap:.5rem}
+  .chips{display:flex; flex-wrap:wrap; gap:.35rem}
+  .fchip{border:1px solid var(--ink); padding:.16rem .55rem; font-size:.72rem; background:var(--paper)}
+  .fchip.on{background:var(--carmine); color:var(--paper-3)}
+  .range{display:flex; flex-direction:column; gap:.3rem}
+  .track{position:relative; height:4px; background:var(--line); margin:.5rem .3rem .2rem}
+  .track .fill{position:absolute; top:0; bottom:0; background:var(--carmine)}
+  .track .knob{position:absolute; top:50%; width:11px; height:11px; background:var(--paper-3);
+    border:2px solid var(--carmine); transform:translate(-50%,-50%)}
+  .range .vals{display:flex; justify-content:space-between; font-size:.72rem; color:var(--faded)}
+  .checklist label{display:flex; gap:.5rem; align-items:baseline; font-size:.8rem}
+  .checklist .count{margin-left:auto; color:var(--faded); font-size:.7rem}
+  .note{font-size:.68rem; color:var(--faded); font-style:italic; line-height:1.45}
+  .clear{font-style:italic; color:var(--faded); text-align:center; font-size:.78rem}
+
+  .titleblock{
+    border:1.5px solid var(--ink); background:var(--paper-3);
+    font-size:.58rem; letter-spacing:.12em; margin-top:auto;
+  }
+  .titleblock .tb-row{display:flex; border-top:1px solid var(--ink)}
+  .titleblock .tb-row:first-child{border-top:0}
+  .titleblock .tb-cell{padding:.28rem .5rem; border-left:1px solid var(--ink); flex:1}
+  .titleblock .tb-cell:first-child{border-left:0; flex:0 0 auto; color:var(--faded)}
+
+  /* ---------- results ---------- */
+  .results{flex:1; padding:1.3rem 3rem 3rem}
+  .res-head{display:flex; align-items:baseline; gap:1.2rem}
+  .res-head h2{font-size:.85rem; letter-spacing:.35em; font-weight:700}
+  .res-head .rule{flex:1; border-top:1px solid var(--ink)}
+  .res-head .count{font-size:.8rem; color:var(--faded)}
+  .query{margin-top:.5rem; font-size:.68rem; color:var(--faded)}
+  .query b{color:var(--olive); font-weight:600}
+
+  .grid{
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(285px,1fr));
+    gap:1.6rem; margin-top:1.2rem;
+  }
+  .card{
+    background:var(--paper-3); border:1.5px solid var(--ink);
+    box-shadow:4px 4px 0 rgba(38,33,26,.22);
+    display:flex; flex-direction:column;
+  }
+  .thumb{
+    background:var(--paper-2); border-bottom:1.5px solid var(--ink);
+    aspect-ratio:1.618; display:flex; align-items:center; justify-content:center;
+    overflow:hidden;
+  }
+  .thumb svg{width:88%; height:88%}
+  .thumb .sheetjacket{transform:rotate(-1.2deg); width:70%; box-shadow:0 6px 16px rgba(38,33,26,.3)}
+  .thumb .sheetjacket svg{display:block; width:100%; height:auto}
+  .card-body{padding:.85rem 1rem 1rem}
+  .card-body h3{font-size:1.08rem; font-style:italic; font-weight:600}
+  .meta{margin-top:.3rem; font-size:.72rem; color:var(--faded); letter-spacing:.04em}
+  .chiprow{margin-top:.6rem; display:flex; gap:.5rem; align-items:baseline}
+  .chip{font-size:.62rem; letter-spacing:.14em; padding:.18rem .5rem; border:1px solid var(--ink); background:var(--paper)}
+  .chip.live{background:var(--carmine); color:var(--paper-3)}
+  .chip.live::before{content:'●'; margin-right:.4em; animation:blink 2.2s infinite}
+  .chip.untraced{background:var(--olive); color:var(--paper-3)}
+  @keyframes blink{50%{opacity:.35}}
+  .adopt{margin-left:auto; font-style:italic; color:var(--carmine); font-size:.8rem}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wordmark"><span class="glyph">⌂</span>SALTBOX</div>
+  <nav>
+    <a href="#">the shelf</a>
+    <a class="active" href="#">the catalog</a>
+    <a href="#">build a house</a>
+    <a href="#">sign in</a>
+  </nav>
+</header>
+
+<main>
+  <aside class="filters">
+
+    <div class="panel">
+      <h4>BEDROOMS</h4>
+      <div class="body"><div class="chips">
+        <span class="fchip">any</span><span class="fchip">1</span><span class="fchip">2</span>
+        <span class="fchip on">3</span><span class="fchip">4</span><span class="fchip">5+</span>
+      </div></div>
+    </div>
+
+    <div class="panel">
+      <h4>BATHROOMS</h4>
+      <div class="body"><div class="chips">
+        <span class="fchip">any</span><span class="fchip on">1</span>
+        <span class="fchip">2</span><span class="fchip">3+</span>
+      </div></div>
+    </div>
+
+    <div class="panel">
+      <h4>SQUARE FEET</h4>
+      <div class="body"><div class="range">
+        <div class="track">
+          <div class="fill" style="left:18%; right:36%"></div>
+          <div class="knob" style="left:18%"></div>
+          <div class="knob" style="left:64%"></div>
+        </div>
+        <div class="vals mono"><span>700</span><span>1,600</span></div>
+      </div></div>
+    </div>
+
+    <div class="panel">
+      <h4>STOREYS</h4>
+      <div class="body"><div class="chips">
+        <span class="fchip">any</span><span class="fchip">1</span><span class="fchip">1½</span>
+        <span class="fchip on">2</span><span class="fchip">3+</span>
+      </div></div>
+    </div>
+
+    <div class="panel">
+      <h4>YEAR OF DESIGN</h4>
+      <div class="body"><div class="range">
+        <div class="track">
+          <div class="fill" style="left:44%; right:11%"></div>
+          <div class="knob" style="left:44%"></div>
+          <div class="knob" style="left:89%"></div>
+        </div>
+        <div class="vals mono"><span>1880</span><span>1920</span></div>
+      </div></div>
+    </div>
+
+    <div class="panel">
+      <h4>COLLECTION</h4>
+      <div class="body checklist">
+        <label>☐ Sears Modern Homes 1908 <span class="count mono">447</span></label>
+        <label>☐ Radford Ideal Homes <span class="count mono">210</span></label>
+        <label>☐ Sanborn Galveston 1904 <span class="count mono">129</span></label>
+        <label>☐ HABS Texas surveys <span class="count mono">61</span></label>
+        <label>☐ attic uploads <span class="count mono">92</span></label>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h4>UNTRACED SHEETS</h4>
+      <div class="body">
+        <label class="checklist" style="display:flex; gap:.5rem">☑ show sheets to adopt</label>
+        <div class="note">Untraced sheets have no facets yet — nobody has counted
+        their rooms. Toggled on, they ride along as adoption candidates.</div>
+      </div>
+    </div>
+
+    <a class="clear" href="#"><i>clear all filters</i></a>
+
+    <div class="titleblock">
+      <div class="tb-row"><div class="tb-cell">SHEET</div><div class="tb-cell">05 — THE CATALOG</div></div>
+      <div class="tb-row"><div class="tb-cell">NOTE</div><div class="tb-cell mono">filters are plain links — query params, no client state</div></div>
+    </div>
+  </aside>
+
+  <section class="results">
+    <div class="res-head">
+      <h2>THE CATALOG</h2>
+      <span class="rule"></span>
+      <span class="count mono">38 plans · 12 untraced sheets · newest year first</span>
+    </div>
+    <div class="query mono">/catalog?<b>beds=3</b>&amp;<b>baths=1</b>&amp;<b>sqft=700-1600</b>&amp;<b>storeys=2</b>&amp;<b>year=1880-1920</b>&amp;<b>untraced=1</b></div>
+
+    <div class="grid">
+
+      <a class="card" href="#">
+        <div class="thumb">
+          <svg viewBox="0 0 220 150">
+            <g stroke="#26211a" stroke-width="2" fill="none" stroke-linejoin="round">
+              <polygon points="111,134 159,110 119,90 71,113" fill="rgba(38,33,26,.10)" stroke="none"/>
+              <polygon points="108,130 156,106 156,58 108,82" fill="#faf4e6"/>
+              <polygon points="108,130 68,110 68,62 108,82" fill="#efe5cf"/>
+              <line x1="68" y1="86" x2="108" y2="106" stroke-width="1.2"/>
+              <line x1="108" y1="106" x2="156" y2="82" stroke-width="1.2"/>
+              <polygon points="108,82 156,58 116,38 68,62" fill="#faf4e6"/>
+              <polygon points="108,78 148,58 114,42 75,61" fill="#dcc69c" stroke-width="1.2"/>
+              <line x1="94" y1="50" x2="128" y2="67" stroke-width="1.2"/>
+            </g>
+          </svg>
+        </div>
+        <div class="card-body">
+          <h3>Sears No. 115, “The Argyle”</h3>
+          <div class="meta mono">1908 · kit home · 3 bd · 1 ba · 1,124 ft² · 2 storeys</div>
+          <div class="chiprow"><span class="chip">PUBLIC</span></div>
+        </div>
+      </a>
+
+      <a class="card" href="#">
+        <div class="thumb">
+          <div class="sheetjacket">
+            <svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
+              <rect width="200" height="140" fill="var(--sheet)"/>
+              <rect x="6" y="6" width="188" height="128" fill="none" stroke="var(--scan)" stroke-width="1"/>
+              <g stroke="var(--scan)" fill="none">
+                <rect x="30" y="26" width="140" height="88" stroke-width="1.8"/>
+                <path d="M95,26 V70 M95,84 V114 M30,70 H75 M88,70 H95 M132,26 V52 M132,66 V70 M95,70 H170" stroke-width="1"/>
+                <path d="M50,114 v8 M120,114 v8" stroke-width=".8"/>
+              </g>
+              <g fill="var(--scan)" text-anchor="middle" style="font:italic 7px Georgia; letter-spacing:.12em">
+                <text x="100" y="18">DESIGN No. 158 — FIRST FLOOR PLAN</text>
+                <text x="62" y="50">PARLOR</text><text x="62" y="94">DINING</text>
+                <text x="133" y="94">KITCHEN</text><text x="152" y="44">CHAMBER</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+        <div class="card-body">
+          <h3>Design No. 158</h3>
+          <div class="meta mono">Sears Modern Homes 1908 · sheet 1 of 2 · facets unknown</div>
+          <div class="chiprow"><span class="chip untraced">UNTRACED</span><span class="adopt">adopt this sheet →</span></div>
+        </div>
+      </a>
+
+      <a class="card" href="#">
+        <div class="thumb">
+          <svg viewBox="0 0 220 150">
+            <g stroke="#26211a" stroke-width="2" fill="none" stroke-linejoin="round">
+              <polygon points="113,128 173,98 123,73 63,102" fill="rgba(38,33,26,.10)" stroke="none"/>
+              <polygon points="110,124 170,94 170,66 110,96" fill="#faf4e6"/>
+              <polygon points="110,124 60,99 60,71 110,96" fill="#efe5cf"/>
+              <line x1="60" y1="85" x2="110" y2="110" stroke-width="1.2"/>
+              <polygon points="110,96 170,66 120,41 60,71" fill="#faf4e6"/>
+              <polygon points="111,91 161,66 119,45 70,69" fill="#e3b7a8" stroke-width="1.2"/>
+              <line x1="90" y1="57" x2="136" y2="80" stroke-width="1.2"/>
+              <line x1="118" y1="46" x2="90" y2="58" stroke-width="1.2"/>
+            </g>
+          </svg>
+        </div>
+        <div class="card-body">
+          <h3>The Corner Grocer’s House</h3>
+          <div class="meta mono">1893 · Galveston, TX · 3 bd · 1 ba · 1,502 ft² · 2 storeys</div>
+          <div class="chiprow"><span class="chip live">LIVE · 1 WATCHING</span></div>
+        </div>
+      </a>
+
+      <a class="card" href="#">
+        <div class="thumb">
+          <svg viewBox="0 0 220 150">
+            <g stroke="#26211a" stroke-width="2" fill="none" stroke-linejoin="round">
+              <polygon points="111,132 163,106 117,83 65,109" fill="rgba(38,33,26,.10)" stroke="none"/>
+              <polygon points="108,128 160,102 160,68 108,94" fill="#faf4e6"/>
+              <polygon points="108,128 62,105 62,71 108,94" fill="#efe5cf"/>
+              <line x1="62" y1="88" x2="108" y2="111" stroke-width="1.2"/>
+              <polygon points="108,94 160,68 114,45 62,71" fill="#faf4e6"/>
+              <polygon points="109,90 151,68 113,49 72,71" fill="#d9c9a4" stroke-width="1.2"/>
+              <line x1="86" y1="57" x2="126" y2="77" stroke-width="1.2"/>
+            </g>
+          </svg>
+        </div>
+        <div class="card-body">
+          <h3>Radford Design 2038</h3>
+          <div class="meta mono">1903 · pattern book · 3 bd · 1 ba · 1,388 ft² · 2 storeys</div>
+          <div class="chiprow"><span class="chip">PUBLIC</span></div>
+        </div>
+      </a>
+
+      <a class="card" href="#">
+        <div class="thumb">
+          <div class="sheetjacket">
+            <svg viewBox="0 0 200 140" xmlns="http://www.w3.org/2000/svg">
+              <rect width="200" height="140" fill="var(--sheet)"/>
+              <rect x="6" y="6" width="188" height="128" fill="none" stroke="var(--scan)" stroke-width="1"/>
+              <g stroke="var(--scan)" fill="none">
+                <rect x="24" y="22" width="152" height="96" stroke-width="1.8"/>
+                <path d="M70,22 V60 M70,74 V118 M120,22 V88 M120,102 V118 M24,88 H120 M120,60 H176" stroke-width="1"/>
+                <ellipse cx="150" cy="40" rx="16" ry="10" stroke-width=".7" opacity=".5"/>
+              </g>
+              <g fill="var(--scan)" text-anchor="middle" style="font:italic 7px Georgia; letter-spacing:.12em">
+                <text x="100" y="16">SHEET 27 — BLOCK 9, AVENUE M</text>
+                <text x="47" y="55">STORE</text><text x="95" y="55">DWELL'G</text>
+                <text x="148" y="94">STABLE</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+        <div class="card-body">
+          <h3>Sheet 27, Block 9</h3>
+          <div class="meta mono">Sanborn Galveston 1904 · corner of Ave M · facets unknown</div>
+          <div class="chiprow"><span class="chip untraced">UNTRACED</span><span class="adopt">adopt this sheet →</span></div>
+        </div>
+      </a>
+
+      <a class="card" href="#">
+        <div class="thumb">
+          <svg viewBox="0 0 220 150">
+            <g stroke="#26211a" stroke-width="2" fill="none" stroke-linejoin="round">
+              <polygon points="113,130 157,108 115,87 71,108" fill="rgba(38,33,26,.10)" stroke="none"/>
+              <polygon points="110,126 154,104 154,64 110,86" fill="#faf4e6"/>
+              <polygon points="110,126 68,105 68,65 110,86" fill="#efe5cf"/>
+              <line x1="68" y1="85" x2="110" y2="106" stroke-width="1.2"/>
+              <line x1="110" y1="106" x2="154" y2="84" stroke-width="1.2"/>
+              <polygon points="110,86 154,64 112,43 68,65" fill="#faf4e6"/>
+              <polygon points="110,81 146,63 112,46 76,63" fill="#dcc69c" stroke-width="1.2"/>
+              <line x1="93" y1="54" x2="128" y2="71" stroke-width="1.2"/>
+            </g>
+          </svg>
+        </div>
+        <div class="card-body">
+          <h3>Foursquare on Maple Street</h3>
+          <div class="meta mono">1911 · attic upload · 3 bd · 1 ba · 1,540 ft² · 2 storeys</div>
+          <div class="chiprow"><span class="chip">PUBLIC</span></div>
+        </div>
+      </a>
+
+    </div>
+  </section>
+</main>
+
+</body>
+</html>

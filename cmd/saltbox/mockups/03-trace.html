@@ -124,6 +124,9 @@
   .t-room-a{fill:rgba(169,59,44,.08)}
   .t-room-b{fill:rgba(111,111,76,.10)}
   .t-cross{stroke:var(--carmine); stroke-width:.8; opacity:.55}
+  .t-prop{stroke:var(--blue); stroke-width:4; stroke-dasharray:5 6; stroke-linecap:round; fill:none; opacity:.55}
+  .t-prop-chip rect{fill:var(--paper-3); stroke:var(--blue); stroke-width:1.2}
+  .t-prop-chip text{fill:var(--blue); font:italic 12px Georgia; letter-spacing:.06em}
   .t-tag rect{fill:var(--ink)}
   .t-tag text{fill:var(--paper-3); font:600 13px ui-monospace, Consolas, monospace}
   .t-roomtag rect{fill:var(--paper-3); stroke:var(--ink); stroke-width:1.2}
@@ -207,17 +210,27 @@
           <path d="M80,470 V70"/>
           <path d="M400,70 V145 M400,179 V325 M400,359 V470"/>
           <path d="M80,270 H285 M319,270 H400"/>
-          <path d="M560,70 V200"/>
+          <path d="M560,200 H614"/>
         </g>
 
-        <!-- live run: pantry south wall, pen chaining east -->
-        <path class="t-wall-live" d="M560,200 H642"/>
+        <!-- the model's ghost walls: accepted by inking over them -->
+        <g class="t-prop">
+          <path d="M560,70 V200"/>
+          <path d="M400,200 H470 M500,200 H596 M624,200 H671"/>
+        </g>
+        <g class="t-prop-chip">
+          <rect x="406" y="156" width="168" height="22" rx="2"/>
+          <text x="490" y="171" text-anchor="middle">PROPOSALS · 6 walls · ⏎ accept</text>
+        </g>
+
+        <!-- live run: inking over the proposal, pen chaining east -->
+        <path class="t-wall-live" d="M614,200 H642"/>
         <line class="t-cross" x1="642" y1="0" x2="642" y2="560"/>
         <line class="t-cross" x1="0" y1="200" x2="760" y2="200"/>
         <circle cx="642" cy="200" r="5" fill="none" stroke="var(--carmine)" stroke-width="1.6"/>
         <g class="t-tag">
-          <rect x="654" y="176" width="96" height="22" rx="2"/>
-          <text x="702" y="191" text-anchor="middle">0.68 m · 0°</text>
+          <rect x="654" y="176" width="80" height="22" rx="2"/>
+          <text x="694" y="191" text-anchor="middle">9" · 0°</text>
         </g>
 
         <!-- traced doors -->
@@ -226,7 +239,6 @@
           <path d="M285,270 L285,304 M319,270 A34,34 0 0 1 285,304"/>
           <path d="M400,145 L366,145 M400,179 A34,34 0 0 1 366,145"/>
           <path d="M400,359 L434,359 M400,325 A34,34 0 0 1 434,359"/>
-          <path d="M470,200 L470,230 M500,200 A30,30 0 0 1 470,230"/>
         </g>
 
         <!-- traced windows -->
@@ -241,12 +253,12 @@
 
         <!-- room tags -->
         <g class="t-roomtag">
-          <rect x="164" y="163" width="142" height="24" rx="2"/>
-          <text x="235" y="180" text-anchor="middle">PARLOR — 19.6 m²</text>
+          <rect x="144" y="163" width="182" height="24" rx="2"/>
+          <text x="235" y="180" text-anchor="middle">PARLOR — 16'0" × 13'0" ✓</text>
         </g>
         <g class="t-roomtag">
-          <rect x="464" y="322" width="146" height="24" rx="2"/>
-          <text x="537" y="339" text-anchor="middle">KITCHEN — 28.4 m²</text>
+          <rect x="466" y="322" width="142" height="24" rx="2"/>
+          <text x="537" y="339" text-anchor="middle">KITCHEN — 306 ft²</text>
         </g>
       </svg>
     </div>
@@ -274,13 +286,22 @@
 
     <div class="panel">
       <h4>WALLS</h4>
-      <div class="row"><span>height</span><span class="right stepper mono"><span>−</span><span>2.90 m</span><span>＋</span></span></div>
-      <div class="row"><span>thickness</span><span class="right stepper mono"><span>−</span><span>0.18 m</span><span>＋</span></span></div>
+      <div class="row"><span>height</span><span class="right stepper mono"><span>−</span><span>9' 6"</span><span>＋</span></span></div>
+      <div class="row"><span>thickness</span><span class="right stepper mono"><span>−</span><span>7"</span><span>＋</span></span></div>
+    </div>
+
+    <div class="panel">
+      <h4>ASSISTS</h4>
+      <div class="row"><span>proposals</span><span class="right mono sub">6 shown · conf ≥ 60%</span></div>
+      <div class="row"><span>quantize</span><span class="right mono sub">1 in grid · on</span></div>
+      <div class="row"><span>true-up</span><span class="right mono sub">off by ⅜″ → fix</span></div>
+      <div class="row"><span>OCR</span><span class="right mono sub">5 dims · scale ✓</span></div>
     </div>
 
     <div class="panel">
       <h4>SCALE</h4>
-      <div class="row mono" style="font-size:.76rem"><span>1 px = 8.33 mm</span><span class="right sub">sheet 1 ✓</span></div>
+      <div class="row mono" style="font-size:.76rem"><span>1 px = ⅓ in</span><span class="right sub">sheet 1 ✓</span></div>
+      <div class="row mono" style="font-size:.76rem"><span>display: ft-in ▾</span><span class="right sub">stored metric</span></div>
     </div>
 
     <div class="panel">
@@ -302,7 +323,7 @@
 
 <div class="status">
   <span><b>W — wall pen</b> · click to chain · ⏎ end run · esc cancel · hold ⇧ for a free angle · ⌫ undo point</span>
-  <span class="counts mono">walls 12 · doors 6 · windows 8 · rooms 2</span>
+  <span class="counts mono">walls 12 · doors 5 · windows 8 · rooms 2 · dims 5 ✓</span>
 </div>
 
 </body>
