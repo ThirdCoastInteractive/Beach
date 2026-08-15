@@ -79,6 +79,16 @@ func NewSSE(w http.ResponseWriter, r *http.Request, opts ...Option) *SSE {
 	return &SSE{ServerSentEventGenerator: gen}
 }
 
+// Ping writes a no-op SSE event and flushes. Stream loops call this on a
+// timer so a client that hung up is detected even when the hub is quiet —
+// without a write, ctx.Done() may never fire and the handler leaks.
+func (s *SSE) Ping() error {
+	if s == nil || s.ServerSentEventGenerator == nil {
+		return nil
+	}
+	return s.Send("ping", nil)
+}
+
 // config holds resolved NewSSE options.
 type config struct {
 	mode    SSECompression

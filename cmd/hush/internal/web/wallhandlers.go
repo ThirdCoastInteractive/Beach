@@ -1,6 +1,8 @@
 package web
 
 import (
+	"bytes"
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
@@ -10,6 +12,7 @@ import (
 	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/store"
 
 	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
 )
 
 // compose serves the WebGPU camera page.
@@ -131,9 +134,16 @@ func (a *App) home(c *beach.Ctx) (beach.View, error) {
 	a.anl.Track(c.R, "view_wall", handle, 0)
 	return beach.View{
 		Page:     a.homePage(posts, handle, canPost, admin, a.tierOf(a.rep.Score(handle)), a.openLeft(c.Context()), homeNotice(c.Query("err"))),
-		Fragment: a.board(posts, canPost),
+		Fragment: a.board(posts),
 		Target:   "hush-board",
 	}, nil
+}
+
+const wallTopic = "wall"
+
+// wallLive is the shared SSE stream: every open wall tab hears new prints.
+func (a *App) wallLive(c *beach.Ctx) (beach.Sub, error) {
+	return beach.Sub{Topics: []string{wallTopic}}, nil
 }
 
 // createPost binds the `body` signal, renders + length-checks it through the text
@@ -163,9 +173,9 @@ func (a *App) createPost(c *beach.Ctx) (beach.Patches, error) {
 	}
 	a.rep.Emit("post", author)
 	a.anl.Track(c.R, "post_text", author, p.ID)
+	a.broadcast(p)
 	return beach.Patches{
-		{Fragment: a.print(p), Target: "hush-board", Mode: beach.PatchPrepend, Signals: map[string]string{"body": ""}},
-		{Fragment: note(""), Target: "hush-note", Mode: beach.PatchInner},
+		{Fragment: note(""), Target: "hush-note", Mode: beach.PatchInner, Signals: map[string]string{"body": ""}},
 	}, nil
 }
 
@@ -264,5 +274,22 @@ func (a *App) uploadImage(w http.ResponseWriter, r *http.Request) {
 	}
 	a.rep.Emit("post", author)
 	a.anl.Track(r, "post_image", author, p.ID)
+	a.broadcast(p)
 	http.Redirect(w, r, "/", http.StatusSeeOther)
+}
+
+// broadcast fans a new print to every open wall tab.
+func (a *App) broadcast(p store.Post) {
+	if a.hub == nil {
+		return
+	}
+	var buf bytes.Buffer
+	if err := a.print(p).Render(context.Background(), &buf); err != nil {
+		return
+	}
+	a.hub.Publish(wallTopic, hub.Event{
+		Bytes:  buf.Bytes(),
+		Mode:   hub.PatchPrepend,
+		Target: "hush-board",
+	})
 }

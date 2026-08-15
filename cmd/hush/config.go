@@ -41,8 +41,8 @@ type config struct {
 	CFImagesToken   string `env:"CF_IMAGES_TOKEN,required"`
 	CFImagesHash    string `env:"CF_IMAGES_HASH,required"`
 	CFImagesVariant string `env:"CF_IMAGES_VARIANT" default:"public"`
-	// Thumb defaults to public: a dedicated square-crop variant is optional
-	// dashboard config. object-fit:cover on the print face crops either way.
+	// Thumb defaults to public. The wall uses the full variant so photos
+	// keep their own aspect; a dedicated square-crop is optional.
 	CFImagesThumb string `env:"CF_IMAGES_THUMB" default:"public"`
 
 	// Mailer transport. Individually optional (you configure Mailgun OR SMTP);

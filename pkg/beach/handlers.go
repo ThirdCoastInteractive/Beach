@@ -169,10 +169,19 @@ func (a *App) adaptStream(h StreamFunc) http.HandlerFunc {
 		defer hsub.Close()
 
 		ctx := c.Context()
+		// A quiet hub never writes, and a dropped TCP client then never
+		// cancels ctx. Ping every 15s so a hung-up peer fails the write
+		// and we close the subscription.
+		ping := time.NewTicker(15 * time.Second)
+		defer ping.Stop()
 		for {
 			select {
 			case <-ctx.Done():
 				return
+			case <-ping.C:
+				if err := sse.Ping(); err != nil {
+					return
+				}
 			case ev, ok := <-hsub.C:
 				if !ok {
 					return

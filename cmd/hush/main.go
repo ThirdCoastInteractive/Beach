@@ -43,6 +43,7 @@ import (
 	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/web"
 
 	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/mailer"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/pg"
 )
@@ -149,6 +150,8 @@ func main() {
 		log.Fatalf("hush: clickhouse init failed: %v", err)
 	}
 
+	wallHub := hub.New()
+
 	// Construct the HTTP layer over the wired concerns.
 	a := web.New(web.Deps{
 		Config: web.Config{
@@ -165,6 +168,7 @@ func main() {
 		Analytics: anl,
 		Auth:      auth,
 		Pool:      pool,
+		Hub:       wallHub,
 		Release:   release,
 	})
 
@@ -201,7 +205,9 @@ func main() {
 		Logger:     logger,
 		Sessions:   auth.Sessions,
 		Principals: auth.PrincipalResolver,
+		Hub:        wallHub,
 		CSP:        csp,
+		Healthz:    func(ctx context.Context) error { return pool.Ping(ctx) },
 	})
 	a.Routes(beachApp)
 

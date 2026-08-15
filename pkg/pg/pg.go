@@ -25,7 +25,26 @@ import (
 // It is the canonical pool opener; use it when the caller wants to report a
 // clean boot failure itself. MustPool wraps it for the panic-on-failure path.
 func Pool(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
-	pool, err := pgxpool.New(ctx, dsn)
+	cfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("pg: parse dsn: %w", err)
+	}
+	// Recycle and probe so a wedged or idle connection cannot sit in the
+	// pool forever. MaxConns still honors pool_max_conns in the DSN (or
+	// pgx's CPU default); we only fill in the lifetimes when unset.
+	if cfg.MaxConnLifetime == 0 {
+		cfg.MaxConnLifetime = 30 * time.Minute
+	}
+	if cfg.MaxConnIdleTime == 0 {
+		cfg.MaxConnIdleTime = 5 * time.Minute
+	}
+	if cfg.HealthCheckPeriod == 0 {
+		cfg.HealthCheckPeriod = 30 * time.Second
+	}
+	if cfg.ConnConfig.ConnectTimeout == 0 {
+		cfg.ConnConfig.ConnectTimeout = 5 * time.Second
+	}
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("pg: new pool: %w", err)
 	}

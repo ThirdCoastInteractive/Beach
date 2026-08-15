@@ -18,6 +18,7 @@ import (
 	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/store"
 
 	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -45,6 +46,7 @@ type App struct {
 	anl      *analytics.Analytics
 	auth     *authx.Auth
 	pool     *pgxpool.Pool
+	hub      *hub.Hub
 	release  bool
 
 	// The invite graph (invitee → inviter), in-memory, hydrated from
@@ -65,6 +67,7 @@ type Deps struct {
 	Analytics *analytics.Analytics
 	Auth      *authx.Auth
 	Pool      *pgxpool.Pool
+	Hub       *hub.Hub
 	Release   bool
 }
 
@@ -80,6 +83,7 @@ func New(d Deps) *App {
 		anl:      d.Analytics,
 		auth:     d.Auth,
 		pool:     d.Pool,
+		hub:      d.Hub,
 		release:  d.Release,
 	}
 }

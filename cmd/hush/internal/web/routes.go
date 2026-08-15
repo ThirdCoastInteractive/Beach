@@ -15,6 +15,7 @@ import (
 // then the gate, admin, analytics, and email routes.
 func (a *App) Routes(app *beach.App) {
 	app.Page("/", a.home)
+	app.Stream("/wall/live", a.wallLive)
 	app.Page("/compose", a.compose)
 	app.Page("/studio", a.studio)
 	app.Page("/p/{id}", a.postView)

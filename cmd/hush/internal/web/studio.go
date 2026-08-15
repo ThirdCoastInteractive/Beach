@@ -136,6 +136,7 @@ func (a *App) publishLayout(w http.ResponseWriter, r *http.Request) {
 	}
 	a.rep.Emit("post", author)
 	a.anl.Track(r, "post_layout", author, p.ID)
+	a.broadcast(p)
 	if wantJSON {
 		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "id": p.ID})
 		return
