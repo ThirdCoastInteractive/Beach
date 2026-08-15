@@ -142,6 +142,19 @@ func (h *Hub) Subscribe(topics ...string) *Sub {
 	return s
 }
 
+// Topics returns the topic names that currently have at least one subscriber.
+// The order is unspecified. Publishers use this to render once per live
+// interest instead of guessing which filters are open.
+func (h *Hub) Topics() []string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	out := make([]string, 0, len(h.subs))
+	for t := range h.subs {
+		out = append(out, t)
+	}
+	return out
+}
+
 // Publish fans ev out to every subscriber of topic. A subscriber whose buffer is
 // full has the event dropped rather than blocking the publisher; that client
 // catches up via its since-cursor on reconnect.

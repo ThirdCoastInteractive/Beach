@@ -107,6 +107,39 @@ func TestSubscribePublish(t *testing.T) {
 	}
 }
 
+func TestTopicsListsSubscribedOnly(t *testing.T) {
+	h := New()
+	if got := h.Topics(); len(got) != 0 {
+		t.Fatalf("empty hub Topics = %v", got)
+	}
+
+	a := h.Subscribe("track", "track:software")
+	b := h.Subscribe("track?assignee=henry")
+	got := h.Topics()
+	if len(got) != 3 {
+		t.Fatalf("Topics = %v, want 3", got)
+	}
+	seen := map[string]bool{}
+	for _, tpc := range got {
+		seen[tpc] = true
+	}
+	for _, want := range []string{"track", "track:software", "track?assignee=henry"} {
+		if !seen[want] {
+			t.Fatalf("Topics missing %q: %v", want, got)
+		}
+	}
+
+	a.Close()
+	got = h.Topics()
+	if len(got) != 1 || got[0] != "track?assignee=henry" {
+		t.Fatalf("after close Topics = %v", got)
+	}
+	b.Close()
+	if got := h.Topics(); len(got) != 0 {
+		t.Fatalf("after all close Topics = %v", got)
+	}
+}
+
 func TestPublishUnknownTopicNoPanic(t *testing.T) {
 	h := New()
 	h.Publish("nobody-listening", Event{Bytes: []byte("x")}) // must not panic or block
