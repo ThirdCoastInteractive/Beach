@@ -46,7 +46,7 @@ func studioPage(notice string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"hush-top\"><header class=\"hush-head\"><h1 class=\"hush-title\">goldgirl</h1><p class=\"hush-sub\">bring your own layout — one square. put the pictures where you want them.</p></header></div><div class=\"hush-studio\"><div id=\"studio-board\" class=\"studio-board\" aria-label=\"layout canvas\"></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"hush-top\"><header class=\"hush-head\"><h1 class=\"hush-title\">goldgirl</h1><p class=\"hush-sub\">bring your own layout — one square. put the pictures where you want them.</p></header></div><div class=\"hush-studio\"><div id=\"studio-board\" class=\"studio-board\" aria-label=\"layout canvas\"></div><div id=\"studio-tools\" class=\"studio-tools\" hidden><button type=\"button\" class=\"studio-tool\" data-act=\"rot-ccw\" title=\"rotate left 15°\">↺</button> <button type=\"button\" class=\"studio-tool\" data-act=\"rot-cw\" title=\"rotate right 15°\">↻</button> <button type=\"button\" class=\"studio-tool\" data-act=\"rot-90\" title=\"turn 90°\">90°</button> <span id=\"studio-deg\" class=\"studio-deg\">0°</span> <span class=\"studio-tools-sep\"></span> <button type=\"button\" class=\"studio-tool\" data-act=\"smaller\" title=\"smaller\">−</button> <button type=\"button\" class=\"studio-tool\" data-act=\"bigger\" title=\"bigger\">+</button> <span class=\"studio-tools-sep\"></span> <button type=\"button\" class=\"studio-tool\" data-act=\"back\" title=\"send to back\">back</button> <button type=\"button\" class=\"studio-tool\" data-act=\"front\" title=\"bring to front\">front</button> <span class=\"studio-tools-sep\"></span> <button type=\"button\" class=\"studio-tool studio-tool--kill\" data-act=\"kill\">remove</button></div><p class=\"studio-hint\">click a print · gold knob spins · corners scale · −/+ size · back/front stacks · ←→ rotate · ↑↓ scale · [ ] order</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -61,7 +61,7 @@ func studioPage(notice string) templ.Component {
 			var templ_7745c5c3_Var3 string
 			templ_7745c5c3_Var3, templ_7745c5c3_Err = templ.JoinStringErrs(notice)
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/studio.templ`, Line: 24, Col: 71}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/studio.templ`, Line: 39, Col: 71}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 			if templ_7745c5c3_Err != nil {

@@ -20,7 +20,7 @@ const (
 	MaxPieces = 8
 	MinPiece  = 0.12
 	MaxPiece  = 0.85
-	MaxAbsRot = 28.0
+	MaxAbsRot = 180.0
 )
 
 // Wall-print budget: each post occupies a slice of the board's square-footage.
@@ -40,6 +40,7 @@ type Piece struct {
 	W    float64 `json:"w"`
 	H    float64 `json:"h"`
 	Rot  float64 `json:"rot"`
+	Z    int     `json:"z"`
 }
 
 // Layout is a studio composition. An empty Pieces slice is not a layout post.
@@ -51,6 +52,7 @@ type Layout struct {
 // all as a fraction of the board; Rot is degrees clockwise.
 type Pin struct {
 	X, Y, Rot, W float64
+	Z            int
 }
 
 // ParseLayout decodes a hush_posts.layout blob. Empty or "{}" is a valid
@@ -103,8 +105,8 @@ func (l Layout) Validate() error {
 // CSS is a piece's inline style inside a collage (top-left origin).
 func (p Piece) CSS() templ.SafeCSS {
 	return templ.SafeCSS(fmt.Sprintf(
-		"left: %.2f%%; top: %.2f%%; width: %.2f%%; height: %.2f%%; transform: rotate(%.1fdeg)",
-		p.X*100, p.Y*100, p.W*100, p.H*100, p.Rot,
+		"left: %.2f%%; top: %.2f%%; width: %.2f%%; height: %.2f%%; transform: rotate(%.1fdeg); z-index: %d",
+		p.X*100, p.Y*100, p.W*100, p.H*100, p.Rot, p.Z,
 	))
 }
 
@@ -121,9 +123,18 @@ func LayoutOf(p store.Post) Layout {
 // from its id so unpinned posts still sit like prints on a table.
 func PinOf(p store.Post) Pin {
 	if p.HasPin {
-		return ClampPin(Pin{X: p.PinX, Y: p.PinY, Rot: p.PinRot, W: p.PinW})
+		z := p.PinZ
+		if z == 0 {
+			z = int(p.ID)
+		}
+		return ClampPin(Pin{X: p.PinX, Y: p.PinY, Rot: p.PinRot, W: p.PinW, Z: z})
 	}
-	return DefaultPin(p.ID)
+	pin := DefaultPin(p.ID)
+	pin.Z = int(p.ID)
+	if p.PinZ != 0 {
+		pin.Z = p.PinZ
+	}
+	return pin
 }
 
 // DefaultPin scatters a post by id: a golden-angle spiral around the board's
@@ -183,6 +194,6 @@ func ClampPin(p Pin) Pin {
 func PrintStyle(p store.Post, pin Pin) templ.SafeCSS {
 	return templ.SafeCSS(fmt.Sprintf(
 		"left: %.2f%%; top: %.2f%%; width: %.2f%%; --rot: %.1fdeg; z-index: %d; view-transition-class: hush-post",
-		pin.X*100, pin.Y*100, pin.W*100, pin.Rot, p.ID,
+		pin.X*100, pin.Y*100, pin.W*100, pin.Rot, pin.Z,
 	))
 }

@@ -2,6 +2,7 @@ package content
 
 import (
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/store"
@@ -22,6 +23,19 @@ func TestLayoutValidate(t *testing.T) {
 	noID := Layout{Pieces: []Piece{{X: 0.2, Y: 0.2, W: 0.3, H: 0.3}}}
 	if err := noID.Validate(); err == nil {
 		t.Fatal("missing cf_id should fail")
+	}
+	turned := Layout{Pieces: []Piece{{CFID: "abc", X: 0.1, Y: 0.1, W: 0.4, H: 0.4, Rot: 90, Z: 3}}}
+	if err := turned.Validate(); err != nil {
+		t.Fatalf("90deg piece should be valid: %v", err)
+	}
+}
+
+func TestPieceCSSIncludesZ(t *testing.T) {
+	css := string(Piece{X: 0.1, Y: 0.2, W: 0.3, H: 0.4, Rot: 90, Z: 4}.CSS())
+	for _, want := range []string{"z-index: 4", "rotate(90.0deg)", "width: 30.00%"} {
+		if !strings.Contains(css, want) {
+			t.Fatalf("css missing %q: %s", want, css)
+		}
 	}
 }
 
@@ -54,5 +68,13 @@ func TestPinOfUsesSaved(t *testing.T) {
 	scattered := PinOf(store.Post{ID: 3})
 	if scattered.W == 0 {
 		t.Fatal("unpinned post should scatter")
+	}
+	stacked := store.Post{ID: 3, HasPin: true, PinX: 0.4, PinY: 0.5, PinRot: -6, PinW: 0.22, PinZ: 12}
+	if PinOf(stacked).Z != 12 {
+		t.Fatalf("saved z lost: %+v", PinOf(stacked))
+	}
+	style := string(PrintStyle(stacked, PinOf(stacked)))
+	if !strings.Contains(style, "z-index: 12") {
+		t.Fatalf("print style missing z: %s", style)
 	}
 }

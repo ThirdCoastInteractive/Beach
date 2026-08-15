@@ -41,7 +41,7 @@ func New(ctx context.Context, pool *pgxpool.Pool, render func(string) (string, b
 const postCols = `p.id, p.kind, p.body_html, p.media_url, p.cf_image_id, p.author,
 	p.ip, p.country, p.city, p.user_agent, p.created_at, (p.hidden_at IS NOT NULL),
 	(p.deleted_at IS NOT NULL),
-	p.layout, p.pin_x, p.pin_y, p.pin_rot, p.pin_w`
+	p.layout, p.pin_x, p.pin_y, p.pin_rot, p.pin_w, p.pin_z`
 
 // visibleWhere is the public wall's filter: not hidden, not soft-deleted.
 const visibleWhere = `p.hidden_at IS NULL AND p.deleted_at IS NULL`
@@ -53,9 +53,10 @@ type pgxScanner interface{ Scan(dest ...any) error }
 // flag-count column (the admin reads append it to postCols).
 func scanPost(sc pgxScanner, p *Post, withFlags bool) error {
 	var pinX, pinY, pinRot, pinW *float64
+	var pinZ *int
 	dest := []any{&p.ID, &p.Kind, &p.BodyHTML, &p.ImageURL, &p.CFImageID, &p.Author,
 		&p.Meta.IP, &p.Meta.Country, &p.Meta.City, &p.Meta.UA, &p.CreatedAt, &p.Hidden, &p.Deleted,
-		&p.Layout, &pinX, &pinY, &pinRot, &pinW}
+		&p.Layout, &pinX, &pinY, &pinRot, &pinW, &pinZ}
 	if withFlags {
 		dest = append(dest, &p.FlagCount)
 	}
@@ -65,6 +66,9 @@ func scanPost(sc pgxScanner, p *Post, withFlags bool) error {
 	if pinX != nil && pinY != nil && pinRot != nil && pinW != nil {
 		p.HasPin = true
 		p.PinX, p.PinY, p.PinRot, p.PinW = *pinX, *pinY, *pinRot, *pinW
+	}
+	if pinZ != nil {
+		p.PinZ = *pinZ
 	}
 	return nil
 }
@@ -161,10 +165,10 @@ func (s *Store) AddLayout(ctx context.Context, layout []byte, mediaURL, cfImageI
 
 // Pin writes a print's place on the shared board. Geometry is already clamped
 // by the caller (content.ClampPin).
-func (s *Store) Pin(ctx context.Context, id int64, x, y, rot, w float64) error {
+func (s *Store) Pin(ctx context.Context, id int64, x, y, rot, w float64, z int) error {
 	tag, err := s.pool.Exec(ctx,
-		`UPDATE hush_posts SET pin_x = $2, pin_y = $3, pin_rot = $4, pin_w = $5 WHERE id = $1`,
-		id, x, y, rot, w)
+		`UPDATE hush_posts SET pin_x = $2, pin_y = $3, pin_rot = $4, pin_w = $5, pin_z = $6 WHERE id = $1`,
+		id, x, y, rot, w, z)
 	if err != nil {
 		return err
 	}

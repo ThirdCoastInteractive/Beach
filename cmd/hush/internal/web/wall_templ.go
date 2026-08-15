@@ -173,7 +173,7 @@ func composer(notice string) templ.Component {
 
 // board is the shared pinboard. It doubles as the fragment the home handler
 // patches on a Datastar request. Live boards load board.js so members can
-// drag and rotate prints; everyone else just looks.
+// drag, rotate, scale, and restack prints; everyone else just looks.
 func (a *App) board(posts []store.Post, canPin bool) templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -206,7 +206,7 @@ func (a *App) board(posts []store.Post, canPin bool) templ.Component {
 					return templ_7745c5c3_Err
 				}
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "</div><script type=\"module\" src=\"/static/js/board.js\"></script>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 11, "<div id=\"board-tools\" class=\"board-tools\" hidden><button type=\"button\" class=\"studio-tool\" data-act=\"rot-ccw\" title=\"rotate left\">↺</button> <button type=\"button\" class=\"studio-tool\" data-act=\"rot-cw\" title=\"rotate right\">↻</button> <span class=\"studio-tools-sep\"></span> <button type=\"button\" class=\"studio-tool\" data-act=\"smaller\" title=\"smaller\">−</button> <button type=\"button\" class=\"studio-tool\" data-act=\"bigger\" title=\"bigger\">+</button> <span class=\"studio-tools-sep\"></span> <button type=\"button\" class=\"studio-tool\" data-act=\"back\" title=\"send to back\">back</button> <button type=\"button\" class=\"studio-tool\" data-act=\"front\" title=\"bring to front\">front</button></div></div><script type=\"module\" src=\"/static/js/board.js\"></script>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -280,7 +280,7 @@ func (a *App) print(p store.Post) templ.Component {
 		var templ_7745c5c3_Var10 string
 		templ_7745c5c3_Var10, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(content.PrintStyle(p, content.PinOf(p)))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/wall.templ`, Line: 92, Col: 96}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/wall.templ`, Line: 102, Col: 96}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var10))
 		if templ_7745c5c3_Err != nil {
@@ -293,7 +293,7 @@ func (a *App) print(p store.Post) templ.Component {
 		var templ_7745c5c3_Var11 string
 		templ_7745c5c3_Var11, templ_7745c5c3_Err = templ.ResolveAttributeValue(content.VTName(p))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/wall.templ`, Line: 92, Col: 126}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/wall.templ`, Line: 102, Col: 126}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var11)
 		if templ_7745c5c3_Err != nil {
@@ -306,7 +306,7 @@ func (a *App) print(p store.Post) templ.Component {
 		var templ_7745c5c3_Var12 string
 		templ_7745c5c3_Var12, templ_7745c5c3_Err = templ.ResolveAttributeValue(strconv.FormatInt(p.ID, 10))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/wall.templ`, Line: 92, Col: 166}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/wall.templ`, Line: 102, Col: 166}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var12)
 		if templ_7745c5c3_Err != nil {
@@ -319,7 +319,7 @@ func (a *App) print(p store.Post) templ.Component {
 		var templ_7745c5c3_Var13 templ.SafeURL
 		templ_7745c5c3_Var13, templ_7745c5c3_Err = templ.JoinURLErrs(content.PostHref(p.ID))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/wall.templ`, Line: 92, Col: 198}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/wall.templ`, Line: 102, Col: 198}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var13))
 		if templ_7745c5c3_Err != nil {
@@ -377,7 +377,7 @@ func (a *App) printFace(p store.Post) templ.Component {
 			var templ_7745c5c3_Var15 string
 			templ_7745c5c3_Var15, templ_7745c5c3_Err = templ.ResolveAttributeValue(a.media.PostThumbURL(p))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/wall.templ`, Line: 105, Col: 36}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/wall.templ`, Line: 115, Col: 36}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var15)
 			if templ_7745c5c3_Err != nil {
@@ -395,7 +395,7 @@ func (a *App) printFace(p store.Post) templ.Component {
 			var templ_7745c5c3_Var16 string
 			templ_7745c5c3_Var16, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(content.TileBG(p))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/wall.templ`, Line: 107, Col: 56}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/wall.templ`, Line: 117, Col: 56}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var16))
 			if templ_7745c5c3_Err != nil {
@@ -453,7 +453,7 @@ func (a *App) collage(l content.Layout, thumb bool) templ.Component {
 			var templ_7745c5c3_Var18 string
 			templ_7745c5c3_Var18, templ_7745c5c3_Err = templ.ResolveAttributeValue(a.pieceURL(piece, thumb))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/wall.templ`, Line: 120, Col: 65}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/wall.templ`, Line: 130, Col: 65}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var18)
 			if templ_7745c5c3_Err != nil {
@@ -466,7 +466,7 @@ func (a *App) collage(l content.Layout, thumb bool) templ.Component {
 			var templ_7745c5c3_Var19 string
 			templ_7745c5c3_Var19, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(piece.CSS())
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/wall.templ`, Line: 120, Col: 87}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `cmd/hush/internal/web/wall.templ`, Line: 130, Col: 87}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var19))
 			if templ_7745c5c3_Err != nil {

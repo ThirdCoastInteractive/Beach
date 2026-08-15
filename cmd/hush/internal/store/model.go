@@ -29,6 +29,7 @@ type Post struct {
 	PinY      float64
 	PinRot    float64
 	PinW      float64
+	PinZ      int  // stacking order; 0 means "use the id"
 	Author    string // handle that posted it (for Repute scoring; never shown — the wall is anon)
 	Hidden    bool   // moderated off the wall; permalink 404s for non-admins
 	Deleted   bool   // purged (soft) — gone everywhere but the admin browser

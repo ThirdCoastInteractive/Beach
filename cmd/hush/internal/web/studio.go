@@ -136,13 +136,14 @@ func (a *App) pinPost(w http.ResponseWriter, r *http.Request) {
 		Y   float64 `json:"y"`
 		Rot float64 `json:"rot"`
 		W   float64 `json:"w"`
+		Z   int     `json:"z"`
 	}
 	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<12)).Decode(&in); err != nil {
 		http.Error(w, "bad pin", http.StatusBadRequest)
 		return
 	}
-	pin := content.ClampPin(content.Pin{X: in.X, Y: in.Y, Rot: in.Rot, W: in.W})
-	if err := a.store.Pin(r.Context(), id, pin.X, pin.Y, pin.Rot, pin.W); err != nil {
+	pin := content.ClampPin(content.Pin{X: in.X, Y: in.Y, Rot: in.Rot, W: in.W, Z: in.Z})
+	if err := a.store.Pin(r.Context(), id, pin.X, pin.Y, pin.Rot, pin.W, pin.Z); err != nil {
 		if err == store.ErrNoPost {
 			http.Error(w, "no such post", http.StatusNotFound)
 			return
