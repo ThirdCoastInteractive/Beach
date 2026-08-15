@@ -30,6 +30,21 @@ func TestLayoutValidate(t *testing.T) {
 	}
 }
 
+func TestLayoutClampSavesDriftedPiece(t *testing.T) {
+	l := Layout{Pieces: []Piece{{CFID: "abc", X: -0.4, Y: 0.9, W: 0.99, H: 0.2, Rot: 270}}}
+	got := l.Clamp()
+	if err := got.Validate(); err != nil {
+		t.Fatalf("clamped layout should publish: %v (%+v)", err, got.Pieces[0])
+	}
+	p := got.Pieces[0]
+	if p.W > MaxPiece || p.X < -0.15 || p.Y+p.H > 1.15 {
+		t.Fatalf("still off canvas: %+v", p)
+	}
+	if math.Abs(p.Rot-(-90)) > 1e-9 {
+		t.Fatalf("270deg should wrap to -90, got %.1f", p.Rot)
+	}
+}
+
 func TestPieceCSSIncludesZ(t *testing.T) {
 	css := string(Piece{X: 0.1, Y: 0.2, W: 0.3, H: 0.4, Rot: 90, Z: 4}.CSS())
 	for _, want := range []string{"z-index: 4", "rotate(90.0deg)", "width: 30.00%"} {

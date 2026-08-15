@@ -3,6 +3,7 @@ package web
 import (
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
@@ -81,28 +82,53 @@ func imageContentType(ct, filename string) string {
 }
 
 // publishLayout binds the studio composition, fills delivery URLs from the
-// Cloudflare ids (client URLs are not trusted), and 303s home.
+// Cloudflare ids (client URLs are not trusted), and replies JSON (or 303s
+// home for a plain form post).
 func (a *App) publishLayout(w http.ResponseWriter, r *http.Request) {
-	if err := r.ParseMultipartForm(1 << 20); err != nil && err != http.ErrNotMultipart {
-		http.Redirect(w, r, "/studio?err=1", http.StatusSeeOther)
-		return
-	}
-	if !authx.Agreed(r, "cert2257") {
-		http.Redirect(w, r, "/studio?err=2257", http.StatusSeeOther)
-		return
-	}
-	raw := strings.TrimSpace(r.FormValue("layout"))
-	if raw == "" {
-		body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
-		if err != nil {
-			http.Redirect(w, r, "/studio?err=1", http.StatusSeeOther)
+	wantJSON := strings.Contains(r.Header.Get("Accept"), "application/json")
+	fail := func(code, msg string, status int) {
+		slog.Warn("hush: publish layout", "err", msg)
+		if wantJSON {
+			writeJSON(w, status, map[string]string{"error": msg})
 			return
 		}
-		raw = string(body)
+		http.Redirect(w, r, "/studio?err="+code, http.StatusSeeOther)
 	}
-	l, err := content.ParseLayout([]byte(raw))
-	if err != nil || l.Validate() != nil {
-		http.Redirect(w, r, "/studio?err=1", http.StatusSeeOther)
+
+	var l content.Layout
+	cert := ""
+	ct := r.Header.Get("Content-Type")
+	if strings.Contains(ct, "application/json") {
+		var in struct {
+			Cert2257 string         `json:"cert2257"`
+			Layout   content.Layout `json:"layout"`
+		}
+		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&in); err != nil {
+			fail("1", "bad layout", http.StatusBadRequest)
+			return
+		}
+		l = in.Layout
+		cert = in.Cert2257
+	} else {
+		if err := r.ParseMultipartForm(1 << 20); err != nil && err != http.ErrNotMultipart {
+			fail("1", "bad layout", http.StatusBadRequest)
+			return
+		}
+		cert = r.FormValue("cert2257")
+		parsed, err := content.ParseLayout([]byte(strings.TrimSpace(r.FormValue("layout"))))
+		if err != nil {
+			fail("1", "bad layout", http.StatusBadRequest)
+			return
+		}
+		l = parsed
+	}
+	if cert == "" {
+		fail("2257", "certify first", http.StatusBadRequest)
+		return
+	}
+	l = l.Clamp()
+	if err := l.Validate(); err != nil {
+		fail("1", err.Error(), http.StatusBadRequest)
 		return
 	}
 	// recompute URLs from ids so a crafted payload can't point the wall elsewhere
@@ -114,11 +140,16 @@ func (a *App) publishLayout(w http.ResponseWriter, r *http.Request) {
 	first := l.Pieces[0]
 	p, err := a.store.AddLayout(r.Context(), l.JSON(), first.URL, first.CFID, author, store.ClientMeta(r))
 	if err != nil {
-		http.Redirect(w, r, "/studio?err=1", http.StatusSeeOther)
+		slog.Error("hush: add layout", "err", err)
+		fail("1", "could not save", http.StatusInternalServerError)
 		return
 	}
 	a.rep.Emit("post", author)
 	a.anl.Track(r, "post_layout", author, p.ID)
+	if wantJSON {
+		writeJSON(w, http.StatusOK, map[string]any{"ok": true, "id": p.ID})
+		return
+	}
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 

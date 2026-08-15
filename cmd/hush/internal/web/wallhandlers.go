@@ -20,10 +20,14 @@ func (a *App) compose(c *beach.Ctx) (beach.View, error) {
 // studioNotice maps /studio?err onto the status line (the page itself is
 // static; the island reads nothing — we just land them back on the canvas).
 func studioNotice(code string) string {
-	if code == "2257" {
+	switch code {
+	case "2257":
 		return "image posts need the § 2257 certification — check the box."
+	case "1":
+		return "couldn't publish that layout — check the images are uploaded and try again."
+	default:
+		return ""
 	}
-	return ""
 }
 
 // profileView is the tier-gated profile. A profile below tier 1 is locked for

@@ -54,13 +54,19 @@ function layoutJSON() {
 }
 
 function paint(p) {
+  const sized = fitSize(p.w, p.h);
+  p.w = sized.w;
+  p.h = sized.h;
+  p.rot = wrapRot(p.rot);
+  p.x = Math.max(-0.15, Math.min(1.15 - p.w, p.x));
+  p.y = Math.max(-0.15, Math.min(1.15 - p.h, p.y));
   p.el.style.left = (p.x * 100).toFixed(2) + "%";
   p.el.style.top = (p.y * 100).toFixed(2) + "%";
   p.el.style.width = (p.w * 100).toFixed(2) + "%";
   p.el.style.height = (p.h * 100).toFixed(2) + "%";
   p.el.style.transform = "rotate(" + p.rot.toFixed(1) + "deg)";
   p.el.style.zIndex = String(p.z);
-  if (p === selected && degEl) degEl.textContent = Math.round(wrapRot(p.rot)) + "°";
+  if (p === selected && degEl) degEl.textContent = Math.round(p.rot) + "°";
 }
 
 function select(p) {
@@ -364,7 +370,7 @@ document.addEventListener("keydown", (e) => {
 });
 
 if (publishBtn) {
-  publishBtn.addEventListener("click", () => {
+  publishBtn.addEventListener("click", async () => {
     if (!certified()) {
       setStatus("confirm the § 2257 certification first.");
       return;
@@ -378,20 +384,27 @@ if (publishBtn) {
       return;
     }
     setStatus("publishing…");
-    const form = document.createElement("form");
-    form.method = "POST";
-    form.action = "/studio";
-    const layout = document.createElement("input");
-    layout.type = "hidden";
-    layout.name = "layout";
-    layout.value = layoutJSON();
-    const box = document.createElement("input");
-    box.type = "hidden";
-    box.name = "cert2257";
-    box.value = "on";
-    form.append(layout, box);
-    document.body.appendChild(form);
-    form.submit();
+    try {
+      const res = await fetch("/studio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        body: JSON.stringify({ cert2257: "on", layout: JSON.parse(layoutJSON()) }),
+      });
+      let data = {};
+      const ct = res.headers.get("content-type") || "";
+      if (ct.includes("application/json")) data = await res.json();
+      if (!res.ok || !data.ok) {
+        setStatus(data.error || "couldn't publish that layout.");
+        return;
+      }
+      window.location.assign("/");
+    } catch (err) {
+      if (err && err.name === "AbortError") {
+        window.location.assign("/");
+        return;
+      }
+      setStatus(err.message || "couldn't publish that layout.");
+    }
   });
 }
 

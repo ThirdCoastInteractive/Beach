@@ -74,9 +74,69 @@ func (l Layout) JSON() []byte {
 	return b
 }
 
+const pieceHang = 0.15
+
+// Clamp pulls each piece back onto the canvas budget: size, rotation, and
+// position. Publish uses this so a dragged print still posts instead of
+// bouncing the whole composition.
+func (l Layout) Clamp() Layout {
+	for i := range l.Pieces {
+		l.Pieces[i] = l.Pieces[i].clamp()
+	}
+	return l
+}
+
+func (p Piece) clamp() Piece {
+	if p.W <= 0 || math.IsNaN(p.W) {
+		p.W = MinPiece
+	}
+	if p.H <= 0 || math.IsNaN(p.H) {
+		p.H = MinPiece
+	}
+	if p.W < MinPiece {
+		p.W = MinPiece
+	}
+	if p.W > MaxPiece {
+		p.W = MaxPiece
+	}
+	if p.H < MinPiece {
+		p.H = MinPiece
+	}
+	if p.H > MaxPiece {
+		p.H = MaxPiece
+	}
+	p.Rot = wrapDeg(p.Rot)
+	if p.X < -pieceHang {
+		p.X = -pieceHang
+	}
+	if p.Y < -pieceHang {
+		p.Y = -pieceHang
+	}
+	if p.X+p.W > 1+pieceHang {
+		p.X = 1 + pieceHang - p.W
+	}
+	if p.Y+p.H > 1+pieceHang {
+		p.Y = 1 + pieceHang - p.H
+	}
+	return p
+}
+
+func wrapDeg(r float64) float64 {
+	if math.IsNaN(r) {
+		return 0
+	}
+	for r > 180 {
+		r -= 360
+	}
+	for r < -180 {
+		r += 360
+	}
+	return r
+}
+
 // Validate checks a studio composition is postable: 1–MaxPieces pieces, each
 // with an id and geometry inside the canvas budget. Client-supplied URLs are
-// ignored — the server fills those from the ids.
+// ignored — the server fills those from the ids. Callers should Clamp first.
 func (l Layout) Validate() error {
 	n := len(l.Pieces)
 	if n == 0 {
@@ -92,7 +152,7 @@ func (l Layout) Validate() error {
 		if p.W < MinPiece || p.W > MaxPiece || p.H < MinPiece || p.H > MaxPiece {
 			return fmt.Errorf("piece %d: off the square-footage", i+1)
 		}
-		if p.X < -0.15 || p.Y < -0.15 || p.X+p.W > 1.15 || p.Y+p.H > 1.15 {
+		if p.X < -pieceHang || p.Y < -pieceHang || p.X+p.W > 1+pieceHang || p.Y+p.H > 1+pieceHang {
 			return fmt.Errorf("piece %d: drifted off the canvas", i+1)
 		}
 		if math.Abs(p.Rot) > MaxAbsRot {
