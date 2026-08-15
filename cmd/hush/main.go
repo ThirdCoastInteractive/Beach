@@ -30,6 +30,7 @@ import (
 	"io/fs"
 	"log"
 	"log/slog"
+	"net/url"
 	"os"
 
 	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/analytics"
@@ -108,6 +109,9 @@ func main() {
 	if release && cfg.AdminPassword == "" {
 		log.Fatal("hush: RELEASE requires HUSH_ADMIN_PASSWORD (the seeded admin account)")
 	}
+	if release && (cfg.TurnstileSiteKey == "" || cfg.TurnstileSecret == "") {
+		log.Fatal("hush: RELEASE requires TURNSTILE_SITE_KEY and TURNSTILE_SECRET")
+	}
 	if err := auth.SeedAdmin(ctx, cfg.AdminPassword); err != nil {
 		log.Fatalf("hush: seed admin failed: %v", err)
 	}
@@ -147,7 +151,12 @@ func main() {
 
 	// Construct the HTTP layer over the wired concerns.
 	a := web.New(web.Deps{
-		Config:    web.Config{BaseURL: cfg.BaseURL, EmailPoints: cfg.EmailPoints},
+		Config: web.Config{
+			BaseURL:          cfg.BaseURL,
+			EmailPoints:      cfg.EmailPoints,
+			TurnstileSiteKey: cfg.TurnstileSiteKey,
+			TurnstileSecret:  cfg.TurnstileSecret,
+		},
 		Store:     st,
 		Media:     med,
 		Rep:       rep,
@@ -174,6 +183,17 @@ func main() {
 	// sends nothing twice.
 	go outbox.Pump(ctx)
 
+	csp := beach.CSPDefault().
+		AllowImg("blob:", "https://imagedelivery.net").
+		AllowScript("https://challenges.cloudflare.com").
+		AllowFrame("https://challenges.cloudflare.com").
+		AllowConnect("https://challenges.cloudflare.com")
+	if cfg.R2PublicURL != "" {
+		if u, err := url.Parse(cfg.R2PublicURL); err == nil && u.Host != "" {
+			csp = csp.AllowImg(u.Scheme + "://" + u.Host)
+		}
+	}
+
 	beachApp := beach.New(beach.Config{
 		Service:    "goldgirl",
 		Release:    release,
@@ -181,6 +201,7 @@ func main() {
 		Logger:     logger,
 		Sessions:   auth.Sessions,
 		Principals: auth.PrincipalResolver,
+		CSP:        csp,
 	})
 	a.Routes(beachApp)
 

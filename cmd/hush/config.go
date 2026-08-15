@@ -62,6 +62,11 @@ type config struct {
 	// Required when RELEASE is set — a public wall must not ship "password".
 	AdminPassword string `env:"HUSH_ADMIN_PASSWORD" default:""`
 
+	// Cloudflare Turnstile — the bot check on every door (login, apply,
+	// register, invite). Required when RELEASE is set.
+	TurnstileSiteKey string `env:"TURNSTILE_SITE_KEY" default:""`
+	TurnstileSecret  string `env:"TURNSTILE_SECRET" default:""`
+
 	// First-boot policy seeds. These only seed an empty hush_settings table; once
 	// seeded the database is authoritative (edited live at /admin/settings).
 	Tier1      float64 `env:"HUSH_TIER1" default:"3"`

@@ -108,13 +108,19 @@ func (a *App) loginPage(c *beach.Ctx) (beach.View, error) {
 		errMsg = "invalid handle or password."
 	case "locked":
 		errMsg = "account locked. try again later."
+	case "bot":
+		errMsg = "couldn't verify you're human — try again."
 	}
-	return beach.View{Page: loginFormPage(errMsg)}, nil
+	return beach.View{Page: loginFormPage(errMsg, a.cfg.TurnstileSiteKey)}, nil
 }
 
 // doLogin is a plain form POST: authenticate, set the session cookie, 303 home.
 func (a *App) doLogin(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
+	if !a.checkTurnstile(r) {
+		http.Redirect(w, r, "/login?err=bot", http.StatusSeeOther)
+		return
+	}
 	token, _, _, err := a.auth.Authn.Login(r.Context(), r.FormValue("username"), r.FormValue("password"))
 	if err != nil {
 		// The failed handle is signal, not identity — brute-force runs show up

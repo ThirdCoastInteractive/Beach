@@ -9,7 +9,7 @@ import "strconv"
 // applyFormPage is the signup application form: a handle, a password, 3–5
 // lines about what you want to post, and an optional photo. Submitting creates
 // a pending application an admin reviews.
-templ applyFormPage(errMsg string) {
+templ applyFormPage(errMsg string, siteKey string) {
 	@formPage("apply to post") {
 		if errMsg != "" {
 			<p class="hush-note">{ errMsg }</p>
@@ -22,6 +22,7 @@ templ applyFormPage(errMsg string) {
 			<label class="hush-hint">a photo of you (optional)</label>
 			<input class="hush-file" type="file" name="photo" accept="image/*"/>
 			@agreeBox()
+			@turnstileBox(siteKey)
 			<div class="hush-form-row">
 				<a class="hush-link" href="/login">already approved? sign in →</a>
 				<button class="hush-post" type="submit">apply</button>
@@ -32,7 +33,7 @@ templ applyFormPage(errMsg string) {
 
 // registerFormPage is the open-seats door: while HUSH_OPEN_SLOTS has seats
 // left, signing up is a handle and a password — no pitch, no queue.
-templ registerFormPage(left int, errMsg string) {
+templ registerFormPage(left int, errMsg string, siteKey string) {
 	@formPage("claim a seat") {
 		<p class="hush-sub">{ "first-come registration is open — " + strconv.Itoa(left) + " seats left." }</p>
 		if errMsg != "" {
@@ -43,6 +44,7 @@ templ registerFormPage(left int, errMsg string) {
 			<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="new-password" required/>
 			<input class="hush-input" type="email" name="email" placeholder="email (optional — never shown)" autocomplete="email"/>
 			@agreeBox()
+			@turnstileBox(siteKey)
 			<div class="hush-form-row">
 				<a class="hush-link" href="/login">already in? sign in →</a>
 				<button class="hush-post" type="submit">claim</button>
@@ -53,7 +55,7 @@ templ registerFormPage(left int, errMsg string) {
 
 // inviteFormPage redeems a live invite code: a handle and a password, and the
 // account exists — the inviter's chain answers for you from here on.
-templ inviteFormPage(code string, errMsg string) {
+templ inviteFormPage(code string, errMsg string, siteKey string) {
 	@formPage("you're invited") {
 		if errMsg != "" {
 			<p class="hush-note">{ errMsg }</p>
@@ -63,6 +65,7 @@ templ inviteFormPage(code string, errMsg string) {
 			<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="new-password" required/>
 			<input class="hush-input" type="email" name="email" placeholder="email (optional — never shown)" autocomplete="email"/>
 			@agreeBox()
+			@turnstileBox(siteKey)
 			<div class="hush-form-row">
 				<a class="hush-link" href="/login">already in? sign in →</a>
 				<button class="hush-post" type="submit">join</button>
@@ -73,7 +76,7 @@ templ inviteFormPage(code string, errMsg string) {
 
 // loginFormPage is the sign-in form (plain POST → 303). A non-empty errMsg is
 // the failed-attempt banner above the form.
-templ loginFormPage(errMsg string) {
+templ loginFormPage(errMsg string, siteKey string) {
 	@formPage("sign in") {
 		if errMsg != "" {
 			<p class="hush-note">{ errMsg }</p>
@@ -81,11 +84,21 @@ templ loginFormPage(errMsg string) {
 		<form method="post" action="/login" class="hush-form">
 			<input class="hush-input" type="text" name="username" placeholder="handle" autocomplete="username" required/>
 			<input class="hush-input" type="password" name="password" placeholder="password" autocomplete="current-password" required/>
+			@turnstileBox(siteKey)
 			<div class="hush-form-row">
 				<a class="hush-link" href="/apply">need an account? apply →</a>
 				<button class="hush-post" type="submit">sign in</button>
 			</div>
 		</form>
+	}
+}
+
+// turnstileBox is the Cloudflare managed challenge. Empty siteKey (dev)
+// renders nothing; the server then skips verification too.
+templ turnstileBox(siteKey string) {
+	if siteKey != "" {
+		<div class="cf-turnstile hush-turnstile" data-sitekey={ siteKey } data-theme="light" data-size="flexible"></div>
+		<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 	}
 }
 

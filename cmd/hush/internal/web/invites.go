@@ -118,6 +118,10 @@ func (a *App) doRegister(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/apply?err=agree", http.StatusSeeOther)
 		return
 	}
+	if !a.checkTurnstile(r) {
+		http.Redirect(w, r, withBotErr("/apply"), http.StatusSeeOther)
+		return
+	}
 	ctx := r.Context()
 
 	tag, err := a.pool.Exec(ctx,
@@ -163,6 +167,8 @@ func signupErrMsg(code string) string {
 		return "that handle is taken — try another."
 	case "agree":
 		return "you must be 18 or older and accept the terms to contribute."
+	case "bot":
+		return "couldn't verify you're human — try again."
 	}
 	return ""
 }
@@ -178,7 +184,7 @@ func (a *App) invitePage(c *beach.Ctx) (beach.View, error) {
 	if usedBy != nil {
 		return beach.View{Page: noticePage("that invite was already used.", "ask your friend for another.")}, nil
 	}
-	return beach.View{Page: inviteFormPage(c.Param("code"), signupErrMsg(c.Query("err")))}, nil
+	return beach.View{Page: inviteFormPage(c.Param("code"), signupErrMsg(c.Query("err")), a.cfg.TurnstileSiteKey)}, nil
 }
 
 // doRedeem turns a live invite into an account: claim the code atomically,
@@ -195,6 +201,10 @@ func (a *App) doRedeem(w http.ResponseWriter, r *http.Request) {
 	}
 	if !authx.Agreed(r, "agree18") {
 		http.Redirect(w, r, "/invite/"+code+"?err=agree", http.StatusSeeOther)
+		return
+	}
+	if !a.checkTurnstile(r) {
+		http.Redirect(w, r, withBotErr("/invite/"+code), http.StatusSeeOther)
 		return
 	}
 	ctx := r.Context()

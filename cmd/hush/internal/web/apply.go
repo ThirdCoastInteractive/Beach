@@ -35,9 +35,9 @@ func (a *App) applyPage(c *beach.Ctx) (beach.View, error) {
 	}
 	errMsg := signupErrMsg(c.Query("err"))
 	if left := a.openLeft(c.Context()); left > 0 {
-		return beach.View{Page: registerFormPage(left, errMsg)}, nil
+		return beach.View{Page: registerFormPage(left, errMsg, a.cfg.TurnstileSiteKey)}, nil
 	}
-	return beach.View{Page: applyFormPage(errMsg)}, nil
+	return beach.View{Page: applyFormPage(errMsg, a.cfg.TurnstileSiteKey)}, nil
 }
 
 // doApply handles the application form: validate, hash the chosen password, stash
@@ -59,6 +59,10 @@ func (a *App) doApply(w http.ResponseWriter, r *http.Request) {
 	}
 	if !authx.Agreed(r, "agree18") {
 		http.Redirect(w, r, "/apply?err=agree", http.StatusSeeOther)
+		return
+	}
+	if !a.checkTurnstile(r) {
+		http.Redirect(w, r, withBotErr("/apply"), http.StatusSeeOther)
 		return
 	}
 	hash, err := passwords.Hash(password)

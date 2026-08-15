@@ -10,7 +10,8 @@ import (
 // (the pantry dashboard pattern).
 func (a *App) analyticsPage(c *beach.Ctx) (beach.View, error) {
 	handle, _, admin := a.acct(c)
-	return beach.View{Page: analyticsView(handle, admin, a.tierOf(a.rep.Score(handle)))}, nil
+	kpis, _ := a.anl.KPIs(c.Context())
+	return beach.View{Page: analyticsView(handle, admin, a.tierOf(a.rep.Score(handle)), kpis)}, nil
 }
 
 // anlWidget adapts a fragment-builder into a deferred-widget PageFunc: the

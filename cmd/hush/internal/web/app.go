@@ -26,8 +26,10 @@ import (
 // (BaseURL), and the seat counter (the rest of the gate policy lives in
 // reputation.Settings). main builds this from its loaded env config.
 type Config struct {
-	BaseURL     string
-	EmailPoints float64
+	BaseURL          string
+	EmailPoints      float64
+	TurnstileSiteKey string
+	TurnstileSecret  string
 }
 
 // App holds the wired dependencies the handlers close over. The wall and the

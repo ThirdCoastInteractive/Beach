@@ -129,7 +129,29 @@ func (a *Analytics) perDay(ctx context.Context, cond string, days int) ([]dayCou
 // dayLabel formats a per-day bucket for an axis ("Jun 2").
 func dayLabel(r dayCount) string { return r.D.Format("Jan 2") }
 
-// Events is the headline widget: every event, per day, 14 days, as a line.
+// KPIs is the headline strip: rolling counts, one query.
+type KPIs struct {
+	Events14 uint64 `ch:"events14"`
+	Posts14  uint64 `ch:"posts14"`
+	Votes14  uint64 `ch:"votes14"`
+	IPs30    uint64 `ch:"ips30"`
+}
+
+func (a *Analytics) KPIs(ctx context.Context) (KPIs, error) {
+	rows, err := ch.Rows[KPIs](ctx, a.conn, `
+		SELECT
+			countIf(ts >= now() - INTERVAL 14 DAY) AS events14,
+			countIf(ts >= now() - INTERVAL 14 DAY AND kind IN ('post_text', 'post_image', 'post_layout')) AS posts14,
+			countIf(ts >= now() - INTERVAL 14 DAY AND kind IN ('vote_up', 'vote_down')) AS votes14,
+			uniqExactIf(ip, ts >= now() - INTERVAL 30 DAY AND ip != '') AS ips30
+		  FROM hush_events`)
+	if err != nil || len(rows) == 0 {
+		return KPIs{}, err
+	}
+	return rows[0], nil
+}
+
+// Events is the headline widget: every event, per day, 14 days, as an area line.
 func (a *Analytics) Events(ctx context.Context) (templ.Component, error) {
 	rows, err := a.perDay(ctx, "1", 14)
 	if err != nil {
@@ -137,29 +159,61 @@ func (a *Analytics) Events(ctx context.Context) (templ.Component, error) {
 	}
 	in := ch.ToLineSeriesData("events", rows, dayLabel, func(r dayCount) float64 { return float64(r.N) })
 	in.ShowArea = true
+	if len(in.Series) > 0 {
+		in.Series[0].Color = "#b3914f"
+	}
 	return chart.ChartLineFragment(chart.LayoutLine("anl-events", in, chart.LineOpts{RateUnit: "day"})), nil
 }
 
-// Posts is posts per day (text + image), 14 days, as bars.
+// Posts is posts per day (text + image + layout), 14 days, as an area line.
 func (a *Analytics) Posts(ctx context.Context) (templ.Component, error) {
-	rows, err := a.perDay(ctx, "kind IN ('post_text', 'post_image')", 14)
+	rows, err := a.perDay(ctx, "kind IN ('post_text', 'post_image', 'post_layout')", 14)
 	if err != nil {
 		return nil, err
 	}
-	in := ch.ToHBarSeries(rows, dayLabel, func(r dayCount) int { return int(r.N) })
-	in.Unit = " posts"
-	return chart.ChartBarFragment("anl-posts", chart.LayoutHBar(in)), nil
+	in := ch.ToLineSeriesData("posts", rows, dayLabel, func(r dayCount) float64 { return float64(r.N) })
+	in.ShowArea = true
+	if len(in.Series) > 0 {
+		in.Series[0].Color = "#b3914f"
+	}
+	return chart.ChartLineFragment(chart.LayoutLine("anl-posts", in, chart.LineOpts{RateUnit: "day"})), nil
 }
 
-// Votes is votes per day (up + down), 14 days, as bars.
+type voteDay struct {
+	D  time.Time `ch:"d"`
+	Up uint64    `ch:"up"`
+	Dn uint64    `ch:"dn"`
+}
+
+// Votes is up vs down per day, 14 days, as a two-series line.
 func (a *Analytics) Votes(ctx context.Context) (templ.Component, error) {
-	rows, err := a.perDay(ctx, "kind IN ('vote_up', 'vote_down')", 14)
+	rows, err := ch.Rows[voteDay](ctx, a.conn, `
+		SELECT toDate(ts) AS d,
+		       countIf(kind = 'vote_up') AS up,
+		       countIf(kind = 'vote_down') AS dn
+		  FROM hush_events
+		 WHERE toDate(ts) >= toDate(now()) - 13
+		   AND kind IN ('vote_up', 'vote_down')
+		 GROUP BY d ORDER BY d
+		  WITH FILL FROM toDate(now()) - 13 TO toDate(now()) + 1`)
 	if err != nil {
 		return nil, err
 	}
-	in := ch.ToHBarSeries(rows, dayLabel, func(r dayCount) int { return int(r.N) })
-	in.Unit = " votes"
-	return chart.ChartBarFragment("anl-votes", chart.LayoutHBar(in)), nil
+	up := make([]chart.LinePoint, len(rows))
+	dn := make([]chart.LinePoint, len(rows))
+	for i, r := range rows {
+		lab := r.D.Format("Jan 2")
+		up[i] = chart.LinePoint{X: lab, Y: float64(r.Up)}
+		dn[i] = chart.LinePoint{X: lab, Y: float64(r.Dn)}
+	}
+	in := chart.LineSeriesData{
+		Series: []chart.LineSeries{
+			{Label: "up", Color: "#b3914f", Points: up},
+			{Label: "down", Color: "#1f1c17", Points: dn},
+		},
+		YLabel: "votes",
+	}
+	return chart.ChartLineFragment(chart.LayoutLine("anl-votes", in, chart.LineOpts{RateUnit: "day"})), nil
 }
 
 // Countries ranks the last 30 days by country (Cloudflare's CF-IPCountry; empty

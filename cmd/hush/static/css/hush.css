@@ -810,12 +810,82 @@ button.hush-flag:hover { color: rgba(31, 28, 23, 0.7); }
 /* ── admin analytics (/admin/analytics). The chart widgets ride the
    framework's dash-widget styling (app.css); these rules style only the page
    grid and the two tables — dense, monochrome, made for reading IPs. ──────── */
-.hush-anl { max-width: 1080px; }
+.hush-anl {
+  max-width: 1080px;
+  /* restyle pkg/chart for the spa page — the framework defaults are zinc-900 */
+  --color-panel: var(--gg-surface);
+  --color-panel-hover: var(--gg-bg);
+  --color-line-soft: rgba(31, 28, 23, 0.10);
+  --color-line-strong: rgba(31, 28, 23, 0.18);
+  --color-fg-default: var(--gg-ink);
+  --color-fg-muted: rgba(31, 28, 23, 0.5);
+  --color-series-a: var(--gg-gold);
+  --color-series-b: var(--gg-ink);
+}
+.hush-kpi {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.75rem;
+  margin: 1.5rem 0 1rem;
+}
+.hush-kpi-card {
+  padding: 1rem 1.1rem;
+  background: var(--gg-surface);
+  border: 1px solid rgba(31, 28, 23, 0.12);
+}
+.hush-kpi-n {
+  font-size: 1.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--gg-ink);
+  letter-spacing: -0.02em;
+}
+.hush-kpi-label {
+  margin-top: 0.15rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.08em;
+  text-transform: lowercase;
+  color: var(--gg-gold);
+}
+.hush-kpi-sub {
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  color: rgba(31, 28, 23, 0.45);
+}
 .hush-anl-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 1rem;
-  margin-top: 1.5rem;
+  margin-top: 0.25rem;
+}
+.hush-anl-card {
+  background: var(--gg-surface);
+  border: 1px solid rgba(31, 28, 23, 0.12);
+  min-width: 0;
+}
+.hush-anl-card--wide { grid-column: 1 / -1; }
+.hush-anl-card-head {
+  padding: 0.85rem 1rem 0.4rem;
+}
+.hush-anl-card-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  color: var(--gg-ink);
+}
+.hush-anl-card-sub {
+  margin: 0.15rem 0 0;
+  font-size: 0.75rem;
+  color: rgba(31, 28, 23, 0.45);
+}
+.hush-anl-card-body { padding: 0.25rem 0.5rem 0.75rem; }
+.hush-turnstile { margin: 0.35rem 0 0.15rem; }
+@media (max-width: 720px) {
+  .hush-kpi { grid-template-columns: 1fr 1fr; }
+  .hush-anl-grid { grid-template-columns: 1fr; }
+  .hush-anl-card--wide { grid-column: auto; }
 }
 .hush-anl-scroll { height: 100%; overflow: auto; }
 .hush-anl-table {
