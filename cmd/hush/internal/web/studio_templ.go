@@ -46,7 +46,7 @@ func studioPage(notice string) templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"hush-top\"><header class=\"hush-head\"><h1 class=\"hush-title\">goldgirl</h1><p class=\"hush-sub\">bring your own layout — one square. put the pictures where you want them.</p></header></div><div class=\"hush-studio\"><div id=\"studio-board\" class=\"studio-board\" aria-label=\"layout canvas\"></div><div class=\"studio-bar\"><label class=\"cam-pick\" for=\"studio-files\">add images</label> <input type=\"file\" id=\"studio-files\" class=\"cam-file\" accept=\"image/*\" multiple> <span id=\"studio-meter\" class=\"studio-meter\">0 / 8</span> <button id=\"studio-publish\" class=\"hush-post\" type=\"button\">publish</button></div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 1, "<div class=\"hush-top\"><header class=\"hush-head\"><h1 class=\"hush-title\">goldgirl</h1><p class=\"hush-sub\">bring your own layout — one square. put the pictures where you want them.</p></header></div><div class=\"hush-studio\"><div id=\"studio-board\" class=\"studio-board\" aria-label=\"layout canvas\"></div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -54,7 +54,7 @@ func studioPage(notice string) templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<p id=\"studio-status\" class=\"cam-status\" aria-live=\"polite\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 2, "<div class=\"studio-bar\"><label class=\"cam-pick\" for=\"studio-files\">add images</label> <input type=\"file\" id=\"studio-files\" class=\"cam-file\" accept=\"image/*\" multiple> <span id=\"studio-meter\" class=\"studio-meter\">0 / 8</span> <button id=\"studio-publish\" class=\"hush-post\" type=\"button\">publish</button></div><p id=\"studio-status\" class=\"cam-status\" aria-live=\"polite\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

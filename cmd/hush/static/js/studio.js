@@ -1,7 +1,7 @@
-// goldgirl studio — BYOL. A fixed square of footage; you add images, drag
-// them around, rotate and resize, then publish one layout post. Uploads go
-// to /studio/piece as they land so the preview is the real file. Publish
-// posts the composition to /studio and the server 303s home.
+// goldgirl studio — BYOL. Preview is local (blob URLs) so the board
+// responds immediately; Cloudflare upload rides in the background and
+// stamps cf_id onto each piece before publish. Publish is a real form
+// POST (one navigation) so it doesn't fight the page's view transition.
 
 const MAX = 8;
 const board = document.getElementById("studio-board");
@@ -14,6 +14,11 @@ const cert = document.getElementById("studio-2257");
 const pieces = [];
 let zTop = 1;
 let drag = null;
+
+// View Transitions abort when a navigation supersedes them — noise, not a bug.
+window.addEventListener("unhandledrejection", (e) => {
+  if (e.reason && e.reason.name === "AbortError") e.preventDefault();
+});
 
 function setStatus(msg) {
   if (statusEl) statusEl.textContent = msg || "";
@@ -68,10 +73,10 @@ function placeDefault(index, aspect) {
   };
 }
 
-function addPiece(data, aspect) {
+function addPiece(previewURL, aspect) {
   if (pieces.length >= MAX) {
     setStatus("that's the whole square-footage — eight prints.");
-    return;
+    return null;
   }
   const geo = placeDefault(pieces.length, aspect);
   const el = document.createElement("div");
@@ -81,10 +86,10 @@ function addPiece(data, aspect) {
     '<button type="button" class="studio-kill" aria-label="remove">×</button>' +
     '<span class="studio-rot" title="drag to rotate"></span>' +
     '<span class="studio-resize" title="drag to resize"></span>';
-  el.querySelector("img").src = data.thumb || data.url;
+  el.querySelector("img").src = previewURL;
   const p = {
-    cf_id: data.cf_id,
-    url: data.url,
+    cf_id: "",
+    url: previewURL,
     x: geo.x,
     y: geo.y,
     w: geo.w,
@@ -92,6 +97,7 @@ function addPiece(data, aspect) {
     rot: geo.rot,
     z: ++zTop,
     el,
+    pending: true,
   };
   pieces.push(p);
   paint(p);
@@ -105,21 +111,27 @@ function addPiece(data, aspect) {
     if (i >= 0) pieces.splice(i, 1);
     updateMeter();
   });
+  return p;
 }
 
 async function uploadFile(file) {
-  if (!certified()) {
-    setStatus("confirm the § 2257 certification first.");
-    return;
-  }
   const fd = new FormData();
   fd.append("image", file, file.name || "piece.jpg");
   fd.append("cert2257", "on");
-  const res = await fetch("/studio/piece", { method: "POST", body: fd });
-  if (!res.ok) {
-    throw new Error(res.status === 400 ? "certify first, or that wasn't an image." : "upload failed.");
+  const res = await fetch("/studio/piece", { method: "POST", body: fd, redirect: "manual" });
+  if (res.status === 401 || res.status === 403 || res.type === "opaqueredirect") {
+    throw new Error("sign in to add images.");
   }
-  return res.json();
+  let data = {};
+  const ct = res.headers.get("content-type") || "";
+  if (ct.includes("application/json")) {
+    data = await res.json();
+  }
+  if (!res.ok) {
+    throw new Error(data.error || (res.status === 400 ? "certify first, or that wasn't an image." : "upload failed."));
+  }
+  if (!data.cf_id) throw new Error("upload failed.");
+  return data;
 }
 
 function probeAspect(file) {
@@ -127,13 +139,11 @@ function probeAspect(file) {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
-      const a = img.naturalWidth / (img.naturalHeight || 1);
-      URL.revokeObjectURL(url);
-      resolve(a);
+      resolve({ aspect: img.naturalWidth / (img.naturalHeight || 1), url });
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
-      resolve(1);
+      resolve({ aspect: 1, url: "" });
     };
     img.src = url;
   });
@@ -143,6 +153,10 @@ if (files) {
   files.addEventListener("change", async () => {
     const list = Array.from(files.files || []);
     files.value = "";
+    if (!certified()) {
+      setStatus("confirm the § 2257 certification first.");
+      return;
+    }
     for (const file of list) {
       if (pieces.length >= MAX) {
         setStatus("that's the whole square-footage — eight prints.");
@@ -150,8 +164,17 @@ if (files) {
       }
       setStatus("adding…");
       try {
-        const [data, aspect] = await Promise.all([uploadFile(file), probeAspect(file)]);
-        addPiece(data, aspect);
+        const preview = await probeAspect(file);
+        const p = addPiece(preview.url || "", preview.aspect);
+        if (!p) continue;
+        const data = await uploadFile(file);
+        p.cf_id = data.cf_id;
+        p.url = data.url || data.thumb || p.url;
+        p.pending = false;
+        if (data.url || data.thumb) {
+          const img = p.el.querySelector("img");
+          if (img) img.src = data.thumb || data.url;
+        }
         setStatus("");
       } catch (err) {
         setStatus(err.message || "upload failed.");
@@ -214,22 +237,27 @@ if (publishBtn) {
       setStatus("add at least one image.");
       return;
     }
+    if (pieces.some((p) => p.pending || !p.cf_id)) {
+      setStatus("wait for the images to finish uploading.");
+      return;
+    }
     setStatus("publishing…");
-    const fd = new FormData();
-    fd.append("layout", layoutJSON());
-    fd.append("cert2257", "on");
-    fetch("/studio", { method: "POST", body: fd })
-      .then((res) => {
-        if (res.redirected) {
-          window.location = res.url;
-          return;
-        }
-        if (!res.ok) throw new Error("could not publish.");
-        window.location = "/";
-      })
-      .catch((err) => setStatus(err.message || "could not publish."));
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = "/studio";
+    const layout = document.createElement("input");
+    layout.type = "hidden";
+    layout.name = "layout";
+    layout.value = layoutJSON();
+    const box = document.createElement("input");
+    box.type = "hidden";
+    box.name = "cert2257";
+    box.value = "on";
+    form.append(layout, box);
+    document.body.appendChild(form);
+    form.submit();
   });
 }
 
 updateMeter();
-setStatus(statusEl && statusEl.textContent ? statusEl.textContent : "add images. drag them. this square is yours.");
+setStatus(statusEl && statusEl.textContent ? statusEl.textContent : "check the box, then add images. this square is yours.");

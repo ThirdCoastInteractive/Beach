@@ -14,13 +14,13 @@ templ studioPage(notice string) {
 		</div>
 		<div class="hush-studio">
 			<div id="studio-board" class="studio-board" aria-label="layout canvas"></div>
+			@certBox2257("studio-2257")
 			<div class="studio-bar">
 				<label class="cam-pick" for="studio-files">add images</label>
 				<input type="file" id="studio-files" class="cam-file" accept="image/*" multiple/>
 				<span id="studio-meter" class="studio-meter">0 / 8</span>
 				<button id="studio-publish" class="hush-post" type="button">publish</button>
 			</div>
-			@certBox2257("studio-2257")
 			<p id="studio-status" class="cam-status" aria-live="polite">{ notice }</p>
 		</div>
 		@backToWall()

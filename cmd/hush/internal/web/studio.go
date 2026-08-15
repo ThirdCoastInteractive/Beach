@@ -23,35 +23,61 @@ func (a *App) studio(c *beach.Ctx) (beach.View, error) {
 // to keep arranging. It does not create a post — publishLayout does that.
 func (a *App) uploadPiece(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(8 << 20); err != nil {
-		http.Error(w, "too large", http.StatusRequestEntityTooLarge)
+		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "too large"})
 		return
 	}
 	if !authx.Agreed(r, "cert2257") {
-		http.Error(w, "certify first", http.StatusBadRequest)
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "certify first"})
 		return
 	}
 	f, hdr, err := r.FormFile("image")
 	if err != nil {
-		http.Error(w, "no image", http.StatusBadRequest)
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "no image"})
 		return
 	}
 	defer f.Close()
-	ct := hdr.Header.Get("Content-Type")
-	if !strings.HasPrefix(ct, "image/") {
-		http.Error(w, "not an image", http.StatusBadRequest)
+	ct := imageContentType(hdr.Header.Get("Content-Type"), hdr.Filename)
+	if ct == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "not an image"})
 		return
 	}
 	mediaURL, cfID, err := a.media.StoreImage(r.Context(), f, ct)
 	if err != nil {
-		http.Error(w, "store failed", http.StatusBadGateway)
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "store failed"})
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{
+	writeJSON(w, http.StatusOK, map[string]string{
 		"cf_id": cfID,
 		"url":   mediaURL,
 		"thumb": a.media.ThumbURL(cfID),
 	})
+}
+
+func writeJSON(w http.ResponseWriter, status int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(v)
+}
+
+// imageContentType accepts a real image/* type, or infers one from the
+// filename — some browsers send application/octet-stream for camera rolls.
+func imageContentType(ct, filename string) string {
+	if strings.HasPrefix(ct, "image/") {
+		return ct
+	}
+	name := strings.ToLower(filename)
+	switch {
+	case strings.HasSuffix(name, ".jpg"), strings.HasSuffix(name, ".jpeg"):
+		return "image/jpeg"
+	case strings.HasSuffix(name, ".png"):
+		return "image/png"
+	case strings.HasSuffix(name, ".webp"):
+		return "image/webp"
+	case strings.HasSuffix(name, ".gif"):
+		return "image/gif"
+	default:
+		return ""
+	}
 }
 
 // publishLayout binds the studio composition, fills delivery URLs from the
