@@ -41,7 +41,9 @@ type config struct {
 	CFImagesToken   string `env:"CF_IMAGES_TOKEN,required"`
 	CFImagesHash    string `env:"CF_IMAGES_HASH,required"`
 	CFImagesVariant string `env:"CF_IMAGES_VARIANT" default:"public"`
-	CFImagesThumb   string `env:"CF_IMAGES_THUMB" default:"thumb"`
+	// Thumb defaults to public: a dedicated square-crop variant is optional
+	// dashboard config. object-fit:cover on the print face crops either way.
+	CFImagesThumb string `env:"CF_IMAGES_THUMB" default:"public"`
 
 	// Mailer transport. Individually optional (you configure Mailgun OR SMTP);
 	// main.go fatals if neither is set. See mailer/mailer.go.
