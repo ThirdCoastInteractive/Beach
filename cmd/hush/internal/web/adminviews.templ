@@ -97,7 +97,7 @@ templ (a *App) reviewCard(p store.Post, flags []flagRow) {
 			<span class="hush-adm-dim">{ authorLabel(p.Author) }</span>
 			<span class="hush-adm-dim">{ p.CreatedAt.Format("Jan 2 2006 · 15:04") }</span>
 		</div>
-		@cardMedia(p, a.media.PostImageURL(p))
+		@a.cardMedia(p, a.media.PostImageURL(p))
 		<div class="hush-adm-meta">{ metaLine(p.Meta) }</div>
 		<div class="hush-adm-flags">
 			<span>{ flagCountLabel(p.FlagCount) }</span>
@@ -182,7 +182,7 @@ templ (a *App) postRow(p store.Post, v voteCount, back string) {
 		</td>
 		<td>{ p.Kind }</td>
 		<td class="hush-adm-content">
-			if p.Kind == "image" {
+			if p.Kind == "image" || p.Kind == "layout" {
 				<img class="hush-adm-thumb" src={ a.media.PostThumbURL(p) } alt="" loading="lazy"/>
 			} else {
 				{ snippet(p.BodyHTML) }

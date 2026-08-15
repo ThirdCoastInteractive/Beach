@@ -1,4 +1,4 @@
-// The wall: the gapless grid of square tiles and the composer above it.
+// The wall: the shared pinboard of prints and the composer above it.
 package web
 
 import (
@@ -9,18 +9,18 @@ import (
 )
 
 // homePage is the wall: the centered header + composer, then the full-bleed
-// gapless grid. Tiles are real links — opening a post is a navigation (the
+// pinboard. Prints are real links — opening a post is a navigation (the
 // browser owns push/pop state), and the cross-document View Transition morphs
-// the clicked square into its feed card. A method on *app — like every view
-// that renders post images — so it can resolve each post's image source
-// through the media helpers (media.go).
+// the clicked print into its feed card. Members can drag prints around the
+// board (BYOL). A method on *app — like every view that renders post images —
+// so it can resolve each post's image source through the media helpers.
 templ (a *App) homePage(posts []store.Post, handle string, canPost bool, admin bool, tier int, openLeft int, notice string) {
 	@shell("goldgirl") {
 		@accountStrip(handle, admin, tier)
 		<div class="hush-top">
 			<header class="hush-head">
 				<h1 class="hush-title"><a class="hush-home" href="/">goldgirl</a></h1>
-				<p class="hush-sub">a quiet wall — post into it.</p>
+				<p class="hush-sub">a quiet wall — arrange it.</p>
 			</header>
 			if canPost {
 				@composer(notice)
@@ -30,7 +30,7 @@ templ (a *App) homePage(posts []store.Post, handle string, canPost bool, admin b
 				<p class="hush-sub hush-gateline">posting is invite-only — <a class="hush-link" href="/apply">apply</a> or <a class="hush-link" href="/login">sign in</a>.</p>
 			}
 		</div>
-		@a.grid(posts)
+		@a.board(posts, canPost)
 		<p class="hush-foot"><a class="hush-link" href="/terms">terms</a></p>
 	}
 }
@@ -56,39 +56,68 @@ templ composer(notice string) {
 				// the certification below (the :has rule in hush.css)
 				<input type="file" id="hush-image" name="image" accept="image/*" class="hush-file" required/>
 				<button class="hush-post hush-post--ghost" type="submit">upload image</button>
-				<a class="hush-link hush-cam-link" href="/compose">or open the camera →</a>
+				<a class="hush-link hush-cam-link" href="/studio">or arrange a layout →</a>
+				<a class="hush-link" href="/compose">camera</a>
 			</div>
 			@certBox2257("hush-2257")
 		</form>
 	</div>
 }
 
-// grid is the full #hush-grid wall. It doubles as the fragment the home
-// handler patches on a Datastar request. Tiles get the thumb source — the
-// square-crop Cloudflare variant when the image has one.
-templ (a *App) grid(posts []store.Post) {
-	<div id="hush-grid" class="hush-grid">
-		for _, p := range posts {
-			@tile(p, a.media.PostThumbURL(p))
-		}
-	</div>
+// board is the shared pinboard. It doubles as the fragment the home handler
+// patches on a Datastar request. Live boards load board.js so members can
+// drag and rotate prints; everyone else just looks.
+templ (a *App) board(posts []store.Post, canPin bool) {
+	if canPin {
+		<div id="hush-board" class="hush-board hush-board--live" data-can-pin="1">
+			for _, p := range posts {
+				@a.print(p)
+			}
+		</div>
+		<script type="module" src="/static/js/board.js"></script>
+	} else {
+		<div id="hush-board" class="hush-board">
+			for _, p := range posts {
+				@a.print(p)
+			}
+		</div>
+	}
 }
 
-// tile is one square — a real link to the post's feed page. Its data-vt only
-// becomes a live view-transition-name while the tile holds focus (i.e. it was
-// just clicked), so navigating morphs exactly this square into the focused
-// card. A text tile's BodyHTML is already sanitized by renderPost; an image
-// tile renders thumbURL, the caller-resolved square source (postThumbURL).
-templ tile(p store.Post, thumbURL string) {
-	if p.Kind == "image" {
-		<a class="hush-tile hush-tile--image" style={ content.PostStyle(p) } data-vt={ content.VTName(p) } href={ content.PostHref(p.ID) }>
-			<img src={ thumbURL } alt="" loading="lazy"/>
-		</a>
+// print is one physical object on the board — a real link to the post's feed
+// page. data-vt only becomes a live view-transition-name while the print
+// holds focus, so leaving the wall morphs exactly this one. Layout prints
+// render their studio collage; image and text prints are a single face.
+templ (a *App) print(p store.Post) {
+	<a class={ "hush-print hush-print--" + p.Kind } style={ content.PrintStyle(p, content.PinOf(p)) } data-vt={ content.VTName(p) } data-id={ strconv.FormatInt(p.ID, 10) } href={ content.PostHref(p.ID) }>
+		<div class="hush-print-face">
+			@a.printFace(p)
+		</div>
+	</a>
+}
+
+// printFace is the front of a print: a collage, a single image, or a text
+// square on its computed color.
+templ (a *App) printFace(p store.Post) {
+	if p.Kind == "layout" {
+		@a.collage(content.LayoutOf(p), true)
+	} else if p.Kind == "image" {
+		<img src={ a.media.PostThumbURL(p) } alt="" loading="lazy"/>
 	} else {
-		<a class="hush-tile hush-tile--text" style={ content.PostStyle(p) } data-vt={ content.VTName(p) } href={ content.PostHref(p.ID) }>
+		<div class="hush-print-text" style={ content.TileBG(p) }>
 			<div class="hush-tile-body">
 				@templ.Raw(p.BodyHTML)
 			</div>
-		</a>
+		</div>
 	}
+}
+
+// collage paints a studio layout into a square. thumb picks the Cloudflare
+// square-crop variant (wall prints); the feed uses the full-size source.
+templ (a *App) collage(l content.Layout, thumb bool) {
+	<div class="hush-collage">
+		for _, piece := range l.Pieces {
+			<img class="hush-collage-piece" src={ a.pieceURL(piece, thumb) } style={ piece.CSS() } alt="" loading="lazy"/>
+		}
+	</div>
 }

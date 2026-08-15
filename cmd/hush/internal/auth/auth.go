@@ -75,9 +75,12 @@ func (a *Auth) ensureRole(ctx context.Context, slug string, perms ...string) (in
 }
 
 // SeedAdmin creates the two roles (admin: post+admin, member: post) and a single
-// admin account (admin / password) so the gate is usable out of the box: sign in
-// as admin to approve applicants. Idempotent.
-func (a *Auth) SeedAdmin(ctx context.Context) error {
+// admin account so the gate is usable out of the box. password is the first-boot
+// credential (dev default "password"); an existing hash is left alone. Idempotent.
+func (a *Auth) SeedAdmin(ctx context.Context, password string) error {
+	if password == "" {
+		password = "password"
+	}
 	adminRole, err := a.ensureRole(ctx, "admin", "post", "admin")
 	if err != nil {
 		return err
@@ -96,7 +99,7 @@ func (a *Auth) SeedAdmin(ctx context.Context) error {
 	_ = a.pool.QueryRow(ctx,
 		`SELECT EXISTS (SELECT 1 FROM user_credentials_local WHERE user_id = $1)`, uid).Scan(&hasCred)
 	if !hasCred {
-		hash, err := passwords.Hash("password")
+		hash, err := passwords.Hash(password)
 		if err != nil {
 			return err
 		}

@@ -512,7 +512,7 @@ func (a *App) reviewCard(p store.Post, flags []flagRow) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = cardMedia(p, a.media.PostImageURL(p)).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = a.cardMedia(p, a.media.PostImageURL(p)).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -864,7 +864,7 @@ func (a *App) postRow(p store.Post, v voteCount, back string) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		if p.Kind == "image" {
+		if p.Kind == "image" || p.Kind == "layout" {
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 50, "<img class=\"hush-adm-thumb\" src=\"")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err

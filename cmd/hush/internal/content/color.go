@@ -29,7 +29,7 @@ const (
 // comes out muddier or harsher than the rest.
 func ColorFor(p store.Post) string {
 	seed := p.BodyHTML
-	if p.Kind == "image" {
+	if p.Kind == "image" || p.Kind == "layout" {
 		seed = p.ImageURL
 	}
 	if seed == "" {

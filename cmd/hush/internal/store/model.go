@@ -8,18 +8,27 @@ import (
 	"time"
 )
 
-// Post is one tile on the wall. A text post carries sanitized BodyHTML (from
+// Post is one print on the wall. A text post carries sanitized BodyHTML (from
 // content.RenderPost — never raw user input); an image post carries ImageURL,
 // the public URL its bytes were stored at, plus CFImageID when the upload went
 // through Cloudflare Images (the media helpers pick the right source per
-// surface). Hidden, FlagCount, and Meta exist for moderation — admin eyes
-// only; templates never render them.
+// surface). A layout post carries Layout (the studio composition as JSON) and
+// still fills ImageURL/CFImageID from its first piece so admin thumbs work.
+// Pin* is the print's place on the shared board; HasPin is false until someone
+// drags it, and the renderer then scatters from the id. Hidden, FlagCount, and
+// Meta exist for moderation — admin eyes only; templates never render them.
 type Post struct {
 	ID        int64
-	Kind      string // "text" | "image"
+	Kind      string // "text" | "image" | "layout"
 	BodyHTML  string // text posts
-	ImageURL  string // image posts
-	CFImageID string // image posts, Cloudflare Images id ("" when stored via files)
+	ImageURL  string // image posts, or a layout's first piece
+	CFImageID string // image posts / first layout piece ("" when stored via files)
+	Layout    []byte // studio composition JSON; "{}" for text/image
+	HasPin    bool
+	PinX      float64
+	PinY      float64
+	PinRot    float64
+	PinW      float64
 	Author    string // handle that posted it (for Repute scoring; never shown — the wall is anon)
 	Hidden    bool   // moderated off the wall; permalink 404s for non-admins
 	Deleted   bool   // purged (soft) — gone everywhere but the admin browser

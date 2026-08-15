@@ -105,7 +105,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("hush: wall init failed: %v", err)
 	}
-	if err := auth.SeedAdmin(ctx); err != nil {
+	if release && cfg.AdminPassword == "" {
+		log.Fatal("hush: RELEASE requires HUSH_ADMIN_PASSWORD (the seeded admin account)")
+	}
+	if err := auth.SeedAdmin(ctx, cfg.AdminPassword); err != nil {
 		log.Fatalf("hush: seed admin failed: %v", err)
 	}
 

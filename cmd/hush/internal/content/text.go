@@ -1,7 +1,8 @@
 // Package content holds hush's pure post utilities — no app or database
 // coupling: markdown rendering and sanitizing (text.go), the per-post inline
-// styling and view-transition names (style.go), and the deterministic OKLCH
-// tile color (color.go). The web layer calls these; nothing here reaches back.
+// styling and view-transition names (style.go), the deterministic OKLCH
+// tile color (color.go), and BYOL layout/pin geometry (layout.go). The web
+// layer calls these; nothing here reaches back.
 package content
 
 import (

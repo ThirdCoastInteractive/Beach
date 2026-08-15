@@ -101,6 +101,16 @@ func (m *Media) PostThumbURL(p store.Post) string {
 	return p.ImageURL
 }
 
+// FullURL is a Cloudflare Images delivery URL for the full-size variant.
+func (m *Media) FullURL(cfID string) string {
+	return m.images.DeliveryURL(cfID, m.variant)
+}
+
+// ThumbURL is a Cloudflare Images delivery URL for the square-crop variant.
+func (m *Media) ThumbURL(cfID string) string {
+	return m.images.DeliveryURL(cfID, m.thumb)
+}
+
 // RandHex returns 8 random bytes as hex, a collision-free object key stem.
 func RandHex() string {
 	var b [8]byte

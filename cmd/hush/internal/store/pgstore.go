@@ -40,7 +40,8 @@ func New(ctx context.Context, pool *pgxpool.Pool, render func(string) (string, b
 // postCols is the SELECT list every post read shares; scanPost matches it.
 const postCols = `p.id, p.kind, p.body_html, p.media_url, p.cf_image_id, p.author,
 	p.ip, p.country, p.city, p.user_agent, p.created_at, (p.hidden_at IS NOT NULL),
-	(p.deleted_at IS NOT NULL)`
+	(p.deleted_at IS NOT NULL),
+	p.layout, p.pin_x, p.pin_y, p.pin_rot, p.pin_w`
 
 // visibleWhere is the public wall's filter: not hidden, not soft-deleted.
 const visibleWhere = `p.hidden_at IS NULL AND p.deleted_at IS NULL`
@@ -51,12 +52,21 @@ type pgxScanner interface{ Scan(dest ...any) error }
 // scanPost reads one postCols row into p; withFlags also reads a trailing
 // flag-count column (the admin reads append it to postCols).
 func scanPost(sc pgxScanner, p *Post, withFlags bool) error {
+	var pinX, pinY, pinRot, pinW *float64
 	dest := []any{&p.ID, &p.Kind, &p.BodyHTML, &p.ImageURL, &p.CFImageID, &p.Author,
-		&p.Meta.IP, &p.Meta.Country, &p.Meta.City, &p.Meta.UA, &p.CreatedAt, &p.Hidden, &p.Deleted}
+		&p.Meta.IP, &p.Meta.Country, &p.Meta.City, &p.Meta.UA, &p.CreatedAt, &p.Hidden, &p.Deleted,
+		&p.Layout, &pinX, &pinY, &pinRot, &pinW}
 	if withFlags {
 		dest = append(dest, &p.FlagCount)
 	}
-	return sc.Scan(dest...)
+	if err := sc.Scan(dest...); err != nil {
+		return err
+	}
+	if pinX != nil && pinY != nil && pinRot != nil && pinW != nil {
+		p.HasPin = true
+		p.PinX, p.PinY, p.PinRot, p.PinW = *pinX, *pinY, *pinRot, *pinW
+	}
+	return nil
 }
 
 // queryPosts runs a postCols query and scans the lot. Read errors come back as
@@ -136,6 +146,32 @@ func (s *Store) AddImage(ctx context.Context, mediaURL, cfImageID, author string
 		 VALUES ('image', $1, $2, $3, $4, $5, $6, $7) RETURNING id, created_at`,
 		mediaURL, cfImageID, author, m.IP, m.Country, m.City, m.UA).Scan(&p.ID, &p.CreatedAt)
 	return p, err
+}
+
+// AddLayout stores a studio composition. mediaURL/cfImageID are the first
+// piece — admin thumbs and ColorFor reuse the image-post path.
+func (s *Store) AddLayout(ctx context.Context, layout []byte, mediaURL, cfImageID, author string, m Meta) (Post, error) {
+	p := Post{Kind: "layout", ImageURL: mediaURL, CFImageID: cfImageID, Layout: layout, Author: author, Meta: m}
+	err := s.pool.QueryRow(ctx,
+		`INSERT INTO hush_posts (kind, media_url, cf_image_id, layout, author, ip, country, city, user_agent)
+		 VALUES ('layout', $1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, created_at`,
+		mediaURL, cfImageID, layout, author, m.IP, m.Country, m.City, m.UA).Scan(&p.ID, &p.CreatedAt)
+	return p, err
+}
+
+// Pin writes a print's place on the shared board. Geometry is already clamped
+// by the caller (content.ClampPin).
+func (s *Store) Pin(ctx context.Context, id int64, x, y, rot, w float64) error {
+	tag, err := s.pool.Exec(ctx,
+		`UPDATE hush_posts SET pin_x = $2, pin_y = $3, pin_rot = $4, pin_w = $5 WHERE id = $1`,
+		id, x, y, rot, w)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNoPost
+	}
+	return nil
 }
 
 func (s *Store) Vote(ctx context.Context, postID int64, voter string, up bool) (Post, bool) {

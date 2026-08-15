@@ -58,6 +58,10 @@ type config struct {
 	// address. Baked into the Repute engine at boot, so it stays env.
 	EmailPoints float64 `env:"HUSH_EMAIL_POINTS" default:"2"`
 
+	// AdminPassword is the first-boot password for the seeded admin account.
+	// Required when RELEASE is set — a public wall must not ship "password".
+	AdminPassword string `env:"HUSH_ADMIN_PASSWORD" default:""`
+
 	// First-boot policy seeds. These only seed an empty hush_settings table; once
 	// seeded the database is authoritative (edited live at /admin/settings).
 	Tier1      float64 `env:"HUSH_TIER1" default:"3"`

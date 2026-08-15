@@ -16,6 +16,7 @@ import (
 func (a *App) Routes(app *beach.App) {
 	app.Page("/", a.home)
 	app.Page("/compose", a.compose)
+	app.Page("/studio", a.studio)
 	app.Page("/p/{id}", a.postView)
 	// Datastar-only feed batches, fetched by the intersect sentinels; a direct
 	// navigation 404s (no Page on the View).
@@ -42,6 +43,9 @@ func (a *App) Routes(app *beach.App) {
 	app.Action("/p/{id}/vote", a.votePost, postGuard...)
 	app.Action("/p/{id}/flag", a.flagPost, postGuard...)
 	app.Raw(http.MethodPost, "/upload", a.uploadImage, postGuard...)
+	app.Raw(http.MethodPost, "/studio/piece", a.uploadPiece, postGuard...)
+	app.Raw(http.MethodPost, "/studio", a.publishLayout, postGuard...)
+	app.Raw(http.MethodPost, "/p/{id}/pin", a.pinPost, postGuard...)
 
 	// Admin: the application queue, plus the suite (admin.go) — the hub, the
 	// moderation review, the everything browser, the member ledger, and the

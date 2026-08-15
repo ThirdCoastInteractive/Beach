@@ -17,6 +17,15 @@ func (a *App) compose(c *beach.Ctx) (beach.View, error) {
 	return beach.View{Page: composePage()}, nil
 }
 
+// studioNotice maps /studio?err onto the status line (the page itself is
+// static; the island reads nothing — we just land them back on the canvas).
+func studioNotice(code string) string {
+	if code == "2257" {
+		return "image posts need the § 2257 certification — check the box."
+	}
+	return ""
+}
+
 // profileView is the tier-gated profile. A profile below tier 1 is locked for
 // everyone — its owner gets the nudge, strangers get nothing (a viewable
 // sub-tier profile would leak standing on a wall that never prints it). Your
@@ -123,8 +132,8 @@ func (a *App) home(c *beach.Ctx) (beach.View, error) {
 	a.anl.Track(c.R, "view_wall", handle, 0)
 	return beach.View{
 		Page:     a.homePage(posts, handle, canPost, admin, a.tierOf(a.rep.Score(handle)), a.openLeft(c.Context()), homeNotice(c.Query("err"))),
-		Fragment: a.grid(posts),
-		Target:   "hush-grid",
+		Fragment: a.board(posts, canPost),
+		Target:   "hush-board",
 	}, nil
 }
 
@@ -156,7 +165,7 @@ func (a *App) createPost(c *beach.Ctx) (beach.Patches, error) {
 	a.rep.Emit("post", author)
 	a.anl.Track(c.R, "post_text", author, p.ID)
 	return beach.Patches{
-		{Fragment: tile(p, a.media.PostThumbURL(p)), Target: "hush-grid", Mode: beach.PatchPrepend, Signals: map[string]string{"body": ""}},
+		{Fragment: a.print(p), Target: "hush-board", Mode: beach.PatchPrepend, Signals: map[string]string{"body": ""}},
 		{Fragment: note(""), Target: "hush-note", Mode: beach.PatchInner},
 	}, nil
 }

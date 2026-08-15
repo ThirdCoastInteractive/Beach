@@ -29,11 +29,15 @@ the one other script (`static/js/camera.js`, an external module — CSP-clean).
 
 ## What it is
 
-- The front page is one **gapless grid of square tiles** — every recent post, no
-  gaps anywhere, text and image posts both filling perfect squares. Every tile is
-  a real link: opening a post **morphs the square into a single-column feed**
-  anchored on it, and the post's time-ordered neighbors stream in as you scroll
-  either way. The user is on rails — the browser's own back button pops you out.
+- The front page is a **shared pinboard** — prints scattered on a dark studio
+  table, slightly rotated, overlapping, like vintage annual-report covers. Text,
+  image, and **layout** posts are all prints. Members drag, rotate, and scale
+  them (BYOL: the arrangement is the user's). Every print is a real link:
+  opening a post **morphs it into a single-column feed** anchored on it, and the
+  post's time-ordered neighbors stream in as you scroll either way. The user is
+  on rails — the browser's own back button pops you out.
+- **BYOL studio** (`/studio`): a fixed square of footage. Add up to eight
+  images, drag/rotate/resize them on the canvas, publish one `layout` post.
 - Posting is **anonymous**. Accounts are gated, with three doors: you apply with
   a handle, a photo, and 3–5 lines about what you want to post (an admin approves
   or rejects); you claim one of **N open seats** while `HUSH_OPEN_SLOTS` has any
@@ -101,10 +105,12 @@ hush_applications (
 -- hidden_by records who threw it ('flags' for the community).
 hush_posts (
   id          bigserial primary key,               -- monotonic: doubles as the feed cursor
-  kind        text not null,                       -- text | image
+  kind        text not null,                       -- text | image | layout
   body_html   text not null default '',
   media_url   text not null default '',
   cf_image_id text not null default '',            -- Cloudflare Images id; '' when stored via files
+  layout      jsonb not null default '{}',         -- studio composition (kind=layout)
+  pin_x/y/rot/w double precision,                  -- wall placement; NULL = scatter from id
   author      text not null default '',            -- handle; '' for the boot seed posts
   ip          text not null default '',
   country     text not null default '',
@@ -580,7 +586,11 @@ graceful degradation, no error.
 ## Routes
 
 ```
-GET  /                            grid    -- gapless square grid, chronological
+GET  /                            board   -- shared pinboard, chronological prints
+GET  /studio                      page    -- BYOL studio: arrange images on a square
+POST /studio/piece                raw     -- upload one studio image, JSON {cf_id,url}  [post]
+POST /studio                      raw     -- publish a layout post, 303 home            [post]
+POST /p/{id}/pin                  raw     -- save a print's place on the board          [post]
 GET  /compose                     page    -- the WebGPU camera/upload island
 GET  /p/{id}                      page    -- the feed, focused on one post (neighbors both ways)
 GET  /feed/newer                  frag    -- next feed batch above cursor (intersect sentinel only)

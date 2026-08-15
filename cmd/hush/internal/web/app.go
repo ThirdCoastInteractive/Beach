@@ -11,6 +11,7 @@ import (
 
 	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/analytics"
 	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/auth"
+	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/content"
 	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/mail"
 	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/media"
 	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/reputation"
@@ -131,4 +132,17 @@ func (a *App) inviterOf(handle string) string {
 	a.chainMu.Lock()
 	defer a.chainMu.Unlock()
 	return a.chains[handle]
+}
+
+// pieceURL is a collage piece's source. Cloudflare ids are recomputed at
+// render time so a variant rename applies to old layouts; a missing id
+// falls back to the stored URL.
+func (a *App) pieceURL(p content.Piece, thumb bool) string {
+	if p.CFID == "" {
+		return p.URL
+	}
+	if thumb {
+		return a.media.ThumbURL(p.CFID)
+	}
+	return a.media.FullURL(p.CFID)
 }

@@ -421,7 +421,8 @@
    (Chrome 133+); browsers without it — which also lack cross-document
    transitions — just navigate. Feed cards are named inline instead: most of
    them exist on the next post's page too, so they pair and slide. */
-.hush-tile:focus {
+.hush-tile:focus,
+.hush-print:focus {
   view-transition-name: attr(data-vt type(<custom-ident>));
 }
 
@@ -842,4 +843,169 @@ button.hush-flag:hover { color: rgba(31, 28, 23, 0.7); }
 }
 .hush-anl-num { text-align: right; font-variant-numeric: tabular-nums; }
 .hush-anl-empty { color: rgba(31, 28, 23, 0.4); }
+
+/* ── BYOL pinboard. A dark studio table under the spa chrome; prints sit
+   on it like annual-report covers — rotated, overlapping, a little shadow.
+   Members drag them. The board is the square-footage. ───────────────────── */
+.hush-board {
+  --gg-table: #14110e;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1.05;
+  min-height: 72vh;
+  background:
+    radial-gradient(120% 80% at 50% 40%, #1c1814 0%, var(--gg-table) 70%);
+  overflow: hidden;
+}
+.hush-board--live { cursor: grab; }
+.hush-board--live:active { cursor: grabbing; }
+
+.hush-print {
+  position: absolute;
+  display: block;
+  transform: translate(-50%, -50%) rotate(var(--rot, 0deg));
+  transform-origin: center center;
+  color: inherit;
+  text-decoration: none;
+  filter: drop-shadow(0 18px 28px rgba(0, 0, 0, 0.5)) drop-shadow(0 2px 0 rgba(0, 0, 0, 0.25));
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.hush-print-face {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  overflow: hidden;
+  background: #0c0a08;
+}
+.hush-print-face img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+.hush-print-text {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  padding: 0.85rem;
+  text-align: center;
+  color: #000;
+  container-type: inline-size;
+}
+.hush-print--dragging { cursor: grabbing; }
+.hush-print:focus-visible {
+  outline: 2px solid var(--gg-gold);
+  outline-offset: 3px;
+}
+
+/* rotation pip — injected by board.js on live boards */
+.hush-print-rot {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  width: 10px;
+  height: 10px;
+  margin-left: -5px;
+  background: var(--gg-gold);
+  cursor: grab;
+  opacity: 0;
+}
+.hush-board--live .hush-print:hover .hush-print-rot,
+.hush-print--dragging .hush-print-rot { opacity: 1; }
+
+/* a layout print is a square of its own pieces */
+.hush-collage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #0c0a08;
+  overflow: hidden;
+}
+.hush-collage-piece {
+  position: absolute;
+  object-fit: cover;
+  pointer-events: none;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+}
+
+.hush-card-media--layout .hush-collage {
+  background: #1a1712;
+}
+
+/* studio — one square of footage on the table */
+.hush-studio {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 0 1rem 2.5rem;
+}
+.studio-board {
+  position: relative;
+  width: min(720px, 92vw);
+  aspect-ratio: 1 / 1;
+  background:
+    radial-gradient(120% 80% at 50% 40%, #1c1814 0%, #14110e 70%);
+  overflow: hidden;
+  touch-action: none;
+}
+.studio-piece {
+  position: absolute;
+  transform-origin: center center;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.45);
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.studio-piece img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+.studio-kill {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  font: inherit;
+  line-height: 1;
+  color: #f6f3ec;
+  background: rgba(20, 17, 14, 0.7);
+  border: 0;
+  cursor: pointer;
+}
+.studio-rot,
+.studio-resize {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--gg-gold);
+}
+.studio-rot { top: -14px; left: 50%; margin-left: -6px; cursor: grab; }
+.studio-resize { right: 0; bottom: 0; cursor: nwse-resize; }
+.studio-bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.85rem;
+  width: min(720px, 92vw);
+}
+.studio-meter {
+  font-size: 0.82rem;
+  color: rgba(31, 28, 23, 0.5);
+  font-variant-numeric: tabular-nums;
+}
+.hush-studio .hush-agree { max-width: min(720px, 92vw); }
+
+@media (max-width: 640px) {
+  .hush-board { min-height: 90vh; aspect-ratio: 3 / 4; }
+}
 

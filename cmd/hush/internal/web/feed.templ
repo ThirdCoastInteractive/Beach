@@ -52,7 +52,7 @@ templ (a *App) feedPage(newer []store.Post, focused store.Post, older []store.Po
 templ (a *App) focusedCard(p store.Post, canPost bool, myVote int8, flagState string) {
 	{{ id := strconv.FormatInt(p.ID, 10) }}
 	<article id={ "p" + id } class="hush-fcard hush-fcard--focused" style={ content.VTStyle(p, "") }>
-		@cardMedia(p, a.media.PostImageURL(p))
+		@a.cardMedia(p, a.media.PostImageURL(p))
 		<div class="hush-card-meta hush-card-meta--focused">
 			<span>{ "#" + id + " · " + p.CreatedAt.Format("Jan 2 · 15:04") }</span>
 			if flagState == "live" {
@@ -73,7 +73,7 @@ templ (a *App) focusedCard(p store.Post, canPost bool, myVote int8, flagState st
 templ (a *App) feedCard(p store.Post, side string) {
 	{{ id := strconv.FormatInt(p.ID, 10) }}
 	<a id={ "p" + id } class="hush-fcard" style={ content.VTStyle(p, side) } href={ content.PostHref(p.ID) }>
-		@cardMedia(p, a.media.PostImageURL(p))
+		@a.cardMedia(p, a.media.PostImageURL(p))
 		<div class="hush-card-meta">
 			{ "#" + id + " · " + p.CreatedAt.Format("Jan 2 · 15:04") }
 		</div>
@@ -83,8 +83,12 @@ templ (a *App) feedCard(p store.Post, side string) {
 // cardMedia is a post's hero in the feed: the image — imgURL, the
 // caller-resolved full-size source (postImageURL) — or the text on the
 // post's own computed color.
-templ cardMedia(p store.Post, imgURL string) {
-	if p.Kind == "image" {
+templ (a *App) cardMedia(p store.Post, imgURL string) {
+	if p.Kind == "layout" {
+		<div class="hush-card-media hush-card-media--layout">
+			@a.collage(content.LayoutOf(p), false)
+		</div>
+	} else if p.Kind == "image" {
 		<div class="hush-card-media hush-card-media--image">
 			<img src={ imgURL } alt=""/>
 		</div>
