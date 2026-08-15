@@ -107,14 +107,8 @@
   gap: 0.75rem;
 }
 
-/* the upload form's certification appears only once an image is chosen: the
-   required file input is :valid exactly then, and :has lifts that state to
-   the form. no script — the picker is the trigger. */
-.hush-upload .hush-agree { display: none; }
-.hush-upload:has(.hush-file:valid) .hush-agree { display: flex; }
-
-/* legal checkboxes (the 18+/terms agreement, the § 2257 certification) —
-   quiet, but real: the server refuses the action without them */
+/* legal: the 18+/terms checkbox at the doors, and the § 2257 notice on
+   every image upload (the upload itself is the assent). */
 .hush-agree {
   display: flex;
   align-items: flex-start;
@@ -130,7 +124,16 @@
   margin: 0.15rem 0 0;
   accent-color: var(--gg-gold);
 }
-.hush-agree .hush-link { font-size: inherit; text-decoration: underline; }
+.hush-agree .hush-link,
+.hush-cert .hush-link { font-size: inherit; text-decoration: underline; }
+.hush-cert {
+  margin: 0.55rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: rgba(31, 28, 23, 0.45);
+  text-align: left;
+  max-width: 36rem;
+}
 
 /* the terms page: plain words, readable measure */
 .hush-terms { max-width: 640px; }
@@ -356,7 +359,7 @@
   color: rgba(31, 28, 23, 0.5);
   font-size: 0.82rem;
 }
-.hush-cam .hush-agree { max-width: 520px; }
+.hush-cam .hush-cert { max-width: 520px; }
 
 /* the wall's one quiet legal pointer */
 .hush-foot {
@@ -1182,7 +1185,7 @@ button.hush-flag:hover { color: rgba(31, 28, 23, 0.7); }
   color: rgba(31, 28, 23, 0.5);
   font-variant-numeric: tabular-nums;
 }
-.hush-studio .hush-agree { max-width: min(720px, 92vw); }
+.hush-studio .hush-cert { max-width: min(720px, 92vw); }
 
 @media (max-width: 640px) {
   .hush-board { min-height: 90vh; aspect-ratio: 3 / 4; }

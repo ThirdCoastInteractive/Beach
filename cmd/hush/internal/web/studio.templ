@@ -29,13 +29,13 @@ templ studioPage(notice string) {
 				<button type="button" class="studio-tool studio-tool--kill" data-act="kill">remove</button>
 			</div>
 			<p class="studio-hint">click a print · gold knob spins · corners scale · −/+ size · back/front stacks · ←→ rotate · ↑↓ scale · [ ] order</p>
-			@certBox2257("studio-2257")
 			<div class="studio-bar">
 				<label class="cam-pick" for="studio-files">add images</label>
 				<input type="file" id="studio-files" class="cam-file" accept="image/*" multiple/>
 				<span id="studio-meter" class="studio-meter">0 / 8</span>
 				<button id="studio-publish" class="hush-post" type="button">publish</button>
 			</div>
+			@certNotice2257()
 			<p id="studio-status" class="cam-status" aria-live="polite">{ notice }</p>
 		</div>
 		@backToWall()

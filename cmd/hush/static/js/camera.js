@@ -244,7 +244,7 @@ function frame(now) {
     pendingCapture = false;
     // toBlob must read the canvas in the same task as the render, before the
     // frame is presented away; the loop keeps going so a refused capture
-    // (unchecked § 2257 box) leaves a live preview behind
+    // refused upload leaves a live preview behind
     capture();
   }
   requestAnimationFrame(frame);
@@ -322,16 +322,11 @@ async function pickFile(file) {
 }
 
 function capture() {
-  // the § 2257 certification gates the shutter; the server refuses uploads
-  // without the field regardless, this just tells the truth before the trip
-  const cert = document.getElementById("cam-2257");
-  if (cert && !cert.checked) { setStatus("confirm the § 2257 certification first."); return; }
   setStatus("posting…");
   canvas.toBlob((blob) => {
     if (!blob) { setStatus("capture failed — try again."); return; }
     const fd = new FormData();
     fd.append("image", blob, "capture.jpg");
-    fd.append("cert2257", "on");
     fetch("/upload", { method: "POST", body: fd })
       .then(() => {
         if (stream) stream.getTracks().forEach((t) => t.stop());

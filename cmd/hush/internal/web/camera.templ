@@ -7,8 +7,7 @@ package web
 // and six grade sliders riding on uniforms (camera.js owns all of it). The
 // script is an external module (CSP: script-src 'self'); the page degrades to
 // the wall's plain upload without WebGPU, and to file-only without a webcam.
-// The § 2257 certification gates the shutter (camera.js reads it) and the
-// server refuses uncertified uploads regardless.
+// The § 2257 notice rides under the shutter; posting is the certification.
 templ composePage() {
 	@shell("goldgirl — capture") {
 		<div class="hush-top">
@@ -45,7 +44,7 @@ templ composePage() {
 				<div class="cam-controls">
 					<button id="cam-shoot" class="hush-post" type="button">capture</button>
 				</div>
-				@certBox2257("cam-2257")
+				@certNotice2257()
 				<p id="cam-status" class="cam-status" aria-live="polite"></p>
 			</div>
 			@backToWall()

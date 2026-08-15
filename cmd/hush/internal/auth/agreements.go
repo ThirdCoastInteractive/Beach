@@ -1,8 +1,7 @@
-// Legal assent. The terms page is static words; what matters operationally is
-// (a) the checkboxes are enforced server-side — a request without one bounces,
-// whatever the client claimed — and (b) every assent leaves a row. Two kinds:
-// "tos-18" (the 18+/terms agreement at the three signup doors) and "2257"
-// (the 18 U.S.C. § 2257 certification that rides every image upload).
+// Legal assent. The terms page is static words; what matters operationally
+// is that every assent leaves a row. Two kinds: "tos-18" (the 18+/terms
+// checkbox at the signup doors) and "2257" (recorded when an image is
+// uploaded — the notice on the form is the disclosure).
 package authx
 
 import (

@@ -16,8 +16,7 @@ import templruntime "github.com/a-h/templ/runtime"
 // and six grade sliders riding on uniforms (camera.js owns all of it). The
 // script is an external module (CSP: script-src 'self'); the page degrades to
 // the wall's plain upload without WebGPU, and to file-only without a webcam.
-// The § 2257 certification gates the shutter (camera.js reads it) and the
-// server refuses uncertified uploads regardless.
+// The § 2257 notice rides under the shutter; posting is the certification.
 func composePage() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -55,7 +54,7 @@ func composePage() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = certBox2257("cam-2257").Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = certNotice2257().Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

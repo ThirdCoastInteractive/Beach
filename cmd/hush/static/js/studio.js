@@ -9,7 +9,6 @@ const files = document.getElementById("studio-files");
 const meter = document.getElementById("studio-meter");
 const publishBtn = document.getElementById("studio-publish");
 const statusEl = document.getElementById("studio-status");
-const cert = document.getElementById("studio-2257");
 const tools = document.getElementById("studio-tools");
 const degEl = document.getElementById("studio-deg");
 
@@ -28,10 +27,6 @@ function setStatus(msg) {
 
 function updateMeter() {
   if (meter) meter.textContent = pieces.length + " / " + MAX;
-}
-
-function certified() {
-  return !cert || cert.checked;
 }
 
 function wrapRot(r) {
@@ -182,7 +177,6 @@ function bringFront(p) {
 async function uploadFile(file) {
   const fd = new FormData();
   fd.append("image", file, file.name || "piece.jpg");
-  fd.append("cert2257", "on");
   const res = await fetch("/studio/piece", { method: "POST", body: fd, redirect: "manual" });
   if (res.status === 401 || res.status === 403 || res.type === "opaqueredirect") {
     throw new Error("sign in to add images.");
@@ -191,7 +185,7 @@ async function uploadFile(file) {
   const ct = res.headers.get("content-type") || "";
   if (ct.includes("application/json")) data = await res.json();
   if (!res.ok) {
-    throw new Error(data.error || (res.status === 400 ? "certify first, or that wasn't an image." : "upload failed."));
+    throw new Error(data.error || (res.status === 400 ? "that wasn't an image." : "upload failed."));
   }
   if (!data.cf_id) throw new Error("upload failed.");
   return data;
@@ -222,10 +216,6 @@ if (files) {
   files.addEventListener("change", async () => {
     const list = Array.from(files.files || []);
     files.value = "";
-    if (!certified()) {
-      setStatus("confirm the § 2257 certification first.");
-      return;
-    }
     for (const file of list) {
       if (pieces.length >= MAX) {
         setStatus("that's the whole square-footage — eight prints.");
@@ -371,10 +361,6 @@ document.addEventListener("keydown", (e) => {
 
 if (publishBtn) {
   publishBtn.addEventListener("click", async () => {
-    if (!certified()) {
-      setStatus("confirm the § 2257 certification first.");
-      return;
-    }
     if (pieces.length === 0) {
       setStatus("add at least one image.");
       return;
@@ -388,7 +374,7 @@ if (publishBtn) {
       const res = await fetch("/studio", {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ cert2257: "on", layout: JSON.parse(layoutJSON()) }),
+        body: JSON.stringify({ layout: JSON.parse(layoutJSON()) }),
       });
       let data = {};
       const ct = res.headers.get("content-type") || "";
@@ -409,4 +395,4 @@ if (publishBtn) {
 }
 
 updateMeter();
-setStatus(statusEl && statusEl.textContent ? statusEl.textContent : "check the box, then add images. this square is yours.");
+setStatus(statusEl && statusEl.textContent ? statusEl.textContent : "add images. this square is yours.");

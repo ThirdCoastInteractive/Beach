@@ -21,8 +21,6 @@ func (a *App) compose(c *beach.Ctx) (beach.View, error) {
 // static; the island reads nothing — we just land them back on the canvas).
 func studioNotice(code string) string {
 	switch code {
-	case "2257":
-		return "image posts need the § 2257 certification — check the box."
 	case "1":
 		return "couldn't publish that layout — check the images are uploaded and try again."
 	default:
@@ -123,9 +121,6 @@ func (a *App) feedMore(newer bool) beach.PageFunc {
 
 // homeNotice maps the wall's ?err code onto the composer's note line.
 func homeNotice(code string) string {
-	if code == "2257" {
-		return "image posts need the § 2257 certification — check the box."
-	}
 	return ""
 }
 
@@ -240,12 +235,8 @@ func (a *App) uploadImage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
-	// no certification, no image — 18 U.S.C. § 2257 rides every upload, the
-	// wall form and the camera alike, and each assent leaves a row
-	if !authx.Agreed(r, "cert2257") {
-		http.Redirect(w, r, "/?err=2257", http.StatusSeeOther)
-		return
-	}
+	// posting the image is the § 2257 certification; the notice on the
+	// form says so, and we record the assent on success.
 	f, hdr, err := r.FormFile("image")
 	if err != nil {
 		http.Redirect(w, r, "/", http.StatusSeeOther)

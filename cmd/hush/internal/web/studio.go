@@ -27,10 +27,6 @@ func (a *App) uploadPiece(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusRequestEntityTooLarge, map[string]string{"error": "too large"})
 		return
 	}
-	if !authx.Agreed(r, "cert2257") {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "certify first"})
-		return
-	}
 	f, hdr, err := r.FormFile("image")
 	if err != nil {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "no image"})
@@ -47,6 +43,8 @@ func (a *App) uploadPiece(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "store failed"})
 		return
 	}
+	author, _, _ := a.acct(&beach.Ctx{W: w, R: r})
+	a.auth.RecordAgreement(r.Context(), author, authx.Agree2257, store.ClientMeta(r))
 	writeJSON(w, http.StatusOK, map[string]string{
 		"cf_id": cfID,
 		"url":   mediaURL,
@@ -96,35 +94,27 @@ func (a *App) publishLayout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var l content.Layout
-	cert := ""
 	ct := r.Header.Get("Content-Type")
 	if strings.Contains(ct, "application/json") {
 		var in struct {
-			Cert2257 string         `json:"cert2257"`
-			Layout   content.Layout `json:"layout"`
+			Layout content.Layout `json:"layout"`
 		}
 		if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&in); err != nil {
 			fail("1", "bad layout", http.StatusBadRequest)
 			return
 		}
 		l = in.Layout
-		cert = in.Cert2257
 	} else {
 		if err := r.ParseMultipartForm(1 << 20); err != nil && err != http.ErrNotMultipart {
 			fail("1", "bad layout", http.StatusBadRequest)
 			return
 		}
-		cert = r.FormValue("cert2257")
 		parsed, err := content.ParseLayout([]byte(strings.TrimSpace(r.FormValue("layout"))))
 		if err != nil {
 			fail("1", "bad layout", http.StatusBadRequest)
 			return
 		}
 		l = parsed
-	}
-	if cert == "" {
-		fail("2257", "certify first", http.StatusBadRequest)
-		return
 	}
 	l = l.Clamp()
 	if err := l.Validate(); err != nil {

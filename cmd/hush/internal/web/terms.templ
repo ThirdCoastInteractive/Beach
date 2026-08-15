@@ -1,7 +1,5 @@
-// The terms page and the two legal checkboxes. The page is plain words in the
-// hush voice; the checkboxes are the operative part — both are enforced
-// server-side and recorded (agreements.go), the labels just tell the truth
-// about what checking them means.
+// The terms page, the 18+ checkbox at the doors, and the § 2257 upload
+// notice. The page is plain words; assent is recorded in agreements.go.
 package web
 
 // agreeBox is the 18+/terms checkbox the three signup doors share. Required
@@ -14,13 +12,10 @@ templ agreeBox() {
 	</label>
 }
 
-// certBox2257 is the certification that rides every image upload — the wall
-// form and the camera page both carry it. id'd so camera.js can read it.
-templ certBox2257(id string) {
-	<label class="hush-agree">
-		<input type="checkbox" id={ id } name="cert2257" required/>
-		<span>i certify under 18 U.S.C. § 2257 that every person depicted is 18 or older, and that i am the producer of this image or hold the records proving it. see the <a class="hush-link" href="/terms" target="_blank">terms</a>.</span>
-	</label>
+// certNotice2257 is the certification that rides every image upload. The
+// upload itself is the assent; this line is the notice, not a second click.
+templ certNotice2257() {
+	<p class="hush-cert">by uploading, you certify under 18 U.S.C. § 2257 that every person depicted is 18 or older, and that you produced the image or hold the records proving it. see the <a class="hush-link" href="/terms" target="_blank">terms</a>.</p>
 }
 
 // termsPage is /terms: the rules of the wall, written the way the wall talks.
