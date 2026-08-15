@@ -104,7 +104,7 @@ func (a *Auth) SeedAdmin(ctx context.Context, password string) error {
 			return err
 		}
 		if _, err := a.pool.Exec(ctx,
-			`INSERT INTO user_credentials_local (user_id, password_hash) VALUES ($1, $2)`, uid, hash); err != nil {
+			`INSERT INTO user_credentials_local (user_id, password_hash) VALUES ($1, $2) ON CONFLICT DO NOTHING`, uid, hash); err != nil {
 			return err
 		}
 	}

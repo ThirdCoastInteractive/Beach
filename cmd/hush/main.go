@@ -167,7 +167,7 @@ func main() {
 	if err := a.ReplayReputation(ctx); err != nil {
 		log.Fatalf("hush: reputation replay failed: %v", err)
 	}
-	logger.Info("hush: ready", "login", "admin / password", "openSlots", settings.Live().OpenSlots)
+	logger.Info("hush: ready", "openSlots", settings.Live().OpenSlots)
 
 	// The outbox pump — transactional email leaves the process only here (the
 	// queue is a table). Boot's reputation replay never enqueues, so a restart
