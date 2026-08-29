@@ -42,10 +42,10 @@ templ (a *app) inquireCard(props []store.Property) {
 		@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfaceWell, Heading: "Send an inquiry"}) {
 			@driftwood.Form(driftwood.FormProps{Post: "/inquire", TwoCol: true}) {
 				@driftwood.Field(driftwood.FieldProps{Label: "Your name", For: "name"}) {
-					@driftwood.Input(driftwood.TextInputProps{ID: "name", Name: "name", Autocomplete: "name"})
+					@driftwood.Input(driftwood.TextInputProps{ID: "name", Name: "name", Autocomplete: driftwood.AutocompleteName})
 				}
 				@driftwood.Field(driftwood.FieldProps{Label: "Email", For: "email"}) {
-					@driftwood.Input(driftwood.TextInputProps{ID: "email", Name: "email", Type: "email", Autocomplete: "email"})
+					@driftwood.Input(driftwood.TextInputProps{ID: "email", Name: "email", Type: "email", Autocomplete: driftwood.AutocompleteEmail})
 				}
 				@driftwood.Field(driftwood.FieldProps{Label: "Phone (for texts)", For: "phone"}) {
 					@driftwood.Input(driftwood.TextInputProps{ID: "phone", Name: "phone", Type: "tel", InputMode: "tel", Placeholder: "+1 555 000 1234"})

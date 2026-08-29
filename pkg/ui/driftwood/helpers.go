@@ -4,9 +4,11 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/prefs"
 	"github.com/a-h/templ"
 )
 
@@ -558,4 +560,137 @@ func headingLevel(level, def int) int {
 		return def
 	}
 	return level
+}
+
+// --- live updates ---------------------------------------------------------------
+
+// isLive reports whether this request's visitor still wants server-pushed
+// updates. Reading it from the context rather than a prop is what stops a page
+// showing a "Pause" button while nothing is streaming: one source of truth, and
+// it is the same one the framework's stream adapter obeys.
+func isLive(ctx context.Context) bool { return prefs.LiveUpdates(ctx) }
+
+// liveTargetState is the value the toggle's form posts: the state the visitor is
+// asking to move *to*, not the one they are in.
+func liveTargetState(live bool) string {
+	if live {
+		return "off"
+	}
+	return "on"
+}
+
+// liveIcon pairs the toggle's state with a glyph, so the control is not
+// distinguishable by its wording alone.
+func liveIcon(live bool) string {
+	if live {
+		return "pause"
+	}
+	return "play"
+}
+
+// liveButtonLabel is the control's visible text and its accessible name — the
+// same string, because WCAG 2.5.3 wants the name to contain what is on screen.
+// It names what is updating when the caller says, so a page with two streams has
+// two distinguishable controls.
+// Every key is written out rather than assembled, because `beach i18n` finds
+// keys by matching literal T calls: a key built by concatenation is a key the
+// extractor reports as stale and someone eventually deletes while it is in use.
+func liveButtonLabel(ctx context.Context, p LiveToggleProps, live bool) string {
+	switch {
+	case live && p.Label != "":
+		return i18n.T(ctx, "ui.a11y.live.pause_named", p.Label)
+	case live:
+		return i18n.T(ctx, "ui.a11y.live.pause")
+	case p.Label != "":
+		return i18n.T(ctx, "ui.a11y.live.resume_named", p.Label)
+	default:
+		return i18n.T(ctx, "ui.a11y.live.resume")
+	}
+}
+
+// --- toast timing ---------------------------------------------------------------
+
+// toastLife decides how long a toast lives, or zero for "until closed".
+//
+// The order matters and each step is a WCAG 2.2.1 remedy rather than a taste
+// call: a visitor who switched auto-dismiss off gets no timer at all; an
+// explicit Dismiss is the caller's informed choice and wins next; a toast
+// carrying something to act on is kept, because an error that fades is an error
+// nobody fixed; everything else takes the default.
+func toastLife(ctx context.Context, p ToastProps) time.Duration {
+	if !prefs.AutoDismiss(ctx) {
+		return 0
+	}
+	if p.Dismiss == ToastPersist {
+		return 0
+	}
+	if p.Dismiss > 0 {
+		return p.Dismiss
+	}
+	if p.Role == RoleDanger || p.Role == RoleWarn {
+		return 0
+	}
+	return ToastDefaultLife
+}
+
+// toastLifeStyle pins the fade duration on a custom property the sheet reads.
+// The value is a duration the app chose, not user input, hence SafeCSS.
+func toastLifeStyle(d time.Duration) templ.SafeCSS {
+	return templ.SafeCSS("--dw-toast-life:" + strconv.FormatFloat(d.Seconds(), 'f', -1, 64) + "s")
+}
+
+// --- video ----------------------------------------------------------------------
+
+// videoPreload defaults to "none": the poster paints and nothing else is fetched
+// until someone asks. A background video has to load to autoplay at all, so it
+// takes metadata instead.
+func videoPreload(p VideoProps) string {
+	if p.Preload != "" {
+		return p.Preload
+	}
+	if p.Background {
+		return "metadata"
+	}
+	return "none"
+}
+
+// trackKind defaults a timed text track to captions.
+//
+// Captions rather than subtitles is the right default because captions include
+// the non-speech sound that carries meaning, and a caller who has thought about
+// the difference will say which they mean. A caller who has not is better served
+// by the more complete of the two.
+func trackKind(t Track) string {
+	if t.Kind != "" {
+		return t.Kind
+	}
+	return "captions"
+}
+
+// --- confirm --------------------------------------------------------------------
+
+// confirmDescribe returns the id of a Confirm's message, or "" when there is no
+// message to point at. An aria-describedby naming an element that does not exist
+// is worse than none: a screen reader announces nothing and no validator
+// notices, which is exactly how a description silently stops working.
+func confirmDescribe(p ConfirmProps, msgID string) string {
+	if p.Message == "" {
+		return ""
+	}
+	return msgID
+}
+
+// confirmTitle / confirmCancel / confirmConfirm fall back to the catalog so the
+// dialog is never half-English on a translated page. The confirm fallback is
+// deliberately weak wording — a caller who has not named the verb should notice.
+func confirmTitle(ctx context.Context, p ConfirmProps) string {
+	return a11yName(p.Title, i18n.T(ctx, "ui.confirm.title"))
+}
+
+func confirmCancel(ctx context.Context, p ConfirmProps) string {
+	return a11yName(p.CancelLabel, i18n.T(ctx, "ui.confirm.cancel"))
+}
+
+func confirmConfirm(ctx context.Context, p ConfirmProps) string {
+	return a11yName(p.ConfirmLabel, i18n.T(ctx, "ui.confirm.confirm"))
 }

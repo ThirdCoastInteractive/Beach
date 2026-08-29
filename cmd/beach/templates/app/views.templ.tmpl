@@ -22,13 +22,19 @@ import (
 // it those toasts have nowhere to land — see
 // docs/architecture/06-ui.md#accessible-by-construction.
 //
+// driftwood.LiveToggle opens the stream, and is the reason the @get is not on
+// the container. A clock that advances every second beside other content is the
+// textbook case WCAG 2.2.2 names: auto-updating information needs a way to stop
+// it. The control renders the element that opens the connection, so pausing does
+// not hide updates — it stops them, and the server drops the subscription too.
+//
 // Every string comes from the catalog (locales/*.json), so the page follows the
 // request's language and <html lang> stays honest. Delete the i18n calls if the
 // app is monolingual — nothing else depends on them.
 templ index(count int64) {
 	@driftwood.Page(driftwood.PageProps{Title: appName, Description: i18n.T(ctx, "home.tagline")}) {
 		@driftwood.Shell(driftwood.AppShellProps{}) {
-			@driftwood.Container(driftwood.ContainerProps{Attrs: datastar.Attrs{datastar.On("load", "@get('/live')")}}) {
+			@driftwood.Container(driftwood.ContainerProps{}) {
 				@driftwood.PageHeading(driftwood.PageHeadingProps{
 					Title:    appName,
 					Subtitle: i18n.T(ctx, "home.tagline"),
@@ -41,6 +47,11 @@ templ index(count int64) {
 						LeadIcon: "plus",
 						Attrs:    datastar.Attrs{datastar.OnClick("@post('/inc')")},
 					})
+					@driftwood.LiveToggle(driftwood.LiveToggleProps{
+						ID:     "tick-stream",
+						Stream: "/live",
+						Label:  i18n.T(ctx, "home.tick.heading"),
+					})
 				}
 			}
 		}
@@ -51,11 +62,16 @@ templ index(count int64) {
 // and the current counter. The ticker, the action, and the stream catch-up all
 // re-render this one component and morph it in place by its own id.
 //
-// Not to be confused with the page's *live region* (driftwood.LiveRegion, which
-// Shell renders): this fragment is visible content that changes, and a screen
-// reader is not told when it does. That is the right default for a clock — it
-// would be unbearable announced every second. A change the user needs to hear
-// about goes through beach.Patch{Announce} instead.
+// Three things share the word "live" here and are worth keeping apart:
+//
+//   - this fragment, which is visible content that changes;
+//   - the page's *live region* (driftwood.LiveRegion, rendered by Shell), which
+//     is where a change is announced;
+//   - LiveToggle, which is whether changes arrive at all.
+//
+// A screen reader is not told when this fragment updates, and that is the right
+// default for a clock: announced every second it would be unusable. A change
+// someone needs to hear about goes through beach.Patch{Announce} instead.
 templ live(count int64) {
 	<div id={ liveTarget }>
 		<p>{ i18n.T(ctx, "home.clock") } <strong>{ time.Now().Format("15:04:05") }</strong></p>

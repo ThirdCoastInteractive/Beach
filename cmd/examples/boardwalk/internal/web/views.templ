@@ -14,22 +14,30 @@ import (
 	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
 )
 
-// indexView is the full board page. data-init on the container opens the three
-// SSE streams the moment the page is interactive: the shared board, the private
-// hand (it self-resolves the spectator case server-side), and the cash race.
+// indexView is the full board page. The three SSE streams — the shared board,
+// the private hand (it self-resolves the spectator case server-side), and the
+// cash race — are opened by driftwood.LiveToggle and its two LiveStream
+// siblings rather than by a data-init on the container.
+//
+// That is not decoration. A board that redraws itself every time any player acts
+// is auto-updating information, and WCAG 2.2.2 asks for a way to stop it; here
+// the same press stops all three, because the control renders the elements that
+// open them. Anyone reading the log or counting their money gets to do that
+// without the page moving underneath them.
 templ indexView(snap game.Snapshot, seat int, lay chart.BarRaceLayout) {
 	@driftwood.Page(driftwood.PageProps{
 		Title:       "Boardwalk — the-beach",
 		Description: "A database-less sim/ecs board game over SSE.",
 	}) {
-		@driftwood.Container(driftwood.ContainerProps{
-			Attrs: datastar.Attrs{datastar.Init("@get('/board'); @get('/hand'); @get('/race')")},
-		}) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
 			@driftwood.PageHeading(driftwood.PageHeadingProps{
 				Title:    "Boardwalk",
 				Subtitle: "A sim/ecs real-estate game. Roll, move, buy, pay rent — live over SSE.",
 			})
 			<p class="bw-nav"><a href="/stats">View game stats →</a></p>
+			@driftwood.LiveToggle(driftwood.LiveToggleProps{Stream: "/board", Label: "board"})
+			@driftwood.LiveStream(driftwood.LiveStreamProps{Stream: "/hand"})
+			@driftwood.LiveStream(driftwood.LiveStreamProps{Stream: "/race"})
 			@sinks()
 			@driftwood.Grid(driftwood.GridProps{Cols: 2}) {
 				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Board"}) {
@@ -55,11 +63,16 @@ templ sinks() {
 	<div id="bw-reopen" hidden></div>
 }
 
-// reopenHand renders a data-init element that re-fires @get('/hand'). Patched
-// into #bw-reopen after a seat claim, it makes Datastar open a fresh hand stream
-// that resubscribes to user:<seat> with the just-set cookie.
+// reopenHand re-fires @get('/hand'). Patched into #bw-reopen after a seat claim,
+// it makes Datastar open a fresh hand stream that resubscribes to user:<seat>
+// with the just-set cookie.
+//
+// It goes through LiveStream rather than writing the data-init itself so that a
+// visitor who has paused updates does not get one re-opened behind their back by
+// an action they took. The server would drop the topics anyway, but opening a
+// connection that immediately closes is not what the button promised.
 templ reopenHand() {
-	<div data-init="@get('/hand')"></div>
+	@driftwood.LiveStream(driftwood.LiveStreamProps{Stream: "/hand"})
 }
 
 // boardFragment renders the whole shared board surface: the turn banner, the

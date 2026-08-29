@@ -268,7 +268,7 @@ func (a *app) inquireCard(props []store.Property) templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = driftwood.Input(driftwood.TextInputProps{ID: "name", Name: "name", Autocomplete: "name"}).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = driftwood.Input(driftwood.TextInputProps{ID: "name", Name: "name", Autocomplete: driftwood.AutocompleteName}).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -294,7 +294,7 @@ func (a *app) inquireCard(props []store.Property) templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = driftwood.Input(driftwood.TextInputProps{ID: "email", Name: "email", Type: "email", Autocomplete: "email"}).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = driftwood.Input(driftwood.TextInputProps{ID: "email", Name: "email", Type: "email", Autocomplete: driftwood.AutocompleteEmail}).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}

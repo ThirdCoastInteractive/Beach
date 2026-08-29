@@ -21,6 +21,7 @@ templ componentGallery() {
 	@mediaSection()
 	@messagingSection()
 	@layoutSection()
+	@videoSection()
 	@accessibilitySection()
 }
 
@@ -205,10 +206,10 @@ templ formsSection() {
 		@driftwood.Divider(driftwood.DividerProps{Label: "fieldset"})
 		@driftwood.Fieldset(driftwood.FieldsetProps{Legend: "Emergency contact", Help: "Who to call if the surf turns."}) {
 			@driftwood.Field(driftwood.FieldProps{Label: "Name", For: "spec-ec-name"}) {
-				@driftwood.Input(driftwood.TextInputProps{ID: "spec-ec-name", Name: "ec_name", Placeholder: "Marina Reyes", Autocomplete: "name"})
+				@driftwood.Input(driftwood.TextInputProps{ID: "spec-ec-name", Name: "ec_name", Placeholder: "Marina Reyes", Autocomplete: driftwood.AutocompleteName})
 			}
 			@driftwood.Field(driftwood.FieldProps{Label: "Phone", For: "spec-ec-phone"}) {
-				@driftwood.Input(driftwood.TextInputProps{ID: "spec-ec-phone", Name: "ec_phone", Type: "tel", InputMode: "tel", Placeholder: "555-0142", Autocomplete: "tel"})
+				@driftwood.Input(driftwood.TextInputProps{ID: "spec-ec-phone", Name: "ec_phone", Type: "tel", InputMode: "tel", Placeholder: "555-0142", Autocomplete: driftwood.AutocompleteTel})
 			}
 		}
 	}
@@ -367,6 +368,11 @@ templ overlaysSection() {
 				Attrs: datastar.Attrs{datastar.OnClick("document.getElementById('spec-drawer-left').showModal()")},
 			})
 			@driftwood.Button(driftwood.ButtonProps{
+				Label: "Delete a booking",
+				Role:  driftwood.RoleDanger,
+				Attrs: datastar.Attrs{datastar.OnClick("document.getElementById('spec-confirm').showModal()")},
+			})
+			@driftwood.Button(driftwood.ButtonProps{
 				Label: "Log in / register",
 				Role:  driftwood.RoleAccent,
 				Attrs: datastar.Attrs{datastar.OnClick("document.getElementById('spec-auth').showModal()")},
@@ -385,6 +391,14 @@ templ overlaysSection() {
 			RegisterPost: "/specimen/register",
 			ShowEmail:    true,
 			TOSHref:      "/specimen",
+		})
+		@driftwood.Confirm(driftwood.ConfirmProps{
+			ID:           "spec-confirm",
+			Title:        "Delete this booking?",
+			Message:      "The guest is emailed straight away, and the slot is released. This cannot be undone.",
+			ConfirmLabel: "Delete booking",
+			Post:         "/specimen/delete",
+			Hazard:       true,
 		})
 		@driftwood.Modal(driftwood.ModalProps{ID: "spec-modal", Title: "Confirm return"}) {
 			<p>Close out locker B-17 and release the deposit?</p>
@@ -411,6 +425,11 @@ templ mediaSection() {
 			@driftwood.Avatar(driftwood.AvatarProps{Initials: "SS", Alt: "Sandy Shores", Status: "online"})
 			@driftwood.Avatar(driftwood.AvatarProps{Initials: "GP", Alt: "Gull Point", Size: driftwood.SizeLg, Status: "away"})
 		</div>
+		@driftwood.MediaObject(driftwood.MediaObjectProps{
+			Media:   driftwood.Avatar(driftwood.AvatarProps{Initials: "SS", Alt: "Sandy Shores"}),
+			Body:    mediaObjectBody(),
+			Actions: driftwood.IconButton(driftwood.IconButtonProps{Icon: "x", Label: "Dismiss"}),
+		})
 		@driftwood.Grid(driftwood.GridProps{Cols: 3}) {
 			@driftwood.Image(driftwood.ImageProps{
 				Src:   sampleImageSrc,
@@ -431,6 +450,42 @@ templ mediaSection() {
 				<div class="spec-aspect-fill">1:1 reserved box</div>
 			}
 		}
+	}
+}
+
+// mediaObjectBody is the middle column of the MediaObject demo.
+templ mediaObjectBody() {
+	<p class="spec-note"><strong>Sandy Shores</strong> flagged the north tower.</p>
+}
+
+// videoSection shows the component whose rules are the point: a reserved frame,
+// nothing fetched until asked, and a caption track. The sources are deliberately
+// fictional — preload="none" means the browser never goes looking for them, which
+// is itself the thing being demonstrated.
+templ videoSection() {
+	@driftwood.Card(driftwood.CardProps{Heading: "Video"}) {
+		<p class="spec-note">
+			The frame is reserved before any byte arrives, nothing is fetched until
+			someone presses play, and the caption track rides along — this one is real
+			and inline, so the demo shows captions rather than describing them. The
+			video sources are deliberately fictional and never requested, which is
+			<code>preload="none"</code> demonstrating itself. Controls are not
+			optional: motion that starts on its own needs a way to stop it
+			(WCAG 2.2.2), and the native control bar is that mechanism.
+		</p>
+		@driftwood.Video(driftwood.VideoProps{
+			Ratio:  driftwood.RatioWide,
+			Poster: samplePosterSrc,
+			Label:  "Beach tour",
+			Sources: []driftwood.Source{
+				{Src: "/static/media/tour.webm", Type: "video/webm"},
+				{Src: "/static/media/tour.mp4", Type: "video/mp4"},
+			},
+			Tracks: []driftwood.Track{
+				{Src: sampleTrackSrc, Lang: "en", Label: "English", Default: true},
+			},
+			Describe: "A slow pan along the north beach at low tide.",
+		})
 	}
 }
 
@@ -577,6 +632,36 @@ templ accessibilitySection() {
 			This page's language is <code>{ specimenLang(ctx) }</code>, written onto
 			<code>&lt;html lang&gt;</code> from the request locale (SC 3.1.1), with
 			<code>dir</code> derived from it.
+		</p>
+	}
+	@driftwood.Card(driftwood.CardProps{Heading: "Pausing what moves"}) {
+		<p class="spec-note">
+			Server-pushed updates are this framework's premise, and WCAG 2.2.2 names
+			auto-updating information explicitly: there has to be a way to stop it.
+			The control below is the mechanism, and it does not hide updates — it
+			stops rendering the element that opens the stream, so a paused page holds
+			no connection and the server releases the subscription. The preference is
+			a cookie, so it survives the next page, and the framework's stream adapter
+			honours it even for a stream this control has never heard of.
+		</p>
+		// No Stream here: the specimen is a static page, and a demo that opened a
+		// connection to a route no app mounts would 404 on every page showing it.
+		// Press it anyway — the preference is real and site-wide, so the button
+		// changes state and every live page in the app follows.
+		@driftwood.LiveToggle(driftwood.LiveToggleProps{Label: "Specimen"})
+	}
+	@driftwood.Card(driftwood.CardProps{Heading: "A phrase in another language"}) {
+		<p class="spec-note">
+			Marked with <code>driftwood.Lang</code>, a screen reader switches voice for
+			it; unmarked, it is read with the surrounding language's phonetics, often
+			past the point of recognition (WCAG 3.1.2).
+		</p>
+		<p class="spec-note">
+			The lifeguards call it
+			@driftwood.Lang("fr") {
+				<em>la marée de printemps</em>
+			}
+			and post it on the board.
 		</p>
 	}
 	@driftwood.Card(driftwood.CardProps{Heading: "The live region"}) {

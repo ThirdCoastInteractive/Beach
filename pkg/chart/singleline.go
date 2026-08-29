@@ -82,40 +82,40 @@ type SingleLineEdge struct {
 // SingleLine is the laid-out diagram. Empty reports whether nothing was drawable
 // (the caller renders an empty-state card instead of a blank SVG).
 type SingleLine struct {
-	VW, VH      float64
-	Nodes       []SingleLineLayoutNode
-	Buses       []SingleLineLayoutBus
-	Conductors  []SingleLineLayoutEdge
-	Empty       bool
+	VW, VH     float64
+	Nodes      []SingleLineLayoutNode
+	Buses      []SingleLineLayoutBus
+	Conductors []SingleLineLayoutEdge
+	Empty      bool
 }
 
 type SingleLineLayoutNode struct {
-	ID                 string
-	Kind               string
-	Label              string
-	Sub                string
-	X, Y, W, H         float64 // top-left + size of the glyph box
-	CX, CY             float64 // center
-	Color              string
-	Glyph              string
-	Badge              string
-	BadgeRole          string
-	Href               string
-	Tip                string
-	LabelY             float64 // baseline of the label text (below the glyph)
-	SubY               float64
-	BadgeX, BadgeY     float64
+	ID             string
+	Kind           string
+	Label          string
+	Sub            string
+	X, Y, W, H     float64 // top-left + size of the glyph box
+	CX, CY         float64 // center
+	Color          string
+	Glyph          string
+	Badge          string
+	BadgeRole      string
+	Href           string
+	Tip            string
+	LabelY         float64 // baseline of the label text (below the glyph)
+	SubY           float64
+	BadgeX, BadgeY float64
 }
 
 type SingleLineLayoutBus struct {
-	ID         string
-	Label      string
-	X1, X2, Y  float64 // the run endpoints
-	Color      string
-	State      string
-	Tip        string
-	LabelX     float64
-	LabelY     float64
+	ID        string
+	Label     string
+	X1, X2, Y float64 // the run endpoints
+	Color     string
+	State     string
+	Tip       string
+	LabelX    float64
+	LabelY    float64
 }
 
 type SingleLineLayoutEdge struct {
@@ -131,18 +131,18 @@ type SingleLineLayoutEdge struct {
 // --- Tuning -----------------------------------------------------------------
 
 const (
-	slVW        = 1000.0
-	slPadL      = 24.0
-	slPadR      = 24.0
-	slPadT      = 28.0
-	slPadB      = 20.0
-	slTierGap   = 92.0 // vertical distance between adjacent occupied tiers
-	slNodeW     = 116.0
-	slNodeH     = 34.0
-	slLaneGap   = 18.0 // horizontal gap between nodes sharing a tier
-	slBusH      = 6.0  // visual thickness band a bus reserves
-	slLabelDY   = 13.0 // label baseline below the glyph box
-	slSubDY     = 25.0
+	slVW      = 1000.0
+	slPadL    = 24.0
+	slPadR    = 24.0
+	slPadT    = 28.0
+	slPadB    = 20.0
+	slTierGap = 92.0 // vertical distance between adjacent occupied tiers
+	slNodeW   = 116.0
+	slNodeH   = 34.0
+	slLaneGap = 18.0 // horizontal gap between nodes sharing a tier
+	slBusH    = 6.0  // visual thickness band a bus reserves
+	slLabelDY = 13.0 // label baseline below the glyph box
+	slSubDY   = 25.0
 )
 
 // laneOrder ranks the redundancy lanes left-to-right. 'a' leftmost, 'other' last.

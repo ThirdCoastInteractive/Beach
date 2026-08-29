@@ -14,6 +14,7 @@ package driftwood
 
 import (
 	"context"
+	"time"
 
 	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
@@ -326,6 +327,104 @@ type MenuButtonProps struct {
 	Attrs datastar.Attrs
 }
 
+// --- Input purpose ---------------------------------------------------------------
+
+// Autocomplete is what a field is *for*, drawn from the token set WCAG 2.1
+// SC 1.3.5 Identify Input Purpose names (its "Input Purposes for User Interface
+// Components" list, which is HTML's autofill vocabulary).
+//
+// Naming the purpose is not only about saving typing. It is what lets a browser
+// fill a field someone finds hard to type, and — the reason the criterion
+// exists — what lets assistive software substitute a person's own familiar
+// icons or wording over a field whose label they cannot read. A field collecting
+// something on this list owes the token.
+//
+// The vocabulary is fixed by the specification, so it is a type rather than a
+// string: a typo is a compile error instead of a field that silently autofills
+// nothing. AutocompleteNone is the zero value and emits no attribute at all,
+// which is different from AutocompleteOff — "off" is a positive instruction to
+// the browser not to fill this field, appropriate for a one-time code or a
+// field whose value is never the user's own.
+type Autocomplete string
+
+const (
+	// AutocompleteNone is the zero value: no autocomplete attribute is emitted.
+	AutocompleteNone Autocomplete = ""
+	// AutocompleteOff asks the browser not to fill the field. Use it for
+	// one-time codes and values that are not the user's own data — not as a
+	// default, and never on a field this list has a token for.
+	AutocompleteOff Autocomplete = "off"
+)
+
+// Identity. The person using the form.
+const (
+	AutocompleteName              Autocomplete = "name"               // Full name
+	AutocompleteHonorificPrefix   Autocomplete = "honorific-prefix"   // Prefix or title (e.g., "Mr.", "Ms.", "Dr.", "M lle ")
+	AutocompleteGivenName         Autocomplete = "given-name"         // Given name (in some Western cultures, also known as the first name )
+	AutocompleteAdditionalName    Autocomplete = "additional-name"    // Additional names (in some Western cultures, also known as middle names , forenames other than the first name)
+	AutocompleteFamilyName        Autocomplete = "family-name"        // Family name (in some Western cultures, also known as the last name or surname )
+	AutocompleteHonorificSuffix   Autocomplete = "honorific-suffix"   // Suffix (e.g., "Jr.", "B.Sc.", "MBASW", "II")
+	AutocompleteNickname          Autocomplete = "nickname"           // Nickname, screen name, handle: a typically short name used instead of the full name
+	AutocompleteOrganizationTitle Autocomplete = "organization-title" // Job title (e.g., "Software Engineer", "Senior Vice President", "Deputy Managing Director")
+	AutocompleteOrganization      Autocomplete = "organization"       // Company name corresponding to the person, address, or contact information in the other fields associated with this field
+	AutocompleteUsername          Autocomplete = "username"           // A username
+	AutocompleteNewPassword       Autocomplete = "new-password"       // A new password (e.g., when creating an account or changing a password)
+	AutocompleteCurrentPassword   Autocomplete = "current-password"   // The current password for the account identified by the username field (e.g., when logging in)
+	AutocompleteBday              Autocomplete = "bday"               // Birthday
+	AutocompleteBdayDay           Autocomplete = "bday-day"           // Day component of birthday
+	AutocompleteBdayMonth         Autocomplete = "bday-month"         // Month component of birthday
+	AutocompleteBdayYear          Autocomplete = "bday-year"          // Year component of birthday
+	AutocompleteSex               Autocomplete = "sex"                // Gender identity (e.g., Female, Fa’afafine)
+	AutocompleteLanguage          Autocomplete = "language"           // Preferred language
+	AutocompleteUrl               Autocomplete = "url"                // Home page or other web page corresponding to the company, person, address, or contact information in the other fields associated with this field
+	AutocompletePhoto             Autocomplete = "photo"              // Photograph, icon, or other image corresponding to the company, person, address, or contact information in the other fields associated with this field
+	AutocompleteImpp              Autocomplete = "impp"               // URL representing an instant messaging protocol endpoint (for example, " aim:goim?screenname=example " or " xmpp:fred@example.net ")
+)
+
+// Address. Where they are.
+const (
+	AutocompleteStreetAddress Autocomplete = "street-address" // Street address (multiple lines, newlines preserved)
+	AutocompleteAddressLine1  Autocomplete = "address-line1"  // Street address (one line per field, line 1)
+	AutocompleteAddressLine2  Autocomplete = "address-line2"  // Street address (one line per field, line 2)
+	AutocompleteAddressLine3  Autocomplete = "address-line3"  // Street address (one line per field, line 3)
+	AutocompleteAddressLevel4 Autocomplete = "address-level4" // The most fine-grained administrative level, in addresses with four administrative levels
+	AutocompleteAddressLevel3 Autocomplete = "address-level3" // The third administrative level, in addresses with three or more administrative levels
+	AutocompleteAddressLevel2 Autocomplete = "address-level2" // The second administrative level, in addresses with two or more administrative levels; in the countries with two administrative levels, this would typically be the city, town, village, or other locality within which the relevant street address is found
+	AutocompleteAddressLevel1 Autocomplete = "address-level1" // The broadest administrative level in the address, i.e., the province within which the locality is found; for example, in the US, this would be the state; in Switzerland it would be the canton; in the UK, the post town
+	AutocompleteCountry       Autocomplete = "country"        // Country code
+	AutocompleteCountryName   Autocomplete = "country-name"   // Country name
+	AutocompletePostalCode    Autocomplete = "postal-code"    // Postal code, post code, ZIP code, CEDEX code (if CEDEX, append "CEDEX", and the arrondissement , if relevant, to the address-level2 field)
+)
+
+// Payment. The instrument, not the person.
+const (
+	AutocompleteCcName              Autocomplete = "cc-name"              // Full name as given on the payment instrument
+	AutocompleteCcGivenName         Autocomplete = "cc-given-name"        // Given name as given on the payment instrument (in some Western cultures, also known as the first name )
+	AutocompleteCcAdditionalName    Autocomplete = "cc-additional-name"   // Additional names given on the payment instrument (in some Western cultures, also known as middle names , forenames other than the first name)
+	AutocompleteCcFamilyName        Autocomplete = "cc-family-name"       // Family name given on the payment instrument (in some Western cultures, also known as the last name or surname )
+	AutocompleteCcNumber            Autocomplete = "cc-number"            // Code identifying the payment instrument (e.g., the credit card number)
+	AutocompleteCcExp               Autocomplete = "cc-exp"               // Expiration date of the payment instrument
+	AutocompleteCcExpMonth          Autocomplete = "cc-exp-month"         // Month component of the expiration date of the payment instrument
+	AutocompleteCcExpYear           Autocomplete = "cc-exp-year"          // Year component of the expiration date of the payment instrument
+	AutocompleteCcCsc               Autocomplete = "cc-csc"               // Security code for the payment instrument (also known as the card security code (CSC), card validation code (CVC), card verification value (CVV), signature pancc-csc - Security code for the payment instrument (also known as the card security code (CSC), card validation code (CVC), card verification value (CVV), signature panel code (SPC), credit card ID (CCID), etc)
+	AutocompleteCcType              Autocomplete = "cc-type"              // Type of payment instrument
+	AutocompleteTransactionCurrency Autocomplete = "transaction-currency" // The currency that the user would prefer the transaction to use
+	AutocompleteTransactionAmount   Autocomplete = "transaction-amount"   // The amount that the user would like for the transaction (e.g., when entering a bid or sale price)
+)
+
+// Contact. How to reach them.
+const (
+	AutocompleteTel            Autocomplete = "tel"              // Full telephone number, including country code
+	AutocompleteTelCountryCode Autocomplete = "tel-country-code" // Country code component of the telephone number
+	AutocompleteTelNational    Autocomplete = "tel-national"     // Telephone number without the country code component, with a country-internal prefix applied if applicable
+	AutocompleteTelAreaCode    Autocomplete = "tel-area-code"    // Area code component of the telephone number, with a country-internal prefix applied if applicable
+	AutocompleteTelLocal       Autocomplete = "tel-local"        // Telephone number without the country code and area code components
+	AutocompleteTelLocalPrefix Autocomplete = "tel-local-prefix" // First part of the component of the telephone number that follows the area code, when that component is split into two components
+	AutocompleteTelLocalSuffix Autocomplete = "tel-local-suffix" // Second part of the component of the telephone number that follows the area code, when that component is split into two components
+	AutocompleteTelExtension   Autocomplete = "tel-extension"    // Telephone number internal extension code
+	AutocompleteEmail          Autocomplete = "email"            // E-mail address
+)
+
 // --- Forms ---
 
 // FieldProps is one label / control / help / error row.
@@ -383,14 +482,14 @@ type TextInputProps struct {
 	Placeholder  string
 	Prefix       string
 	Suffix       string
-	Min          string // numeric/date lower bound (min attribute)
-	Max          string // numeric/date upper bound (max attribute)
-	Step         string // numeric step granularity (step attribute; "any" for free)
-	InputMode    string // virtual-keyboard hint: "numeric", "decimal", "tel", ...
-	Autocomplete string // autocomplete token, e.g. "off", "email", "one-time-code"
-	Spellcheck   string // "true"/"false" — disable for codes, units, identifiers
-	Required     bool   // native required + aria-required
-	Error        bool   // force the invalid state; an enclosing Field's Error implies it
+	Min          string       // numeric/date lower bound (min attribute)
+	Max          string       // numeric/date upper bound (max attribute)
+	Step         string       // numeric step granularity (step attribute; "any" for free)
+	InputMode    string       // virtual-keyboard hint: "numeric", "decimal", "tel", ...
+	Autocomplete Autocomplete // what the field is for (WCAG 1.3.5); see the token list above
+	Spellcheck   string       // "true"/"false" — disable for codes, units, identifiers
+	Required     bool         // native required + aria-required
+	Error        bool         // force the invalid state; an enclosing Field's Error implies it
 	Disabled     bool
 	Attrs        datastar.Attrs
 }
@@ -647,12 +746,36 @@ type SkeletonProps struct {
 	Attrs  datastar.Attrs
 }
 
+// ToastPersist is the Dismiss value meaning "never expire". It is distinct from
+// the zero value, which means "use the kit's default", so a caller can pin a
+// toast open without knowing what the default happens to be.
+const ToastPersist time.Duration = -1
+
+// ToastDefaultLife is how long a toast lives when the caller says nothing.
+const ToastDefaultLife = 6 * time.Second
+
 // ToastProps is a single notification card, SSE-pushable and stacked by the
 // kit's toast region. It carries a role, a message, and a manual close control.
 type ToastProps struct {
 	Role    Role
 	Title   string
 	Message string
+
+	// Dismiss is how long the toast stays before fading. Zero takes the kit
+	// default; ToastPersist keeps it until the visitor closes it.
+	//
+	// A timer on content is a time limit, and WCAG 2.2.1 constrains those, so
+	// three things hold regardless of what is set here:
+	//
+	//   - The countdown pauses on hover and on focus-within, so a toast cannot
+	//     expire while it is being read.
+	//   - A toast carrying work — RoleDanger, RoleWarn — never auto-dismisses,
+	//     because an error that vanishes is an error nobody fixed. Setting
+	//     Dismiss explicitly overrides that.
+	//   - A visitor can switch auto-dismiss off entirely (prefs.AutoDismiss),
+	//     which is the criterion's own first remedy: turn the limit off before
+	//     encountering it.
+	Dismiss time.Duration
 	Attrs   datastar.Attrs
 }
 
@@ -672,6 +795,14 @@ type ModalProps struct {
 	ID    string
 	Title string
 	Get   string // optional @get that lazy-loads a heavy body under budget
+
+	// Describe is the id of an element describing the dialog, wired as
+	// aria-describedby on the <dialog> itself. It has to be on the dialog and
+	// not on anything inside it: a description is announced along with the
+	// name when focus enters the widget, and a description hung on a plain
+	// <div> is announced by nothing at all.
+	Describe string
+
 	Attrs datastar.Attrs
 }
 
@@ -766,6 +897,36 @@ type TooltipProps struct {
 	Attrs       datastar.Attrs
 }
 
+// ConfirmProps configures the destructive-action dialog.
+//
+// WCAG 3.3.4 asks that an action which deletes or modifies a person's data be
+// reversible, checked, or confirmed. Confirmed is the one a UI kit can provide,
+// and the part that matters is not the extra click — it is that the dialog says
+// what is about to happen while there is still time to stop it.
+//
+// So Message is not decoration: it is the consequence, and it is wired as the
+// dialog's accessible description, which means a screen reader reads it with the
+// dialog's name rather than only after the user has gone looking. A Confirm with
+// a title and no message is a dialog that asks "are you sure?" about nothing.
+type ConfirmProps struct {
+	ID string
+	// Title names the action — "Delete this booking?".
+	Title string
+	// Message is what will happen and whether it can be undone. Required in
+	// spirit; it is the whole reason the dialog exists.
+	Message string
+	// ConfirmLabel names the destructive button. Say the verb — "Delete
+	// booking", not "OK" — so someone reading only the buttons still knows
+	// which one does the thing. Empty falls back to the catalog.
+	ConfirmLabel string
+	CancelLabel  string
+	// Post is the action the confirm button submits to.
+	Post string
+	// Hazard adds the striped treatment the kit reserves for the irreversible.
+	Hazard bool
+	Attrs  datastar.Attrs
+}
+
 // DrawerProps is a slide-over panel. Side is "left" or "right" (default right).
 // Open/close is native: it is a <dialog> opened with showModal, same as Modal,
 // styled to slide in from the edge. Get lazy-loads a heavy body under budget.
@@ -806,9 +967,14 @@ type AvatarProps struct {
 }
 
 type ImageProps struct {
-	Src   string
-	Set   string // srcset
-	Sizes string
+	Src string
+	Set string // srcset — resolution switching for one crop
+	// Sources render a <picture>, for what srcset cannot express: format
+	// fallback (AVIF → WebP → the original) and art direction (a different
+	// crop at a different width). Src stays the last-resort <img>, so a browser
+	// that understands none of them still gets a picture.
+	Sources []Source
+	Sizes   string
 	// Alt is the image's text alternative and is required (WCAG 1.1.1). A
 	// genuinely decorative image — a texture, a rule, a duplicate of adjacent
 	// text — sets Decorative instead; leaving both empty is a beach-vet finding
@@ -826,6 +992,89 @@ type ImageProps struct {
 type AspectBoxProps struct {
 	Ratio Ratio
 	Attrs datastar.Attrs
+}
+
+// Source is one alternative encoding or crop of a piece of media, for a
+// <picture> or a <video>. The browser takes the first it can play or that
+// matches, so order is the preference order — modern format first, fallback
+// last.
+type Source struct {
+	Src string
+	// Type is the MIME type ("image/avif", "video/webm"). Without it the
+	// browser has to fetch to find out, which defeats the point.
+	Type string
+	// Media is an optional media query, for art direction — a different crop
+	// at a different width, not merely a different size of the same crop.
+	Media string
+}
+
+// Track is a timed text track on a video: captions, subtitles, or a described
+// audio cue list.
+//
+// Captions are not optional decoration. Without them a video is unusable to
+// anyone deaf or hard of hearing, and unusable to anyone in a room where sound
+// is not possible — which is why WCAG 1.2.2 puts them at Level A.
+type Track struct {
+	Src string
+	// Kind is the track kind: "captions" (default), "subtitles",
+	// "descriptions", "chapters", or "metadata". Captions carry speech *and*
+	// the non-speech sound that carries meaning; subtitles carry speech only,
+	// for someone who can hear it but not understand it. They are not the same
+	// thing and one does not substitute for the other.
+	Kind string
+	// Lang is the BCP 47 tag of the track's language. Required for subtitles.
+	Lang string
+	// Label is what the viewer picks in the track menu.
+	Label   string
+	Default bool
+}
+
+// VideoProps configures the kit's video. It exists as a component rather than a
+// raw <video> for the same reason Image does: the perf and accessibility rules
+// are non-negotiable, so they are built in rather than remembered.
+//
+// What it enforces rather than documents:
+//
+//   - The frame is reserved by an aspect box before a byte arrives, so late
+//     media fills reserved pixels instead of shoving the page down.
+//   - preload is "none" by default: a poster paints, and the video downloads
+//     when someone asks for it.
+//   - Controls are always present. A video that moves on its own for more than
+//     five seconds alongside other content needs a way to stop it (WCAG 2.2.2),
+//     and native controls *are* that mechanism. The kit will not ship
+//     autoplaying motion a visitor cannot pause, and pausing without controls
+//     would need script, which local interactivity here never uses.
+//   - Autoplay implies muted. Sound that starts on its own is its own criterion
+//     (WCAG 1.4.2) and the kit does not offer it at all.
+type VideoProps struct {
+	Src     string
+	Sources []Source // format fallback, first playable wins
+	Poster  string
+	Ratio   Ratio // reserves the frame; a video without one is a vet smell
+	Fit     Fit
+	Tracks  []Track
+
+	// Background makes it a muted, looping, autoplaying video. Controls are
+	// still rendered — see the type doc.
+	Background bool
+	// Preload overrides the default "none". Use "metadata" when the duration
+	// needs to be known before play.
+	Preload string
+	// Label is the video's accessible name.
+	Label string
+	// Describe is the text alternative: what someone who cannot see it would
+	// need. It renders screen-reader-only.
+	Describe string
+	Attrs    datastar.Attrs
+}
+
+// MediaObjectProps is the thumbnail-beside-body-beside-actions row: a comment, a
+// search result, a notification with an avatar.
+type MediaObjectProps struct {
+	Media   templ.Component // avatar, thumbnail, icon
+	Body    templ.Component
+	Actions templ.Component
+	Attrs   datastar.Attrs
 }
 
 // FigureProps is an image with a caption (<figure>/<figcaption>). The image
@@ -868,6 +1117,41 @@ type PresencePillProps struct {
 	State string // "connected"/"reconnecting"/"paired"/"waiting"
 	Label string
 	Attrs datastar.Attrs
+}
+
+// LiveToggleProps configures the control that pauses and resumes a page's
+// server-pushed updates, and the element that opens the stream.
+//
+// Both halves live in one component on purpose: the mechanism only works if the
+// element that opens the stream disappears when the visitor pauses, and keeping
+// them together means an app cannot render the button and forget the wiring.
+type LiveToggleProps struct {
+	// ID is the id of the element that owns the stream. It stays stable across
+	// the paused/live swap so a fragment can still target it.
+	ID string
+	// Stream is the @get target that opens the SSE connection — the same URL an
+	// app would otherwise put in a data-init by hand.
+	Stream string
+	// Label names what is updating ("Board", "Prices"), so the control reads as
+	// "Pause Board updates" rather than an anonymous "Pause". Empty falls back
+	// to the catalog's generic wording.
+	Label string
+	Attrs datastar.Attrs
+}
+
+// LiveStreamProps configures an extra stream holder governed by a page's
+// [LiveToggle].
+//
+// One control can only carry one Stream, and a page with several — boardwalk
+// opens three — needs the rest to obey the same pause. This is that holder: the
+// same element LiveToggle renders, without a second button beside it.
+type LiveStreamProps struct {
+	// ID is the id of the element that owns the stream. It stays stable across
+	// the paused/live swap so a fragment can still target it.
+	ID string
+	// Stream is the @get target that opens the SSE connection.
+	Stream string
+	Attrs  datastar.Attrs
 }
 
 // PageProps configures the document shell Page renders.

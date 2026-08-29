@@ -118,11 +118,14 @@ Deps: Block 1 (`auth`, `session`, `chart`, `ui-contract`), Block 2 (`beach`).
 **◆ Gate:** log in as two roles; the specimen renders the full Core catalog + all 18
 charts + the token sheet, zero hardcoded color, a11y clean. The gallery you can **see**.
 
-*["a11y clean" is defined as of 2026-08-28: WCAG 2.1 Level AA, the fifth law in
+*["a11y clean" is defined as of 2026-08-28: WCAG 2.1 Level AA, the law in
 [06-ui.md](architecture/06-ui.md#accessible-by-construction), held by three `beach-vet`
-rules plus the kit's contrast and naming tests, and verified by a Lighthouse accessibility
-audit of the specimen scoring 100 with zero failures. See
-[RFC 06](rfc/06-accessibility.md).]*
+rules plus the kit's contrast, naming, timing and zero-value tests, and verified by a
+Lighthouse accessibility audit of the specimen scoring 100 with zero failures. A second
+pass (2026-08-29) closed the timing, keyboard, media and error-prevention criteria — a
+paused visitor's stream is dropped by the framework itself, every chart is operable from
+the keyboard, and the components the catalog had been describing but not shipping (Video,
+`<picture>`, Media object, Confirm) now exist. See [RFC 06](rfc/06-accessibility.md).]*
 
 ---
 

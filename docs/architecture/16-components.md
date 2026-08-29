@@ -59,6 +59,15 @@ to satisfy before it belongs here:
   `TestZeroValuePropsAreStillAccessible` is where that is held.
 - **It has to fit in 320px.** Rows of controls wrap, anything holding an input gets
   `min-w-0`, and anything genuinely two-dimensional scrolls inside its own box.
+- **Anything that moves or expires needs a way to stop it.** A component that updates on
+  its own, animates past five seconds, or disappears on a timer owes the visitor a control
+  (WCAG 2.2.2 / 2.2.1). The framework provides both — `driftwood.LiveToggle` for a stream
+  and `prefs.AutoDismiss` for a timer — so the component's job is to *honour* them rather
+  than to invent its own.
+- **A pointer-only interaction is not an interaction.** Anything reachable by hovering has
+  to be reachable by the keyboard too (WCAG 2.1.1), and reaching it has to say the same
+  thing: a highlight with no announcement is a keyboard path to nothing. The chart kit's
+  `chart-keys.js` is the worked example.
 
 ## The specimen
 
@@ -185,12 +194,14 @@ tree / nested list, comparison table, kanban column.
 | Component            | Variants / states                                          | Proven by |
 | -------------------- | ---------------------------------------------------------- | --------- |
 | Alert / flash banner | good/warn/bad/info; dismissible; the "flash banners" strip | all       |
-| Toast / notification | SSE-pushable, stacked, auto-dismiss + manual close         | B, D      |
+| Toast / notification | SSE-pushable, stacked, manual close, auto-dismiss (paused on hover/focus; danger and warn never expire; `prefs.AutoDismiss` turns it off) | B, D |
 | Empty state          | icon + message + optional action                           | B, D, P   |
 | Progress bar         | determinate + indeterminate (loads, game/turn timers)      | B, P      |
 | Skeleton             | reserved-space placeholder; shared with `ui.Defer`         | all       |
 | Spinner              | inline + block                                             | all       |
 | Error pages          | 404 / 500 / maintenance; stamped into the skeleton         | all       |
+| Live toggle          | pause/resume server-pushed updates; renders the element that opens the stream, so a pause stops updates rather than hiding them (SC 2.2.2) | Catalog |
+| Lang / Lang block    | a run or passage in another language; carries `lang` + `dir` (SC 3.1.2) | Catalog |
 
 *Catalog:* top-of-page announcement banner, inline callout / note block.
 
@@ -208,7 +219,7 @@ lives in the kit sheet, not in markup.
 | Drawer / slide-over | left/right; filters, detail panels                     | P         |
 | Popover / flyout    | menus, info; anchored, dismiss-on-outside              | B, P      |
 | Tooltip             | hover/focus; one-liner                                 | all       |
-| Confirm preset      | destructive-action dialog (delete)                     | P         |
+| Confirm preset      | destructive-action dialog; the consequence is the dialog's `aria-describedby`, Cancel is focused (SC 3.3.4) | Catalog |
 
 *Catalog:* command palette (⌘K, `@get` search) — high value; the trio doesn't happen to
 use one, so it's proven in the specimen.
@@ -222,7 +233,7 @@ use one, so it's proven in the specimen.
 | Aspect-ratio box | reserves a fixed ratio via the `dw-aspect-*` classes (square, wide 16:9, photo 4:3, portrait); the wrapper images and video sit in                                       | P         |
 | Image            | responsive (`srcset`/`sizes`, `<picture>` for format + art-direction); `cover`/`contain` fit; lazy below-fold, eager+`fetchpriority` above; skeleton/blur-up placeholder | P         |
 | Figure           | image + caption (`<figure>`/`<figcaption>`)                                                                                                                              | P         |
-| Video            | poster frame; `controls` or muted-loop background; `<track>` captions; `preload="none"` + click/intersection load; responsive                                            | Catalog   |
+| Video            | poster frame; `controls` or muted-loop background (which still renders controls — see below); `<track>` captions; `preload="none"`; `<source>` format fallback; responsive | Catalog |
 | Media object     | avatar/thumb + body + actions row                                                                                                                                        | Catalog   |
 
 **Images and video obey the perf laws — that's the whole reason they're kit
@@ -244,7 +255,13 @@ components and not raw `<img>`/`<video>` tags.**
   ([no external CDNs](06-ui.md#no-blocking)).
 - **Tokens and a11y by construction.** Placeholder/skeleton backgrounds use surface
   tokens (no hardcoded color); `alt` is required (the props struct makes it
-  non-optional); video carries caption `<track>`s and never autoplays with sound.
+  non-optional); a `<track>` with no `Kind` defaults to `captions`, not `subtitles`,
+  because captions carry the non-speech sound that subtitles drop.
+- **Video never autoplays without a way to stop it.** `Background` forces muted + loop
+  *and native controls*: motion that starts on its own and runs past five seconds beside
+  other content needs a pause mechanism (WCAG 2.2.2), and a scripted pause button is
+  [local interactivity in script](06-ui.md#html-and-css-first), which this kit does not
+  do. Autoplay-without-controls is a shape the component cannot be made to produce.
 
 ```templ
 @driftwood.Image(driftwood.ImageProps{
@@ -257,9 +274,9 @@ components and not raw `<img>`/`<video>` tags.**
 })
 ```
 
-*Catalog:* gallery / lightbox, zoomable image, `<audio>` player. Video is fully
-specified above and ships with the rest of the catalog; the trio just doesn't happen to
-embed one.
+*Catalog:* gallery / lightbox, zoomable image, `<audio>` player. Video, `<picture>`
+and the media object all ship and are proven in the specimen; the trio just doesn't
+happen to embed one.
 
 ### Messaging
 

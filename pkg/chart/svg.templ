@@ -445,7 +445,8 @@ templ CalendarSVG(c Calendar) {
 
 // BollingerSVG renders a Bollinger bands chart.
 templ BollingerSVG(b Bollinger) {
-	<svg width="100%" height="100%" class="chart-svg vb-hover" aria-hidden="true" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" data-plot-l={ F(b.PlotL) } data-plot-r={ F(b.PlotR) } data-plot-t={ F(b.PlotT) } data-plot-b={ F(b.PlotB) }>
+	@templ.JSONScript(b.HoverID+"-vb", b.Hover)
+	<svg width="100%" height="100%" class="chart-svg vb-hover" data-vb-hover={ b.HoverID + "-vb" } aria-hidden="true" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" data-plot-l={ F(b.PlotL) } data-plot-r={ F(b.PlotR) } data-plot-t={ F(b.PlotT) } data-plot-b={ F(b.PlotB) }>
 		for _, gy := range b.GridYs {
 			<line x1={ F(b.PlotL) } x2={ F(b.PlotR) } y1={ F(gy) } y2={ F(gy) } stroke="var(--color-line-soft)" stroke-opacity="0.5"></line>
 		}
@@ -489,7 +490,8 @@ templ RidgelineSVG(r Ridgeline) {
 
 // DifferenceSVG renders a difference chart with colored fill between two series.
 templ DifferenceSVG(d Difference) {
-	<svg width="100%" height="100%" class="chart-svg vb-hover" aria-hidden="true" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" data-plot-l={ F(d.PlotL) } data-plot-r={ F(d.PlotR) } data-plot-t={ F(d.PlotT) } data-plot-b={ F(d.PlotB) }>
+	@templ.JSONScript(d.HoverID+"-vb", d.Hover)
+	<svg width="100%" height="100%" class="chart-svg vb-hover" data-vb-hover={ d.HoverID + "-vb" } aria-hidden="true" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" data-plot-l={ F(d.PlotL) } data-plot-r={ F(d.PlotR) } data-plot-t={ F(d.PlotT) } data-plot-b={ F(d.PlotB) }>
 		for _, gy := range d.GridYs {
 			<line x1={ F(d.PlotL) } x2={ F(d.PlotR) } y1={ F(gy) } y2={ F(gy) } stroke="var(--color-line-soft)" stroke-opacity="0.5"></line>
 		}

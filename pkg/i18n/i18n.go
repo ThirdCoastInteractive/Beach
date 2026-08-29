@@ -153,8 +153,16 @@ func (c *Catalog) Locales() []string {
 }
 
 // Lookup resolves key in the named locale, falling back to the default locale,
-// then to the key itself. ok reports whether a translation (in either locale)
-// was found.
+// then to the framework's embedded catalog, then to the key itself. ok reports
+// whether a translation was found in any of them.
+//
+// The embedded fallback is what makes an app's catalog *extend* the framework's
+// rather than replace it. Without it, an app that configures Locales at all —
+// which is every app past the scaffold's first hour — renders every framework
+// string as its own raw key: the skip link reads "ui.a11y.skip_to_content", the
+// close button on every dialog is nameless, and the kit's whole naming law
+// quietly stops holding. An app that wants different wording still gets it, by
+// defining the key itself: its own catalog is consulted first.
 func (c *Catalog) Lookup(locale, key string) (msg string, ok bool) {
 	if c == nil {
 		return key, false
@@ -173,6 +181,13 @@ func (c *Catalog) Lookup(locale, key string) (msg string, ok bool) {
 				}
 				return m, true
 			}
+		}
+	}
+	// The framework's own strings, for a key the app's catalog does not define.
+	// Guarded against recursion, since builtinCat is itself a *Catalog.
+	if c != builtinCat {
+		if m, found := builtinCat.Lookup(locale, key); found {
+			return m, true
 		}
 	}
 	if c.dev {

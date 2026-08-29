@@ -87,7 +87,9 @@ func TestChartsAreNamedOrHidden(t *testing.T) {
 	for name, c := range chartCases() {
 		noNamelessGraphic(t, name, renderChart(t, c))
 	}
-	// And again with a Label, which is what turns the figure into a named graphic.
+	// And again with a Label. A chart the pointer can interrogate is a widget,
+	// not a picture, so a labelled one comes out as a named role="group" rather
+	// than a named role="img". The name has to be there either way.
 	labelled := map[string]templ.Component{
 		"bar":    ChartBarFragment("c", BarChart{}, Label("Visits by beach")),
 		"geomap": ChartGeoMapFragment("c", GeoMap{}, Label("Visits by country")),
@@ -95,8 +97,11 @@ func TestChartsAreNamedOrHidden(t *testing.T) {
 	for name, c := range labelled {
 		out := renderChart(t, c)
 		noNamelessGraphic(t, name, out)
-		if !strings.Contains(out, `role="img"`) || !strings.Contains(out, `aria-label="Visits by`) {
-			t.Errorf("%s: Label did not produce a named graphic\n%s", name, out)
+		if !strings.Contains(out, `aria-label="Visits by`) {
+			t.Errorf("%s: Label did not reach the figure's name\n%s", name, out)
+		}
+		if !strings.Contains(out, `role="group"`) && !strings.Contains(out, `role="img"`) {
+			t.Errorf("%s: a labelled figure that claims no role at all\n%s", name, out)
 		}
 	}
 }
@@ -106,12 +111,47 @@ func TestChartsAreNamedOrHidden(t *testing.T) {
 // a chart whose card heading already names it. Claiming role="img" here would be
 // the defect this replaced.
 func TestUnnamedChartIsDecorative(t *testing.T) {
-	out := renderChart(t, ChartBarFragment("c", BarChart{}))
-	if strings.Contains(out, `role="img"`) {
-		t.Errorf("an unnamed chart claimed role=\"img\":\n%s", out)
+	// A chart with no per-shape tooltip and no name: nothing to step through,
+	// nothing to announce, so it takes no role and no tab stop. A tab stop that
+	// does nothing is worse than none.
+	out := renderChart(t, ChartHorizonFragment("c", Horizon{}))
+	if strings.Contains(out, `role="img"`) || strings.Contains(out, `role="group"`) {
+		t.Errorf("a decorative chart claimed a role:\n%s", out)
+	}
+	if strings.Contains(out, "tabindex") {
+		t.Errorf("a decorative chart took a tab stop that leads nowhere:\n%s", out)
 	}
 	if !strings.Contains(out, `aria-hidden="true"`) {
-		t.Errorf("an unnamed chart's SVG is not hidden, so it is announced as an unlabelled graphic:\n%s", out)
+		t.Errorf("a decorative chart's SVG is not hidden, so it announces as an unlabelled graphic:\n%s", out)
+	}
+}
+
+// TestHoverChartsAreKeyboardReachable is WCAG 2.1.1 for the charts whose
+// information lives in a tooltip.
+//
+// Every one of these used to be pointer-only: the shapes carrying data-tip sit
+// inside an aria-hidden SVG, so there was no route to them that did not involve
+// a mouse. Each now renders a focusable group, a name saying which keys work,
+// and the region its client layer announces into. A chart missing any one of the
+// three looks operable and is not.
+func TestHoverChartsAreKeyboardReachable(t *testing.T) {
+	for name, c := range chartCases() {
+		out := renderChart(t, c)
+		if !strings.Contains(out, "data-chart-keys") {
+			continue // decorative by design; TestUnnamedChartIsDecorative covers that
+		}
+		if !strings.Contains(out, `tabindex="0"`) {
+			t.Errorf("%s: marked keyboard-operable but takes no focus\n%s", name, out)
+		}
+		if !strings.Contains(out, `role="group"`) {
+			t.Errorf("%s: operable but claims no role\n%s", name, out)
+		}
+		if !strings.Contains(out, `aria-live="polite"`) {
+			t.Errorf("%s: nowhere to announce the sample a keyboard lands on\n%s", name, out)
+		}
+		if !strings.Contains(out, "arrow keys") {
+			t.Errorf("%s: has a tab stop but never says what the keys do\n%s", name, out)
+		}
 	}
 }
 

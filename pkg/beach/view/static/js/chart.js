@@ -7,6 +7,7 @@
 import './chart-tip.js';
 import './chart-line-hover.js';
 import './chart-toggle.js';
+import './chart-kbd.js';
 import './chart-sankey-hover.js';
 import './chart-chord-hover.js';
 import './chart-bundle-hover.js';

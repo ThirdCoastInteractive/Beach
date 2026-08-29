@@ -95,6 +95,23 @@ func fontStyle(cssVar string) templ.SafeCSS {
 // mounted. The colors are image content, not theme.
 const sampleImageSrc = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 90'%3E%3Crect width='160' height='90' fill='%23355f6e'/%3E%3Ccircle cx='120' cy='22' r='12' fill='%23e5c151'/%3E%3Cpath d='M0 64 Q40 52 80 64 T160 64 V90 H0 Z' fill='%234091ac'/%3E%3Cpath d='M0 78 Q40 70 80 78 T160 78 V90 H0 Z' fill='%23c9a36a'/%3E%3C/svg%3E"
 
+// samplePosterSrc is the video poster: the same inline-SVG trick, so the Video
+// demo shows a real reserved frame with something in it and still fetches
+// nothing. That is the component's own claim being demonstrated rather than
+// asserted.
+const samplePosterSrc = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 90'%3E%3Crect width='160' height='90' fill='%231c2b30'/%3E%3Cpath d='M0 70 Q40 58 80 70 T160 70 V90 H0 Z' fill='%233d7c82'/%3E%3Cpolygon points='72,38 72,58 92,48' fill='%23f4f4f5'/%3E%3C/svg%3E"
+
+// sampleTrackSrc is a real two-cue caption file, served from the framework's own
+// static tree.
+//
+// It is not inline like the poster beside it, for a reason worth writing down:
+// the framework's CSP sets media-src 'self', so a data: URI is blocked — and a
+// track marked default is the one thing on a <video preload="none"> the browser
+// actually fetches, so a fictional path 404s on every page that mounts the
+// specimen. A caption demo whose captions never load demonstrates the opposite
+// of the point.
+const sampleTrackSrc = "/static/media/specimen.en.vtt"
+
 // --- icon set -----------------------------------------------------------------
 
 // iconNames is every glyph the framework and examples currently reference.

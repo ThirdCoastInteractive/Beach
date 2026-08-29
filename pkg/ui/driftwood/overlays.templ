@@ -21,6 +21,9 @@ templ Modal(p ModalProps) {
 		if p.Title != "" {
 			aria-labelledby={ titleID }
 		}
+		if p.Describe != "" {
+			aria-describedby={ p.Describe }
+		}
 		{ p.Attrs.Templ()... }
 	>
 		<header class="dw-modal-head">
@@ -96,10 +99,10 @@ templ AuthModal(p AuthModalProps) {
 			<div data-show={ "$authtab === 'login'" }>
 				<form class="dw-form" method="post" action={ p.LoginPost }>
 					@Field(FieldProps{Label: i18n.T(ctx, "ui.auth.username"), For: id + "-lu", Required: true}) {
-						@Input(TextInputProps{ID: id + "-lu", Name: "username", Autocomplete: "username", Required: true})
+						@Input(TextInputProps{ID: id + "-lu", Name: "username", Autocomplete: AutocompleteUsername, Required: true})
 					}
 					@Field(FieldProps{Label: i18n.T(ctx, "ui.auth.password"), For: id + "-lp", Required: true}) {
-						@Input(TextInputProps{ID: id + "-lp", Name: "password", Type: "password", Autocomplete: "current-password", Required: true})
+						@Input(TextInputProps{ID: id + "-lp", Name: "password", Type: "password", Autocomplete: AutocompleteCurrentPassword, Required: true})
 					}
 					@Button(ButtonProps{Label: i18n.T(ctx, "ui.auth.login"), Role: RoleAccent, Type: "submit"})
 				</form>
@@ -107,15 +110,15 @@ templ AuthModal(p AuthModalProps) {
 			<div data-show={ "$authtab === 'register'" }>
 				<form class="dw-form" method="post" action={ p.RegisterPost }>
 					@Field(FieldProps{Label: i18n.T(ctx, "ui.auth.username"), For: id + "-ru", Required: true}) {
-						@Input(TextInputProps{ID: id + "-ru", Name: "username", Autocomplete: "username", Required: true})
+						@Input(TextInputProps{ID: id + "-ru", Name: "username", Autocomplete: AutocompleteUsername, Required: true})
 					}
 					if p.ShowEmail {
 						@Field(FieldProps{Label: i18n.T(ctx, "ui.auth.email_optional"), For: id + "-re"}) {
-							@Input(TextInputProps{ID: id + "-re", Name: "email", Type: "email", Autocomplete: "email"})
+							@Input(TextInputProps{ID: id + "-re", Name: "email", Type: "email", Autocomplete: AutocompleteEmail})
 						}
 					}
 					@Field(FieldProps{Label: i18n.T(ctx, "ui.auth.password"), For: id + "-rp", Required: true}) {
-						@Input(TextInputProps{ID: id + "-rp", Name: "password", Type: "password", Autocomplete: "new-password", Required: true})
+						@Input(TextInputProps{ID: id + "-rp", Name: "password", Type: "password", Autocomplete: AutocompleteNewPassword, Required: true})
 					}
 					if p.TOSHref != "" {
 						@Checkbox(CheckboxProps{Name: "agree", Label: i18n.T(ctx, "ui.auth.terms_accept")})
@@ -227,4 +230,48 @@ templ Tooltip(p TooltipProps) {
 		</span>
 		<span class="dw-tooltip-text" id={ tipID } role="tooltip">{ p.Text }</span>
 	</span>
+}
+
+// Confirm is the destructive-action dialog: the pause between meaning to delete
+// something and deleting it.
+//
+// It is a Modal, so open/close, the focus trap and Escape are the platform's.
+// Three things it adds:
+//
+//   - The consequence is the dialog's accessible description, so it is announced
+//     with the dialog's name. A confirmation whose warning is only reachable by
+//     hunting through the body is a confirmation someone will click past.
+//   - Cancel is first in the DOM, so it is what the native dialog focuses on
+//     open and what Enter reaches first. The safe answer should be the easy one.
+//   - Cancel closes with the dialog's own form method="dialog" — no script, and
+//     no way for a broken handler to leave the dialog stuck open.
+//
+// Open it from a trigger with
+// datastar.OnClick("document.getElementById('<ID>').showModal()").
+templ Confirm(p ConfirmProps) {
+	{{ id := defaultID(p.ID, "dw-confirm") }}
+	{{ msgID := id + "-message" }}
+	@Modal(ModalProps{ID: id, Title: confirmTitle(ctx, p), Describe: confirmDescribe(p, msgID), Attrs: p.Attrs}) {
+		<div class="dw-confirm">
+			if p.Message != "" {
+				<p class="dw-confirm-msg" id={ msgID }>{ p.Message }</p>
+			}
+			{ children... }
+			<div class="dw-modal-foot">
+				<form method="dialog">
+					<button type="submit" class="dw-btn dw-btn-quiet" autofocus>
+						{ confirmCancel(ctx, p) }
+					</button>
+				</form>
+				<form method="post" action={ templ.SafeURL(p.Post) }>
+					@Button(ButtonProps{
+						Label:  confirmConfirm(ctx, p),
+						Role:   RoleDanger,
+						Type:   "submit",
+						Hazard: p.Hazard,
+					})
+				</form>
+			</div>
+		</div>
+	}
 }

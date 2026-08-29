@@ -285,6 +285,12 @@ type Difference struct {
 	PlotB   float64
 	LegendA string
 	LegendB string
+
+	// HoverID names the JSON payload the client crosshair reads, and Hover is
+	// the payload: one entry per sample, each carrying the sentence to announce
+	// when a keyboard lands on it (WCAG 2.1.1).
+	HoverID string
+	Hover   VBHover
 }
 
 // --- Layout -----------------------------------------------------------------
@@ -378,6 +384,20 @@ func LayoutDifference(data DifferenceData) Difference {
 	for i := 0; i < n; i += step {
 		out.XTicks = append(out.XTicks, StreamTick{X: xMap(i), Label: data.Labels[i]})
 	}
+
+	// Both series in one sentence, because the chart's whole subject is the gap
+	// between them: reading one value without the other says nothing about the
+	// thing being shown.
+	unit := ""
+	if data.Unit != "" {
+		unit = " " + data.Unit
+	}
+	out.Hover = vbHover(data.Labels, func(i int) string {
+		return fmt.Sprintf("%s: %s %.2f%s, %s %.2f%s",
+			data.Labels[i],
+			data.SeriesA.Label, data.SeriesA.Values[i], unit,
+			data.SeriesB.Label, data.SeriesB.Values[i], unit)
+	})
 
 	return out
 }

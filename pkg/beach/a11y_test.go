@@ -11,8 +11,11 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
+	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/prefs"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
 )
 
@@ -52,6 +55,38 @@ func TestToastTargetIsTheKitsRegion(t *testing.T) {
 	if ToastTarget != driftwood.ToastTarget {
 		t.Fatalf("beach.ToastTarget = %q, driftwood.ToastTarget = %q — announcements would miss the rendered region",
 			ToastTarget, driftwood.ToastTarget)
+	}
+}
+
+// TestAppStringsResolveOffTheRequestPath covers the render with no request
+// behind it — a hub.Ticker fanning a fragment, a background job — which is where
+// the scaffold's own clock lives.
+//
+// Config.Locales puts the catalog on the *request* context, and that is all it
+// used to do, so a fragment rendered from a ticker fell through to the
+// framework's embedded catalog and emitted the app's keys as literal text. The
+// scaffold shipped that: an SSE tick read "home.clock 09:11:16" in the browser.
+func TestAppStringsResolveOffTheRequestPath(t *testing.T) {
+	// SetDefault is package-global; put it back so the rest of this binary sees
+	// the framework catalog it expects.
+	t.Cleanup(func() { i18n.SetDefault(nil) })
+
+	cat, err := i18n.Load(fstest.MapFS{
+		"locales/en-US.json": &fstest.MapFile{Data: []byte(`{"home.clock":"Server time"}`)},
+	}, "en-US")
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	New(Config{Locales: cat})
+
+	// context.Background() is what a ticker's render has.
+	if got := i18n.T(context.Background(), "home.clock"); got != "Server time" {
+		t.Errorf("an off-request render emitted %q — the app's catalog never became the default", got)
+	}
+
+	// And the framework's own strings still resolve underneath it.
+	if got := i18n.T(context.Background(), "ui.a11y.close"); got == "ui.a11y.close" {
+		t.Errorf("registering the app catalog buried the framework's strings: %q", got)
 	}
 }
 
@@ -124,5 +159,121 @@ func TestErrorPageSpeaksTheRequestLanguage(t *testing.T) {
 	}
 	if got := errorTitle(context.Background(), http.StatusNotFound); got != "Not found" {
 		t.Errorf("404 title with no locale = %q, want the framework default", got)
+	}
+}
+
+// --- WCAG 2.2.2 Pause, Stop, Hide -------------------------------------------------
+
+// TestPausedVisitorGetsCatchUpAndNothingElse is the framework half of the pause.
+//
+// The criterion names auto-updating information explicitly, and this framework's
+// premise is server-pushed updates, so the mechanism has to hold for streams the
+// kit knows nothing about. Putting the check in the adapter rather than asking
+// each StreamFunc to remember it means an app cannot route around it by
+// forgetting.
+//
+// Catch-up still runs, and that is deliberate: a paused visitor should still see
+// where things stand right now. Note 3 of the criterion is explicit that a paused
+// stream owes no replay of what it missed, which is why ending there is a
+// complete answer rather than a lossy one.
+func TestPausedVisitorGetsCatchUpAndNothingElse(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		paused     bool
+		wantTopics bool
+	}{
+		{"a visitor who said nothing keeps their live updates", false, true},
+		{"a visitor who paused gets no subscription", true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := New(Config{Hub: hub.New()})
+			caughtUp := false
+			var sawTopics []string
+
+			a.Stream("/live", func(c *Ctx) (Sub, error) {
+				return Sub{
+					Topics: []string{"tick"},
+					CatchUp: func(_ string, p Patcher) error {
+						caughtUp = true
+						return nil
+					},
+				}, nil
+			})
+
+			// The hub records who subscribed, which is the observable that
+			// matters: a paused visitor must not be holding a subscription.
+			req := httptest.NewRequest(http.MethodGet, "/live", nil)
+			if tc.paused {
+				req.AddCookie(&http.Cookie{Name: PrefsCookie, Value: "live"})
+			}
+			rec := httptest.NewRecorder()
+			done := make(chan struct{})
+			go func() {
+				defer close(done)
+				a.Handler().ServeHTTP(rec, req)
+			}()
+
+			select {
+			case <-done:
+				// A paused stream ends on its own once catch-up is written.
+				sawTopics = nil
+			case <-time.After(200 * time.Millisecond):
+				// A live stream stays open waiting for events, which is the
+				// correct behaviour and not something to assert against.
+				sawTopics = []string{"tick"}
+			}
+
+			if !caughtUp {
+				t.Error("catch-up did not run; a paused visitor should still see current state once")
+			}
+			if got := sawTopics != nil; got != tc.wantTopics {
+				t.Errorf("stream stayed open = %v, want %v", got, tc.wantTopics)
+			}
+		})
+	}
+}
+
+// TestPrefsRoundTripThroughTheCookie checks the preference survives, since a
+// pause that forgets itself on the next page is not a mechanism.
+func TestPrefsRoundTripThroughTheCookie(t *testing.T) {
+	all := prefs.Default()
+	if !all.LiveUpdates || !all.AutoDismiss {
+		t.Fatal("the default is not everything-on, so a first visit reads as an opt-out")
+	}
+	if all.String() != "" {
+		t.Errorf("a visitor at the defaults carries a non-empty cookie %q", all.String())
+	}
+
+	paused := prefs.Prefs{LiveUpdates: false, AutoDismiss: false}
+	if got := prefs.Parse(paused.String()); got != paused {
+		t.Errorf("round trip lost the preference: %+v -> %q -> %+v", paused, paused.String(), got)
+	}
+	// An unknown token from another build must degrade to the default rather
+	// than to a zero value that reads as a total opt-out.
+	if got := prefs.Parse("live,something-else"); got.LiveUpdates || !got.AutoDismiss {
+		t.Errorf("an unrecognised token was not ignored: %+v", got)
+	}
+}
+
+// TestPrefsReturnRefusesForeignReferers keeps the preference route from becoming
+// an open redirect: the Referer is attacker-influenced, so only a same-origin
+// path is echoed back.
+func TestPrefsReturnRefusesForeignReferers(t *testing.T) {
+	cases := map[string]string{
+		"":                          "/",
+		"http://evil.test/pwn":      "/",
+		"//evil.test/pwn":           "/",
+		"http://example.test/board": "/board",
+		"/board?page=2":             "/board?page=2",
+	}
+	for ref, want := range cases {
+		r := httptest.NewRequest(http.MethodPost, PrefsPath, nil)
+		r.Host = "example.test"
+		if ref != "" {
+			r.Header.Set("Referer", ref)
+		}
+		if got := prefsReturn(r); got != want {
+			t.Errorf("Referer %q -> %q, want %q", ref, got, want)
+		}
 	}
 }

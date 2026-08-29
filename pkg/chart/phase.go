@@ -156,10 +156,10 @@ func LayoutPhase(data PhaseData) Phase {
 			}
 			if i == cells || f != cur {
 				out.Cells = append(out.Cells, PhaseCell{
-					X: padL + float64(start)*cw,
-					Y: py,
-					W: float64(i-start)*cw + 0.6, // slight overlap hides seams
-					H: ch + 0.6,
+					X:    padL + float64(start)*cw,
+					Y:    py,
+					W:    float64(i-start)*cw + 0.6, // slight overlap hides seams
+					H:    ch + 0.6,
 					Fill: cur,
 				})
 				start = i

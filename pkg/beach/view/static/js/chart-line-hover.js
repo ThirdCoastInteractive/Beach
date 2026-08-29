@@ -14,6 +14,8 @@
 //     tooltip shows the change (delta and percent) for each series over
 //     the window. The window persists until a click clears it.
 
+import { announce, liveRegion } from './chart-keys.js';
+
 const NS = 'http://www.w3.org/2000/svg';
 
 // Registry of charts; shared interaction state drives all of them.
@@ -359,23 +361,27 @@ function initLineHover(fig) {
 
     // Keyboard stepping for accessibility: focus the chart and arrow
     // through samples. Pins the synced marker and announces the value.
-    const live = fig.querySelector('.sr-only');
+    const live = liveRegion(fig);
     let kbIdx = -1;
-    function announce(idx) {
+    function announceIdx(idx) {
         if (!live) return;
         const unit = data.unit ? ' ' + data.unit : '';
         const parts = data.series
             .map((s, k) => (hidden.has(k) ? null : `${s.label} ${fmt(s.pts[idx].v)}${unit}`))
             .filter(Boolean);
-        live.textContent = `${data.xlabels[idx] || ''}: ${parts.join(', ')}`;
+        announce(live, `${data.xlabels[idx] || ''}: ${parts.join(', ')}`);
     }
+    // kbIdx tracks here rather than only in the key handler, so arrowing after a
+    // mouse click continues from the sample under the pointer instead of
+    // restarting at one end.
     function pinTo(idx) {
+        kbIdx = idx;
         mode = 'pinned';
         pinT = grid[idx].t;
         redraw();
         const r = plot.getBoundingClientRect();
         valueTip(idx, r.left + grid[idx].fx * r.width, r.top);
-        announce(idx);
+        announceIdx(idx);
     }
     fig.addEventListener('keydown', ev => {
         const n = grid.length;
@@ -393,6 +399,10 @@ function initLineHover(fig) {
             ev.preventDefault();
             pinTo(n - 1);
         } else if (ev.key === 'Escape') {
+            // Only swallow Escape when there is something to let go of;
+            // otherwise it belongs to whatever dialog encloses the chart.
+            if (kbIdx < 0 && mode === 'idle') return;
+            ev.preventDefault();
             kbIdx = -1;
             clearAll();
         }
@@ -400,19 +410,19 @@ function initLineHover(fig) {
 }
 
 function scan(root) {
-    for (const fig of root.querySelectorAll('[data-line-chart]')) initLineHover(fig);
+    for (const fig of root.querySelectorAll('[data-chart-keys="line"]')) initLineHover(fig);
 }
 
 function start() {
     scan(document);
     new MutationObserver(mutations => {
         for (const m of mutations) {
-            if (m.target.nodeType === 1 && m.target.matches?.('[data-line-chart]')) {
+            if (m.target.nodeType === 1 && m.target.matches?.('[data-chart-keys="line"]')) {
                 initLineHover(m.target);
             }
             for (const node of m.addedNodes) {
                 if (node.nodeType !== 1) continue;
-                if (node.matches?.('[data-line-chart]')) initLineHover(node);
+                if (node.matches?.('[data-chart-keys="line"]')) initLineHover(node);
                 else scan(node);
             }
         }

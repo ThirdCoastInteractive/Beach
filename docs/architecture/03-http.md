@@ -40,8 +40,16 @@ house rules by construction.
 
 Middleware stack, in fixed order: request logger (skips /healthz, /static),
 recover, secure headers + CSP, optional session auth (runs when `Config.Sessions`
-is set). Gzip is not middleware — SSE responses compress inside the SSE writer
-(below).
+is set), visitor preferences (one cookie read). Gzip is not middleware — SSE
+responses compress inside the SSE writer (below).
+
+The framework owns two routes of its own, both underscore-prefixed where they
+could collide with an app's: `GET /healthz`, and `POST /_beach/prefs`, which
+writes the visitor's timing preferences and 303s back to a same-origin `Referer`.
+That second one is how WCAG 2.2.2 is answered framework-wide rather than app by
+app — `driftwood.LiveToggle` posts to it, and `adaptStream` drops a paused
+visitor's topics whether or not the app ever renders a control. See
+[RFC 06](../rfc/06-accessibility.md).
 
 `Config.Middleware []func(http.Handler) http.Handler` injects app-supplied
 `net/http` wrappers *around* that fixed stack — outermost-first, so the first entry

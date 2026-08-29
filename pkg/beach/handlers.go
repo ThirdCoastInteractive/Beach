@@ -161,6 +161,18 @@ func (a *App) adaptStream(h StreamFunc) http.HandlerFunc {
 			}
 		}
 
+		// A visitor who paused live updates gets the catch-up render and nothing
+		// after it (WCAG 2.2.2). Note 3 of that criterion is explicit that a
+		// paused stream owes no replay of what it missed, which is why simply
+		// dropping the topics is a complete answer rather than a lossy one.
+		//
+		// This sits in the adapter, not in the handler, so it holds for an app
+		// that never renders a control: the preference cannot be routed around
+		// by a StreamFunc that forgot to check it.
+		if !LiveUpdates(c.Context()) {
+			sub.Topics = nil
+		}
+
 		if a.hub == nil || len(sub.Topics) == 0 {
 			return
 		}

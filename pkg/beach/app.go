@@ -114,6 +114,12 @@ type Config struct {
 	// declares the matching <html lang> and dir — which is what a screen reader
 	// reads to pick its voice and pronunciation rules (WCAG 3.1.1).
 	//
+	// New also registers it with i18n.SetDefault, so i18n.T resolves this app's
+	// strings *off* a request too — inside a hub.Ticker, a background job, any
+	// render with no request context to carry the catalog. Without that the
+	// promise above holds only on the request path, and a fragment pushed over
+	// SSE renders its own catalog keys as literal text.
+	//
 	// Left nil, the app runs monolingual: i18n.T falls back to the framework's
 	// embedded catalog, the shell declares lang="en", and the feature costs
 	// nothing. The middleware runs outermost, before request logging, so a
@@ -172,6 +178,14 @@ func New(cfg Config) *App {
 		cfg.CSP = CSPDefault()
 	}
 
+	// The app's catalog becomes i18n's package default, so a render with no
+	// request context behind it — a hub.Ticker fanning a fragment, a background
+	// job — still resolves this app's strings rather than emitting raw keys.
+	// SetDefault is documented as a boot-time call, which is exactly here.
+	if cfg.Locales != nil {
+		i18n.SetDefault(cfg.Locales)
+	}
+
 	a := &App{
 		cfg: cfg,
 		mux: http.NewServeMux(),
@@ -196,6 +210,11 @@ func New(cfg Config) *App {
 
 	a.mux.Handle("GET /static/", http.StripPrefix("/static/", sh))
 	a.mux.HandleFunc("GET /healthz", a.handleHealthz)
+	// The framework owns the preference route because it owns the two things it
+	// switches off: the stream adapter honours the live-updates pause, and the
+	// kit's toast reads the auto-dismiss flag. An app gets both Level A
+	// mechanisms by rendering one component (see driftwood.LiveToggle).
+	a.mux.HandleFunc("POST "+PrefsPath, a.handlePrefs)
 
 	return a
 }
@@ -234,8 +253,9 @@ func (a *App) handler() http.Handler {
 	var h http.Handler = a.mux
 
 	// Innermost first; outermost wraps last so it runs first on the way in.
-	// Order on the way in: requestLog -> recover -> secureHeaders -> auth.
+	// Order on the way in: requestLog -> recover -> secureHeaders -> prefs -> auth.
 	h = a.injectAuth(h)
+	h = a.prefsMiddleware(h)
 	h = a.secureHeaders(h)
 	h = a.recoverPanic(h)
 	h = a.requestLog(h)

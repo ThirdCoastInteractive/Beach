@@ -51,6 +51,9 @@ the-beach/                module github.com/ThirdCoastInteractive/the-beach
 │   ├── cache/            Snapshot[T] and Keyed[K,V] caches + NOTIFY invalidation
 │   ├── session/          Postgres-backed sessions (SHA256 tokens, rotation, CSRF)
 │   ├── i18n/             flat key catalog, locale files, T(ctx, key), middleware
+│   ├── prefs/            the visitor's timing preferences (pause live updates,
+│   │                     stop toast timers) — a leaf package for the same reason
+│   │                     i18n is: beach resolves them, driftwood reads them
 │   ├── passwords/        argon2id hashing, PHC strings — zero deps
 │   ├── auth/             principal model (RBAC), login helpers, pretoken, lockout
 │   ├── mailer/ sms/ storage/ rybitten/   transactional mail · SMS (Twilio) · R2/Images · RYB palettes

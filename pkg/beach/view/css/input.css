@@ -410,6 +410,15 @@
 }
 
 
+/* The shape a keyboard cursor is currently on inside a chart. The hover modules
+   already brighten it; this adds an outline, because a highlight that reads as
+   "hovered" does not read as "focused", and someone arrowing through a chart
+   needs to see where they are without a pointer to look for. */
+.chart-kb-active {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
 /* ==========================================================================
  * The tab ladder. A CSS-only tab set cannot address "the panel matching the
  * checked radio" generically, so each index gets its own pair of rules. Eight
@@ -517,6 +526,13 @@
   .ui-skeleton,
   .ui-defer,
   .dw-progress.is-indeterminate .dw-progress-bar {
+    animation: none !important;
+  }
+  /* Stopping the fade leaves the toast at the *start* of the keyframe — fully
+     opaque — which is the safe direction: reduced motion must never be the
+     reason a message disappears. Someone who wants toasts gone still has the
+     close button and the auto-dismiss preference. */
+  .dw-toast[data-dismiss] {
     animation: none !important;
   }
   /* A placeholder that has stopped pulsing still has to read as "not content
@@ -1285,6 +1301,7 @@
 .icon-list::before           { content: "☰"; }
 .icon-mail::before           { content: "✉\FE0E"; }
 .icon-pencil::before         { content: "✎"; }
+.icon-pause::before          { content: "⏸\FE0E"; }
 .icon-pin::before            { content: "📌\FE0E"; }
 .icon-play::before           { content: "▶\FE0E"; }
 .icon-plus::before           { content: "+"; }
@@ -1561,6 +1578,27 @@
   .dw-toast-title { @apply font-bold; }
   .dw-toast-msg { @apply m-0 text-sm text-zinc-300; }
   .dw-toast-close { @apply flex-none border-0 bg-transparent text-inherit; }
+
+  /* Auto-dismiss (WCAG 2.2.1 Timing Adjustable). The timer is an animation
+     rather than script, and it is *pausable*: hovering or tabbing into a toast
+     stops the clock, so a toast cannot expire out from under someone who is
+     reading it or has focus inside it. --dw-toast-life is set per toast, so one
+     page can hold a six-second confirmation and a longer one at once.
+
+     The keyframe ends at visibility:hidden rather than display:none so the
+     element keeps its box until the very end and the stack does not jump while
+     a neighbour is fading. */
+  .dw-toast[data-dismiss] {
+    animation: dw-toast-out var(--dw-toast-life, 6s) ease-in forwards;
+  }
+  .dw-toast[data-dismiss]:hover,
+  .dw-toast[data-dismiss]:focus-within {
+    animation-play-state: paused;
+  }
+  @keyframes dw-toast-out {
+    0%, 82% { opacity: 1; }
+    100%    { opacity: 0; visibility: hidden; }
+  }
   /* Role toasts mirror the alert trio: token tint + border + ink, override-aware. */
   .dw-toast-good { @apply border-(--color-good)/40 bg-(--color-good)/15 text-(--color-good); }
   .dw-toast-warn { @apply border-(--color-warn)/40 bg-(--color-warn)/15 text-(--color-warn); }
@@ -1583,6 +1621,11 @@
   .dw-modal-head { @apply flex items-center justify-between border-b border-(--color-line-soft) px-4 py-3; }
   .dw-modal-title { @apply m-0 text-base font-semibold; }
   .dw-modal-body { @apply p-4; }
+  /* The actions row a confirm dialog needs; the modal had head and body only.
+     Cancel sits first in the DOM (it is what the dialog focuses on open) and is
+     pushed to the left, so the destructive button is not under the thumb. */
+  .dw-modal-foot { @apply mt-4 flex flex-wrap items-center justify-end gap-2; }
+  .dw-confirm-msg { @apply m-0 text-sm text-(--color-fg-default); }
   .dw-drawer { @apply fixed z-40 m-0 h-screen max-h-screen w-[min(28rem,100vw)] border-0 bg-(--color-panel) p-0 text-(--color-fg-default) shadow-2xl; }
   .dw-drawer-right { @apply inset-y-0 end-0; }
   .dw-drawer-left { @apply inset-y-0 start-0; }
@@ -1614,6 +1657,13 @@
   .dw-img { @apply size-full; }
   .dw-fit-cover { @apply object-cover; }
   .dw-fit-contain { @apply object-contain; }
+  .dw-video { @apply size-full; }
+  /* Media object: figure / body / actions. min-w-0 on the body so a long word
+     cannot push the row past 320px (WCAG 1.4.10). */
+  .dw-media { @apply flex items-start gap-3; }
+  .dw-media-figure { @apply flex-none; }
+  .dw-media-body { @apply min-w-0 flex-1; }
+  .dw-media-actions { @apply flex-none; }
   .dw-figure { @apply m-0 grid gap-2; }
   .dw-figcaption { @apply text-xs text-(--color-fg-muted); }
 
@@ -1651,6 +1701,14 @@
      SSE-patched status messages land *inside* an already-announced region —
      a region that arrives together with its content is not read out
      (WCAG 4.1.3). Positioned, not clipped: toasts are visible content. */
+  /* The pause control for server-pushed updates (WCAG 2.2.2). It sits inline
+     with whatever it governs rather than in a settings screen, because a
+     mechanism nobody can find is not a mechanism. */
+  .dw-live { @apply flex flex-col gap-2; }
+  .dw-live-form { @apply contents; }
+  .dw-live-btn { @apply self-start; }
+  .dw-live-status { @apply m-0 text-sm text-(--color-fg-muted); }
+
   .dw-toasts { @apply pointer-events-none fixed bottom-4 end-4 z-40 flex flex-col items-end gap-2; }
   .dw-toasts > * { @apply pointer-events-auto; }
   .dw-shell-top { @apply sticky top-0 z-10 border-b border-(--color-line-soft) bg-(--color-panel) text-(--color-fg-default); }

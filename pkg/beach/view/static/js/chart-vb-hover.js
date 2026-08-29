@@ -1,74 +1,87 @@
-// Generic viewBox-based crosshair hover for charts that use a viewBox
-// coordinate system (Bollinger, Difference, Scatter, etc.). Shows a
-// vertical crosshair line tracking the pointer within the plot area.
+// Crosshair for the band charts — Bollinger, Difference — which share a viewBox
+// coordinate system and a plot rectangle described by data-plot-* attributes.
+//
+// The crosshair used to show a position and nothing else: fine for a pointer,
+// whose owner can read the line underneath it, and worth nothing to a keyboard,
+// which has no way to read anything. So the server now sends the samples
+// (data-vb-hover names a JSON payload) with the announcement text already
+// formatted, and this module steps through them on the arrow keys and says each
+// one — WCAG 2.1.1.
+//
+// The text arrives finished rather than as parts, because assembling it would
+// mean deciding number formatting and word order for a language this module does
+// not know. The server has the labels, the units and the catalog.
 
-(function () {
-  var NS = 'http://www.w3.org/2000/svg';
+import { announce, liveRegion, observeAll, rovingKeys } from './chart-keys.js';
 
-  function init(svg) {
-    if (svg.__vbHoverWired) return;
-    svg.__vbHoverWired = true;
+const NS = 'http://www.w3.org/2000/svg';
 
-    var overlay = svg.querySelector('.vb-hover-overlay');
-    if (!overlay) return;
+function init(svg) {
+  const overlay = svg.querySelector('.vb-hover-overlay');
+  if (!overlay) return;
 
-    var plotL = parseFloat(svg.getAttribute('data-plot-l') || '0');
-    var plotR = parseFloat(svg.getAttribute('data-plot-r') || '1000');
-    var plotT = parseFloat(svg.getAttribute('data-plot-t') || '0');
-    var plotB = parseFloat(svg.getAttribute('data-plot-b') || '600');
+  const plotL = parseFloat(svg.getAttribute('data-plot-l') || '0');
+  const plotR = parseFloat(svg.getAttribute('data-plot-r') || '1000');
+  const plotT = parseFloat(svg.getAttribute('data-plot-t') || '0');
+  const plotB = parseFloat(svg.getAttribute('data-plot-b') || '600');
 
-    var cross = document.createElementNS(NS, 'line');
-    cross.setAttribute('stroke', 'var(--color-fg-muted)');
-    cross.setAttribute('stroke-width', '1');
-    cross.setAttribute('stroke-dasharray', '4 4');
-    cross.setAttribute('pointer-events', 'none');
-    cross.style.display = 'none';
-    svg.appendChild(cross);
+  const cross = document.createElementNS(NS, 'line');
+  cross.setAttribute('stroke', 'var(--color-fg-muted)');
+  cross.setAttribute('stroke-width', '1');
+  cross.setAttribute('stroke-dasharray', '4 4');
+  cross.setAttribute('pointer-events', 'none');
+  cross.style.display = 'none';
+  svg.appendChild(cross);
 
-    function svgX(clientX) {
-      var pt = svg.createSVGPoint();
-      pt.x = clientX;
-      pt.y = 0;
-      var ctm = svg.getScreenCTM();
-      if (!ctm) return plotL;
-      var svgPt = pt.matrixTransform(ctm.inverse());
-      return Math.max(plotL, Math.min(plotR, svgPt.x));
+  const showAt = (x) => {
+    cross.setAttribute('x1', x);
+    cross.setAttribute('x2', x);
+    cross.setAttribute('y1', plotT);
+    cross.setAttribute('y2', plotB);
+    cross.style.display = '';
+  };
+  const hide = () => { cross.style.display = 'none'; };
+
+  const svgX = (clientX) => {
+    const pt = svg.createSVGPoint();
+    pt.x = clientX;
+    pt.y = 0;
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return plotL;
+    return Math.max(plotL, Math.min(plotR, pt.matrixTransform(ctm.inverse()).x));
+  };
+
+  overlay.addEventListener('pointermove', (ev) => showAt(svgX(ev.clientX)));
+  overlay.addEventListener('pointerleave', hide);
+
+  // --- keyboard -------------------------------------------------------------
+
+  // The figure is the tab stop, not the SVG: the SVG is aria-hidden, and a
+  // focusable descendant of aria-hidden is its own defect.
+  const fig = svg.closest('[data-chart-keys="vb"]');
+  if (!fig) return;
+
+  const payload = document.getElementById(svg.dataset.vbHover || '');
+  let samples = [];
+  if (payload) {
+    try {
+      samples = (JSON.parse(payload.textContent) || {}).samples || [];
+    } catch {
+      samples = [];
     }
-
-    overlay.addEventListener('pointermove', function (ev) {
-      var x = svgX(ev.clientX);
-      cross.setAttribute('x1', x);
-      cross.setAttribute('x2', x);
-      cross.setAttribute('y1', plotT);
-      cross.setAttribute('y2', plotB);
-      cross.style.display = '';
-    });
-
-    overlay.addEventListener('pointerleave', function () {
-      cross.style.display = 'none';
-    });
   }
+  if (!samples.length) return;
 
-  function scan(root) {
-    root.querySelectorAll('.vb-hover').forEach(init);
-  }
+  const region = liveRegion(fig);
+  rovingKeys(fig, {
+    count: () => samples.length,
+    onIndex(i) {
+      const s = samples[i];
+      showAt(plotL + s.fx * (plotR - plotL));
+      announce(region, s.text);
+    },
+    onEscape: hide,
+  });
+}
 
-  function start() {
-    scan(document);
-    new MutationObserver(function (mutations) {
-      mutations.forEach(function (m) {
-        m.addedNodes.forEach(function (node) {
-          if (node.nodeType !== 1) return;
-          if (node.matches && node.matches('.vb-hover')) init(node);
-          else if (node.querySelectorAll) scan(node);
-        });
-      });
-    }).observe(document.body, { childList: true, subtree: true });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', start);
-  } else {
-    start();
-  }
-})();
+observeAll('.vb-hover', init, '__vbHoverWired');

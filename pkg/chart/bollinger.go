@@ -37,6 +37,12 @@ type Bollinger struct {
 	PlotT     float64
 	PlotB     float64
 	Color     string
+
+	// HoverID names the JSON payload the client crosshair reads, and Hover is
+	// the payload: one entry per sample, each carrying the sentence to announce
+	// when a keyboard lands on it (WCAG 2.1.1).
+	HoverID string
+	Hover   VBHover
 }
 
 // --- Layout -----------------------------------------------------------------
@@ -175,6 +181,21 @@ func LayoutBollinger(data BollingerData) Bollinger {
 	for i := 0; i < n; i += step {
 		out.XTicks = append(out.XTicks, StreamTick{X: xMap(i), Label: data.Points[i].Label})
 	}
+
+	// The crosshair shows a position; this is what it can say. Built here
+	// because the unit and the number formatting are here, and the client has
+	// neither.
+	unit := ""
+	if data.Unit != "" {
+		unit = " " + data.Unit
+	}
+	labels := make([]string, n)
+	for i, pt := range data.Points {
+		labels[i] = pt.Label
+	}
+	out.Hover = vbHover(labels, func(i int) string {
+		return fmt.Sprintf("%s: %.2f%s", data.Points[i].Label, data.Points[i].Value, unit)
+	})
 
 	return out
 }

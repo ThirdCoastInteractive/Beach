@@ -117,7 +117,7 @@ the solid `ui --> rybitten` edge is the specimen's gamut preview — see
 | [3 — The ECS pitch](rfc/03-ecs.md)       | Why a custom engine, the design pillars, the hybrid boundary |
 | [4 — Program & risks](rfc/04-program.md) | The 10 shippable projects, validation criteria, risks        |
 | [5 — WebSockets](rfc/05-websockets.md)   | `App.Socket`: the non-hypermedia channel, coalescing, relay  |
-| [6 — Accessibility](rfc/06-accessibility.md) | WCAG 2.1 AA as a law: the audit, the palette move, names as translations, the live region, enforcement, and the known exceptions |
+| [6 — Accessibility](rfc/06-accessibility.md) | WCAG 2.1 AA as a law: the audit, the palette move, names as translations, the live region, pausing a stream, the keyboard layer for charts, enforcement, and the known exceptions |
 
 ## Architecture — the how
 

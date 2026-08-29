@@ -42,6 +42,11 @@ func TestCatalogComponentsRender(t *testing.T) {
 		"popover":    {c: Popover(PopoverProps{ID: "p", Label: "Info"}), children: []templ.Component{text("panel")}},
 		"figure":     {c: Figure(FigureProps{Image: ImageProps{Src: "/a.avif", Alt: "x", Ratio: RatioPhoto}, Caption: "A caption"})},
 		"erralert":   {c: ErrorAlert("err-1", true, "Save failed", "Try again")},
+		"livetoggle": {c: LiveToggle(LiveToggleProps{ID: "live", Stream: "/live", Label: "Board"})},
+		"livestream": {c: LiveStream(LiveStreamProps{ID: "hand", Stream: "/hand"})},
+		"video":      {c: Video(VideoProps{Src: "/v.mp4", Poster: "/v.jpg", Ratio: RatioWide, Label: "Site tour", Tracks: []Track{{Src: "/v.en.vtt", Lang: "en", Label: "English", Default: true}}})},
+		"mediaobj":   {c: MediaObject(MediaObjectProps{Media: Avatar(AvatarProps{Initials: "HS"}), Body: text("said something"), Actions: text("x")})},
+		"confirm":    {c: Confirm(ConfirmProps{ID: "del", Title: "Delete booking?", Message: "The guest is notified and this cannot be undone.", ConfirmLabel: "Delete booking", Post: "/bookings/1/delete", Hazard: true})},
 	}
 	for name, tc := range cases {
 		out := render(t, tc.c, tc.children...)
@@ -123,7 +128,7 @@ func TestCatalogStructuralDetails(t *testing.T) {
 	}
 
 	// Numeric input threads step/min/max/inputmode/autocomplete/spellcheck through.
-	num := render(t, Input(TextInputProps{Name: "qty", Type: "number", Min: "1", Max: "9", Step: "1", InputMode: "numeric", Autocomplete: "off", Spellcheck: "false"}))
+	num := render(t, Input(TextInputProps{Name: "qty", Type: "number", Min: "1", Max: "9", Step: "1", InputMode: "numeric", Autocomplete: AutocompleteOff, Spellcheck: "false"}))
 	for _, want := range []string{`type="number"`, `min="1"`, `max="9"`, `step="1"`, `inputmode="numeric"`, `autocomplete="off"`, `spellcheck="false"`} {
 		if !strings.Contains(num, want) {
 			t.Errorf("numeric input missing %q: %s", want, num)

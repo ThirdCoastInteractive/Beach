@@ -21,8 +21,7 @@
   "ui.a11y.delta.up": "up",
   "ui.a11y.delta.down": "down",
   "ui.a11y.delta.none": "no change",
-  "ui.a11y.chart.line": "Time series chart.",
-  "ui.a11y.chart.keys": "Use left and right arrow keys to step through samples.",
+  "ui.a11y.chart.keys": "Use the arrow keys to step through it, Home and End for the ends, Escape to leave.",
   "framework.error.not_found.detail": "The page you were looking for does not exist.",
   "framework.error.forbidden": "Forbidden",
   "framework.error.forbidden.detail": "You do not have permission to view this page.",
@@ -47,5 +46,14 @@
   "ui.auth.password": "Password",
   "ui.auth.email_optional": "Email (optional)",
   "ui.auth.terms_accept": "I am 18+ and accept the terms",
-  "ui.auth.terms_read": "Read the terms"
+  "ui.auth.terms_read": "Read the terms",
+  "ui.a11y.live.pause": "Pause updates",
+  "ui.a11y.live.resume": "Resume updates",
+  "ui.a11y.live.pause_named": "Pause %s updates",
+  "ui.a11y.live.resume_named": "Resume %s updates",
+  "ui.a11y.live.paused": "Updates are paused.",
+  "ui.confirm.title": "Are you sure?",
+  "ui.confirm.confirm": "Confirm",
+  "ui.confirm.cancel": "Cancel",
+  "ui.a11y.chart.generic": "Chart."
 }

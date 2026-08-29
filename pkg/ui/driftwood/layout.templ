@@ -2,6 +2,7 @@ package driftwood
 
 import (
 	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/prefs"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/ui"
 )
 
@@ -421,5 +422,89 @@ templ pageLink(label, name string, base string, n int, disabled bool, current bo
 				aria-current="page"
 			}
 		>{ label }</a>
+	}
+}
+
+// --- Live updates -------------------------------------------------------------
+
+// LiveToggle is the pause control for a page's server-pushed updates, together
+// with the element that opens the stream.
+//
+// WCAG 2.2.2 asks for a mechanism to pause, stop or hide auto-updating
+// information — and a page that streams is the normal case here, not the
+// exception, so the mechanism has to be a kit component rather than something
+// each app invents. This is it.
+//
+// It works by *not rendering* the element that opens the stream. Paused, there
+// is nothing on the page holding an SSE connection; the form post that flips the
+// preference is a navigation, so the connection the previous page held is closed
+// by the browser and the new page never opens another. Stopping means stopped —
+// the server's subscription is released too, not merely ignored.
+//
+// The preference is honoured by the framework's stream adapter as well
+// (beach.LiveUpdates), so a paused visitor gets the catch-up render and no live
+// events even from a stream this component knows nothing about.
+templ LiveToggle(p LiveToggleProps) {
+	{{ live := isLive(ctx) }}
+	<div class="dw-live" { p.Attrs.Templ()... }>
+		<form class="dw-live-form" method="post" action={ templ.SafeURL(prefs.Path) }>
+			<input type="hidden" name="live" value={ liveTargetState(live) }/>
+			<button
+				type="submit"
+				class="dw-btn dw-btn-quiet dw-live-btn"
+				aria-pressed={ ariaBool(!live) }
+			>
+				@ui.Icon(liveIcon(live))
+				<span class="dw-btn-label">{ liveButtonLabel(ctx, p, live) }</span>
+			</button>
+		</form>
+		if p.Stream != "" {
+			if live {
+				<div
+					if p.ID != "" {
+						id={ p.ID }
+					}
+					data-init={ "@get('" + p.Stream + "')" }
+				></div>
+			} else {
+				// Paused: the id survives so a fragment still has its target,
+				// but nothing here opens a connection.
+				<div
+					if p.ID != "" {
+						id={ p.ID }
+					}
+				></div>
+				<p class="dw-live-status">{ i18n.T(ctx, "ui.a11y.live.paused") }</p>
+			}
+		}
+	</div>
+}
+
+// LiveStream is an extra stream holder for a page whose [LiveToggle] governs
+// more than one connection.
+//
+// It is the second half of LiveToggle with the button left off: live, it opens
+// the stream; paused, it renders the same element with the same id and nothing
+// that connects. A page renders one LiveToggle and as many of these as it has
+// remaining streams, and one press stops them all — the server drops the topics
+// for every one of them either way (SC 2.2.2).
+templ LiveStream(p LiveStreamProps) {
+	if p.Stream != "" {
+		if isLive(ctx) {
+			<div
+				if p.ID != "" {
+					id={ p.ID }
+				}
+				data-init={ "@get('" + p.Stream + "')" }
+				{ p.Attrs.Templ()... }
+			></div>
+		} else {
+			<div
+				if p.ID != "" {
+					id={ p.ID }
+				}
+				{ p.Attrs.Templ()... }
+			></div>
+		}
 	}
 }

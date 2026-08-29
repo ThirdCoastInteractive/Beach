@@ -206,6 +206,219 @@ covered by the pair test. `opacity` for de-emphasis is out: it moves a color the
 longer describe. Disabled controls keep their dim text — SC 1.4.3 exempts them, and a
 disabled field that reads as enabled is a worse bug.
 
+## The second pass — seven criteria, and why they were left
+
+The first pass made the law and closed most of it. Seven criteria came back, and the reason
+they came back is worth recording, because six of the seven were already *documented*: the
+component catalog listed a toast that auto-dismisses, a Confirm preset, a `<picture>`
+fallback, a Video and a Media object. None of them existed. The first pass had read
+"implementing that as documented would create a violation" as a reason to leave it, which is
+exactly backwards — the docs and the code agreeing is the whole point of the law, so the
+answer is to implement it *conformantly*.
+
+### SC 2.2.2 Pause, Stop, Hide (A) — the one that is uniquely ours
+
+The criterion names *auto-updating information* explicitly, and server-pushed updates are
+this framework's premise. The scaffold's own demo — a clock advancing every second, forever,
+beside other content — is the spec's textbook case, and nothing in `hub`, `StreamFunc` or
+`Patch` could stop it.
+
+Two findings made it small.
+
+**Note 3 of the criterion** says content streamed to the user agent is not required to
+preserve or present what was generated between the pause and the resume. A pause therefore
+needs no buffer, no replay and no cursor — which was the part that looked expensive.
+
+**`adaptStream` already returns early when a subscription names no topics**, after running
+`CatchUp`. A paused stream was therefore *already expressible*: render current state once,
+then end. The enforcement is four lines, and it lives in the framework rather than in the
+component, so an app that never renders a control still cannot stream to someone who opted
+out:
+
+```go
+if !LiveUpdates(c.Context()) {
+    sub.Topics = nil
+}
+```
+
+The control is a **navigation, not a script**: a form post to `POST /_beach/prefs`, a cookie,
+a 303 back. The old SSE connection dies with the page; the new page renders without the
+element that opens the stream. This was chosen over an in-place Datastar swap because
+cancelling an open stream in place depends on Datastar's `requestCancellation` internals —
+readable, but not something to build a conformance claim on — while a navigation cannot fail.
+It also matches the grain already set by the locale switcher.
+
+`prefs` is its own leaf package for the same reason `i18n` is: the HTTP layer resolves the
+preference and the component kit has to read it, and the kit cannot import the HTTP layer.
+The cookie stores only what was switched *off*, so an absent cookie is a first visit rather
+than a visitor who refused everything.
+
+### SC 2.2.1 Timing Adjustable (A) — the toast timer
+
+The catalog had promised auto-dismiss for a long time; the CSS was never written, and
+`// Auto-dismiss is CSS.` sat in the source as the only trace of it. A fading notification
+*is* a time limit, so shipping it as documented meant shipping it with the criterion's
+remedies attached. It is **on by default**, with three guards:
+
+1. **Hover and focus stop the clock** — `animation-play-state: paused` on
+   `:hover, :focus-within`. A toast cannot expire while it is being read or tabbed into.
+2. **Roles that carry work never expire.** `RoleDanger` and `RoleWarn` default to persistent,
+   so the framework's own error toasts cannot time out. An explicit `Dismiss` overrides
+   either way, and `ToastPersist` says so by name.
+3. **A visitor can turn it off before encountering it** — `Prefs.AutoDismiss`, which is the
+   literal first bullet of the criterion.
+
+Under `prefers-reduced-motion` the animation is dropped, which leaves the toast at the *start*
+of the keyframe — visible. That direction is deliberate: reduced motion must never be the
+reason a message disappears.
+
+This also fixed a live bug. Boardwalk pushes toasts over SSE into the live region, where they
+had been accumulating without limit.
+
+### SC 2.1.1 Keyboard (A) — the six hover-only charts
+
+Only the line chart had a keyboard model. Five modules were pointer-only, and every chart SVG
+is `aria-hidden`, so their content was unreachable by any non-pointer route — the tooltip
+holding the actual numbers included.
+
+The lever was already in the tree: `chart-toggle.js` drives the highlight modules by
+*synthesising* `mouseenter`, so a keyboard layer that does the same inherits every existing
+highlight behaviour and **the four highlight modules needed no edits at all**. The
+announcement text was already in the DOM too — `data-tip` carries server-rendered, already
+localized HTML — which is how this reaches the catalog that client modules otherwise cannot.
+
+`chart-keys.js` is the shared helper the five modules never had (`observeAll`, `liveRegion`,
+`announce`, `textOf`, `rovingKeys`, `hoverKeys`), and writing it fixed five live defects in
+`chart-line-hover.js`, two of which mattered:
+
+- `fig.querySelector('.sr-only')` returned the **`<figcaption>`** whenever `Describe()` was
+  used, because the caption is emitted before the live region. Announcements were overwriting
+  the chart's text alternative and reaching no live region at all. `liveRegion()` selects
+  `[aria-live]`.
+- A repeated identical string is a no-op for most screen readers, so stepping onto two
+  samples with the same value said nothing. `announce()` toggles a zero-width space, which
+  makes each assignment a genuine change without changing what is spoken.
+
+Bollinger and Difference had no per-sample data at all — the crosshair drew a position and
+nothing else, which is fine for a pointer whose owner can read the line underneath it and
+worth nothing to a keyboard. The server now emits a `VBHover` payload with the announcement
+text **already formatted**, because assembling it client-side would mean deciding number
+formatting and word order for a language that module does not know.
+
+`Interactive()` is opt-in per fragment. A decorative chart stays decorative rather than
+gaining a tab stop that leads nowhere.
+
+### SC 3.1.2 Language of Parts (AA)
+
+`Lang` and `LangBlock` mark a run of text in another language, carrying both the tag and the
+direction: a screen reader switches voice on the first, the text lays out correctly on the
+second. `i18n.Dir` already existed.
+
+### SC 1.3.5 Identify Input Purpose (AA)
+
+`TextInputProps.Autocomplete` was a bare `string`, which steered nobody toward the token set
+the criterion names. It is now an `Autocomplete` type with the tokens as constants, grouped
+identity / address / payment / contact — the house pattern already set by `Role`, `Size`,
+`Surface`, `Ratio` and `SortDir`. Every existing call site passes an untyped literal, so it
+converted implicitly and nothing broke. `Type`, `InputMode` and `Spellcheck` stay bare
+strings: the criterion names *this* vocabulary and not those.
+
+### SC 1.2.x Media
+
+`Video` enforces rather than documents: `preload="none"` by default, a reserved aspect frame
+before any byte arrives, `<track>` defaulting to `kind="captions"` (captions carry the
+non-speech sound that subtitles drop), and **no autoplay without controls** — `Background`
+forces muted + loop + *native controls*, because the alternative pause mechanism is a scripted
+button, and this kit does not do local interactivity in script. Autoplay-without-controls is a
+shape the component cannot be made to produce.
+
+`ImageProps.Sources` renders a `<picture>` with the fallback `<img>` last, closing the
+documented AVIF → WebP → original promise. `MediaObject` closes the catalog's last
+aspirational Media row.
+
+### SC 3.3.4 Error Prevention (AA)
+
+`Confirm` is built on the existing `Modal`, so the focus trap and Escape are the platform's.
+The extra click is not what the criterion buys — the sentence is — so the message is wired as
+the dialog's **description**, and it is announced with the name rather than only if someone
+goes looking.
+
+## What only the browser found, second pass
+
+Both defects here rendered correctly, read correctly in the source, and passed a test.
+
+**A sankey's node label carries the same `data-node-id` as its node.** Walking
+`[data-node-id]` therefore visited every node twice and announced nothing on the second
+visit, because only the node rect carries a `data-tip`. Half of every keypress was silence.
+The selector is now `.chart-hover-node`.
+
+**`aria-describedby` on a `<div>` describes nothing.** `Confirm` put the attribute on its
+inner wrapper rather than on the `<dialog>`. It rendered, it resolved, and the unit test —
+which asked only whether the string appeared *somewhere* in the output — passed. A `div` is
+not a widget, so nothing ever read the description. The test is now positional, asserting the
+attribute sits inside the `<dialog>` tag itself, and a `Confirm` with no message is asserted
+to carry no dangling reference either.
+
+**A native `<dialog>` focuses the first focusable descendant, and `Modal` renders its close
+X first.** Ordering Cancel before the destructive button was not enough to focus it; Cancel
+now carries `autofocus`. The safe answer should be the one already under the finger.
+
+### Two i18n defects the scaffold surfaced, and the law they were breaking
+
+Running the stamped `beach new` app in a browser found that its skip link read the
+literal string `ui.a11y.skip_to_content`. Not a new bug — the scaffold had shipped that
+on every page since accessible names became catalog keys. Two independent faults, both of
+which make [clause 1 of the law](../architecture/06-ui.md#accessible-by-construction)
+false in exactly the apps it matters for:
+
+**An app's catalog replaced the framework's instead of extending it.** `Catalog.Lookup`
+consulted the requested locale, then the catalog's own default locale, then gave up and
+returned the key. The framework's embedded catalog — documented in the source as "the
+immutable ultimate fallback" — was never consulted at all. So the moment an app set
+`Config.Locales`, which is every app past the scaffold's first hour, every framework
+string became a raw key: the skip link, the close button on every dialog, the sort states,
+the whole `ui.a11y.*` set. `Lookup` now falls through to the embedded catalog last, so an
+app's catalog *adds to* the framework's; an app that wants different wording still wins,
+because its own catalog is consulted first.
+
+**An off-request render had no catalog at all.** `Config.Locales` puts the catalog on the
+*request* context, and that was all it did. A `hub.Ticker` rendering a fragment to fan out
+over SSE has `context.Background()` and nothing else, so it fell through to the package
+default, which the app had never set — and emitted its own keys as visible text. The
+scaffold's clock did this the moment it ticked. `beach.New` now calls `i18n.SetDefault`
+with the configured catalog, which is what that function documents itself for: a single
+boot-time call so `i18n.T` resolves an app's strings without threading a `*Catalog`
+through every handler.
+
+Neither was found by a test, and neither could have been: both suites render components
+against the framework's own catalog, which is the one arrangement where both bugs are
+invisible. What found them was running the scaffold — the thing every new app starts as —
+and reading the page.
+
+## Verification, second pass
+
+Everything above, plus, in a real browser:
+
+- **The pause is real, not cosmetic.** With the preference set, the page renders no element
+  that opens a stream; hitting the stream endpoint directly with the cookie returns exactly
+  one catch-up patch and the server closes the connection, while the same request without the
+  cookie holds it open. Resume renders current state and live updates continue.
+- **The toast timer.** A routine toast runs a 6s fade to `visibility: hidden`; focus-within
+  freezes it mid-fade; a danger toast carries no animation at all; the preference removes the
+  timer from every toast.
+- **All six chart families.** Every one of the 22 interactive figures renders a tab stop,
+  `role="group"`, an accessible name and exactly one live region. Arrowing through each
+  family produces a distinct announcement at every step and zero silent stops — the check
+  that caught the sankey defect — and stepping onto the same value twice still changes the
+  live region.
+- **Video.** `readyState: 0` and no media request before interaction; the 16/9 frame reserved
+  before the poster paints; the caption track present and showing.
+- **Confirm.** Focus lands on Cancel, the accessible description resolves to the consequence,
+  and Escape closes.
+- **The scaffold, as a real app.** `beach new`, run and read: the clock ticks, one press
+  stops it, the cookie survives the reload, resume renders current state and continues —
+  and no page, patched or first-rendered, contains a raw catalog key.
+
 ## Known exceptions
 
 Stated plainly, because a conformance claim with no exceptions list is not a claim.
