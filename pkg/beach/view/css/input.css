@@ -42,14 +42,26 @@
 
   /* Line ladder */
   --color-line-soft: #27272a;    /* hairline dividers (zinc-800) */
-  --color-line-strong: #52525b;  /* emphatic borders, input edges (zinc-600) */
+  /* zinc-500, not zinc-600: an input edge is a UI component boundary, so it
+     owes 3:1 against every surface it sits on (WCAG 1.4.11). zinc-600 managed
+     only 2.29:1 on --color-panel. */
+  --color-line-strong: #71717a;  /* emphatic borders, input edges (zinc-500) */
 
-  /* Accent — munsell teal, with the derived stops the kit needs internally
-     (sampled from the gamut's blue axis at the old sky-stop lightnesses). */
-  --color-accent: #3b8ea8;
-  --color-accent-hover: #4091ac; /* solid-fill hover */
-  --color-accent-text: #64a1b1;  /* accent as text/link on dark */
-  --color-accent-soft: #354b45;  /* tinted background wash */
+  /* Accent — munsell teal, sampled from the gamut's blue axis
+     (rybitten hue 240, sat 1.0) at the lightness stops below. The stops are
+     chosen so white label text clears 4.5:1 on the solid fill in *both* rest
+     and hover states, and so the focus ring clears 3:1 against paper, panel
+     and panel-hover. That window is narrow, and it is why hover darkens rather
+     than lightens — see docs/architecture/11-decisions.md. */
+  --color-accent: #3d7c82;       /* light 0.290 — white 4.76, ring 4.18/3.72/3.13 */
+  --color-accent-hover: #3c7070; /* light 0.245 — solid-fill hover, white 5.61 */
+  --color-accent-text: #64a1b1;  /* accent as text/link on dark (6.89 on paper) */
+  --color-accent-soft: #192c2f;  /* tinted wash: the accent at 30% over paper */
+  /* The ink that goes on an accent fill. It is a token rather than `text-white`
+     because it is a pairing decision — the accent's lightness is chosen so this
+     clears 4.5:1 on it — and only a named token is visible to the contrast test
+     that holds the pair. Move one, check the other. */
+  --color-on-accent: #ffffff;
 
   /* Secondary + tertiary accents — generic category tokens for A/B/C and phase
      coding (feed sides, redundancy legs, chart segments). The ratified Atlas
@@ -333,11 +345,202 @@
   border: 0;
 }
 
+/* Visually hidden until focused — the skip link, and anything else that should
+   stay out of the visual design but appear the moment a keyboard reaches it. */
+.sr-only-focusable:not(:focus):not(:focus-within) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* Keyboard-only focus indicator (Atlas's @utility as a plain rule; the-beach
    has no accent-3, so the base accent draws the ring). */
 .focus-ring:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
+}
+
+/* ==========================================================================
+ * The focus law (WCAG 2.4.7 + 1.4.11).
+ *
+ * Every focusable thing in the kit draws the same ring, and --color-accent is
+ * pinned to a lightness that clears 3:1 against paper, panel and panel-hover
+ * (see the accent block above), so the indicator is visible on every surface.
+ * These are plain rules, so they sit outside @layer components and win over the
+ * per-component styling below without a specificity war.
+ *
+ * .dw-btn / .dw-iconbtn / .dw-segment / .dw-input carry their own tuned ring in
+ * the components layer and are deliberately absent here. Everything else in the
+ * kit that can hold focus is listed — if you add an interactive dw-* class,
+ * add it here too. `beach-vet` cannot see CSS, so this list is the contract.
+ * ========================================================================== */
+.dw-skip-link:focus-visible,
+.dw-brand:focus-visible,
+.dw-navitem:focus-visible,
+.dw-side-link:focus-visible,
+.dw-crumb-link:focus-visible,
+.dw-page-link:focus-visible,
+.dw-menu-link:focus-visible,
+.dw-menubtn-trigger:focus-visible,
+.dw-popover-trigger:focus-visible,
+.dw-th-sort:focus-visible,
+.dw-alert-close:focus-visible,
+.dw-toast-close:focus-visible,
+.dw-composer-send:focus-visible,
+.dw-tooltip-trigger:focus-visible,
+.dw-row-title:focus-visible,
+.dw-formerror-link:focus-visible,
+.dw-checkbox:focus-visible,
+.dw-radio:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* The switch hides its real <input> behind a painted track, so the ring has to
+   be drawn by the visible proxy on the input's behalf. */
+.dw-toggle:has(.dw-toggle-input:focus-visible) .dw-toggle-track {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+
+/* ==========================================================================
+ * The tab ladder. A CSS-only tab set cannot address "the panel matching the
+ * checked radio" generically, so each index gets its own pair of rules. Eight
+ * is the cap (DW_MAX_TABS); a ninth tab is a sign the surface wants navigation,
+ * not tabs.
+ * ========================================================================== */
+.dw-tabs > .dw-tab-radio:nth-of-type(1):checked ~ .dw-tablist > .dw-tab:nth-child(1) {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(1):focus-visible ~ .dw-tablist > .dw-tab:nth-child(1) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(1):checked ~ .dw-tabpanels > .dw-tabpanel:nth-child(1) {
+  display: block;
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(2):checked ~ .dw-tablist > .dw-tab:nth-child(2) {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(2):focus-visible ~ .dw-tablist > .dw-tab:nth-child(2) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(2):checked ~ .dw-tabpanels > .dw-tabpanel:nth-child(2) {
+  display: block;
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(3):checked ~ .dw-tablist > .dw-tab:nth-child(3) {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(3):focus-visible ~ .dw-tablist > .dw-tab:nth-child(3) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(3):checked ~ .dw-tabpanels > .dw-tabpanel:nth-child(3) {
+  display: block;
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(4):checked ~ .dw-tablist > .dw-tab:nth-child(4) {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(4):focus-visible ~ .dw-tablist > .dw-tab:nth-child(4) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(4):checked ~ .dw-tabpanels > .dw-tabpanel:nth-child(4) {
+  display: block;
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(5):checked ~ .dw-tablist > .dw-tab:nth-child(5) {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(5):focus-visible ~ .dw-tablist > .dw-tab:nth-child(5) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(5):checked ~ .dw-tabpanels > .dw-tabpanel:nth-child(5) {
+  display: block;
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(6):checked ~ .dw-tablist > .dw-tab:nth-child(6) {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(6):focus-visible ~ .dw-tablist > .dw-tab:nth-child(6) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(6):checked ~ .dw-tabpanels > .dw-tabpanel:nth-child(6) {
+  display: block;
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(7):checked ~ .dw-tablist > .dw-tab:nth-child(7) {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(7):focus-visible ~ .dw-tablist > .dw-tab:nth-child(7) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(7):checked ~ .dw-tabpanels > .dw-tabpanel:nth-child(7) {
+  display: block;
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(8):checked ~ .dw-tablist > .dw-tab:nth-child(8) {
+  border-bottom-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(8):focus-visible ~ .dw-tablist > .dw-tab:nth-child(8) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+.dw-tabs > .dw-tab-radio:nth-of-type(8):checked ~ .dw-tabpanels > .dw-tabpanel:nth-child(8) {
+  display: block;
+}
+
+/* ==========================================================================
+ * Reduced motion (WCAG 2.3.3).
+ *
+ * The kit-wide rule. The geomap / globe / geoclock blocks further down handle
+ * their own JS-driven motion on top of this.
+ * ========================================================================== */
+@media (prefers-reduced-motion: reduce) {
+  .icon-spin,
+  .dw-skeleton,
+  .ui-skeleton,
+  .ui-defer,
+  .dw-progress.is-indeterminate .dw-progress-bar {
+    animation: none !important;
+  }
+  /* A placeholder that has stopped pulsing still has to read as "not content
+     yet", so the skeletons trade their animation for a flat dimmed state. */
+  .dw-skeleton,
+  .ui-skeleton,
+  .ui-defer {
+    opacity: 0.5;
+  }
+  .dw-btn,
+  .dw-iconbtn,
+  .dw-segment,
+  .dw-input,
+  .dw-textarea,
+  .dw-select,
+  .dw-navitem,
+  .dw-side-link,
+  .dw-menu-link,
+  .dw-toggle-track,
+  .dw-toggle-thumb,
+  .dw-tooltip-text,
+  .dw-progress-bar {
+    transition: none;
+  }
 }
 
 /* Mono small-caps kicker above headings/widget titles (from atlas-text.css,
@@ -961,10 +1164,12 @@
 /* Chart toolbar — controls chart-toolbar.js injects into the widget header. */
 .chart-toolbar-inline {
   display: flex;
+  /* Wraps rather than staying on one line: at 320px a non-wrapping toolbar is
+     what pushes a whole dashboard sideways (WCAG 1.4.10). */
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem;
   margin-left: auto;
-  flex-shrink: 0;
 }
 
 .chart-toolbar-btn {
@@ -1126,29 +1331,35 @@
   .dw-card-head-action { @apply ms-auto; }
 
   .dw-divider { @apply my-4 border-0 border-t border-(--color-line-soft); }
-  .dw-divider-labeled { @apply flex items-center gap-3 text-xs text-zinc-500; }
+  .dw-divider-labeled { @apply flex items-center gap-3 text-xs text-(--color-fg-muted); }
   .dw-divider-labeled::before, .dw-divider-labeled::after { content: ""; @apply flex-1 border-t border-(--color-line-soft); }
 
   /* --- nav -------------------------------------------------------------- */
   .dw-navbar { @apply flex items-center gap-4 border-b border-(--color-line-soft) bg-(--color-panel) px-4 py-3 text-(--color-fg-default); }
   .dw-brand { @apply text-base font-bold text-zinc-50 no-underline; }
-  .dw-navlinks { @apply ms-auto flex gap-1; }
+  .dw-navlinks { @apply ms-auto flex flex-wrap gap-1; }
   .dw-navitem { @apply inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm text-zinc-300 no-underline transition-colors hover:bg-(--color-panel-hover) hover:text-(--color-fg-default); }
   .dw-navitem.is-active { @apply bg-(--color-panel-hover) text-(--color-accent-text); }
 
   .dw-breadcrumbs .dw-crumbs { @apply m-0 flex list-none flex-wrap gap-2 p-0 text-xs; }
-  .dw-crumb:not(:last-child)::after { content: "/"; @apply ms-2 text-zinc-600; }
+  .dw-crumb:not(:last-child)::after { content: "/"; @apply ms-2 text-(--color-fg-muted); }
   .dw-crumb-link { @apply text-(--color-accent-text) no-underline hover:underline; }
   .dw-crumb.is-current { @apply text-(--color-fg-muted); }
 
-  .dw-tabs .dw-tab-radio { @apply pointer-events-none absolute opacity-0; }
-  .dw-tablist { @apply flex gap-1 border-b border-(--color-line-soft); }
+  /* Tabs are radios + labels + panels, no script. The radio is the real
+     focusable control, so it is clipped (still focusable, still announced)
+     rather than pointer-events-none + opacity-0, which took it out of reach
+     of both the mouse and any visible focus indicator. The ring and the
+     checked styling are relayed to the matching label by the ladder below.
+     Ladder length is DW_MAX_TABS in driftwood/props.go — keep the two in step. */
+  .dw-tabs .dw-tab-radio { @apply absolute size-px overflow-hidden whitespace-nowrap border-0 p-0; clip: rect(0, 0, 0, 0); margin: -1px; }
+  .dw-tablist { @apply flex flex-wrap gap-1 border-b border-(--color-line-soft); }
   .dw-tab { @apply cursor-pointer border-b-2 border-transparent px-4 py-2 text-sm text-(--color-fg-muted) hover:text-(--color-fg-default); }
-  .dw-tabs .dw-tab-radio:checked ~ .dw-tablist label.dw-tab { @apply border-(--color-accent) text-(--color-accent-text); }
+  .dw-tabpanels > .dw-tabpanel { @apply hidden pt-4; }
 
-  .dw-pagination { @apply flex items-center gap-1; }
+  .dw-pagination { @apply flex flex-wrap items-center gap-1; }
   .dw-page-link { @apply min-w-9 rounded-md px-3 py-2 text-center text-sm text-zinc-200 no-underline hover:bg-(--color-panel-hover); }
-  .dw-page-link.is-current { @apply bg-(--color-accent) text-white; }
+  .dw-page-link.is-current { @apply bg-(--color-accent) text-(--color-on-accent); }
   .dw-page-link.is-disabled { @apply pointer-events-none text-zinc-600; }
 
   /* --- buttons ---------------------------------------------------------- */
@@ -1157,7 +1368,7 @@
   /* Solid role fills read straight from the role tokens (good/warn/bad/info),
      so a theme override repaints the buttons. The hover brightens the same
      token; warn carries dark ink because its token is light. */
-  .dw-btn-accent { @apply bg-(--color-accent) text-white hover:bg-(--color-accent-hover); }
+  .dw-btn-accent { @apply bg-(--color-accent) text-(--color-on-accent) hover:bg-(--color-accent-hover); }
   .dw-btn-good { @apply bg-(--color-good) text-(--color-paper) hover:brightness-110; }
   .dw-btn-danger { @apply bg-(--color-bad) text-(--color-paper) hover:brightness-110; }
   .dw-btn-warn { @apply bg-(--color-warn) text-(--color-paper) hover:brightness-110; }
@@ -1180,16 +1391,16 @@
   .dw-btn-hazard:hover { background-color: #ef4444; }
   .dw-btn-hazard > * { @apply relative; }
   .dw-iconbtn { @apply inline-flex size-9 cursor-pointer items-center justify-center rounded-md border border-transparent bg-transparent text-zinc-300 hover:bg-(--color-panel-hover) hover:text-(--color-fg-default) focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent); }
-  .dw-btngroup { @apply inline-flex; }
+  .dw-btngroup { @apply inline-flex flex-wrap; }
   .dw-btngroup > .dw-btn { @apply rounded-none first:rounded-s-md last:rounded-e-md; }
   .dw-btngroup > .dw-btn + .dw-btn { @apply border-s border-(--color-line-strong); }
   /* Segmented: a single-select toggle row. The whole control is bordered; the
      segments join with a hairline; the active one (aria-pressed) raises to the
      accent fill so the selection reads by weight, not color alone. */
-  .dw-segmented { @apply inline-flex border border-(--color-line-strong); }
-  .dw-segment { @apply inline-flex cursor-pointer items-center gap-2 border-0 bg-transparent px-4 py-2 text-sm font-semibold leading-none text-(--color-fg-muted) transition-colors hover:bg-(--color-panel-hover) hover:text-(--color-fg-default) focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-(--color-accent); }
+  .dw-segmented { @apply inline-flex flex-wrap border border-(--color-line-strong); }
+  .dw-segment { @apply inline-flex cursor-pointer items-center gap-2 border-0 bg-transparent px-4 py-2 text-sm font-semibold leading-none text-(--color-fg-muted) transition-colors hover:bg-(--color-panel-hover) hover:text-(--color-fg-default) focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--color-accent); }
   .dw-segment + .dw-segment { @apply border-s border-(--color-line-strong); }
-  .dw-segment.is-active { @apply bg-(--color-accent) text-white hover:bg-(--color-accent-hover) hover:text-white; }
+  .dw-segment.is-active { @apply bg-(--color-accent) text-(--color-on-accent) hover:bg-(--color-accent-hover) hover:text-(--color-on-accent); }
   .dw-segmented-sm .dw-segment { @apply px-3 py-1 text-xs; }
   .dw-segmented-lg .dw-segment { @apply px-5 py-3 text-base; }
   .dw-menubtn { @apply relative inline-block; }
@@ -1199,8 +1410,21 @@
 
   /* --- forms ------------------------------------------------------------ */
   .dw-form { @apply grid gap-4; }
-  .dw-form.is-twocol .dw-field { @apply grid grid-cols-[minmax(0,12rem)_minmax(0,1fr)] items-start gap-3; }
+  /* Two-column only when there is room for two columns. A fixed 12rem label
+     track at 320px leaves ~34px for the control, which is not a narrow form —
+     it is an unusable one, and it pushes the page sideways (WCAG 1.4.10). Below
+     the breakpoint the row stacks, which is the same layout as the default
+     form. */
+  .dw-form.is-twocol .dw-field { @apply grid gap-3 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)] sm:items-start; }
   .dw-field { @apply mb-4 flex flex-col gap-1.5; }
+  /* A Field with no `for` renders as a real <fieldset>/<legend> so the legend
+     names every control inside it. Strip the UA box so it looks identical to
+     the <div> shape — the difference is semantic, not visual. */
+  .dw-field.is-group { @apply m-0 mb-4 border-0 p-0; }
+  .dw-field.is-group > .dw-label { @apply p-0; }
+  /* The required marker. The asterisk is aria-hidden and paired with sr-only
+     text, so the requirement is never carried by a glyph alone. */
+  .dw-required { @apply ms-1 text-(--color-bad); }
   /* Fieldset: a real grouping box on dark (the UA default is light and boxy).
      The legend reads like a section label; a disabled fieldset dims its body. */
   .dw-fieldset { @apply m-0 mb-4 grid gap-3 border border-(--color-line-soft) bg-(--color-panel) px-4 py-3; }
@@ -1214,6 +1438,8 @@
      leaves the OS default alone, a Tab focus draws the accent border + ring. */
   .dw-input, .dw-textarea, .dw-select { @apply w-full rounded-md border border-(--color-line-strong) bg-(--color-paper) px-3 py-2 text-sm text-(--color-fg-default) transition-colors placeholder:text-(--color-fg-muted) focus-visible:border-(--color-accent) focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-(--color-accent); }
   .dw-input.is-error, .dw-textarea.is-error, .dw-select.is-error { @apply border-(--color-bad); }
+  /* Disabled text stays dim on purpose: SC 1.4.3 exempts inactive controls,
+     and a disabled field that reads as enabled is worse than a dim one. */
   .dw-input[disabled], .dw-textarea[disabled], .dw-select[disabled] { @apply bg-(--color-panel) text-zinc-500; }
   .dw-textarea { @apply min-h-24 resize-y; }
   /* AutoGrow: the textarea sizes to its content (modern field-sizing), so it
@@ -1221,7 +1447,12 @@
      keeps an empty box at a usable size; resize stays manual-y for overrides. */
   .dw-textarea.dw-autogrow { field-sizing: content; @apply min-h-24; }
   .dw-inputgroup, .dw-input-group { @apply flex items-stretch; }
-  .dw-inputgroup > .dw-input, .dw-inputgroup > .dw-input-group { @apply flex-1 rounded-e-none; }
+  /* min-w-0 is the reflow fix (WCAG 1.4.10): a flex child will not shrink below
+     its intrinsic width by default, so at 320px an input with an addon pushes
+     the addon — and the page — past the viewport. Letting the input shrink is
+     what keeps the row inside it. */
+  .dw-inputgroup > .dw-input, .dw-inputgroup > .dw-input-group { @apply min-w-0 flex-1 rounded-e-none; }
+  .dw-input-group > .dw-input { @apply min-w-0 flex-1; }
   .dw-inputgroup > .dw-btn { @apply rounded-s-none; }
   .dw-input-addon { @apply inline-flex items-center border border-(--color-line-strong) bg-(--color-panel) px-3 text-sm text-zinc-300; }
   /* Custom select caret: reset the OS appearance, reserve room on the trailing
@@ -1258,16 +1489,28 @@
   .dw-formerror-body { @apply grid gap-1; }
   .dw-formerror-title { @apply font-bold; }
   .dw-formerror-list { @apply m-0 ps-4; }
+  /* An error-summary entry that names a field links to it, so a keyboard or
+     screen-reader user gets from the banner to the control in one activation
+     (WCAG 3.3.1). Underlined, because inside a red banner color cannot be the
+     only thing marking it as a link. */
+  .dw-formerror-link { @apply text-(--color-bad) underline; }
 
   /* --- data ------------------------------------------------------------- */
+  /* Reflow (WCAG 1.4.10): at 320px a data table is allowed to need horizontal
+     scrolling — 1.4.10 exempts it — but only within its own container. Letting
+     it widen the document instead means every other line of text on the page
+     scrolls sideways too, which is the thing the criterion is about. */
+  .dw-table-scroll { @apply w-full overflow-x-auto; }
+  .dw-table-scroll:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
   .dw-table { @apply w-full border-collapse text-sm; }
   .dw-thead { @apply bg-(--color-panel); }
+  .dw-caption { @apply pb-2 text-start text-sm font-semibold text-(--color-fg-muted); }
   .dw-th { @apply border-b border-(--color-line-soft) px-3 py-2.5 text-start font-semibold text-zinc-300; }
   .dw-th-sort { @apply inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent font-semibold text-inherit; }
   .dw-td { @apply border-b border-(--color-line-soft) px-3 py-2.5 text-zinc-200; }
   .dw-tr:hover .dw-td { @apply bg-(--color-panel); }
   .dw-table.is-dense .dw-th, .dw-table.is-dense .dw-td { @apply px-2 py-1.5; }
-  .dw-table-empty { @apply p-6 text-center text-zinc-500; }
+  .dw-table-empty { @apply p-6 text-center text-(--color-fg-muted); }
   .dw-stat { @apply m-0 grid gap-1; }
   .dw-stat-label { @apply text-xs uppercase tracking-wide text-(--color-fg-muted); }
   .dw-stat-value { @apply m-0 text-2xl font-bold leading-none text-zinc-50; }
@@ -1307,7 +1550,7 @@
   .dw-alert-warn { @apply border-(--color-warn)/40 bg-(--color-warn)/15 text-(--color-warn); }
   .dw-alert-danger { @apply border-(--color-bad)/40 bg-(--color-bad)/15 text-(--color-bad); }
   .dw-alert-info { @apply border-(--color-info)/40 bg-(--color-info)/15 text-(--color-info); }
-  .dw-empty { @apply grid justify-items-center gap-3 px-4 py-10 text-center text-zinc-500; }
+  .dw-empty { @apply grid justify-items-center gap-3 px-4 py-10 text-center text-(--color-fg-muted); }
   .dw-empty-icon { @apply text-4xl; }
   .dw-spinner { @apply inline-flex; }
   .dw-spinner.is-block { @apply flex justify-center p-5; }
@@ -1377,13 +1620,19 @@
   /* --- messaging -------------------------------------------------------- */
   .dw-msglist { @apply m-0 flex list-none flex-col gap-2 p-3; }
   .dw-msg { @apply flex max-w-[80%] flex-col gap-0.5 rounded-xl bg-(--color-panel-hover) px-3 py-2 text-sm text-(--color-fg-default); }
-  .dw-msg.is-own { @apply self-end bg-(--color-accent) text-white; }
-  .dw-msg.is-system { @apply max-w-none self-center bg-transparent text-xs italic text-zinc-500; }
-  .dw-msg-author { @apply text-xs font-semibold opacity-80; }
-  .dw-msg-time { @apply text-xs opacity-60; }
+  .dw-msg.is-own { @apply self-end bg-(--color-accent) text-(--color-on-accent); }
+  .dw-msg.is-system { @apply max-w-none self-center bg-transparent text-xs italic text-(--color-fg-muted); }
+  /* Metadata lines inside a bubble. They are secondary, but on the accent fill
+     of an own message there is no room to say so with color — anything dimmer
+     than white drops under 4.5:1 — so the hierarchy there is size and weight
+     alone. This is why neither line uses opacity: dimming silently divides
+     whatever contrast the text had, and no token check can see it happen. */
+  .dw-msg-author { @apply text-xs font-semibold text-(--color-fg-muted); }
+  .dw-msg-time { @apply text-xs text-(--color-fg-muted); }
+  .dw-msg.is-own .dw-msg-author, .dw-msg.is-own .dw-msg-time { @apply text-(--color-on-accent); }
   .dw-composer { @apply flex gap-2 border-t border-(--color-line-soft) p-3; }
   .dw-composer-input { @apply flex-1 resize-none rounded-xl border border-(--color-line-strong) bg-(--color-paper) px-3 py-2 text-sm text-(--color-fg-default); }
-  .dw-composer-send { @apply inline-flex w-11 items-center justify-center rounded-xl border-0 bg-(--color-accent) text-white; }
+  .dw-composer-send { @apply inline-flex w-11 items-center justify-center rounded-xl border-0 bg-(--color-accent) text-(--color-on-accent); }
   .dw-presence { @apply inline-flex items-center gap-2 rounded-full bg-(--color-panel) px-3 py-1 text-xs text-zinc-200; }
   .dw-presence-dot { @apply size-2 rounded-full bg-zinc-500; }
   .dw-presence.is-connected .dw-presence-dot, .dw-presence.is-paired .dw-presence-dot { @apply bg-(--color-good); }
@@ -1391,6 +1640,19 @@
 
   /* --- shell, grids, split ---------------------------------------------- */
   .dw-shell { @apply flex min-h-screen flex-col; }
+  /* The bypass block (WCAG 2.4.1). Hidden until a keyboard reaches it — the
+     .sr-only-focusable clip — then it lands over the topbar as a real button.
+     It is the first focusable thing in the document, by construction. */
+  .dw-skip-link { @apply absolute start-2 top-2 z-50 rounded-md bg-(--color-accent) px-4 py-2 text-sm font-semibold text-(--color-on-accent) no-underline; }
+  /* <main> is a focus target for the skip link, so it must not draw a ring of
+     its own when it receives programmatic focus. */
+  .dw-shell-main:focus { @apply outline-none; }
+  /* The persistent polite live region. It ships empty on every page so that
+     SSE-patched status messages land *inside* an already-announced region —
+     a region that arrives together with its content is not read out
+     (WCAG 4.1.3). Positioned, not clipped: toasts are visible content. */
+  .dw-toasts { @apply pointer-events-none fixed bottom-4 end-4 z-40 flex flex-col items-end gap-2; }
+  .dw-toasts > * { @apply pointer-events-auto; }
   .dw-shell-top { @apply sticky top-0 z-10 border-b border-(--color-line-soft) bg-(--color-panel) text-(--color-fg-default); }
   .dw-shell-main { @apply min-w-0 flex-1; }
   .dw-shell-cols { @apply flex min-h-0 flex-1 items-stretch; }
@@ -1399,7 +1661,7 @@
   .dw-gridlist { @apply m-0 list-none p-0; }
   .dw-split { @apply grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]; }
   .dw-sidebar { @apply grid gap-4 px-3 py-4; }
-  .dw-side-label { @apply mb-1 text-xs uppercase tracking-wider text-zinc-500; }
+  .dw-side-label { @apply mb-1 text-xs uppercase tracking-wider text-(--color-fg-muted); }
   .dw-side-items { @apply m-0 grid list-none gap-1 p-0; }
   .dw-side-link { @apply flex items-center gap-2 rounded-md px-3 py-2 text-sm text-zinc-200 no-underline hover:bg-(--color-panel-hover); }
   .dw-side-link.is-active { @apply bg-(--color-panel-hover) text-(--color-accent-text); }

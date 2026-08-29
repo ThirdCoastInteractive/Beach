@@ -70,7 +70,7 @@ func GeoClockSVG(c GeoClock) templ.Component {
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</span></div><svg width=\"100%\" height=\"100%\" class=\"chart-svg geomap-svg geoclock-svg\" role=\"img\" viewBox=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 3, "</span></div><svg width=\"100%\" height=\"100%\" class=\"chart-svg geomap-svg geoclock-svg\" aria-hidden=\"true\" viewBox=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

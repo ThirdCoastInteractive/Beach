@@ -1,6 +1,9 @@
 package driftwood
 
-import "github.com/ThirdCoastInteractive/the-beach/pkg/ui"
+import (
+	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui"
+)
 
 // --- Errors --------------------------------------------------------------------
 
@@ -9,14 +12,16 @@ import "github.com/ThirdCoastInteractive/the-beach/pkg/ui"
 // the Page shell with a way back home.
 templ ErrorPage(status int, title string, message string) {
 	@Page(PageProps{Title: title}) {
-		<main class="dw-errorpage">
-			<p class="dw-errorpage-code">{ itoa(status) }</p>
-			<h1 class="dw-errorpage-title">{ title }</h1>
-			if message != "" {
-				<p class="dw-errorpage-msg">{ message }</p>
-			}
-			<a class="dw-btn" href="/">Go home</a>
-		</main>
+		@Main() {
+			<div class="dw-errorpage">
+				<p class="dw-errorpage-code" aria-hidden="true">{ itoa(status) }</p>
+				<h1 class="dw-errorpage-title">{ title }</h1>
+				if message != "" {
+					<p class="dw-errorpage-msg">{ message }</p>
+				}
+				<a class="dw-btn" href="/">{ i18n.T(ctx, "framework.error.home") }</a>
+			</div>
+		}
 	}
 }
 
@@ -37,7 +42,7 @@ templ ErrorAlert(id string, danger bool, title string, message string) {
 				<p class="dw-toast-msg">{ message }</p>
 			}
 		</div>
-		<button class="dw-toast-close" type="button" aria-label="Dismiss" data-on:click="el.closest('.dw-toast').remove()">
+		<button class="dw-toast-close" type="button" aria-label={ i18n.T(ctx, "ui.a11y.dismiss") } data-on:click="el.closest('.dw-toast').remove()">
 			@ui.Icon("x")
 		</button>
 	</div>

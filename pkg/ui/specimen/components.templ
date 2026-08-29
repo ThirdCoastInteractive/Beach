@@ -21,6 +21,13 @@ templ componentGallery() {
 	@mediaSection()
 	@messagingSection()
 	@layoutSection()
+	@accessibilitySection()
+}
+
+// tabPanel is a scrap of body for the tab demo, so the specimen shows the whole
+// component rather than only its switcher.
+templ tabPanel(body string) {
+	<p class="spec-note">{ body }</p>
 }
 
 // --- buttons -------------------------------------------------------------------
@@ -98,10 +105,11 @@ templ navSection() {
 			},
 		})
 		@driftwood.Tabs(driftwood.TabsProps{
-			Name: "spec-tabs",
+			Name:  "spec-tabs",
+			Label: "Beach detail",
 			Tabs: []driftwood.Tab{
-				{ID: "spec-tab-overview", Label: "Overview", Active: true},
-				{ID: "spec-tab-history", Label: "History"},
+				{ID: "spec-tab-overview", Label: "Overview", Active: true, Panel: tabPanel("Flags green, three towers staffed.")},
+				{ID: "spec-tab-history", Label: "History", Panel: tabPanel("Nine closures logged this season.")},
 				{ID: "spec-tab-deferred", Label: "Deferred", Get: "/specimen/tab/deferred"},
 			},
 		})
@@ -217,8 +225,12 @@ templ dataSection() {
 		}
 		@driftwood.Divider(driftwood.DividerProps{})
 		@driftwood.Table(driftwood.TableProps{
+			// A caption names the table and, because the table sits in a scroll
+			// box, names that box too — which is what makes a wide table
+			// reachable by keyboard on a narrow screen.
+			Caption: "Vendor revenue by stand",
 			Columns: []driftwood.Column{
-				{Header: "Vendor", Get: "/specimen/sort/vendor"},
+				{Header: "Vendor", Get: "/specimen/sort/vendor", Sort: driftwood.SortAsc},
 				{Header: "Stand"},
 				{Header: "Revenue", Get: "/specimen/sort/revenue"},
 				{Header: "Status"},
@@ -468,8 +480,9 @@ templ layoutSection() {
 	}
 	@driftwood.Card(driftwood.CardProps{Heading: "Shell", Surface: driftwood.SurfaceWell}) {
 		<p class="spec-note">
-			The app frame: topbar, sidebar, main. Shown embedded; real apps make it
-			the page root.
+			The app frame: topbar, sidebar, main. Shown with Embedded set, which
+			suppresses the landmark, the bypass link and the live region a page may
+			only have one of; real apps make it the page root and leave it unset.
 		</p>
 		@driftwood.Shell(driftwood.AppShellProps{
 			Topbar: driftwood.Navbar(driftwood.NavbarProps{
@@ -477,6 +490,9 @@ templ layoutSection() {
 				Items: []driftwood.NavItem{{Label: "Dashboard", Href: "/", Active: true}},
 			}),
 			Sidebar: specSidebar(),
+			// Embedded: this Shell is a picture of the frame, not the frame. The
+			// page already has a main landmark, a bypass link and a live region.
+			Embedded: true,
 		}) {
 			<p>Main content area.</p>
 		}
@@ -504,4 +520,76 @@ templ splitDetailPane() {
 			{Term: "Towers", Value: "3 staffed"},
 		},
 	})
+}
+
+// --- accessibility ---------------------------------------------------------------
+
+// accessibilitySection is the kit's accessibility contract, made visible.
+//
+// The rest of the specimen shows what the components look like; this shows the
+// parts you cannot see. Contrast is measured from the live tokens rather than
+// asserted in prose, the focus ring is put where a Tab key will land on it, and
+// the live region is here so a screen reader has something to announce.
+templ accessibilitySection() {
+	@driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Accessibility"})
+	@driftwood.Card(driftwood.CardProps{Heading: "Contrast — measured, not claimed"}) {
+		<p class="spec-note">
+			Every pair the kit paints, checked against WCAG 2.1 AA at render time with
+			<code>rybitten.Contrast</code>. Text owes 4.5:1 (SC 1.4.3); a control's edge
+			and the focus ring owe 3:1 (SC 1.4.11). The same table runs as a test —
+			<code>TestPaletteMeetsAA</code> — so a token edit that breaks a pair fails
+			the build rather than shipping.
+		</p>
+		@driftwood.Table(driftwood.TableProps{
+			Caption:       "Contrast of each token pair the kit paints",
+			CaptionHidden: true,
+			Columns: []driftwood.Column{
+				{Header: "Pair"}, {Header: "Ratio"}, {Header: "Needs"}, {Header: "Success criterion"},
+				{Header: "Result", HeaderHidden: true},
+			},
+			Rows: contrastRows(),
+		})
+	}
+	@driftwood.Card(driftwood.CardProps{Heading: "Focus"}) {
+		<p class="spec-note">
+			Tab through these. Every focusable thing in the kit draws the same 2px accent
+			ring, offset so it is never painted over its own fill — including the two
+			controls whose real input is visually hidden (the switch and the tabs), where
+			the ring is relayed to the visible proxy.
+		</p>
+		<div class="spec-row">
+			@driftwood.Button(driftwood.ButtonProps{Label: "Button", Role: driftwood.RoleAccent})
+			<a class="dw-crumb-link" href="#dw-main">A link</a>
+			@driftwood.Toggle(driftwood.ToggleProps{Name: "spec-a11y-toggle", Label: "A switch"})
+			@driftwood.Checkbox(driftwood.CheckboxProps{Name: "spec-a11y-check", Label: "A checkbox"})
+		</div>
+	}
+	@driftwood.Card(driftwood.CardProps{Heading: "Names come from the catalog"}) {
+		<p class="spec-note">
+			The kit ships no hardcoded accessible names. Every one — "Close", "Dismiss",
+			"Loading", the landmark labels, the sort states — resolves through
+			<code>i18n.T(ctx, "ui.a11y.…")</code> against the framework's embedded
+			catalog, so an app that ships an <code>es-ES.json</code> gets the whole kit
+			announced in Spanish and an app that ships nothing pays no cost.
+			<code>beach-vet</code>'s <code>a11y-literal-name</code> rule keeps it that way.
+		</p>
+		<p class="spec-note">
+			This page's language is <code>{ specimenLang(ctx) }</code>, written onto
+			<code>&lt;html lang&gt;</code> from the request locale (SC 3.1.1), with
+			<code>dir</code> derived from it.
+		</p>
+	}
+	@driftwood.Card(driftwood.CardProps{Heading: "The live region"}) {
+		<p class="spec-note">
+			Every page's shell renders one empty polite region, and server-pushed status
+			messages patch into it. That ordering is the whole point: a live region that
+			arrives together with its content is not announced (SC 4.1.3), which is why a
+			toast no longer carries <code>aria-live</code> of its own.
+		</p>
+		@driftwood.Toast(driftwood.ToastProps{
+			Role:    driftwood.RoleGood,
+			Title:   "Saved",
+			Message: "A toast, shown here in place rather than patched.",
+		})
+	}
 }

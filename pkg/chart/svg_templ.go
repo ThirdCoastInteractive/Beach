@@ -107,7 +107,7 @@ func LineChartSVG(c LineChart) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<svg class=\"chart-svg cline chart-fill\" role=\"img\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 7, "<svg class=\"chart-svg cline chart-fill\" aria-hidden=\"true\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -675,7 +675,7 @@ func StackedGaugeSVG(g StackedGauge) templ.Component {
 			templ_7745c5c3_Var41 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" role=\"img\" style=\"cursor:pointer\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 56, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" aria-hidden=\"true\" style=\"cursor:pointer\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -922,7 +922,7 @@ func GaugeSVG(g Gauge) templ.Component {
 			templ_7745c5c3_Var54 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" role=\"img\" style=\"cursor:pointer\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 76, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" aria-hidden=\"true\" style=\"cursor:pointer\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1057,7 +1057,7 @@ func BillboardSVG(b Billboard) templ.Component {
 			templ_7745c5c3_Var61 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" role=\"img\" style=\"cursor:pointer\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" aria-hidden=\"true\" style=\"cursor:pointer\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1255,7 +1255,7 @@ func StackedBarSVG(c StackedBar) templ.Component {
 			templ_7745c5c3_Var70 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" role=\"img\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" aria-hidden=\"true\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1552,7 +1552,7 @@ func BundleSVG(b Bundle) templ.Component {
 			templ_7745c5c3_Var90 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 133, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg bundle-svg\" role=\"img\" viewBox=\"0 0 200 200\" preserveAspectRatio=\"xMidYMid meet\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 133, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg bundle-svg\" aria-hidden=\"true\" viewBox=\"0 0 200 200\" preserveAspectRatio=\"xMidYMid meet\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1826,7 +1826,7 @@ func GroupedBarSVG(c GroupedBar) templ.Component {
 			templ_7745c5c3_Var108 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 155, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" role=\"img\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 155, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" aria-hidden=\"true\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2133,7 +2133,7 @@ func StreamSVG(s Stream) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 181, "</div><svg class=\"chart-svg chart-fill\" role=\"img\" viewBox=\"0 0 1000 600\" preserveAspectRatio=\"none\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 181, "</div><svg class=\"chart-svg chart-fill\" aria-hidden=\"true\" viewBox=\"0 0 1000 600\" preserveAspectRatio=\"none\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2278,7 +2278,7 @@ func ScatterSVG(s Scatter) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 195, "<svg class=\"chart-svg chart-fill\" role=\"img\" viewBox=\"0 0 1000 700\" preserveAspectRatio=\"xMidYMid meet\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 195, "<svg class=\"chart-svg chart-fill\" aria-hidden=\"true\" viewBox=\"0 0 1000 700\" preserveAspectRatio=\"xMidYMid meet\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2666,14 +2666,14 @@ func SingleLineSVG(s SingleLine) templ.Component {
 			templ_7745c5c3_Var160 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 227, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg sankey-svg single-line-svg\" role=\"img\" viewBox=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 227, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg sankey-svg single-line-svg\" aria-hidden=\"true\" viewBox=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var161 string
 		templ_7745c5c3_Var161, templ_7745c5c3_Err = templ.ResolveAttributeValue(SingleLineViewBox(s))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 328, Col: 119}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 328, Col: 127}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var161)
 		if templ_7745c5c3_Err != nil {
@@ -3756,7 +3756,7 @@ func SankeySVG(s Sankey) templ.Component {
 			templ_7745c5c3_Var235 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 316, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg sankey-svg\" role=\"img\" viewBox=\"0 0 1000 210\" preserveAspectRatio=\"xMidYMid meet\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 316, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg sankey-svg\" aria-hidden=\"true\" viewBox=\"0 0 1000 210\" preserveAspectRatio=\"xMidYMid meet\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -4022,7 +4022,7 @@ func ChordSVG(c Chord) templ.Component {
 			templ_7745c5c3_Var253 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 337, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg chord-svg\" role=\"img\" viewBox=\"0 0 200 200\" preserveAspectRatio=\"xMidYMid meet\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 337, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg chord-svg\" aria-hidden=\"true\" viewBox=\"0 0 200 200\" preserveAspectRatio=\"xMidYMid meet\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -4237,7 +4237,7 @@ func BoxPlotSVG(b BoxPlot) templ.Component {
 			templ_7745c5c3_Var267 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 354, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" role=\"img\" viewBox=\"0 0 1000 700\" preserveAspectRatio=\"xMidYMid meet\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 354, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" aria-hidden=\"true\" viewBox=\"0 0 1000 700\" preserveAspectRatio=\"xMidYMid meet\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -4835,14 +4835,14 @@ func CalendarSVG(c Calendar) templ.Component {
 			templ_7745c5c3_Var310 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 401, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" role=\"img\" viewBox=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 401, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" aria-hidden=\"true\" viewBox=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var311 string
 		templ_7745c5c3_Var311, templ_7745c5c3_Err = templ.ResolveAttributeValue(CalendarViewBox(c))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 433, Col: 90}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 433, Col: 98}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var311)
 		if templ_7745c5c3_Err != nil {
@@ -5030,14 +5030,14 @@ func BollingerSVG(b Bollinger) templ.Component {
 			templ_7745c5c3_Var322 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 417, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg vb-hover\" role=\"img\" viewBox=\"0 0 1000 600\" preserveAspectRatio=\"xMidYMid meet\" data-plot-l=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 417, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg vb-hover\" aria-hidden=\"true\" viewBox=\"0 0 1000 600\" preserveAspectRatio=\"xMidYMid meet\" data-plot-l=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var323 string
 		templ_7745c5c3_Var323, templ_7745c5c3_Err = templ.ResolveAttributeValue(F(b.PlotL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 448, Col: 154}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 448, Col: 162}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var323)
 		if templ_7745c5c3_Err != nil {
@@ -5050,7 +5050,7 @@ func BollingerSVG(b Bollinger) templ.Component {
 		var templ_7745c5c3_Var324 string
 		templ_7745c5c3_Var324, templ_7745c5c3_Err = templ.ResolveAttributeValue(F(b.PlotR))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 448, Col: 181}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 448, Col: 189}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var324)
 		if templ_7745c5c3_Err != nil {
@@ -5063,7 +5063,7 @@ func BollingerSVG(b Bollinger) templ.Component {
 		var templ_7745c5c3_Var325 string
 		templ_7745c5c3_Var325, templ_7745c5c3_Err = templ.ResolveAttributeValue(F(b.PlotT))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 448, Col: 208}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 448, Col: 216}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var325)
 		if templ_7745c5c3_Err != nil {
@@ -5076,7 +5076,7 @@ func BollingerSVG(b Bollinger) templ.Component {
 		var templ_7745c5c3_Var326 string
 		templ_7745c5c3_Var326, templ_7745c5c3_Err = templ.ResolveAttributeValue(F(b.PlotB))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 448, Col: 235}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 448, Col: 243}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var326)
 		if templ_7745c5c3_Err != nil {
@@ -5446,14 +5446,14 @@ func HorizonSVG(h Horizon) templ.Component {
 			templ_7745c5c3_Var351 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 450, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" role=\"img\" viewBox=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 450, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" aria-hidden=\"true\" viewBox=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var352 string
 		templ_7745c5c3_Var352, templ_7745c5c3_Err = templ.ResolveAttributeValue(HorizonViewBox(h))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 469, Col: 89}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 469, Col: 97}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var352)
 		if templ_7745c5c3_Err != nil {
@@ -5587,14 +5587,14 @@ func RidgelineSVG(r Ridgeline) templ.Component {
 			templ_7745c5c3_Var359 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 462, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" role=\"img\" viewBox=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 462, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" aria-hidden=\"true\" viewBox=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var360 string
 		templ_7745c5c3_Var360, templ_7745c5c3_Err = templ.ResolveAttributeValue(RidgelineViewBox(r))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 482, Col: 91}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 482, Col: 99}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var360)
 		if templ_7745c5c3_Err != nil {
@@ -5705,14 +5705,14 @@ func DifferenceSVG(d Difference) templ.Component {
 			templ_7745c5c3_Var366 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 471, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg vb-hover\" role=\"img\" viewBox=\"0 0 1000 600\" preserveAspectRatio=\"xMidYMid meet\" data-plot-l=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 471, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg vb-hover\" aria-hidden=\"true\" viewBox=\"0 0 1000 600\" preserveAspectRatio=\"xMidYMid meet\" data-plot-l=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var367 string
 		templ_7745c5c3_Var367, templ_7745c5c3_Err = templ.ResolveAttributeValue(F(d.PlotL))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 492, Col: 154}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 492, Col: 162}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var367)
 		if templ_7745c5c3_Err != nil {
@@ -5725,7 +5725,7 @@ func DifferenceSVG(d Difference) templ.Component {
 		var templ_7745c5c3_Var368 string
 		templ_7745c5c3_Var368, templ_7745c5c3_Err = templ.ResolveAttributeValue(F(d.PlotR))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 492, Col: 181}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 492, Col: 189}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var368)
 		if templ_7745c5c3_Err != nil {
@@ -5738,7 +5738,7 @@ func DifferenceSVG(d Difference) templ.Component {
 		var templ_7745c5c3_Var369 string
 		templ_7745c5c3_Var369, templ_7745c5c3_Err = templ.ResolveAttributeValue(F(d.PlotT))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 492, Col: 208}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 492, Col: 216}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var369)
 		if templ_7745c5c3_Err != nil {
@@ -5751,7 +5751,7 @@ func DifferenceSVG(d Difference) templ.Component {
 		var templ_7745c5c3_Var370 string
 		templ_7745c5c3_Var370, templ_7745c5c3_Err = templ.ResolveAttributeValue(F(d.PlotB))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 492, Col: 235}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 492, Col: 243}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var370)
 		if templ_7745c5c3_Err != nil {
@@ -6069,14 +6069,14 @@ func TimelineSVG(t Timeline) templ.Component {
 			templ_7745c5c3_Var391 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 500, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" role=\"img\" viewBox=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 500, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" aria-hidden=\"true\" viewBox=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
 		var templ_7745c5c3_Var392 string
 		templ_7745c5c3_Var392, templ_7745c5c3_Err = templ.ResolveAttributeValue(TimelineViewBox(t))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 511, Col: 90}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/chart/svg.templ`, Line: 511, Col: 98}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var392)
 		if templ_7745c5c3_Err != nil {
@@ -6317,7 +6317,7 @@ func SparklineSVG(s Sparkline) templ.Component {
 			templ_7745c5c3_Var407 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 520, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" role=\"img\" style=\"cursor:pointer\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 520, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" aria-hidden=\"true\" style=\"cursor:pointer\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -6499,7 +6499,7 @@ func PhaseChartSVG(p Phase) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 538, "</div><svg class=\"chart-svg chart-fill\" role=\"img\" viewBox=\"0 0 1000 700\" preserveAspectRatio=\"xMidYMid meet\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 538, "</div><svg class=\"chart-svg chart-fill\" aria-hidden=\"true\" viewBox=\"0 0 1000 700\" preserveAspectRatio=\"xMidYMid meet\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -6866,7 +6866,7 @@ func HeatmapSVG(h Heatmap) templ.Component {
 			templ_7745c5c3_Var440 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 569, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" role=\"img\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 569, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" aria-hidden=\"true\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -7075,7 +7075,7 @@ func BulletBarSVG(c BulletBar) templ.Component {
 			templ_7745c5c3_Var453 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 586, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" role=\"img\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 586, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" aria-hidden=\"true\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -7372,7 +7372,7 @@ func BarChartSVG(c BarChart) templ.Component {
 			templ_7745c5c3_Var473 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 610, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" role=\"img\">")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 610, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg\" aria-hidden=\"true\">")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -7716,7 +7716,7 @@ func GeoMapSVG(g GeoMap) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 638, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg geomap-svg\" role=\"img\" viewBox=\"")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 638, "<svg width=\"100%\" height=\"100%\" class=\"chart-svg geomap-svg\" aria-hidden=\"true\" viewBox=\"")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

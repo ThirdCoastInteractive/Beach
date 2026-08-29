@@ -6,6 +6,11 @@ import (
 	"strings"
 )
 
+// lintSelf is this package's own directory, as fileCtx.pkg spells it. Rules
+// whose patterns are themselves markup-shaped exempt it: the analyzer's source
+// is full of tag fragments that are regexes, not HTML.
+const lintSelf = "internal/lint"
+
 // --- Rule 1: raw Datastar attribute strings ----------------------------------
 
 // dataAttrRe matches a Datastar data-* attribute name as it appears in markup:
@@ -102,7 +107,7 @@ var oklchRe = regexp.MustCompile(`\boklch\(`)
 // reference raw colors only as the currentColor fallback, so we still scan it —
 // genuine hex there is a real finding.
 func ruleHardcodedColor(fc *fileCtx, out *[]Finding) {
-	if fc.onPath("lint") {
+	if fc.onPath(lintSelf) {
 		return // the analyzer's own color regexes are not markup
 	}
 	fc.stringLits2(func(val string, line int) {
@@ -192,7 +197,7 @@ var selfStaticScriptRe = regexp.MustCompile(`(?i)<script\b[^>]*\bsrc="/static/js
 // /static/js/. A custom inline <script> — reload hacks, third-party snippets —
 // is a finding.
 func ruleCustomScript(fc *fileCtx, out *[]Finding) {
-	if fc.onPath("ui", "lint") {
+	if fc.onPath("ui", lintSelf) {
 		return // the kit owns the document shell; lint owns the <script> regex
 	}
 	fc.stringLits2(func(val string, line int) {
@@ -222,4 +227,108 @@ func forEachImport(fc *fileCtx, fn func(path string, line int)) {
 		p := strings.Trim(imp.Path.Value, `"`)
 		fn(p, fc.lineOf(imp.Pos()))
 	}
+}
+
+// --- Rule 7: images with no text alternative ---------------------------------
+
+// imgTagRe matches an <img> start tag in markup.
+var imgTagRe = regexp.MustCompile(`(?is)<img\b[^>]*>`)
+
+// altAttrRe matches an alt attribute on an element, in either the static form
+// (alt="x") or the form templ emits for an interpolated value, where the value
+// is written separately and the literal ends at `alt="`.
+var altAttrRe = regexp.MustCompile(`(?i)\balt="`)
+
+// ruleImgAlt flags an <img> with no alt attribute at all. Every image owes a
+// text alternative (WCAG 1.1.1); a decorative one owes an explicit empty alt,
+// which says "nothing to announce here" rather than leaving a screen reader to
+// read the file name. The kit's own ImageProps has a Decorative field for
+// exactly that, so there is no shape of image this rule cannot be satisfied for.
+//
+// Generated *_templ.go files carry their markup as string literals, which is
+// what makes this checkable at all — the analyzer sees the same tags the browser
+// will. A tag split across literals by an interpolated attribute is scanned in
+// pieces; the rule only fires on a piece that contains a complete <img ...> with
+// no alt, so a split tag is skipped rather than falsely accused.
+func ruleImgAlt(fc *fileCtx, out *[]Finding) {
+	if fc.onPath(lintSelf) {
+		return // the analyzer's own <img> regex is not markup
+	}
+	fc.stringLits2(func(val string, line int) {
+		for _, tag := range imgTagRe.FindAllString(val, -1) {
+			if altAttrRe.MatchString(tag) {
+				continue
+			}
+			*out = append(*out, Finding{
+				File:    fc.path,
+				Line:    line,
+				Rule:    "a11y-img-alt",
+				Message: "<img> with no alt attribute; give it a text alternative, or an explicit alt=\"\" for a decorative image (driftwood.ImageProps has Alt and Decorative)",
+			})
+		}
+	})
+}
+
+// --- Rule 8: roles that promise a name they don't have ------------------------
+
+// roleImgRe matches an element carrying role="img".
+var roleImgRe = regexp.MustCompile(`(?is)<[a-z][^>]*\brole="img"[^>]*>`)
+
+// ariaNameRe matches either way of giving an element an accessible name.
+var ariaNameRe = regexp.MustCompile(`(?i)\baria-(label|labelledby)="`)
+
+// ruleUnnamedRoleImg flags role="img" on an element with no accessible name.
+// This is worse than leaving the role off: an unnamed graphic is announced as
+// "image" and nothing else, interrupting to say that something unidentifiable is
+// there. The fix is always one of two things — name it, or drop the role and let
+// it be decorative (WCAG 1.1.1, 4.1.2).
+func ruleUnnamedRoleImg(fc *fileCtx, out *[]Finding) {
+	if fc.onPath(lintSelf) {
+		return // the analyzer's own role="img" regex is not markup
+	}
+	fc.stringLits2(func(val string, line int) {
+		for _, tag := range roleImgRe.FindAllString(val, -1) {
+			if ariaNameRe.MatchString(tag) {
+				continue
+			}
+			*out = append(*out, Finding{
+				File:    fc.path,
+				Line:    line,
+				Rule:    "a11y-unnamed-role-img",
+				Message: `role="img" with no aria-label or aria-labelledby; name the graphic, or drop the role and mark it aria-hidden="true"`,
+			})
+		}
+	})
+}
+
+// --- Rule 9: hardcoded accessible names in the kit ----------------------------
+
+// ariaLabelLiteralRe matches a *static* aria-label — one whose value is written
+// out in the same literal. templ emits an interpolated value as a literal ending
+// in `aria-label="`, with the value written separately, so requiring at least one
+// character before the closing quote is what distinguishes the two.
+var ariaLabelLiteralRe = regexp.MustCompile(`(?i)\baria-label="[^"]+"`)
+
+// ruleLiteralAccessibleName flags a hardcoded aria-label inside the ui kit.
+//
+// This inverts the usual sanctioning: the kit is the target and app code is
+// exempt. An accessible name is content — on a page rendered in Spanish, a
+// screen reader saying "Close" is exactly as wrong as an untranslated heading —
+// and the kit is shipped to apps in every language, so its names have to come
+// from the catalog (i18n.T with a "ui.a11y.*" key) rather than from the source.
+// An app's own names are its own business.
+func ruleLiteralAccessibleName(fc *fileCtx, out *[]Finding) {
+	if !fc.onPath("ui", "chart") {
+		return
+	}
+	fc.stringLits2(func(val string, line int) {
+		for _, m := range ariaLabelLiteralRe.FindAllString(val, -1) {
+			*out = append(*out, Finding{
+				File:    fc.path,
+				Line:    line,
+				Rule:    "a11y-literal-name",
+				Message: "hardcoded accessible name " + m + " in the kit; a name a screen reader reads out is content — route it through i18n.T(ctx, \"ui.a11y.…\")",
+			})
+		}
+	})
 }

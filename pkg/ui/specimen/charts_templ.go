@@ -22,6 +22,12 @@ import (
 // chartGallery renders every chart type in the suite — including the geo
 // family (choropleth, interactive map, globes, sun clock) — plus a static
 // bar-race frame, on the dashboard grid.
+//
+// Most widgets here name their chart with a visible card title and leave the SVG
+// decorative, which is the right shape for a titled dashboard cell. The line and
+// bar charts additionally carry chart.Label and chart.Describe, so the gallery
+// shows what a chart with a real text alternative looks like: the name, and the
+// sentence someone who cannot see it would need instead.
 func chartGallery() templ.Component {
 	return templruntime.GeneratedTemplate(func(templ_7745c5c3_Input templruntime.GeneratedComponentInput) (templ_7745c5c3_Err error) {
 		templ_7745c5c3_W, ctx := templ_7745c5c3_Input.Writer, templ_7745c5c3_Input.Context
@@ -63,7 +69,9 @@ func chartGallery() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = chart.ChartLineFragment(sampleLine()).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = chart.ChartLineFragment(sampleLine(),
+				chart.Label("Visitors by hour"),
+				chart.Describe("A single peak just after midday, tailing off through the afternoon.")).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -173,7 +181,9 @@ func chartGallery() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = chart.ChartBarFragment("spec-hbar", sampleHBar()).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = chart.ChartBarFragment("spec-hbar", sampleHBar(),
+				chart.Label("Visits by beach"),
+				chart.Describe("North Beach leads at 9,420, then The Cove at 7,180.")).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -728,7 +738,7 @@ func chartWidget(title string, span string) templ.Component {
 		var templ_7745c5c3_Var33 string
 		templ_7745c5c3_Var33, templ_7745c5c3_Err = templ.JoinStringErrs(title)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/ui/specimen/charts.templ`, Line: 114, Col: 40}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/ui/specimen/charts.templ`, Line: 124, Col: 40}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var33))
 		if templ_7745c5c3_Err != nil {

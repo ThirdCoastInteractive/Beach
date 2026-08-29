@@ -19,7 +19,7 @@ BEACH := go run github.com/ThirdCoastInteractive/the-beach/cmd/beach
 
 .DEFAULT_GOAL := help
 
-.PHONY: help gen css vet up down start-db stop-db build
+.PHONY: help gen css vet up down start-db stop-db build sql-new
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -52,3 +52,6 @@ start-db: ## Start Postgres via docker-compose
 
 stop-db: ## Stop Postgres. NEVER rm the db volume to "fix" a migration — fix the migration.
 	docker compose stop db
+
+sql-new: ## Stamp the next goose SQL migration; NAME=foo [DIR=migrations]
+	$(BEACH) sql new $(NAME) $(if $(DIR),--dir $(DIR))

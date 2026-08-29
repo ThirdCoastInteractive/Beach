@@ -1,8 +1,11 @@
 package lint
 
 import (
+	"go/parser"
+	"go/token"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"testing"
 )
 
@@ -36,6 +39,12 @@ func TestBadSnippet(t *testing.T) {
 		"hardcoded-color":   2, // hex + oklch
 		"naked-handlerfunc": 1,
 		"custom-script":     1,
+
+		// The a11y rules. a11y-literal-name is not exercised here: it only fires
+		// inside the kit (pkg/ui, pkg/chart), and testdata/bad is app-shaped
+		// source. TestLiteralNameIsKitOnly covers it directly instead.
+		"a11y-img-alt":          1,
+		"a11y-unnamed-role-img": 1,
 	}
 	for rule, n := range want {
 		if counts[rule] != n {
@@ -78,6 +87,62 @@ func TestFindingsSorted(t *testing.T) {
 	})
 	if !sorted {
 		t.Errorf("findings not sorted: %+v", findings)
+	}
+}
+
+// snippet wraps markup in the smallest parseable Go file that carries it as a
+// string literal — the shape templ's generated output has, and the only thing
+// the markup rules ever see.
+func snippet(markup string) string {
+	return "package p\n\nconst m = " + strconv.Quote(markup) + "\n"
+}
+
+// snippetFindings parses src as a Go file living in package directory pkg and
+// runs one rule over it. It is the smallest harness that still exercises a rule
+// the way Check does — through a real AST — so a rule's path sanctioning and its
+// literal scanning are both covered.
+func snippetFindings(t *testing.T, pkg, src string, r rule) []Finding {
+	t.Helper()
+	fset := token.NewFileSet()
+	af, err := parser.ParseFile(fset, "x.go", src, parser.ParseComments)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	var out []Finding
+	r(&fileCtx{path: pkg + "/x.go", pkg: pkg, fset: fset, file: af}, &out)
+	return out
+}
+
+// TestLiteralNameIsKitOnly pins the one rule whose sanctioning runs the other
+// way round. An accessible name is content, so the kit's names must come from
+// the catalog rather than from its source — but an app's own names are in the
+// app's own language already, and flagging them would be noise.
+func TestLiteralNameIsKitOnly(t *testing.T) {
+	src := snippet(`<button aria-label="Close">x</button>`)
+	cases := map[string]bool{
+		"pkg/ui/driftwood":    true,
+		"pkg/chart":           true,
+		"ui":                  true, // an app tree that vendors the kit at the root
+		"internal/web":        false,
+		"cmd/examples/pantry": false,
+	}
+	for pkg, want := range cases {
+		got := len(snippetFindings(t, pkg, src, ruleLiteralAccessibleName)) > 0
+		if got != want {
+			t.Errorf("pkg %q: fired=%v, want %v", pkg, got, want)
+		}
+	}
+}
+
+// TestLiteralNameAllowsInterpolation asserts the rule tells a hardcoded name
+// apart from a translated one. templ writes an interpolated attribute value
+// separately, so the literal ends at `aria-label="` with nothing after it — the
+// exact shape i18n.T(ctx, ...) produces, and the shape the kit now uses
+// everywhere.
+func TestLiteralNameAllowsInterpolation(t *testing.T) {
+	interpolated := snippet("<button aria-label=\"")
+	if n := len(snippetFindings(t, "pkg/ui/driftwood", interpolated, ruleLiteralAccessibleName)); n != 0 {
+		t.Errorf("interpolated aria-label flagged %d times, want 0", n)
 	}
 }
 

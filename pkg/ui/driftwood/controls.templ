@@ -1,12 +1,19 @@
 package driftwood
 
-import "github.com/ThirdCoastInteractive/the-beach/pkg/ui"
+import (
+	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui"
+)
 
 // --- Buttons -----------------------------------------------------------------
 
 // Button is the workhorse action control. Loading binds an indicator signal:
 // the button shows a spinner and is aria-busy while the expression is truthy;
 // spinner visibility is CSS off the signal.
+//
+// The same signal is written two ways on purpose: aria-busy is an ARIA state and
+// needs the literal string "true"/"false" (see ariaBoolExpr), while disabled is a
+// real boolean attribute and wants presence or absence.
 templ Button(p ButtonProps) {
 	<button
 		type={ buttonType(p.Type) }
@@ -15,7 +22,7 @@ templ Button(p ButtonProps) {
 			disabled
 		}
 		if p.Loading != "" {
-			data-attr:aria-busy={ p.Loading }
+			data-attr:aria-busy={ ariaBoolExpr(p.Loading) }
 			data-attr:disabled={ p.Loading }
 		}
 		{ p.Attrs.Templ()... }
@@ -39,12 +46,19 @@ templ Button(p ButtonProps) {
 }
 
 // IconButton is an icon-only button; Label is the accessible name and tooltip.
+//
+// Label is effectively required: an icon-only button with none is announced as
+// "button" and nothing else. The attributes are omitted rather than written
+// empty when it is missing, because aria-label="" is a nameless control wearing
+// the appearance of a handled one — in a review and in a linter alike.
 templ IconButton(p IconButtonProps) {
 	<button
 		type="button"
 		class={ "dw-iconbtn", roleClass("dw-btn", p.Role), sizeClass("dw-btn", p.Size) }
-		aria-label={ p.Label }
-		title={ p.Label }
+		if p.Label != "" {
+			aria-label={ p.Label }
+			title={ p.Label }
+		}
 		{ p.Attrs.Templ()... }
 	>
 		@ui.Icon(p.Icon)
@@ -53,11 +67,16 @@ templ IconButton(p IconButtonProps) {
 
 // ButtonGroup joins its children into a single segmented control. The grouping
 // is visual (CSS): pass already-built Buttons as children.
+//
+// role=group appears only with a Label. An unnamed group announces that there is
+// a set here and declines to say what of, which is noise a screen reader user
+// has to step through; without the role the buttons are simply buttons, which
+// they already were.
 templ ButtonGroup(p ButtonGroupProps) {
 	<div
 		class="dw-btngroup"
-		role="group"
 		if p.Label != "" {
+			role="group"
 			aria-label={ p.Label }
 		}
 		{ p.Attrs.Templ()... }
@@ -74,8 +93,8 @@ templ ButtonGroup(p ButtonGroupProps) {
 templ Segmented(p SegmentedProps) {
 	<div
 		class={ "dw-segmented", sizeClass("dw-segmented", p.Size) }
-		role="group"
 		if p.Name != "" {
+			role="group"
 			aria-label={ p.Name }
 		}
 		{ p.Attrs.Templ()... }
@@ -102,6 +121,12 @@ templ Segmented(p SegmentedProps) {
 // MenuButton is a label + caret that opens a native popover menu. Toggling is
 // the platform popover attribute (popovertarget on the trigger), so it works
 // with zero JavaScript; hypermedia items wire an @-expression on click.
+//
+// The trigger declares aria-haspopup and aria-controls, which are true whatever
+// the panel is doing. It deliberately does not write aria-expanded: without
+// script that attribute would be frozen at "false" and would start lying the
+// moment the menu opened, and browsers already derive expanded state from
+// popovertarget. A stale ARIA state is worse than an absent one.
 templ MenuButton(p MenuButtonProps) {
 	{{ id := defaultID(p.ID, "dw-menu") }}
 	<div class="dw-menubtn" id={ id } { p.Attrs.Templ()... }>
@@ -109,6 +134,11 @@ templ MenuButton(p MenuButtonProps) {
 			type="button"
 			class={ "dw-btn", "dw-menubtn-trigger", roleClass("dw-btn", p.Role), sizeClass("dw-btn", p.Size) }
 			popovertarget={ id + "-panel" }
+			aria-haspopup="menu"
+			aria-controls={ id + "-panel" }
+			if p.Label == "" {
+				aria-label={ i18n.T(ctx, "ui.a11y.menu") }
+			}
 		>
 			if p.Icon != "" {
 				@ui.Icon(p.Icon)
@@ -149,32 +179,91 @@ templ menuItemBody(mi MenuItem) {
 
 // --- Forms -------------------------------------------------------------------
 
-// Field wraps a control with its label, help text, and server-rendered error.
+// Field wraps a control with its label, help text, and server-rendered error,
+// and — the part that matters — associates all three with the control.
+//
+// Two shapes, picked by whether For names a control:
+//
+//   - With For, the field is a <div> whose <label for> points at the control,
+//     and the help and error text get ids the control picks up as
+//     aria-describedby. This is the shape to reach for.
+//   - Without For, the field is a <fieldset> whose <legend> names everything
+//     inside it. That is the only correct way to label a control the field
+//     cannot name individually — a radio group, a pair of date inputs — since a
+//     <label> may name exactly one control and may not contain another label.
+//
+// There is deliberately no third shape rendering a label that points at
+// nothing. The describedby wiring travels on the context (see fieldDesc),
+// because a templ component cannot reach into an opaque child to add an
+// attribute; the upshot is that an existing @Field { @Input } becomes
+// conformant with no change at the call site.
 templ Field(p FieldProps) {
-	<div class={ "dw-field", templ.KV("is-error", p.Error != "") } { p.Attrs.Templ()... }>
-		if p.Label != "" {
-			if p.For != "" {
-				<label class="dw-label" for={ p.For }>{ p.Label }</label>
-			} else {
-				<label class="dw-label">{ p.Label }</label>
+	{{ ctx = withFieldDesc(ctx, newFieldDesc(p)) }}
+	if p.Label != "" && p.For == "" {
+		<fieldset class={ "dw-field", "is-group", templ.KV("is-error", p.Error != "") } { p.Attrs.Templ()... }>
+			<legend class="dw-label">
+				@fieldLabelText(p)
+			</legend>
+			{ children... }
+			@fieldNotes(p)
+		</fieldset>
+	} else {
+		<div class={ "dw-field", templ.KV("is-error", p.Error != "") } { p.Attrs.Templ()... }>
+			if p.Label != "" {
+				<label class="dw-label" for={ p.For }>
+					@fieldLabelText(p)
+				</label>
 			}
-		}
-		{ children... }
-		if p.Help != "" && p.Error == "" {
-			<small class="dw-help">{ p.Help }</small>
-		}
-		if p.Error != "" {
-			<small class="dw-field-error" role="alert">{ p.Error }</small>
-		}
-	</div>
+			{ children... }
+			@fieldNotes(p)
+		</div>
+	}
+}
+
+// fieldNotes renders the help line, or the error that replaces it. The ids are
+// empty in the fieldset shape, where the legend already names the group and the
+// notes are read as part of it.
+templ fieldNotes(p FieldProps) {
+	if p.Help != "" && p.Error == "" {
+		<small
+			class="dw-help"
+			if fieldHelpID(p) != "" {
+				id={ fieldHelpID(p) }
+			}
+		>{ p.Help }</small>
+	}
+	if p.Error != "" {
+		<small
+			class="dw-field-error"
+			if fieldErrorID(p) != "" {
+				id={ fieldErrorID(p) }
+			}
+			role="alert"
+		>{ p.Error }</small>
+	}
+}
+
+// fieldLabelText is the label's content: the label plus, when the field is
+// required, a marker that is both visible and announced. An asterisk alone is a
+// convention, not information — the word rides along in the accessible name.
+templ fieldLabelText(p FieldProps) {
+	{ p.Label }
+	if p.Required {
+		<span class="dw-required" aria-hidden="true">*</span>
+		<span class="sr-only">{ i18n.T(ctx, "ui.a11y.required") }</span>
+	}
 }
 
 // Fieldset groups related controls under a legend, styled so the group never
 // falls back to the UA default on dark. Disabled disables every control inside
 // at once (native <fieldset disabled>). The grouped controls are the children.
 templ Fieldset(p FieldsetProps) {
+	{{ helpID := fieldsetHelpID(p) }}
 	<fieldset
 		class="dw-fieldset"
+		if helpID != "" {
+			aria-describedby={ helpID }
+		}
 		if p.Disabled {
 			disabled
 		}
@@ -184,7 +273,7 @@ templ Fieldset(p FieldsetProps) {
 			<legend class="dw-legend">{ p.Legend }</legend>
 		}
 		if p.Help != "" {
-			<small class="dw-fieldset-help">{ p.Help }</small>
+			<small class="dw-fieldset-help" id={ helpID }>{ p.Help }</small>
 		}
 		{ children... }
 	</fieldset>
@@ -244,11 +333,21 @@ templ textInput(p TextInputProps) {
 		if p.Spellcheck != "" {
 			spellcheck={ p.Spellcheck }
 		}
+		if p.Label != "" {
+			aria-label={ p.Label }
+		}
+		if p.Required {
+			required
+			aria-required="true"
+		}
 		if p.Disabled {
 			disabled
 		}
-		if p.Error {
+		if controlInvalid(ctx, p.Error) {
 			aria-invalid="true"
+		}
+		if fieldDescFrom(ctx).describedBy != "" {
+			aria-describedby={ fieldDescFrom(ctx).describedBy }
 		}
 		{ p.Attrs.Templ()... }
 	/>
@@ -265,11 +364,17 @@ templ Textarea(p TextareaProps) {
 			name={ p.Name }
 			{ bind(p.Name)... }
 		}
+		if p.Label != "" {
+			aria-label={ p.Label }
+		}
 		if p.Rows > 0 {
 			rows={ itoa(p.Rows) }
 		}
-		if p.Error {
+		if controlInvalid(ctx, p.Error) {
 			aria-invalid="true"
+		}
+		if fieldDescFrom(ctx).describedBy != "" {
+			aria-describedby={ fieldDescFrom(ctx).describedBy }
 		}
 		{ p.Attrs.Templ()... }
 	>{ p.Value }</textarea>
@@ -289,11 +394,17 @@ templ Select(p SelectProps) {
 				name={ p.Name }
 				{ bind(p.Name)... }
 			}
+			if p.Label != "" {
+				aria-label={ p.Label }
+			}
 			if p.Disabled {
 				disabled
 			}
-			if p.Error {
+			if controlInvalid(ctx, p.Error) {
 				aria-invalid="true"
+			}
+			if fieldDescFrom(ctx).describedBy != "" {
+				aria-describedby={ fieldDescFrom(ctx).describedBy }
 			}
 			{ p.Attrs.Templ()... }
 		>
@@ -351,8 +462,11 @@ templ Checkbox(p CheckboxProps) {
 				value={ p.Value }
 			}
 			checked?={ p.Checked }
-			if p.Error {
+			if controlInvalid(ctx, p.Error) {
 				aria-invalid="true"
+			}
+			if fieldDescFrom(ctx).describedBy != "" {
+				aria-describedby={ fieldDescFrom(ctx).describedBy }
 			}
 			{ p.Attrs.Templ()... }
 		/>
@@ -361,10 +475,19 @@ templ Checkbox(p CheckboxProps) {
 }
 
 // RadioGroup is a set of radios sharing a Name; Inline lays them out in a row.
+// role=radiogroup needs an accessible name to be worth anything, so the group
+// takes p.Label — or, inside a Field, the description the Field published, which
+// is how a Field's own label reaches a control it cannot label directly.
 templ RadioGroup(p RadioGroupProps) {
 	<div
 		class={ "dw-radiogroup", templ.KV("is-inline", p.Inline) }
 		role="radiogroup"
+		if p.Label != "" {
+			aria-label={ p.Label }
+		}
+		if fieldDescFrom(ctx).describedBy != "" {
+			aria-describedby={ fieldDescFrom(ctx).describedBy }
+		}
 		{ p.Attrs.Templ()... }
 	>
 		for i, o := range p.Options {
@@ -413,15 +536,25 @@ templ Toggle(p ToggleProps) {
 
 // InputGroup is a button-attached input (search, chat send): the input and its
 // trailing button render joined into one control.
+//
+// An unlabelled input borrows the button's label, because in this pattern the
+// button is what names the pair — the box next to a "Search" button is the
+// search box, and that is how it is described out loud too. An explicit
+// Input.Label still wins.
 templ InputGroup(p InputGroupProps) {
 	<div class="dw-inputgroup" { p.Attrs.Templ()... }>
-		@Input(p.Input)
+		@Input(inputGroupInput(p))
 		@Button(p.Button)
 	</div>
 }
 
 // FormError is the form-level error summary banner (distinct from per-field
 // errors). It lists the individual problems for a server-rendered failed submit.
+// FormError is the form-level error summary banner (distinct from per-field
+// errors). It lists the individual problems for a server-rendered failed submit.
+//
+// A Problem entry renders as a link to the control it names, so the summary is
+// a way to reach the mistake and not just a restatement of it (WCAG 3.3.1).
 templ FormError(p FormErrorProps) {
 	<div class="dw-formerror" role="alert" { p.Attrs.Templ()... }>
 		<span class="dw-formerror-icon" aria-hidden="true">
@@ -431,10 +564,19 @@ templ FormError(p FormErrorProps) {
 			if p.Title != "" {
 				<strong class="dw-formerror-title">{ p.Title }</strong>
 			}
-			if len(p.Messages) > 0 {
+			if len(p.Messages) > 0 || len(p.Problems) > 0 {
 				<ul class="dw-formerror-list">
 					for _, m := range p.Messages {
 						<li class="dw-formerror-item">{ m }</li>
+					}
+					for _, pr := range p.Problems {
+						<li class="dw-formerror-item">
+							if pr.For != "" {
+								<a class="dw-formerror-link" href={ templ.SafeURL("#" + pr.For) }>{ pr.Message }</a>
+							} else {
+								{ pr.Message }
+							}
+						</li>
 					}
 				</ul>
 			}

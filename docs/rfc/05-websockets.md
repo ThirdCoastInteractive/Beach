@@ -1,5 +1,7 @@
 # RFC 05 — WebSocket support (`App.Socket`)
 
+[← docs index](../README.md) · prev: [Program & risks](04-program.md) · next: [Accessibility](06-accessibility.md)
+
 **Status: shipped.** `pkg/beach/socket.go` + the fourth shape in `routes.go`/`handlers.go`;
 tests in `socket_test.go`; demo at driftbottle `/sockets`. Decisions taken at
 implementation time are marked ⚑ below.

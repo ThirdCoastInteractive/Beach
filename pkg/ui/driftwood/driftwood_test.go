@@ -7,7 +7,9 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"testing/fstest"
 
+	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
 	"github.com/a-h/templ"
 )
 
@@ -60,13 +62,16 @@ func TestEveryCoreComponentRenders(t *testing.T) {
 		"divplain":    {c: Divider(DividerProps{})},
 		"navbar":      {c: Navbar(NavbarProps{Brand: "Beach", Items: []NavItem{{Label: "Home", Href: "/", Active: true, Icon: "home"}}})},
 		"breadcrumbs": {c: Breadcrumbs(BreadcrumbsProps{Items: []NavItem{{Label: "Root", Href: "/"}, {Label: "Now"}}})},
-		"tabs":        {c: Tabs(TabsProps{Name: "g", Tabs: []Tab{{ID: "a", Label: "A", Active: true}, {ID: "b", Label: "B", Get: "/b"}}})},
+		"tabs":        {c: Tabs(TabsProps{Name: "g", Label: "Views", Tabs: []Tab{{ID: "a", Label: "A", Active: true, Panel: text("panel a")}, {ID: "b", Label: "B", Get: "/b"}}})},
+		"tabsplain":   {c: Tabs(TabsProps{Name: "h", Tabs: []Tab{{ID: "a", Label: "A", Active: true}}})},
 		"pagination":  {c: Pagination(PaginationProps{Page: 2, Pages: 5, GetBase: "/list"})},
 		"button":      {c: Button(ButtonProps{Label: "Go", Role: RoleAccent, LeadIcon: "play", Loading: "$busy"})},
 		"iconbtn":     {c: IconButton(IconButtonProps{Icon: "gear", Label: "Settings"})},
 		"field":       {c: Field(FieldProps{Label: "Email", For: "e", Error: "required"}), children: []templ.Component{Input(TextInputProps{ID: "e", Name: "email", Error: true, Prefix: "@"})}},
-		"textarea":    {c: Textarea(TextareaProps{Name: "msg", Rows: 3, AutoGrow: true})},
-		"select":      {c: Select(SelectProps{Name: "tier", Placeholder: "Pick", Options: []Option{{Value: "a", Label: "A", Selected: true}}})},
+		"textarea":    {c: Textarea(TextareaProps{Name: "msg", Label: "Message", Rows: 3, AutoGrow: true})},
+		"select":      {c: Select(SelectProps{Name: "tier", Label: "Tier", Placeholder: "Pick", Options: []Option{{Value: "a", Label: "A", Selected: true}}})},
+		"selectfield": {c: Field(FieldProps{Label: "Tier", For: "tier"}), children: []templ.Component{Select(SelectProps{ID: "tier", Name: "tier", Options: []Option{{Value: "a", Label: "A"}}})}},
+		"fieldgroup":  {c: Field(FieldProps{Label: "Tide window", Help: "Local time."}), children: []templ.Component{RadioGroup(RadioGroupProps{Name: "tide", Options: []RadioOption{{Value: "am", Label: "AM"}}})}},
 		"table":       {c: Table(TableProps{Columns: []Column{{Header: "Name", Get: "/sort"}, {Header: "Qty"}}, Rows: [][]string{{"Oats", "2"}}})},
 		"emptytable":  {c: Table(TableProps{Empty: "Nothing here"})},
 		"stat":        {c: Stat(StatProps{Label: "Users", Value: "12", Delta: Delta{Value: "3", Dir: "up"}})},
@@ -91,6 +96,10 @@ func TestEveryCoreComponentRenders(t *testing.T) {
 			t.Errorf("%s rendered empty", name)
 		}
 		noColorLiteral(t, name, out)
+		referencesResolve(t, name, out)
+		controlsAreLabelled(t, name, out)
+		clickablesAreNamed(t, name, out)
+		rolesAreNamed(t, name, out)
 	}
 }
 
@@ -117,7 +126,7 @@ func TestSelectedMarkupDetails(t *testing.T) {
 
 	// Loading button binds aria-busy to the signal and renders a spinner.
 	btn := render(t, Button(ButtonProps{Label: "Go", Loading: "$busy"}))
-	if !strings.Contains(btn, `data-attr:aria-busy="$busy"`) || !strings.Contains(btn, "dw-btn-spinner") {
+	if !strings.Contains(btn, `data-attr:aria-busy="($busy) ? &#39;true&#39; : &#39;false&#39;"`) || !strings.Contains(btn, "dw-btn-spinner") {
 		t.Errorf("loading button wrong: %s", btn)
 	}
 
@@ -134,11 +143,71 @@ func TestSelectedMarkupDetails(t *testing.T) {
 	}
 }
 
+// TestPageDeclaresRequestLanguage covers the join between i18n and the page
+// shell: <html lang> and dir follow the request's locale, which is what lets a
+// screen reader pick the right voice and pronunciation rules (WCAG 3.1.1). A
+// page that renders Spanish under lang="en" is announced in an English accent,
+// which is the sort of defect nobody sees and everybody using a screen reader
+// hears immediately.
+func TestPageDeclaresRequestLanguage(t *testing.T) {
+	cases := []struct {
+		name   string
+		locale string
+		props  PageProps
+		want   string
+	}{
+		{"no locale configured", "", PageProps{}, `<html lang="en" dir="ltr"`},
+		{"locale from the request", "es-ES", PageProps{}, `<html lang="es-ES" dir="ltr"`},
+		{"an RTL locale flips dir", "ar-EG", PageProps{}, `<html lang="ar-EG" dir="rtl"`},
+		{"explicit Lang wins", "es-ES", PageProps{Lang: "fr-CA"}, `<html lang="fr-CA" dir="ltr"`},
+		{"explicit Dir wins", "ar-EG", PageProps{Dir: "ltr"}, `<html lang="ar-EG" dir="ltr"`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := context.Background()
+			if tc.locale != "" {
+				ctx = i18n.WithLocale(ctx, tc.locale)
+			}
+			var b bytes.Buffer
+			if err := Page(tc.props).Render(ctx, &b); err != nil {
+				t.Fatalf("render: %v", err)
+			}
+			if !strings.Contains(b.String(), tc.want) {
+				t.Errorf("page shell missing %q\n%s", tc.want, b.String()[:200])
+			}
+		})
+	}
+}
+
+// TestKitNamesComeFromTheCatalog proves the accessible names are translations
+// and not literals: the same component, rendered under a locale that carries a
+// different wording, announces differently.
+func TestKitNamesComeFromTheCatalog(t *testing.T) {
+	cat, err := i18n.Load(fstest.MapFS{
+		"locales/en-US.json": &fstest.MapFile{Data: []byte(`{"ui.a11y.dismiss":"Dismiss"}`)},
+		"locales/es-ES.json": &fstest.MapFile{Data: []byte(`{"ui.a11y.dismiss":"Descartar"}`)},
+	}, "en-US")
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	alert := Alert(AlertProps{Role: RoleInfo, Title: "Hi", Dismissible: true})
+	for locale, want := range map[string]string{"en-US": `aria-label="Dismiss"`, "es-ES": `aria-label="Descartar"`} {
+		ctx := i18n.WithCatalog(i18n.WithLocale(context.Background(), locale), cat)
+		var b bytes.Buffer
+		if err := alert.Render(ctx, &b); err != nil {
+			t.Fatalf("render: %v", err)
+		}
+		if !strings.Contains(b.String(), want) {
+			t.Errorf("locale %s: alert missing %s\n%s", locale, want, b.String())
+		}
+	}
+}
+
 func TestPageShell(t *testing.T) {
 	out := render(t, Page(PageProps{Title: "Home", Description: "d"}), text("hello"))
 	for _, want := range []string{
 		"<!doctype html>", // templ normalizes the doctype to lowercase
-		`<html lang="en" class="dw-root">`,
+		`<html lang="en" dir="ltr" class="dw-root">`,
 		`<link rel="stylesheet" href="/static/css/app.css">`,
 		`<script type="module" src="/static/js/datastar.js" defer></script>`,
 		`<script type="module" src="/static/js/chart.js" defer></script>`,

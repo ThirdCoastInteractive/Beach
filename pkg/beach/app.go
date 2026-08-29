@@ -30,6 +30,7 @@ import (
 	"time"
 
 	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/session"
 )
 
@@ -105,6 +106,19 @@ type Config struct {
 	// cap, keepalive cadence, write-queue depth, allowed origins). The zero
 	// value applies the documented defaults; same-origin only.
 	Sockets SocketConfig
+
+	// Locales, when non-nil, resolves each request's locale (cookie, then
+	// Accept-Language, then the catalog default) and carries it and the catalog
+	// on the request context. Two things then follow without any further
+	// wiring: i18n.T resolves this app's strings, and the driftwood page shell
+	// declares the matching <html lang> and dir — which is what a screen reader
+	// reads to pick its voice and pronunciation rules (WCAG 3.1.1).
+	//
+	// Left nil, the app runs monolingual: i18n.T falls back to the framework's
+	// embedded catalog, the shell declares lang="en", and the feature costs
+	// nothing. The middleware runs outermost, before request logging, so a
+	// logged or recovered request already knows its locale.
+	Locales *i18n.Catalog
 
 	// Middleware are app-supplied net/http wrappers applied around the whole
 	// handler, outside the fixed framework stack. They run outermost-first: the
@@ -232,6 +246,12 @@ func (a *App) handler() http.Handler {
 		if mw := a.cfg.Middleware[i]; mw != nil {
 			h = mw(h)
 		}
+	}
+
+	// Locale resolution wraps everything, so every layer inside — app
+	// middleware included — sees a request that already knows its language.
+	if a.cfg.Locales != nil {
+		h = a.cfg.Locales.Middleware(h)
 	}
 	return h
 }

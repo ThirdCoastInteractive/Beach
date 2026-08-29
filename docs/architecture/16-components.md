@@ -3,7 +3,7 @@
 [← docs index](../README.md) · prev: [Example apps](15-examples.md)
 
 [06-ui.md](06-ui.md) defines the *mechanism* — views as templ components, the
-semantic token contract, the performance laws, `ui.Defer`. This doc is the
+semantic token contract, the house laws, `ui.Defer`. This doc is the
 *inventory*: the concrete components `ui/driftwood` exports as package-level templ
 functions (`@driftwood.Card(p) { ... }`), and the **specimen** page (`ui/specimen`)
 that renders all of them at once.
@@ -29,12 +29,36 @@ The catalog is sequenced, not gated. Two markers:
   proven in the [specimen](#the-specimen) (the trio doesn't exercise it, so the specimen
   is its proving ground), built out as the kit fills in. No "an app must ask first" gate.
 
-Every component, by construction, obeys the performance laws: server-rendered final
-state (no pop-in), [HTML-and-CSS-first interactivity](06-ui.md#html-and-css-first) —
-script only for server round-trips, and then only typed `datastar.Attrs` (no raw
-`data-*`) — semantic tokens only (no hardcoded color), and an inert/empty/skeleton state
-so it
-composes with [`ui.Defer`](06-ui.md#deferred-sections).
+Every component, by construction, obeys the [house laws](06-ui.md#the-laws):
+server-rendered final state (no pop-in),
+[HTML-and-CSS-first interactivity](06-ui.md#html-and-css-first) — script only for server
+round-trips, and then only typed `datastar.Attrs` (no raw `data-*`) — semantic tokens only
+(no hardcoded color), an inert/empty/skeleton state so it composes with
+[`ui.Defer`](06-ui.md#deferred-sections), and
+[accessible by construction](06-ui.md#accessible-by-construction).
+
+That last one is worth spelling out as a checklist, because it is what a new component has
+to satisfy before it belongs here:
+
+- **A name, from the catalog.** Anything a screen reader announces — an icon-only button,
+  a landmark, a close control — takes its name from `i18n.T(ctx, "ui.a11y.…")`, never a
+  literal. `beach-vet` enforces it.
+- **Association, not adjacency.** A control and its label, help and error are wired with
+  `for`/`aria-describedby` (or `<fieldset>`/`<legend>` when one label cannot name the set),
+  not merely rendered next to each other.
+- **A visible focus ring** on anything focusable — added to the focus-law selector list in
+  `input.css`, since CSS is the one place `beach-vet` cannot see.
+- **Tokens for readable text.** Not raw `zinc-*`, not `opacity` for de-emphasis: both sit
+  outside what the contrast test can check.
+- **A role only if you can honour it.** No `role="img"` without a name, no `role="tablist"`
+  without tabs. Dropping the role is always the better answer.
+- **It has to survive its own zero value.** Render it from `ComponentProps{}` and it must
+  still be conformant: a name that comes from an optional prop needs a fallback, and an
+  `aria-*` attribute written unconditionally becomes `aria-label=""` — a nameless control
+  that reads, in review and in a linter, exactly like a handled one.
+  `TestZeroValuePropsAreStillAccessible` is where that is held.
+- **It has to fit in 320px.** Rows of controls wrap, anything holding an input gets
+  `min-w-0`, and anything genuinely two-dimensional scrolls inside its own box.
 
 ## The specimen
 

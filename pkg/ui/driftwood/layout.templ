@@ -1,6 +1,19 @@
 package driftwood
 
-import "github.com/ThirdCoastInteractive/the-beach/pkg/ui"
+import (
+	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui"
+)
+
+// ToastTarget is the DOM id of the page's live region — the one place
+// server-pushed status messages and error toasts land. Shell renders it empty
+// on every page, which is the whole point: a live region has to be in the
+// document *before* content arrives, or the arrival is not announced
+// (WCAG 4.1.3). beach.ToastTarget is this constant.
+const ToastTarget = "beach-toast"
+
+// MainID is the id of Shell's <main> landmark, and the skip link's target.
+const MainID = "dw-main"
 
 // --- Layout ------------------------------------------------------------------
 
@@ -10,6 +23,11 @@ import "github.com/ThirdCoastInteractive/the-beach/pkg/ui"
 // server-rendered, no JS.
 templ Shell(p AppShellProps) {
 	<div class={ "dw-shell", templ.KV("has-sidebar", p.Sidebar != nil) } { p.Attrs.Templ()... }>
+		if !p.Embedded {
+			<a class="dw-skip-link sr-only-focusable" href={ templ.SafeURL("#" + MainID) }>
+				{ i18n.T(ctx, "ui.a11y.skip_to_content") }
+			</a>
+		}
 		if p.Topbar != nil {
 			<header class="dw-shell-top">
 				@p.Topbar
@@ -17,19 +35,69 @@ templ Shell(p AppShellProps) {
 		}
 		if p.Sidebar != nil {
 			<div class="dw-shell-cols">
-				<aside class="dw-shell-side">
+			<aside class="dw-shell-side" aria-label={ a11yName(p.SidebarLabel, i18n.T(ctx, "ui.a11y.nav.sidebar")) }>
 					@p.Sidebar
 				</aside>
-				<main class="dw-shell-main">
+				@shellMain(p) {
 					{ children... }
-				</main>
+				}
 			</div>
 		} else {
-			<main class="dw-shell-main">
+			@shellMain(p) {
 				{ children... }
-			</main>
+			}
+		}
+		if !p.Embedded {
+			@LiveRegion()
 		}
 	</div>
+}
+
+// shellMain is the content region, shared by both shell shapes so the two cannot
+// drift apart. At the page root it is the main landmark; embedded, it is a plain
+// box, because a page may only have one main and only one thing may answer to
+// the bypass link's target id.
+templ shellMain(p AppShellProps) {
+	if p.Embedded {
+		<div class="dw-shell-main">
+			{ children... }
+		</div>
+	} else {
+		@Main() {
+			{ children... }
+		}
+	}
+}
+
+// Main is the page's main landmark and the target of the bypass link.
+//
+// Shell renders one; a page that builds its own frame renders this directly, so
+// that its content is reachable as a landmark and the skip link has somewhere to
+// land. tabindex=-1 makes it programmatically focusable, which is what turns
+// following the skip link into a real focus move rather than only a scroll.
+templ Main() {
+	<main id={ MainID } class="dw-shell-main" tabindex="-1">
+		{ children... }
+	</main>
+}
+
+// LiveRegion is the page's persistent polite announcement region: an empty,
+// named container that ships in the first response so later patches into it are
+// announced (WCAG 4.1.3). Shell renders one automatically; render it directly
+// only on a page that builds its own shell.
+//
+// aria-live is polite and aria-atomic is false, so an arriving toast is read on
+// its own without re-reading the ones already stacked. Anything urgent enough to
+// interrupt belongs in an Alert with role=alert, not here.
+templ LiveRegion() {
+	<div
+		id={ ToastTarget }
+		class="dw-toasts"
+		role="status"
+		aria-live="polite"
+		aria-atomic="false"
+		aria-label={ i18n.T(ctx, "ui.a11y.notifications") }
+	></div>
 }
 
 // Container constrains content to the page gutter, or to a named size token.
@@ -51,7 +119,9 @@ templ Card(p CardProps) {
 	<section class={ "dw-card", surfaceClass(p.Surface) } { p.Attrs.Templ()... }>
 		if p.Heading != "" {
 			<header class="dw-card-head">
-				<h3 class="dw-card-title">{ p.Heading }</h3>
+				@heading(headingLevel(p.Level, 3), "dw-card-title") {
+					{ p.Heading }
+				}
 			</header>
 		}
 		<div class="dw-card-body">
@@ -72,7 +142,31 @@ templ PageHeading(p PageHeadingProps) {
 
 // SectionHeading labels a content section.
 templ SectionHeading(p SectionHeadingProps) {
-	<h2 class="dw-section-heading" { p.Attrs.Templ()... }>{ p.Label }</h2>
+	@heading(headingLevel(p.Level, 2), "dw-section-heading") {
+		{ p.Label }
+	}
+}
+
+// heading renders a heading at a chosen level. templ has no dynamic tag name, so
+// the levels are spelled out — which is no loss: it keeps the set to the five a
+// component may legitimately use, with h1 reserved for the page's own title.
+//
+// Heading level is the outline a screen reader navigates by, and skipping one is
+// invisible on screen and disorienting off it (WCAG 1.3.1). Making it a prop is
+// how a component that does not know where it sits can still be placed correctly.
+templ heading(level int, class string) {
+	switch level {
+		case 2:
+			<h2 class={ class }>{ children... }</h2>
+		case 4:
+			<h4 class={ class }>{ children... }</h4>
+		case 5:
+			<h5 class={ class }>{ children... }</h5>
+		case 6:
+			<h6 class={ class }>{ children... }</h6>
+		default:
+			<h3 class={ class }>{ children... }</h3>
+	}
 }
 
 // Divider is a horizontal rule, optionally labeled.
@@ -92,7 +186,9 @@ templ Divider(p DividerProps) {
 templ CardHeading(p CardHeadingProps) {
 	<header class="dw-card-head" { p.Attrs.Templ()... }>
 		<div class="dw-card-head-text">
-			<h3 class="dw-card-title">{ p.Title }</h3>
+			@heading(headingLevel(p.Level, 3), "dw-card-title") {
+				{ p.Title }
+			}
 			if p.Meta != "" {
 				<p class="dw-card-meta">{ p.Meta }</p>
 			}
@@ -149,7 +245,7 @@ templ Split(p SplitProps) {
 
 // Navbar is the horizontal primary navigation: a brand link plus items.
 templ Navbar(p NavbarProps) {
-	<nav class="dw-navbar" aria-label="Primary" { p.Attrs.Templ()... }>
+	<nav class="dw-navbar" aria-label={ i18n.T(ctx, "ui.a11y.nav.primary") } { p.Attrs.Templ()... }>
 		if p.Brand != "" {
 			<a class="dw-brand" href="/">{ p.Brand }</a>
 		}
@@ -179,7 +275,7 @@ templ navLink(it NavItem) {
 // Sidebar is the fixed left-rail navigation: labeled sections of items with
 // icons and active state. Active state is a class, never script.
 templ Sidebar(p SidebarNavProps) {
-	<nav class="dw-sidebar" aria-label="Sidebar" { p.Attrs.Templ()... }>
+	<nav class="dw-sidebar" aria-label={ i18n.T(ctx, "ui.a11y.nav.sidebar") } { p.Attrs.Templ()... }>
 		for _, s := range p.Sections {
 			<div class="dw-side-section">
 				if s.Label != "" {
@@ -214,7 +310,7 @@ templ sideLink(it NavItem) {
 
 // Breadcrumbs is the ancestry trail; the last item is the current page.
 templ Breadcrumbs(p BreadcrumbsProps) {
-	<nav class="dw-breadcrumbs" aria-label="Breadcrumb" { p.Attrs.Templ()... }>
+	<nav class="dw-breadcrumbs" aria-label={ i18n.T(ctx, "ui.a11y.nav.breadcrumb") } { p.Attrs.Templ()... }>
 		<ol class="dw-crumbs">
 			for i, it := range p.Items {
 				if i == len(p.Items)-1 {
@@ -231,24 +327,57 @@ templ Breadcrumbs(p BreadcrumbsProps) {
 
 // Tabs is pure CSS: a radio per tab drives :checked panel visibility. Datastar
 // enters only when a tab's panel is deferred (Tab.Get set), wiring an @get.
+//
+// It is a radio group, and it says so. The ARIA tabs pattern needs roving
+// tabindex and arrow-key handling — script, which the HTML-and-CSS-first law
+// rules out — so the kit does not claim role=tablist it cannot honour: a
+// tablist whose children are not tabs is worse for a screen reader than no role
+// at all. A native radio group is the honest description of this widget and
+// brings correct arrow-key navigation and announcement for free.
+//
+// The radios are clipped rather than hidden, so they stay focusable, and the
+// kit sheet relays their focus and checked state to the matching label. At most
+// MaxTabs tabs switch; see the tab ladder in input.css.
+//
+// role=radiogroup appears only when Label does. Native radios already group by
+// name, so the role adds nothing but a name — and an unnamed role announces an
+// anonymous set of choices, which is worse than the plain grouping.
 templ Tabs(p TabsProps) {
 	{{ group := defaultID(p.Name, "dw-tabs") }}
-	<div class="dw-tabs" { p.Attrs.Templ()... }>
-		for _, t := range p.Tabs {
+	{{ tabs := tabsInLadder(p.Tabs) }}
+	<div
+		class="dw-tabs"
+		if p.Label != "" {
+			role="radiogroup"
+			aria-label={ p.Label }
+		}
+		{ p.Attrs.Templ()... }
+	>
+		for _, t := range tabs {
 			<input
 				type="radio"
 				class="dw-tab-radio"
 				name={ group }
-				id={ group + "-" + t.ID }
+				id={ tabRadioID(group, t) }
+				value={ t.ID }
 				checked?={ t.Active }
 				if t.Get != "" {
 					data-on:change={ "@get('" + t.Get + "')" }
 				}
 			/>
 		}
-		<div class="dw-tablist" role="tablist">
-			for _, t := range p.Tabs {
-				<label class="dw-tab" for={ group + "-" + t.ID }>{ t.Label }</label>
+		<div class="dw-tablist">
+			for _, t := range tabs {
+				<label class="dw-tab" for={ tabRadioID(group, t) }>{ t.Label }</label>
+			}
+		</div>
+		<div class="dw-tabpanels">
+			for _, t := range tabs {
+				<div class="dw-tabpanel" id={ tabRadioID(group, t) + "-panel" }>
+					if t.Panel != nil {
+						@t.Panel
+					}
+				</div>
 			}
 		</div>
 	</div>
@@ -257,24 +386,36 @@ templ Tabs(p TabsProps) {
 // Pagination renders prev/page/next links; each link is both a real href and a
 // hypermedia @get so it works before any bundle loads.
 templ Pagination(p PaginationProps) {
-	<nav class="dw-pagination" aria-label="Pagination" { p.Attrs.Templ()... }>
+	<nav class="dw-pagination" aria-label={ i18n.T(ctx, "ui.a11y.nav.pagination") } { p.Attrs.Templ()... }>
 		if p.Pages > 1 {
-			@pageLink("Prev", p.GetBase, p.Page-1, p.Page <= 1, false)
+			@pageLink(i18n.T(ctx, "ui.a11y.nav.prev"), "", p.GetBase, p.Page-1, p.Page <= 1, false)
 			for n := 1; n <= p.Pages; n++ {
-				@pageLink(itoa(n), p.GetBase, n, false, n == p.Page)
+				@pageLink(itoa(n), i18n.T(ctx, "ui.a11y.nav.page", n), p.GetBase, n, false, n == p.Page)
 			}
-			@pageLink("Next", p.GetBase, p.Page+1, p.Page >= p.Pages, false)
+			@pageLink(i18n.T(ctx, "ui.a11y.nav.next"), "", p.GetBase, p.Page+1, p.Page >= p.Pages, false)
 		}
 	</nav>
 }
 
-templ pageLink(label string, base string, n int, disabled bool, current bool) {
+// pageLink renders one pagination entry. label is the visible text; name is an
+// optional accessible name, used only where it *contains* that text.
+//
+// That constraint is WCAG 2.5.3 (Label in Name): someone driving the page by
+// voice says what they can see, so an accessible name that replaces the visible
+// text rather than extending it makes the control unreachable. A numbered link
+// reads "3" and is named "Page 3" — the digit survives, and the name gives it
+// the context it lacks out of a list (WCAG 2.4.4). Previous and Next already say
+// what they are, so they take no name at all rather than a longer synonym.
+templ pageLink(label, name string, base string, n int, disabled bool, current bool) {
 	if disabled {
 		<span class={ "dw-page-link", "is-disabled", templ.KV("is-current", current) } aria-disabled="true">{ label }</span>
 	} else {
 		<a
 			class={ "dw-page-link", templ.KV("is-current", current) }
 			href={ base + "?page=" + itoa(n) }
+			if name != "" {
+				aria-label={ name }
+			}
 			data-on:click={ "@get('" + base + "?page=" + itoa(n) + "')" }
 			if current {
 				aria-current="page"

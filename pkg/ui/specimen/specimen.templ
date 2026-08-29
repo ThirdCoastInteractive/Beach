@@ -18,16 +18,18 @@ templ Page() {
 		Title:       "driftwood specimen",
 		Description: "Every token, icon, driftwood component, rybitten gamut, and chart type on one page.",
 	}) {
-		@driftwood.Container(driftwood.ContainerProps{}) {
-			@driftwood.PageHeading(driftwood.PageHeadingProps{
-				Title:    "Living specimen",
-				Subtitle: "Every token, icon, driftwood component state, rybitten gamut, and chart type — one page, server-rendered.",
-			})
-			@tokenSheet()
-			@iconSet()
-			@componentGallery()
-			@gamutPreview()
-			@chartGallery()
+		@driftwood.Main() {
+			@driftwood.Container(driftwood.ContainerProps{}) {
+				@driftwood.PageHeading(driftwood.PageHeadingProps{
+					Title:    "Living specimen",
+					Subtitle: "Every token, icon, driftwood component state, rybitten gamut, and chart type — one page, server-rendered.",
+				})
+				@tokenSheet()
+				@iconSet()
+				@componentGallery()
+				@gamutPreview()
+				@chartGallery()
+			}
 		}
 	}
 }

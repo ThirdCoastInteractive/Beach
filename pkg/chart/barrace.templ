@@ -13,10 +13,12 @@ templ BarRaceSVG(lay BarRaceLayout) {
 		xmlns="http://www.w3.org/2000/svg"
 		viewBox={ "0 0 " + F(lay.W) + " " + F(lay.H) }
 		preserveAspectRatio="xMidYMid meet"
-		role="img"
 		class="chart-svg race"
 		if lay.Title != "" {
+			role="img"
 			aria-label={ lay.Title }
+		} else {
+			aria-hidden="true"
 		}
 	>
 		if lay.Title != "" {

@@ -8,6 +8,12 @@ package ui
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
+import (
+	"context"
+
+	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
+)
+
 // DeferProps configures a deferred section placeholder (see Defer). The
 // placeholder reserves Height up front so late content fills reserved space and
 // never shifts rendered pixels (the no-pop-in law).
@@ -17,6 +23,10 @@ type DeferProps struct {
 	Width  string // optional reserved width; defaults to 100%
 	Get    string // @get target; lands on a PageFunc returning the fragment
 	OnLoad bool   // fire on element init instead of viewport intersection (behind a tab)
+	// Label says what is still loading. role="status" with nothing inside it
+	// announces nothing, so the placeholder carries screen-reader-only text;
+	// empty falls back to the framework's translated "Loading".
+	Label string
 }
 
 // deferStyle reserves the exact box: the inline style carries only dimensions
@@ -32,6 +42,15 @@ func deferStyle(p DeferProps) map[string]string {
 
 // deferGet is the @get expression the placeholder fires when it activates.
 func deferGet(p DeferProps) string { return "@get('" + p.Get + "')" }
+
+// deferLabel is the placeholder's screen-reader text. A busy region has to say
+// what it is busy with, or a keyboard user landing on it hears an empty status.
+func deferLabel(ctx context.Context, p DeferProps) string {
+	if p.Label != "" {
+		return p.Label
+	}
+	return i18n.T(ctx, "ui.a11y.loading")
+}
 
 // Defer renders a server-side placeholder for a deferred section with exact
 // reserved dimensions (a skeleton box, zero layout shift) and a Datastar @get
@@ -73,7 +92,7 @@ func Defer(p DeferProps) templ.Component {
 		var templ_7745c5c3_Var2 string
 		templ_7745c5c3_Var2, templ_7745c5c3_Err = templ.ResolveAttributeValue(p.ID)
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/ui/defer.templ`, Line: 42, Col: 11}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/ui/defer.templ`, Line: 61, Col: 11}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var2)
 		if templ_7745c5c3_Err != nil {
@@ -86,7 +105,7 @@ func Defer(p DeferProps) templ.Component {
 		var templ_7745c5c3_Var3 string
 		templ_7745c5c3_Var3, templ_7745c5c3_Err = templruntime.SanitizeStyleAttributeValues(deferStyle(p))
 		if templ_7745c5c3_Err != nil {
-			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/ui/defer.templ`, Line: 44, Col: 23}
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/ui/defer.templ`, Line: 63, Col: 23}
 		}
 		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var3))
 		if templ_7745c5c3_Err != nil {
@@ -104,7 +123,7 @@ func Defer(p DeferProps) templ.Component {
 			var templ_7745c5c3_Var4 string
 			templ_7745c5c3_Var4, templ_7745c5c3_Err = templ.ResolveAttributeValue(deferGet(p))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/ui/defer.templ`, Line: 48, Col: 26}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/ui/defer.templ`, Line: 67, Col: 26}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var4)
 			if templ_7745c5c3_Err != nil {
@@ -122,7 +141,7 @@ func Defer(p DeferProps) templ.Component {
 			var templ_7745c5c3_Var5 string
 			templ_7745c5c3_Var5, templ_7745c5c3_Err = templ.ResolveAttributeValue(deferGet(p))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/ui/defer.templ`, Line: 50, Col: 34}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/ui/defer.templ`, Line: 69, Col: 34}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ_7745c5c3_Var5)
 			if templ_7745c5c3_Err != nil {
@@ -133,7 +152,20 @@ func Defer(p DeferProps) templ.Component {
 				return templ_7745c5c3_Err
 			}
 		}
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "></div>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 8, "><span class=\"sr-only\">")
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		var templ_7745c5c3_Var6 string
+		templ_7745c5c3_Var6, templ_7745c5c3_Err = templ.JoinStringErrs(deferLabel(ctx, p))
+		if templ_7745c5c3_Err != nil {
+			return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/ui/defer.templ`, Line: 72, Col: 44}
+		}
+		_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var6))
+		if templ_7745c5c3_Err != nil {
+			return templ_7745c5c3_Err
+		}
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 9, "</span></div>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

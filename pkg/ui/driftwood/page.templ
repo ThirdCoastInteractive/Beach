@@ -5,9 +5,13 @@ package driftwood
 // link, and the deferred Datastar + chart modules (no-blocking law). Theme
 // classes sit on <html> before paint (no pop-in); the page targets the 14KB
 // budget — heavier content becomes a ui.Defer section.
+//
+// lang and dir are resolved from the request's active i18n locale unless
+// PageProps overrides them, so a localized app declares its language correctly
+// without doing anything (WCAG 3.1.1).
 templ Page(p PageProps) {
 	<!DOCTYPE html>
-	<html lang={ pageLang(p.Lang) } class="dw-root">
+	<html lang={ pageLang(ctx, p.Lang) } dir={ pageDir(ctx, p) } class="dw-root">
 		<head>
 			<meta charset="utf-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>

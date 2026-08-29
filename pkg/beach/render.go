@@ -1,18 +1,21 @@
 package beach
 
 import (
+	"context"
 	"errors"
 	"net/http"
 
 	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
 )
 
-// ToastTarget is the conventional DOM id the error toast appends into. A page's
-// shell renders an empty <div id="beach-toast"> region; error patches append an
-// alert there. Apps that want a different region can render their own and rely on
-// the alert's own id morph instead.
-const ToastTarget = "beach-toast"
+// ToastTarget is the DOM id of the page's live region, where error toasts and
+// Patch.Announce messages land. driftwood.Shell renders the region empty on
+// every page — which is what makes patches into it announced, since a live
+// region that arrives with its content is not read out. The kit owns the id
+// because the kit renders the element; this is the alias apps name.
+const ToastTarget = driftwood.ToastTarget
 
 // writeError is the single place a handler error becomes a response. One error
 // type, both renderings: a toast/inline patch on a Datastar request, the
@@ -40,12 +43,12 @@ func (a *App) writeErrorPatch(c *Ctx, err error, status int) {
 		if len(ve.Fields) > 0 {
 			_ = sse.MarshalAndPatchSignals(map[string]any{"errors": ve.Fields})
 		}
-		alert := driftwood.ErrorAlert(ToastTarget+"-item", false, "Please fix the errors below", "")
+		alert := driftwood.ErrorAlert(ToastTarget+"-item", false, i18n.T(c.Context(), "framework.error.form"), "")
 		_ = sse.PatchElementTempl(alert, patchOptions(ToastTarget, PatchAppend)...)
 		return
 	}
 
-	alert := driftwood.ErrorAlert(ToastTarget+"-item", true, errorTitle(status), errorMessage(err, status))
+	alert := driftwood.ErrorAlert(ToastTarget+"-item", true, errorTitle(c.Context(), status), errorMessage(c.Context(), err, status))
 	_ = sse.PatchElementTempl(alert, patchOptions(ToastTarget, PatchAppend)...)
 }
 
@@ -55,33 +58,36 @@ func (a *App) writeErrorPatch(c *Ctx, err error, status int) {
 func (a *App) writeErrorPage(c *Ctx, err error, status int) {
 	c.W.Header().Set("Content-Type", "text/html; charset=utf-8")
 	c.W.WriteHeader(status)
-	page := driftwood.ErrorPage(status, errorTitle(status), errorMessage(err, status))
+	page := driftwood.ErrorPage(status, errorTitle(c.Context(), status), errorMessage(c.Context(), err, status))
 	if rerr := page.Render(c.Context(), c.W); rerr != nil {
 		a.log.Error("error page render", "err", rerr)
 	}
 }
 
-// errorTitle is a short human title for a status.
-func errorTitle(status int) string {
+// errorTitle is a short human title for a status. Like every other string the
+// framework puts in front of a person, it comes from the catalog: an app served
+// in Spanish should not hand back an English error page, and the page's own
+// <html lang> would be lying if it did.
+func errorTitle(ctx context.Context, status int) string {
 	switch status {
 	case http.StatusNotFound:
-		return "Not found"
+		return i18n.T(ctx, "framework.error.not_found")
 	case http.StatusForbidden:
-		return "Forbidden"
+		return i18n.T(ctx, "framework.error.forbidden")
 	case http.StatusUnauthorized:
-		return "Sign in required"
+		return i18n.T(ctx, "framework.error.unauthorized")
 	case http.StatusBadRequest:
-		return "Invalid request"
+		return i18n.T(ctx, "framework.error.bad_request")
 	default:
-		return "Something went wrong"
+		return i18n.T(ctx, "framework.error.internal")
 	}
 }
 
 // errorMessage returns a safe, user-facing message. Internal (500) errors never
 // leak their detail to the client; 4xx errors with a message do (validation, etc).
-func errorMessage(err error, status int) string {
+func errorMessage(ctx context.Context, err error, status int) string {
 	if status >= 500 {
-		return "An unexpected error occurred. Please try again."
+		return i18n.T(ctx, "framework.error.internal.detail")
 	}
 	var ve *ValidationError
 	if errors.As(err, &ve) {
@@ -89,12 +95,12 @@ func errorMessage(err error, status int) string {
 	}
 	switch status {
 	case http.StatusNotFound:
-		return "The page you were looking for does not exist."
+		return i18n.T(ctx, "framework.error.not_found.detail")
 	case http.StatusForbidden:
-		return "You do not have permission to view this page."
+		return i18n.T(ctx, "framework.error.forbidden.detail")
 	case http.StatusUnauthorized:
-		return "Please sign in to continue."
+		return i18n.T(ctx, "framework.error.unauthorized.detail")
 	default:
-		return "The request could not be processed."
+		return i18n.T(ctx, "framework.error.bad_request.detail")
 	}
 }

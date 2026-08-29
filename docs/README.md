@@ -55,6 +55,7 @@ flowchart BT
     pg["pg<br/>pool, migrate, InTx,<br/>Listen/Notify"]
     datastar["datastar"]
     ui["ui (Icon, Defer)<br/>+ driftwood kit + specimen"]
+    view["beach/view<br/>embedded assets;<br/>Tokens() reads input.css"]
     chart["chart<br/>geometry + templ render<br/>22 types, one package"]
     rybitten["rybitten<br/>RYB color, gamuts<br/>standalone, zero deps"]
     ch["ch<br/>ClickHouse"]
@@ -73,6 +74,8 @@ flowchart BT
     ui --> datastar
     ui --> chart
     ui --> rybitten
+    ui --> i18n
+    ui -. "view.Tokens() → measured contrast" .-> view
     ch --> chart
     beach --> ui
     beach --> datastar
@@ -114,6 +117,7 @@ the solid `ui --> rybitten` edge is the specimen's gamut preview — see
 | [3 — The ECS pitch](rfc/03-ecs.md)       | Why a custom engine, the design pillars, the hybrid boundary |
 | [4 — Program & risks](rfc/04-program.md) | The 10 shippable projects, validation criteria, risks        |
 | [5 — WebSockets](rfc/05-websockets.md)   | `App.Socket`: the non-hypermedia channel, coalescing, relay  |
+| [6 — Accessibility](rfc/06-accessibility.md) | WCAG 2.1 AA as a law: the audit, the palette move, names as translations, the live region, enforcement, and the known exceptions |
 
 ## Architecture — the how
 
@@ -124,7 +128,7 @@ the solid `ui --> rybitten` edge is the specimen's gamut preview — see
 | [3 — HTTP layer](architecture/03-http.md)               | Root `beach` package: App builder, handler shapes (incl. `Socket`), guards, SSE gzip     |
 | [4 — Hub](architecture/04-hub.md)                       | Topic fan-out, render-once-per-topic, tickers                                            |
 | [5 — Cache, session, i18n](architecture/05-services.md) | Snapshot/keyed caches, NOTIFY invalidation, Postgres sessions, i18n                      |
-| [6 — UI toolkit](architecture/06-ui.md)                 | Views as templ, the driftwood kit, tokens, no pop-in, no blocking, the 14KB rule, deferred sections |
+| [6 — UI toolkit](architecture/06-ui.md)                 | Views as templ, the driftwood kit, tokens, no pop-in, no blocking, the 14KB rule, deferred sections, accessible by construction |
 | [7 — ECS engine](architecture/07-ecs.md)                | The custom standalone engine: schema, Store, change ticks                                |
 | [8 — Sim](architecture/08-sim.md)                       | The boundary, tick loop, projections, persistence lanes                                  |
 | [9 — Lifecycles](architecture/09-lifecycles.md)         | Page / action / stream / external write, end to end                                      |
@@ -145,6 +149,7 @@ the solid `ui --> rybitten` edge is the specimen's gamut preview — see
 - **Auditing the plan?** RFC 1 → 2 → 3 → 4, then the decisions log.
 - **Auditing the ECS?** RFC 3 → Architecture 7 → 8 → 9.
 - **Auditing the frontend story?** Architecture 3 → 6 → 16 → 9.
+- **Auditing accessibility?** RFC 6 → Architecture 6 (the law) → 16 (the per-component contract) → 10 (what `beach-vet` checks).
 - **Auditing auth & codegen?** Architecture 12 → 13 → 10.
 - **Building project 1?** Architecture 1 → 2, RFC 4 for scope.
 - **Changing the color palette?** Architecture 19 → 14 (chart theming) → 6 (UI tokens).

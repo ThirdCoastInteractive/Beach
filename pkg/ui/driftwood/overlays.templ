@@ -1,6 +1,9 @@
 package driftwood
 
-import "github.com/ThirdCoastInteractive/the-beach/pkg/ui"
+import (
+	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui"
+)
 
 // --- Overlays ----------------------------------------------------------------
 
@@ -9,19 +12,23 @@ import "github.com/ThirdCoastInteractive/the-beach/pkg/ui"
 // to @get a heavy body under the 14KB budget; stacking sits on
 // var(--zindex-dialog) in the kit CSS.
 templ Modal(p ModalProps) {
+	{{ titleID := overlayTitleID(p.ID, "dw-modal") }}
 	<dialog
 		class="dw-modal"
 		if p.ID != "" {
 			id={ p.ID }
 		}
+		if p.Title != "" {
+			aria-labelledby={ titleID }
+		}
 		{ p.Attrs.Templ()... }
 	>
 		<header class="dw-modal-head">
 			if p.Title != "" {
-				<h2 class="dw-modal-title">{ p.Title }</h2>
+				<h2 class="dw-modal-title" id={ titleID }>{ p.Title }</h2>
 			}
 			<form class="dw-modal-x" method="dialog">
-				<button class="dw-iconbtn" type="submit" aria-label="Close">
+				<button class="dw-iconbtn" type="submit" aria-label={ i18n.T(ctx, "ui.a11y.close") }>
 					@ui.Icon("x")
 				</button>
 			</form>
@@ -43,10 +50,21 @@ templ Modal(p ModalProps) {
 // session cookie + redirects on success or patches an error into the error slot
 // on failure. Open it from a trigger with
 // datastar.OnClick("document.getElementById('<ID>').showModal()").
+//
+// Every string it renders comes from the catalog, because this is the one kit
+// component that ships finished user-facing copy rather than slots for an app's
+// own — a sign-in dialog reading English on a Spanish page is the most visible
+// possible version of that bug. Override any of it through AuthModalProps.
+//
+// The two switchers are a labelled pair of toggle buttons carrying aria-pressed
+// bound to the same signal that drives the panels, so which form is showing is
+// announced rather than merely drawn. They are not role="tab": there is no
+// tablist wiring behind them, and a role the markup cannot honour is worse than
+// none (see Tabs).
 templ AuthModal(p AuthModalProps) {
 	{{ id := defaultID(p.ID, "auth-modal") }}
 	{{ errID := authErrorID(p) }}
-	@Modal(ModalProps{ID: id, Title: authTitle(p), Attrs: p.Attrs}) {
+	@Modal(ModalProps{ID: id, Title: authTitle(ctx, p), Attrs: p.Attrs}) {
 		<div
 			class="dw-authmodal"
 			data-signals={ authSignalsTab(authTab(p)) }
@@ -54,9 +72,21 @@ templ AuthModal(p AuthModalProps) {
 				data-init={ authOpenScript(id) }
 			}
 		>
-			<div class="dw-authmodal-tabs">
-				<button type="button" class="dw-btn" data-on:click={ "$authtab = 'login'" } data-class={ authTabClass("login") }>Log in</button>
-				<button type="button" class="dw-btn" data-on:click={ "$authtab = 'register'" } data-class={ authTabClass("register") }>Register</button>
+			<div class="dw-authmodal-tabs" role="group" aria-label={ i18n.T(ctx, "ui.auth.choose") }>
+				<button
+					type="button"
+					class="dw-btn"
+					data-on:click={ "$authtab = 'login'" }
+					data-class={ authTabClass("login") }
+					{ authTabPressed("login")... }
+				>{ i18n.T(ctx, "ui.auth.login") }</button>
+				<button
+					type="button"
+					class="dw-btn"
+					data-on:click={ "$authtab = 'register'" }
+					data-class={ authTabClass("register") }
+					{ authTabPressed("register")... }
+				>{ i18n.T(ctx, "ui.auth.register") }</button>
 			</div>
 			<div id={ errID } class="dw-authmodal-error" role="alert">
 				if p.Error != "" {
@@ -65,33 +95,41 @@ templ AuthModal(p AuthModalProps) {
 			</div>
 			<div data-show={ "$authtab === 'login'" }>
 				<form class="dw-form" method="post" action={ p.LoginPost }>
-					@Field(FieldProps{Label: "Username", For: id + "-lu"}) {
-						@Input(TextInputProps{ID: id + "-lu", Name: "username", Autocomplete: "username"})
+					@Field(FieldProps{Label: i18n.T(ctx, "ui.auth.username"), For: id + "-lu", Required: true}) {
+						@Input(TextInputProps{ID: id + "-lu", Name: "username", Autocomplete: "username", Required: true})
 					}
-					@Field(FieldProps{Label: "Password", For: id + "-lp"}) {
-						@Input(TextInputProps{ID: id + "-lp", Name: "password", Type: "password", Autocomplete: "current-password"})
+					@Field(FieldProps{Label: i18n.T(ctx, "ui.auth.password"), For: id + "-lp", Required: true}) {
+						@Input(TextInputProps{ID: id + "-lp", Name: "password", Type: "password", Autocomplete: "current-password", Required: true})
 					}
-					@Button(ButtonProps{Label: "Log in", Role: RoleAccent, Type: "submit"})
+					@Button(ButtonProps{Label: i18n.T(ctx, "ui.auth.login"), Role: RoleAccent, Type: "submit"})
 				</form>
 			</div>
 			<div data-show={ "$authtab === 'register'" }>
 				<form class="dw-form" method="post" action={ p.RegisterPost }>
-					@Field(FieldProps{Label: "Username", For: id + "-ru"}) {
-						@Input(TextInputProps{ID: id + "-ru", Name: "username", Autocomplete: "username"})
+					@Field(FieldProps{Label: i18n.T(ctx, "ui.auth.username"), For: id + "-ru", Required: true}) {
+						@Input(TextInputProps{ID: id + "-ru", Name: "username", Autocomplete: "username", Required: true})
 					}
 					if p.ShowEmail {
-						@Field(FieldProps{Label: "Email (optional)", For: id + "-re"}) {
+						@Field(FieldProps{Label: i18n.T(ctx, "ui.auth.email_optional"), For: id + "-re"}) {
 							@Input(TextInputProps{ID: id + "-re", Name: "email", Type: "email", Autocomplete: "email"})
 						}
 					}
-					@Field(FieldProps{Label: "Password", For: id + "-rp"}) {
-						@Input(TextInputProps{ID: id + "-rp", Name: "password", Type: "password", Autocomplete: "new-password"})
+					@Field(FieldProps{Label: i18n.T(ctx, "ui.auth.password"), For: id + "-rp", Required: true}) {
+						@Input(TextInputProps{ID: id + "-rp", Name: "password", Type: "password", Autocomplete: "new-password", Required: true})
 					}
 					if p.TOSHref != "" {
-						@Checkbox(CheckboxProps{Name: "agree", Label: "I am 18+ and accept the terms"})
-						<p class="dw-authmodal-tos"><a href={ p.TOSHref } target="_blank" rel="noopener">Read the terms</a></p>
+						@Checkbox(CheckboxProps{Name: "agree", Label: i18n.T(ctx, "ui.auth.terms_accept")})
+						<p class="dw-authmodal-tos">
+							<a href={ p.TOSHref } target="_blank" rel="noopener">
+								{ i18n.T(ctx, "ui.auth.terms_read") }
+								// The link leaves the dialog for a new tab. Saying so in the
+								// name is the only warning a screen-reader user gets, since
+								// the change of context is otherwise silent.
+								<span class="sr-only">{ i18n.T(ctx, "ui.a11y.new_tab") }</span>
+							</a>
+						</p>
 					}
-					@Button(ButtonProps{Label: "Create account", Role: RoleAccent, Type: "submit"})
+					@Button(ButtonProps{Label: i18n.T(ctx, "ui.auth.register_submit"), Role: RoleAccent, Type: "submit"})
 				</form>
 			</div>
 		</div>
@@ -102,19 +140,23 @@ templ AuthModal(p AuthModalProps) {
 // mechanism as Modal: showModal + method="dialog" close, no script). Side picks
 // the edge; the kit CSS slides it in. Get lazy-loads a heavy body under budget.
 templ Drawer(p DrawerProps) {
+	{{ titleID := overlayTitleID(p.ID, "dw-drawer") }}
 	<dialog
 		class={ "dw-drawer", "dw-drawer-" + drawerSide(p.Side) }
 		if p.ID != "" {
 			id={ p.ID }
 		}
+		if p.Title != "" {
+			aria-labelledby={ titleID }
+		}
 		{ p.Attrs.Templ()... }
 	>
 		<header class="dw-drawer-head">
 			if p.Title != "" {
-				<h2 class="dw-drawer-title">{ p.Title }</h2>
+				<h2 class="dw-drawer-title" id={ titleID }>{ p.Title }</h2>
 			}
 			<form class="dw-drawer-x" method="dialog">
-				<button class="dw-iconbtn" type="submit" aria-label="Close">
+				<button class="dw-iconbtn" type="submit" aria-label={ i18n.T(ctx, "ui.a11y.close") }>
 					@ui.Icon("x")
 				</button>
 			</form>
@@ -136,7 +178,16 @@ templ Drawer(p DrawerProps) {
 templ Popover(p PopoverProps) {
 	{{ id := defaultID(p.ID, "dw-popover") }}
 	<div class="dw-popover" id={ id } { p.Attrs.Templ()... }>
-		<button type="button" class="dw-btn dw-popover-trigger" popovertarget={ id + "-panel" }>
+		<button
+			type="button"
+			class="dw-btn dw-popover-trigger"
+			popovertarget={ id + "-panel" }
+			aria-haspopup="dialog"
+			aria-controls={ id + "-panel" }
+			if p.Label == "" {
+				aria-label={ i18n.T(ctx, "ui.a11y.more") }
+			}
+		>
 			if p.Icon != "" {
 				@ui.Icon(p.Icon)
 			}
@@ -152,11 +203,28 @@ templ Popover(p PopoverProps) {
 
 // Tooltip wraps its children as the trigger; the tip is CSS-positioned off the
 // native focus/hover states — zero script, works before any bundle loads.
+//
+// aria-describedby ties the trigger to the tip, without which role=tooltip
+// describes nothing and the text is never announced. Interactive children keep
+// their own tab stop rather than being wrapped in a second one.
+//
+// Known limitation: WCAG 2.1 SC 1.4.13 asks that content shown on hover be
+// dismissible without moving the pointer or focus, which needs an Escape
+// handler and therefore script. See the exceptions list in
+// docs/rfc/06-accessibility.md — a tooltip here is a hint, never the only place
+// something is said.
 templ Tooltip(p TooltipProps) {
+	{{ tipID := defaultID(p.ID, "dw-tooltip") + "-text" }}
 	<span class="dw-tooltip" { p.Attrs.Templ()... }>
-		<span class="dw-tooltip-trigger" tabindex="0">
+		<span
+			class="dw-tooltip-trigger"
+			aria-describedby={ tipID }
+			if !p.Interactive {
+				tabindex="0"
+			}
+		>
 			{ children... }
 		</span>
-		<span class="dw-tooltip-text" role="tooltip">{ p.Text }</span>
+		<span class="dw-tooltip-text" id={ tipID } role="tooltip">{ p.Text }</span>
 	</span>
 }

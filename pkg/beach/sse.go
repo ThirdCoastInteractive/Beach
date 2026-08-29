@@ -6,6 +6,7 @@ import (
 
 	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
 	sdk "github.com/starfederation/datastar-go/datastar"
 )
 
@@ -59,11 +60,19 @@ type streamPatcher struct {
 	sse *datastar.SSE
 }
 
-// Patch renders p onto the SSE stream, honoring Target, Mode, Signals, Script and
-// Redirect.
+// Patch renders p onto the SSE stream, honoring Target, Mode, Signals, Script,
+// Announce and Redirect.
 func (sp streamPatcher) Patch(p Patch) error {
 	if p.Mode == PatchRemove && p.Target != "" {
 		return sp.sse.RemoveElement("#" + p.Target)
+	}
+	// Announce first: the message describes the change, and appending it before
+	// the fragment lands means the live region is updated even if rendering the
+	// fragment fails.
+	if p.Announce != "" {
+		if err := sp.announce(p.Announce); err != nil {
+			return err
+		}
 	}
 	if p.Signals != nil {
 		if err := sp.sse.MarshalAndPatchSignals(p.Signals); err != nil {
@@ -90,6 +99,16 @@ func (sp streamPatcher) Patch(p Patch) error {
 		return sp.redirect(p.Redirect)
 	}
 	return nil
+}
+
+// announce appends a screen-reader message into the page's live region. The
+// region is server-rendered and empty; appending into it is what makes the
+// message announced rather than merely present.
+func (sp streamPatcher) announce(msg string) error {
+	return sp.sse.PatchElementTempl(
+		driftwood.Announcement(msg),
+		patchOptions(ToastTarget, PatchAppend)...,
+	)
 }
 
 // redirect emits a CSP-safe client navigation. The SDK's Redirect helper

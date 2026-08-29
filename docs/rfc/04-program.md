@@ -1,6 +1,6 @@
 # RFC 4 — Program of projects, validation, risks
 
-[← docs index](../README.md) · prev: [The ECS pitch](03-ecs.md)
+[← docs index](../README.md) · prev: [The ECS pitch](03-ecs.md) · next: [WebSockets](05-websockets.md)
 
 ## Program of projects
 

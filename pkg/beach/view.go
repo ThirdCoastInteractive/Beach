@@ -106,6 +106,21 @@ type Patch struct {
 	// ViewTransition applies this patch inside the browser View Transitions API
 	// so CSS ::view-transition-* rules animate the change.
 	ViewTransition bool
+
+	// Announce, when non-empty, appends the message to the page's live region
+	// so a screen reader reads it out. It is how a server-driven change tells
+	// someone who cannot see it that anything happened — "12 results", "saved",
+	// "3 items removed" (WCAG 4.1.3 Status Messages).
+	//
+	// It needs the region to already exist, which driftwood.Shell renders on
+	// every page; a page building its own shell renders driftwood.LiveRegion
+	// itself. The message is text, not markup, and is appended rather than
+	// replacing what is there, so a burst of updates is read in order.
+	//
+	// Use it for status, not for errors: a failure already streams a toast
+	// through the same region, and Alert carries role=alert when something must
+	// interrupt.
+	Announce string
 }
 
 // Patches is the return type of an ActionFunc: an ordered list of DOM patches

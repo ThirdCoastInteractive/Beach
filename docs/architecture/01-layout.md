@@ -30,12 +30,16 @@ the-beach/                module github.com/ThirdCoastInteractive/the-beach
 │   ├── beach/            package beach — the framework's front door: App builder,
 │   │                     Ctx, PageFunc/ActionFunc/StreamFunc, guards, View/Patches/
 │   │                     Sub, NewSSE (per-event gzip), StaticCache, MergedFS, CSP
-│   │   └── view/         the framework's embedded asset tree (app.css input +
-│   │                     build output, the datastar/chart client JS, i18n catalog)
+│   │   └── view/         package view — the framework's embedded asset tree
+│   │                     (app.css input + build output, the datastar/chart
+│   │                     client JS). A package, not just a directory, so the
+│   │                     design tokens declared in the stylesheet can be read
+│   │                     from Go: view.Tokens() is what the contrast tests and
+│   │                     the specimen's contrast table measure
 │   ├── config/           env-tag struct loader, MustLoad
 │   ├── pg/               Pool/MustPool, advisory-lock Migrate, InTx, Listen/Notify
 │   ├── datastar/         typed data-* attribute builders (the only sanctioned way)
-│   ├── ui/               UI toolkit: Icon + Defer (.templ), the performance laws
+│   ├── ui/               UI toolkit: Icon + Defer (.templ), the house laws
 │   │   ├── driftwood/    the kit — exported package-level templ components
 │   │   └── specimen/     the living showcase page (tokens, icons, components,
 │   │                     gamut preview, chart gallery)

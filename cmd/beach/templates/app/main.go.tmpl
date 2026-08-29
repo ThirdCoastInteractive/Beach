@@ -19,6 +19,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"embed"
 	"log"
 	"log/slog"
 	"os"
@@ -27,8 +28,17 @@ import (
 
 	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
 	"github.com/a-h/templ"
 )
+
+// localesFS carries the app's translations into the binary. catalog.json is the
+// reference set — `beach i18n` reconciles it against the i18n.T calls in this
+// source, so a key that is added, renamed or dropped fails the check rather than
+// drifting.
+//
+//go:embed locales
+var localesFS embed.FS
 
 // appName brands the page chrome; views.templ reads it for the title and
 // heading so the name is templated in exactly one place.
@@ -60,10 +70,22 @@ func main() {
 	// own static tree — the app vendors nothing.
 	h := hub.New()
 
+	// Locales resolves each request's language (cookie, then Accept-Language,
+	// then the default) before anything else runs. Two things follow with no
+	// further wiring: i18n.T returns this app's strings, and the page shell
+	// declares the matching <html lang> and dir — which is what a screen reader
+	// reads to choose its voice (WCAG 3.1.1). Drop the field and the app is
+	// monolingual English at no cost.
+	cat, err := i18n.Load(localesFS, "en-US")
+	if err != nil {
+		log.Fatalf("%s: loading locales: %v", appName, err)
+	}
+
 	app := beach.New(beach.Config{
 		Service: appName,
 		Hub:     h,
 		Logger:  logger,
+		Locales: cat,
 	})
 
 	app.Page("/", indexPage)

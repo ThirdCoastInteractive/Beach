@@ -8,38 +8,57 @@ import (
 	"time"
 
 	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
 )
 
 // index is the complete document for GET /: driftwood page chrome around the
-// live Tick card. The container fires @get('/live') on load so the live region
-// starts streaming the moment the page lands.
+// Tick card. The container fires @get('/live') on load so the fragment starts
+// streaming the moment the page lands.
+//
+// driftwood.Shell is the page frame, and it is worth using even here where
+// there is no navigation yet: it renders the <main> landmark, the skip link,
+// and the announcement region the framework patches error toasts into. Without
+// it those toasts have nowhere to land — see
+// docs/architecture/06-ui.md#accessible-by-construction.
+//
+// Every string comes from the catalog (locales/*.json), so the page follows the
+// request's language and <html lang> stays honest. Delete the i18n calls if the
+// app is monolingual — nothing else depends on them.
 templ index(count int64) {
-	@driftwood.Page(driftwood.PageProps{Title: appName, Description: "A the-beach skeleton app."}) {
-		@driftwood.Container(driftwood.ContainerProps{Attrs: datastar.Attrs{datastar.On("load", "@get('/live')")}}) {
-			@driftwood.PageHeading(driftwood.PageHeadingProps{
-				Title:    appName,
-				Subtitle: "SSR + Datastar, no database, live over SSE.",
-			})
-			@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Tick"}) {
-				@live(count)
-				@driftwood.Button(driftwood.ButtonProps{
-					Label:    "Increment",
-					Role:     driftwood.RoleAccent,
-					LeadIcon: "plus",
-					Attrs:    datastar.Attrs{datastar.OnClick("@post('/inc')")},
+	@driftwood.Page(driftwood.PageProps{Title: appName, Description: i18n.T(ctx, "home.tagline")}) {
+		@driftwood.Shell(driftwood.AppShellProps{}) {
+			@driftwood.Container(driftwood.ContainerProps{Attrs: datastar.Attrs{datastar.On("load", "@get('/live')")}}) {
+				@driftwood.PageHeading(driftwood.PageHeadingProps{
+					Title:    appName,
+					Subtitle: i18n.T(ctx, "home.tagline"),
 				})
+				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: i18n.T(ctx, "home.tick.heading"), Level: 2}) {
+					@live(count)
+					@driftwood.Button(driftwood.ButtonProps{
+						Label:    i18n.T(ctx, "home.increment"),
+						Role:     driftwood.RoleAccent,
+						LeadIcon: "plus",
+						Attrs:    datastar.Attrs{datastar.OnClick("@post('/inc')")},
+					})
+				}
 			}
 		}
 	}
 }
 
-// live is the live region: a fixed id="live" wrapper showing the server clock
+// live is the patch target: a fixed id="live" wrapper showing the server clock
 // and the current counter. The ticker, the action, and the stream catch-up all
 // re-render this one component and morph it in place by its own id.
+//
+// Not to be confused with the page's *live region* (driftwood.LiveRegion, which
+// Shell renders): this fragment is visible content that changes, and a screen
+// reader is not told when it does. That is the right default for a clock — it
+// would be unbearable announced every second. A change the user needs to hear
+// about goes through beach.Patch{Announce} instead.
 templ live(count int64) {
 	<div id={ liveTarget }>
-		<p>Server time: <strong>{ time.Now().Format("15:04:05") }</strong></p>
-		<p>Increments: <strong>{ count }</strong></p>
+		<p>{ i18n.T(ctx, "home.clock") } <strong>{ time.Now().Format("15:04:05") }</strong></p>
+		<p>{ i18n.T(ctx, "home.increments") } <strong>{ count }</strong></p>
 	</div>
 }

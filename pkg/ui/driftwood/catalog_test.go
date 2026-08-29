@@ -24,13 +24,13 @@ func TestCatalogComponentsRender(t *testing.T) {
 		"btngroup":   {c: ButtonGroup(ButtonGroupProps{Label: "View"}), children: []templ.Component{Button(ButtonProps{Label: "Day"})}},
 		"segmented":  {c: Segmented(SegmentedProps{Name: "Range", Segments: []Segment{{Value: "d", Label: "Day", Active: true}, {Value: "w", Label: "Week", On: "@get('/r/w')"}}})},
 		"fieldset":   {c: Fieldset(FieldsetProps{Legend: "Contact", Help: "who to call", Disabled: true}), children: []templ.Component{text("fields")}},
-		"selectgrp":  {c: Select(SelectProps{Name: "board", Placeholder: "Pick", Groups: []OptionGroup{{Label: "Long", Options: []Option{{Value: "log", Label: "Log", Selected: true}}}}})},
+		"selectgrp":  {c: Select(SelectProps{Name: "board", Label: "Board", Placeholder: "Pick", Groups: []OptionGroup{{Label: "Long", Options: []Option{{Value: "log", Label: "Log", Selected: true}}}}})},
 		"menubtn":    {c: MenuButton(MenuButtonProps{ID: "m", Label: "Actions", Items: []MenuItem{{Label: "Edit", Href: "/e"}, {Label: "Delete", On: "@post('/d')"}}})},
 		"form":       {c: Form(FormProps{Post: "/save", TwoCol: true}), children: []templ.Component{text("fields")}},
 		"checkbox":   {c: Checkbox(CheckboxProps{Name: "agree", Label: "I agree", Checked: true})},
-		"radio":      {c: RadioGroup(RadioGroupProps{Name: "plan", Inline: true, Options: []RadioOption{{Value: "a", Label: "A", Checked: true}, {Value: "b", Label: "B"}}})},
+		"radio":      {c: RadioGroup(RadioGroupProps{Name: "plan", Label: "Plan", Inline: true, Options: []RadioOption{{Value: "a", Label: "A", Checked: true}, {Value: "b", Label: "B"}}})},
 		"toggle":     {c: Toggle(ToggleProps{Name: "live", Label: "Live", Description: "stream updates"})},
-		"inputgrp":   {c: InputGroup(InputGroupProps{Input: TextInputProps{Name: "q", Placeholder: "Search"}, Button: ButtonProps{Label: "Go", Type: "submit"}})},
+		"inputgrp":   {c: InputGroup(InputGroupProps{Input: TextInputProps{Name: "q", Label: "Search", Placeholder: "Search"}, Button: ButtonProps{Label: "Go", Type: "submit"}})},
 		"formerr":    {c: FormError(FormErrorProps{Title: "Fix these", Messages: []string{"Email required", "Name too long"}})},
 		"desclist":   {c: DescList(DescListProps{TwoCol: true, Items: []DescItem{{Term: "Name", Value: "Oats"}}})},
 		"stacked":    {c: StackedList(StackedListProps{Rows: []ListRow{{Title: "Row", Meta: "meta", Badge: &BadgeProps{Label: "New", Role: RoleGood}}}})},
@@ -49,6 +49,10 @@ func TestCatalogComponentsRender(t *testing.T) {
 			t.Errorf("%s rendered empty", name)
 		}
 		noColorLiteral(t, name, out)
+		referencesResolve(t, name, out)
+		controlsAreLabelled(t, name, out)
+		clickablesAreNamed(t, name, out)
+		rolesAreNamed(t, name, out)
 	}
 }
 

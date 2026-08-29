@@ -58,6 +58,9 @@ var rules = []rule{
 	ruleHardcodedColor,
 	ruleNakedHandlerFunc,
 	ruleCustomScript,
+	ruleImgAlt,
+	ruleUnnamedRoleImg,
+	ruleLiteralAccessibleName,
 }
 
 // Check walks root, analyzes every eligible Go file, and returns all findings
@@ -257,10 +260,21 @@ func atoi(s string) int {
 
 // onPath reports whether the file's package directory equals or is nested under
 // any of the given slash prefixes.
+//
+// The prefixes are written in library terms — "ui", "datastar", "internal/db" —
+// because beach-vet runs over two shapes of tree: the framework itself, where
+// those live under pkg/, and a consuming app stamped by `beach new`, where
+// internal/db sits at the root. So a prefix is matched against the package path
+// both as-is and with a leading "pkg/" removed. Without that second form none of
+// the sanctioning matched inside the framework, and every rule reported its own
+// sanctioned package.
 func (fc *fileCtx) onPath(prefixes ...string) bool {
+	candidates := [2]string{fc.pkg, strings.TrimPrefix(fc.pkg, "pkg/")}
 	for _, p := range prefixes {
-		if fc.pkg == p || strings.HasPrefix(fc.pkg, p+"/") {
-			return true
+		for _, c := range candidates {
+			if c == p || strings.HasPrefix(c, p+"/") {
+				return true
+			}
 		}
 	}
 	return false

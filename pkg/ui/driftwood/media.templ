@@ -12,7 +12,7 @@ templ Avatar(p AvatarProps) {
 			<span class="dw-avatar-initials" aria-hidden="true">{ p.Initials }</span>
 		}
 		if p.Status != "" {
-			<span class={ "dw-avatar-status", "dw-status-" + p.Status } role="img" aria-label={ p.Status }></span>
+			<span class={ "dw-avatar-status", "dw-status-" + p.Status } role="img" aria-label={ avatarStatusLabel(p) }></span>
 		}
 	</span>
 }
@@ -25,7 +25,10 @@ templ Image(p ImageProps) {
 		<img
 			class={ "dw-img", fitClass(p.Fit) }
 			src={ p.Src }
-			alt={ p.Alt }
+			alt={ imgAlt(p) }
+			if p.Decorative {
+				aria-hidden="true"
+			}
 			if p.Set != "" {
 				srcset={ p.Set }
 			}

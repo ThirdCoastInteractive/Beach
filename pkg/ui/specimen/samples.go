@@ -11,11 +11,16 @@
 package specimen
 
 import (
+	"context"
 	"fmt"
 	"math"
+	"strconv"
+	"strings"
 	"time"
 
+	"github.com/ThirdCoastInteractive/the-beach/pkg/beach/view"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/rybitten"
 	"github.com/a-h/templ"
 )
@@ -633,4 +638,94 @@ func sampleSunClock() chart.GeoClock {
 		ShowCities:   true,
 		ShowTwilight: true,
 	})
+}
+
+// --- accessibility section ------------------------------------------------------
+
+// contrastPair is one row of the specimen's contrast table: two tokens the kit
+// paints on top of each other, and the ratio WCAG requires for that pairing.
+type contrastPair struct {
+	what      string
+	fg, bg    string
+	min       float64
+	criterion string
+}
+
+// contrastPairs is a readable subset of the pairs asserted by
+// driftwood.TestPaletteMeetsAA. The list is duplicated because a test is not
+// linkable from the page, but the *values* are not: both sides resolve tokens
+// through view.Tokens, so the page and the test are always measuring the colors
+// the stylesheet actually declares. TestContrastRowsAllPass fails if anything
+// shown here would advertise a failure.
+var contrastPairs = []contrastPair{
+	{"body text on the page", "--color-fg-default", "--color-paper", 4.5, "1.4.3"},
+	{"muted text on a card", "--color-fg-muted", "--color-panel", 4.5, "1.4.3"},
+	{"accent button label", "--color-on-accent", "--color-accent", 4.5, "1.4.3"},
+	{"accent button label, hovered", "--color-on-accent", "--color-accent-hover", 4.5, "1.4.3"},
+	{"link text on the page", "--color-accent-text", "--color-paper", 4.5, "1.4.3"},
+	{"ghost button label, hovered", "--color-accent-text", "--color-accent-soft", 4.5, "1.4.3"},
+	{"error text on a card", "--color-bad", "--color-panel", 4.5, "1.4.3"},
+	{"focus ring on the page", "--color-accent", "--color-paper", 3.0, "1.4.11"},
+	{"focus ring on a card", "--color-accent", "--color-panel", 3.0, "1.4.11"},
+	{"input edge on a card", "--color-line-strong", "--color-panel", 3.0, "1.4.11"},
+	{"input edge on the page", "--color-line-strong", "--color-paper", 3.0, "1.4.11"},
+}
+
+// contrastRows renders the pair list as table rows, computing each ratio at
+// render time so the page reports what the palette actually does.
+func contrastRows() [][]string {
+	rows := make([][]string, 0, len(contrastPairs))
+	for _, p := range contrastPairs {
+		ratio := pairContrast(p)
+		verdict := "pass"
+		if ratio < p.min {
+			verdict = "FAIL"
+		}
+		rows = append(rows, []string{
+			p.what,
+			strconv.FormatFloat(ratio, 'f', 2, 64) + ":1",
+			strconv.FormatFloat(p.min, 'f', 1, 64) + ":1",
+			p.criterion,
+			verdict,
+		})
+	}
+	return rows
+}
+
+// pairContrast resolves both sides of a pair and measures them. A name that is
+// already a hex literal (white button text) resolves to itself.
+func pairContrast(p contrastPair) float64 {
+	fg, okf := resolveToken(p.fg)
+	bg, okb := resolveToken(p.bg)
+	if !okf || !okb {
+		return 0
+	}
+	return rybitten.Contrast(fg, bg)
+}
+
+// resolveToken turns a token name into the color the page will actually paint,
+// reading it out of the stylesheet itself (view.Tokens) rather than a copy — a
+// contrast table reporting ratios for colors the page no longer paints would be
+// worse than no table. A name that is already a hex literal (white button text)
+// resolves to itself.
+func resolveToken(name string) (rybitten.RGB, bool) {
+	hex := name
+	if !strings.HasPrefix(name, "#") {
+		v, ok := view.Tokens()[name]
+		if !ok {
+			return rybitten.RGB{}, false
+		}
+		hex = v
+	}
+	c, err := rybitten.ParseHex(hex)
+	return c, err == nil
+}
+
+// specimenLang reports the language the document declared, so the page can show
+// that <html lang> followed the request rather than a hardcoded default.
+func specimenLang(ctx context.Context) string {
+	if loc := i18n.Locale(ctx); loc != "" {
+		return loc
+	}
+	return "en (no locale configured)"
 }

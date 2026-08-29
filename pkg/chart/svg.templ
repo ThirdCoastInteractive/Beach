@@ -26,7 +26,7 @@ templ LineChartSVG(c LineChart) {
 			}
 		</div>
 	}
-	<svg class="chart-svg cline chart-fill" role="img">
+	<svg class="chart-svg cline chart-fill" aria-hidden="true">
 		for _, gy := range c.GridYs {
 			<line class="cline-grid" x1={ Pct(c.PlotLeftPct) } x2={ Pct(c.PlotRightPct) } y1={ Pct(gy) } y2={ Pct(gy) }></line>
 		}
@@ -79,7 +79,7 @@ templ StackedGaugeSVG(g StackedGauge) {
 		width="100%"
 		height="100%"
 		class="chart-svg"
-		role="img"
+		aria-hidden="true"
 		style="cursor:pointer"
 		if g.Tip != "" {
 			data-tip={ g.Tip }
@@ -123,7 +123,7 @@ templ GaugeSVG(g Gauge) {
 		width="100%"
 		height="100%"
 		class="chart-svg"
-		role="img"
+		aria-hidden="true"
 		style="cursor:pointer"
 		if g.Tip != "" {
 			data-tip={ g.Tip }
@@ -158,7 +158,7 @@ templ BillboardSVG(b Billboard) {
 		width="100%"
 		height="100%"
 		class="chart-svg"
-		role="img"
+		aria-hidden="true"
 		style="cursor:pointer"
 		if b.Tip != "" {
 			data-tip={ b.Tip }
@@ -208,7 +208,7 @@ templ BillboardSVG(b Billboard) {
 
 // StackedBarSVG renders a stacked horizontal bar chart.
 templ StackedBarSVG(c StackedBar) {
-	<svg width="100%" height="100%" class="chart-svg" role="img">
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true">
 		for _, r := range c.Rows {
 			<g class="cbar">
 				<text class="cbar-label" x={ c.LabelX } y={ r.CenterY } dy="0.35em" text-anchor="end">{ r.Label }</text>
@@ -225,7 +225,7 @@ templ StackedBarSVG(c StackedBar) {
 
 // BundleSVG renders a hierarchical edge bundling diagram.
 templ BundleSVG(b Bundle) {
-	<svg width="100%" height="100%" class="chart-svg bundle-svg" role="img" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
+	<svg width="100%" height="100%" class="chart-svg bundle-svg" aria-hidden="true" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
 		for _, arc := range b.Arcs {
 			<path d={ arc.PathD } fill="none" stroke={ arc.Color } stroke-width="1.2" opacity="0.25" stroke-linecap="round"></path>
 		}
@@ -242,7 +242,7 @@ templ BundleSVG(b Bundle) {
 // GroupedBarSVG renders a grouped (side-by-side) bar chart. Each row
 // has multiple thin bars placed side by side within the track.
 templ GroupedBarSVG(c GroupedBar) {
-	<svg width="100%" height="100%" class="chart-svg" role="img">
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true">
 		for _, r := range c.Rows {
 			<g class="cbar">
 				<text class="cbar-label" x={ c.LabelX } y={ r.CenterY } dy="0.35em" text-anchor="end">{ r.Label }</text>
@@ -268,7 +268,7 @@ templ StreamSVG(s Stream) {
 			</span>
 		}
 	</div>
-	<svg class="chart-svg chart-fill" role="img" viewBox="0 0 1000 600" preserveAspectRatio="none">
+	<svg class="chart-svg chart-fill" aria-hidden="true" viewBox="0 0 1000 600" preserveAspectRatio="none">
 		for _, layer := range s.Layers {
 			<path class="chart-hover-fade" d={ layer.PathD } fill={ layer.Color } opacity="0.75" style="cursor:pointer" data-tip={ layer.Tip }></path>
 		}
@@ -295,7 +295,7 @@ templ ScatterSVG(s Scatter) {
 			}
 		</div>
 	}
-	<svg class="chart-svg chart-fill" role="img" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet">
+	<svg class="chart-svg chart-fill" aria-hidden="true" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet">
 		for _, gy := range s.GridYs {
 			<line x1={ F(s.PlotL) } x2={ F(s.PlotR) } y1={ F(gy) } y2={ F(gy) } stroke="var(--color-line-soft)" stroke-opacity="0.5"></line>
 		}
@@ -325,7 +325,7 @@ templ ScatterSVG(s Scatter) {
 // on hover with no new client module. Every node is wrapped in a drill-in link when
 // it carries an Href. All colors are CSS-variable tokens — no hard-coded fills.
 templ SingleLineSVG(s SingleLine) {
-	<svg width="100%" height="100%" class="chart-svg sankey-svg single-line-svg" role="img" viewBox={ SingleLineViewBox(s) } preserveAspectRatio="xMidYMid meet">
+	<svg width="100%" height="100%" class="chart-svg sankey-svg single-line-svg" aria-hidden="true" viewBox={ SingleLineViewBox(s) } preserveAspectRatio="xMidYMid meet">
 		// Busbars first (behind the conductors + nodes): a thick horizontal run.
 		for _, b := range s.Buses {
 			<line class="single-line-bus" x1={ F(b.X1) } y1={ F(b.Y) } x2={ F(b.X2) } y2={ F(b.Y) } stroke={ b.Color } stroke-width="6" stroke-linecap="round" data-node-id={ b.ID } data-tip={ b.Tip } style="cursor:pointer"></line>
@@ -384,7 +384,7 @@ templ singleLineNode(n SingleLineLayoutNode) {
 }
 
 templ SankeySVG(s Sankey) {
-	<svg width="100%" height="100%" class="chart-svg sankey-svg" role="img" viewBox="0 0 1000 210" preserveAspectRatio="xMidYMid meet">
+	<svg width="100%" height="100%" class="chart-svg sankey-svg" aria-hidden="true" viewBox="0 0 1000 210" preserveAspectRatio="xMidYMid meet">
 		for _, link := range s.Links {
 			<path class="sankey-link" d={ link.PathD } fill={ link.Color } stroke="none" opacity="0.4" data-tip={ link.Tip } data-src={ link.SrcID } data-dst={ link.DstID }></path>
 		}
@@ -396,7 +396,7 @@ templ SankeySVG(s Sankey) {
 }
 
 templ ChordSVG(c Chord) {
-	<svg width="100%" height="100%" class="chart-svg chord-svg" role="img" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
+	<svg width="100%" height="100%" class="chart-svg chord-svg" aria-hidden="true" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
 		for _, ribbon := range c.Ribbons {
 			<path class="chord-ribbon" d={ ribbon.PathD } fill={ ribbon.Color } opacity="0.35" data-tip={ ribbon.Tip } data-src={ Itoa(ribbon.SrcGroup) } data-dst={ Itoa(ribbon.DstGroup) }></path>
 		}
@@ -409,7 +409,7 @@ templ ChordSVG(c Chord) {
 
 // BoxPlotSVG renders a box-and-whisker plot.
 templ BoxPlotSVG(b BoxPlot) {
-	<svg width="100%" height="100%" class="chart-svg" role="img" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet">
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet">
 		for _, gy := range b.GridYs {
 			<line x1={ F(b.PlotL) } x2={ F(b.PlotR) } y1={ F(gy) } y2={ F(gy) } stroke="var(--color-line-soft)" stroke-opacity="0.5"></line>
 		}
@@ -430,7 +430,7 @@ templ BoxPlotSVG(b BoxPlot) {
 
 // CalendarSVG renders a GitHub-style calendar heatmap.
 templ CalendarSVG(c Calendar) {
-	<svg width="100%" height="100%" class="chart-svg" role="img" viewBox={ CalendarViewBox(c) } preserveAspectRatio="xMidYMid meet">
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true" viewBox={ CalendarViewBox(c) } preserveAspectRatio="xMidYMid meet">
 		for _, label := range c.MonthLabels {
 			<text x={ F(label.X) } y="15" fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="12" text-anchor="start">{ label.Label }</text>
 		}
@@ -445,7 +445,7 @@ templ CalendarSVG(c Calendar) {
 
 // BollingerSVG renders a Bollinger bands chart.
 templ BollingerSVG(b Bollinger) {
-	<svg width="100%" height="100%" class="chart-svg vb-hover" role="img" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" data-plot-l={ F(b.PlotL) } data-plot-r={ F(b.PlotR) } data-plot-t={ F(b.PlotT) } data-plot-b={ F(b.PlotB) }>
+	<svg width="100%" height="100%" class="chart-svg vb-hover" aria-hidden="true" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" data-plot-l={ F(b.PlotL) } data-plot-r={ F(b.PlotR) } data-plot-t={ F(b.PlotT) } data-plot-b={ F(b.PlotB) }>
 		for _, gy := range b.GridYs {
 			<line x1={ F(b.PlotL) } x2={ F(b.PlotR) } y1={ F(gy) } y2={ F(gy) } stroke="var(--color-line-soft)" stroke-opacity="0.5"></line>
 		}
@@ -466,7 +466,7 @@ templ BollingerSVG(b Bollinger) {
 
 // HorizonSVG renders a multi-row horizon chart.
 templ HorizonSVG(h Horizon) {
-	<svg width="100%" height="100%" class="chart-svg" role="img" viewBox={ HorizonViewBox(h) } preserveAspectRatio="xMidYMid meet">
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true" viewBox={ HorizonViewBox(h) } preserveAspectRatio="xMidYMid meet">
 		for _, row := range h.Rows {
 			<text x="90" y={ F(row.Y + row.H/2) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="14" text-anchor="end" dy="0.35em">{ row.Label }</text>
 			for _, band := range row.Bands {
@@ -479,7 +479,7 @@ templ HorizonSVG(h Horizon) {
 
 // RidgelineSVG renders a ridgeline (joy) plot.
 templ RidgelineSVG(r Ridgeline) {
-	<svg width="100%" height="100%" class="chart-svg" role="img" viewBox={ RidgelineViewBox(r) } preserveAspectRatio="xMidYMid meet">
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true" viewBox={ RidgelineViewBox(r) } preserveAspectRatio="xMidYMid meet">
 		for _, row := range r.Rows {
 			<path class="chart-hover-fade" d={ row.PathD } fill={ row.Color } opacity="0.6" stroke={ row.Color } stroke-width="1.5"></path>
 			<text x="90" y={ F(row.Y) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="14" text-anchor="end" dy="0.35em">{ row.Label }</text>
@@ -489,7 +489,7 @@ templ RidgelineSVG(r Ridgeline) {
 
 // DifferenceSVG renders a difference chart with colored fill between two series.
 templ DifferenceSVG(d Difference) {
-	<svg width="100%" height="100%" class="chart-svg vb-hover" role="img" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" data-plot-l={ F(d.PlotL) } data-plot-r={ F(d.PlotR) } data-plot-t={ F(d.PlotT) } data-plot-b={ F(d.PlotB) }>
+	<svg width="100%" height="100%" class="chart-svg vb-hover" aria-hidden="true" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" data-plot-l={ F(d.PlotL) } data-plot-r={ F(d.PlotR) } data-plot-t={ F(d.PlotT) } data-plot-b={ F(d.PlotB) }>
 		for _, gy := range d.GridYs {
 			<line x1={ F(d.PlotL) } x2={ F(d.PlotR) } y1={ F(gy) } y2={ F(gy) } stroke="var(--color-line-soft)" stroke-opacity="0.5"></line>
 		}
@@ -508,7 +508,7 @@ templ DifferenceSVG(d Difference) {
 
 // TimelineSVG renders a horizontal Gantt-style timeline.
 templ TimelineSVG(t Timeline) {
-	<svg width="100%" height="100%" class="chart-svg" role="img" viewBox={ TimelineViewBox(t) } preserveAspectRatio="xMidYMid meet">
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true" viewBox={ TimelineViewBox(t) } preserveAspectRatio="xMidYMid meet">
 		for _, gx := range t.GridXs {
 			<line x1={ F(gx) } x2={ F(gx) } y1="20" y2={ F(t.VH - 10) } stroke="var(--color-line-soft)" stroke-opacity="0.3"></line>
 		}
@@ -529,7 +529,7 @@ templ SparklineSVG(s Sparkline) {
 		width="100%"
 		height="100%"
 		class="chart-svg"
-		role="img"
+		aria-hidden="true"
 		style="cursor:pointer"
 		if s.Tip != "" {
 			data-tip={ s.Tip }
@@ -565,7 +565,7 @@ templ PhaseChartSVG(p Phase) {
 			</span>
 		}
 	</div>
-	<svg class="chart-svg chart-fill" role="img" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet">
+	<svg class="chart-svg chart-fill" aria-hidden="true" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet">
 		for _, c := range p.Cells {
 			<rect x={ F(c.X) } y={ F(c.Y) } width={ F(c.W) } height={ F(c.H) } fill={ c.Fill }></rect>
 		}
@@ -587,7 +587,7 @@ templ PhaseChartSVG(p Phase) {
 
 // HeatmapSVG renders a color-coded grid from precomputed geometry.
 templ HeatmapSVG(h Heatmap) {
-	<svg width="100%" height="100%" class="chart-svg" role="img">
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true">
 		for _, label := range h.Rows {
 			<text class="cbar-label" x={ label.X } y={ label.Y } dy="0.35em" text-anchor="end" style="font-size:0.7rem">{ label.Text }</text>
 		}
@@ -603,7 +603,7 @@ templ HeatmapSVG(h Heatmap) {
 // BulletBarSVG renders a bullet (overlapping) bar chart. Each row draws
 // bars back-to-front: widest (dimmest) first, narrowest (boldest) last.
 templ BulletBarSVG(c BulletBar) {
-	<svg width="100%" height="100%" class="chart-svg" role="img">
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true">
 		for _, r := range c.Rows {
 			<g class="cbar">
 				<text class="cbar-label" x={ c.LabelX } y={ r.CenterY } dy="0.35em" text-anchor="end">{ r.Label }</text>
@@ -620,7 +620,7 @@ templ BulletBarSVG(c BulletBar) {
 
 // BarChartSVG renders a horizontal bar chart from precomputed geometry.
 templ BarChartSVG(c BarChart) {
-	<svg width="100%" height="100%" class="chart-svg" role="img">
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true">
 		for _, b := range c.Bars {
 			<g class="cbar">
 				<text class="cbar-label" x={ c.LabelX } y={ b.CenterY } dy="0.35em" text-anchor="end">{ b.Label }</text>
@@ -675,7 +675,7 @@ templ GeoMapSVG(g GeoMap) {
 		width="100%"
 		height="100%"
 		class="chart-svg geomap-svg"
-		role="img"
+		aria-hidden="true"
 		viewBox={ g.ViewBox }
 		preserveAspectRatio="xMidYMid meet"
 		if g.Interactive {

@@ -11,11 +11,19 @@ import (
 // chartGallery renders every chart type in the suite — including the geo
 // family (choropleth, interactive map, globes, sun clock) — plus a static
 // bar-race frame, on the dashboard grid.
+//
+// Most widgets here name their chart with a visible card title and leave the SVG
+// decorative, which is the right shape for a titled dashboard cell. The line and
+// bar charts additionally carry chart.Label and chart.Describe, so the gallery
+// shows what a chart with a real text alternative looks like: the name, and the
+// sentence someone who cannot see it would need instead.
 templ chartGallery() {
 	@driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Charts"})
 	<div class="dash-grid">
 		@chartWidget("Line — visitors by hour", "dash-col-8 dash-row-2") {
-			@chart.ChartLineFragment(sampleLine())
+			@chart.ChartLineFragment(sampleLine(),
+				chart.Label("Visitors by hour"),
+				chart.Describe("A single peak just after midday, tailing off through the afternoon."))
 		}
 		@chartWidget("Billboard — daily visitors", "dash-col-4 dash-row-1") {
 			@chart.ChartBillboardFragment("spec-billboard", sampleBillboard())
@@ -30,7 +38,9 @@ templ chartGallery() {
 			@chart.ChartStackedGaugeFragment("spec-stacked-gauge", sampleStackedGauge())
 		}
 		@chartWidget("Bar — visits by beach", "dash-col-6 dash-row-2") {
-			@chart.ChartBarFragment("spec-hbar", sampleHBar())
+			@chart.ChartBarFragment("spec-hbar", sampleHBar(),
+				chart.Label("Visits by beach"),
+				chart.Describe("North Beach leads at 9,420, then The Cove at 7,180."))
 		}
 		@chartWidget("Stacked bar — vendor mix", "dash-col-6 dash-row-2") {
 			@chart.ChartStackedBarFragment("spec-stacked-bar", sampleStackedBar())

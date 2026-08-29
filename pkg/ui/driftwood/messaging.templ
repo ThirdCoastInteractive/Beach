@@ -1,6 +1,9 @@
 package driftwood
 
-import "github.com/ThirdCoastInteractive/the-beach/pkg/ui"
+import (
+	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui"
+)
 
 // --- Messaging ---------------------------------------------------------------
 
@@ -30,6 +33,10 @@ templ messageItem(m Message) {
 
 // Composer is the message input: a one-row textarea bound to a signal and a
 // send button, submitting over a hypermedia @post.
+//
+// The textarea carries a real accessible name rather than leaning on its
+// placeholder, which vanishes as soon as there is text and is not a label
+// (WCAG 3.3.2).
 templ Composer(p ComposerProps) {
 	<form
 		class="dw-composer"
@@ -48,8 +55,9 @@ templ Composer(p ComposerProps) {
 			if p.Placeholder != "" {
 				placeholder={ p.Placeholder }
 			}
+			aria-label={ composerLabel(ctx, p) }
 		></textarea>
-		<button class="dw-composer-send" type="submit" aria-label="Send">
+		<button class="dw-composer-send" type="submit" aria-label={ i18n.T(ctx, "ui.a11y.send") }>
 			@ui.Icon("send")
 		</button>
 	</form>

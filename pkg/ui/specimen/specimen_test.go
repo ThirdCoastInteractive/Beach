@@ -41,3 +41,18 @@ func TestPageRenders(t *testing.T) {
 		t.Errorf("expected at least 23 dash-widget cards, got %d", got)
 	}
 }
+
+// TestContrastRowsAllPass asserts the page the framework shows off with does not
+// advertise a failure. Every pair in the specimen's table is one the palette test
+// also asserts, so this failing means the two lists have diverged.
+func TestContrastRowsAllPass(t *testing.T) {
+	rows := contrastRows()
+	if len(rows) != len(contrastPairs) {
+		t.Fatalf("got %d rows for %d pairs", len(rows), len(contrastPairs))
+	}
+	for i, r := range rows {
+		if r[len(r)-1] != "pass" {
+			t.Errorf("%s: %s (needs %s, WCAG %s)", contrastPairs[i].what, r[1], r[2], r[3])
+		}
+	}
+}

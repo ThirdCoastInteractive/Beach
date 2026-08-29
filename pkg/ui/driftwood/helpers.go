@@ -1,9 +1,12 @@
 package driftwood
 
 import (
+	"context"
 	"strconv"
+	"strings"
 
 	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
 	"github.com/a-h/templ"
 )
 
@@ -61,6 +64,17 @@ func alertIcon(r Role) string {
 	}
 }
 
+// alertRole picks a live-region role that matches the severity: role=alert
+// interrupts, role=status waits for a pause. Only warn and danger have earned
+// an interruption.
+func alertRole(r Role) string {
+	switch r {
+	case RoleWarn, RoleDanger:
+		return "alert"
+	}
+	return "status"
+}
+
 // bind renders the data-bind:<signal> attribute for a named control so a form
 // @post submits the value (Datastar posts signals, not raw form fields). The
 // dynamic attribute key forces the spread form in templ.
@@ -103,6 +117,19 @@ func ariaBool(b bool) string {
 	return "false"
 }
 
+// ariaBoolExpr is ariaBool for a *reactive* state: it wraps a Datastar
+// expression so the attribute is written as the string "true" or "false".
+//
+// This is not decoration. Datastar treats a boolean-valued data-attr as an HTML
+// boolean attribute — it writes `aria-pressed=""` when true and removes the
+// attribute when false. For `disabled` that is exactly right; for an ARIA state
+// it is wrong twice over: an empty value is not a valid state, and a *removed*
+// aria-pressed does not mean "not pressed", it means "not a toggle button at
+// all", so the control silently stops being one the moment it is switched off.
+func ariaBoolExpr(expr string) string {
+	return "(" + expr + ") ? 'true' : 'false'"
+}
+
 // formSubmitExpr picks the form's hypermedia submit action; empty means the
 // form carries no Datastar submit wiring.
 func formSubmitExpr(p FormProps) string {
@@ -127,14 +154,14 @@ func deltaIcon(dir string) string {
 	return "arrow-right"
 }
 
-func deltaLabel(dir string) string {
+func deltaLabel(ctx context.Context, dir string) string {
 	switch dir {
 	case "up":
-		return "up"
+		return i18n.T(ctx, "ui.a11y.delta.up")
 	case "down":
-		return "down"
+		return i18n.T(ctx, "ui.a11y.delta.down")
 	}
-	return "no change"
+	return i18n.T(ctx, "ui.a11y.delta.none")
 }
 
 // deltaClass is the direction modifier on a stat delta; empty Dir gets none.
@@ -257,12 +284,28 @@ func presenceClass(state string) templ.KeyValue[string, bool] {
 	return maybeClass("is-" + state)
 }
 
-// pageLang defaults the document language to English.
-func pageLang(lang string) string {
-	if lang == "" {
-		return "en"
+// pageLang resolves the document language: an explicit PageProps.Lang wins,
+// then the request's active i18n locale, then English. Declaring the right
+// language is what lets a screen reader pick the right voice and pronunciation
+// rules (WCAG 3.1.1), so the default has to follow the content — which, for a
+// localized app, means following the locale the response was rendered in.
+func pageLang(ctx context.Context, lang string) string {
+	if lang != "" {
+		return lang
 	}
-	return lang
+	if loc := i18n.Locale(ctx); loc != "" {
+		return loc
+	}
+	return "en"
+}
+
+// pageDir resolves the document's base writing direction from the resolved
+// language, unless PageProps.Dir overrides it.
+func pageDir(ctx context.Context, p PageProps) string {
+	if p.Dir != "" {
+		return p.Dir
+	}
+	return string(i18n.Dir(pageLang(ctx, p.Lang)))
 }
 
 // appHref is the kit's single render-blocking stylesheet: the compiled CSS
@@ -292,4 +335,227 @@ func errorAlertIcon(danger bool) string {
 		return "alert-octagon"
 	}
 	return "alert-triangle"
+}
+
+// --- accessible names ---------------------------------------------------------
+//
+// Every name the kit puts in front of assistive technology is a catalog key, not
+// a literal. A name a screen reader reads out is content: on a page rendered in
+// Spanish, "Close" is as wrong as an untranslated heading would be. The keys and
+// their English defaults ship embedded in pkg/i18n, so an app that configures no
+// locales gets exactly this wording and pays nothing, while one that ships an
+// es-ES.json gets the whole kit announced in Spanish for free.
+//
+// beach-vet's a11y-literal-name rule holds the line: a literal aria-label
+// inside pkg/ui is a finding.
+
+// a11yName picks a caller-supplied name over the kit's default.
+//
+// The default arrives already translated, rather than as a catalog key this
+// function would look up. That is deliberate: `beach i18n` finds keys by
+// matching literal i18n.T("…") calls, so a key passed through a helper is a key
+// the extractor cannot see, and it would be reported as stale and eventually
+// deleted from the catalog while still being used. Keeping the lookup at the
+// call site keeps the key set mechanically verifiable, which is the whole point
+// of the extractor.
+func a11yName(override, fallback string) string {
+	if override != "" {
+		return override
+	}
+	return fallback
+}
+
+// overlayTitleID names the heading a dialog is labelled by. A dialog with an
+// ID hangs the heading id off it so two dialogs on one page stay distinct;
+// without one it falls back to the kit default, which is fine because a page
+// with two unnamed dialogs has a bigger problem than duplicate ids.
+func overlayTitleID(id, fallback string) string {
+	return defaultID(id, fallback) + "-title"
+}
+
+// --- field descriptions -------------------------------------------------------
+
+// fieldDescKey is the context key under which a Field publishes the ids of the
+// help and error text it rendered.
+type fieldDescKey struct{}
+
+// fieldDesc is what a Field tells the control it wraps: which elements describe
+// it, and whether it is currently invalid. Carrying this on the context is what
+// lets `@Field(...) { @Input(...) }` wire up aria-describedby with nothing at
+// the call site — Field cannot reach into an opaque templ.Component child, and
+// making callers repeat matching ids by hand is precisely the manual sync that
+// leaves real forms unlabelled.
+type fieldDesc struct {
+	describedBy string // space-separated ids, "" when the field has neither help nor error
+	invalid     bool
+}
+
+// withFieldDesc returns a context carrying d, for a Field to hand its children.
+func withFieldDesc(ctx context.Context, d fieldDesc) context.Context {
+	return context.WithValue(ctx, fieldDescKey{}, d)
+}
+
+// fieldDescFrom reads the enclosing Field's description, if there is one. A
+// control rendered outside a Field gets the zero value and behaves as before.
+func fieldDescFrom(ctx context.Context) fieldDesc {
+	if ctx == nil {
+		return fieldDesc{}
+	}
+	if d, ok := ctx.Value(fieldDescKey{}).(fieldDesc); ok {
+		return d
+	}
+	return fieldDesc{}
+}
+
+// newFieldDesc derives the ids Field will stamp on its help and error text. The
+// ids hang off the control id so they are stable across a re-render (a patched
+// fragment must not renumber them under a screen reader's cursor).
+func newFieldDesc(p FieldProps) fieldDesc {
+	base := p.For
+	if base == "" {
+		return fieldDesc{invalid: p.Error != ""}
+	}
+	var ids []string
+	if p.Help != "" && p.Error == "" {
+		ids = append(ids, base+"-help")
+	}
+	if p.Error != "" {
+		ids = append(ids, base+"-error")
+	}
+	return fieldDesc{describedBy: strings.Join(ids, " "), invalid: p.Error != ""}
+}
+
+// fieldHelpID / fieldErrorID name the two description elements Field renders.
+// Both return "" when there is no control id to hang them off, in which case
+// Field wraps the control in its label and the description rides along inside.
+func fieldHelpID(p FieldProps) string  { return suffixID(p.For, "-help") }
+func fieldErrorID(p FieldProps) string { return suffixID(p.For, "-error") }
+
+// fieldsetHelpID names a Fieldset's group-level help line, or "" when there is
+// nothing to name (no help, or no id to hang it off).
+func fieldsetHelpID(p FieldsetProps) string {
+	if p.Help == "" {
+		return ""
+	}
+	return suffixID(p.ID, "-help")
+}
+
+func suffixID(base, suffix string) string {
+	if base == "" {
+		return ""
+	}
+	return base + suffix
+}
+
+// controlInvalid reports whether a control should carry aria-invalid: either it
+// was told so directly, or the Field around it is showing an error.
+func controlInvalid(ctx context.Context, own bool) bool {
+	return own || fieldDescFrom(ctx).invalid
+}
+
+// --- sortable table headers ---------------------------------------------------
+
+// sortAria maps a column's sort state onto the aria-sort token. Unsorted
+// columns get "none", which is what tells a screen reader the header is
+// sortable at all rather than merely present.
+func sortAria(d SortDir) string {
+	switch d {
+	case SortAsc, SortDesc:
+		return string(d)
+	}
+	return "none"
+}
+
+// sortIcon pairs the sort state with a directional glyph, so the state is
+// visible and not only announced.
+func sortIcon(d SortDir) string {
+	switch d {
+	case SortAsc:
+		return "arrow-up"
+	case SortDesc:
+		return "arrow-down"
+	}
+	return "chevron-up-down"
+}
+
+// sortLabel is the sortable header button's accessible name: the column heading
+// plus its current state, so activating it is an informed choice.
+func sortLabel(ctx context.Context, c Column) string {
+	switch c.Sort {
+	case SortAsc:
+		return i18n.T(ctx, "ui.a11y.sort.asc", c.Header)
+	case SortDesc:
+		return i18n.T(ctx, "ui.a11y.sort.desc", c.Header)
+	}
+	return i18n.T(ctx, "ui.a11y.sort.none", c.Header)
+}
+
+// --- tabs ---------------------------------------------------------------------
+
+// tabRadioID is the id shared by a tab's radio and its label's `for`.
+func tabRadioID(group string, t Tab) string { return group + "-" + t.ID }
+
+// tabsInLadder caps a tab set at MaxTabs: the kit sheet's per-index rules stop
+// there, so a ninth tab would render a label that switches nothing. Truncating
+// is the visible failure, which is the one worth having.
+func tabsInLadder(tabs []Tab) []Tab {
+	if len(tabs) > MaxTabs {
+		return tabs[:MaxTabs]
+	}
+	return tabs
+}
+
+// --- media --------------------------------------------------------------------
+
+// avatarStatusLabel is what an avatar's status dot is announced as. The Status
+// slug is a styling hook and reads badly out loud ("away-long"), so a caller-
+// supplied label wins; the slug is the last resort, which is still better than
+// a dot that says nothing.
+func avatarStatusLabel(p AvatarProps) string {
+	if p.StatusLabel != "" {
+		return p.StatusLabel
+	}
+	return p.Status
+}
+
+// composerLabel names the message box: the caller's Label, then the placeholder
+// (which at least says what the box is for), then the catalog. A composer is
+// never nameless, because a nameless multi-line text box is announced as
+// nothing at all.
+func composerLabel(ctx context.Context, p ComposerProps) string {
+	if p.Label != "" {
+		return p.Label
+	}
+	return a11yName(p.Placeholder, i18n.T(ctx, "ui.a11y.composer"))
+}
+
+// inputGroupInput fills in the group's input name from the button when the
+// caller gave the input none. See InputGroup.
+func inputGroupInput(p InputGroupProps) TextInputProps {
+	in := p.Input
+	if in.Label == "" {
+		in.Label = p.Button.Label
+	}
+	return in
+}
+
+// imgAlt resolves an image's text alternative. A decorative image gets the empty
+// alt that hides it from assistive technology; everything else gets its Alt.
+func imgAlt(p ImageProps) string {
+	if p.Decorative {
+		return ""
+	}
+	return p.Alt
+}
+
+// --- headings -----------------------------------------------------------------
+
+// headingLevel clamps a caller-supplied heading level into 2–6, falling back to
+// def when unset. h1 is not offered: a document has one, and it belongs to
+// PageHeading.
+func headingLevel(level, def int) int {
+	if level < 2 || level > 6 {
+		return def
+	}
+	return level
 }

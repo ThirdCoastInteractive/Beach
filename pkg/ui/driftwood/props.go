@@ -13,7 +13,10 @@
 package driftwood
 
 import (
+	"context"
+
 	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
 	"github.com/a-h/templ"
 )
 
@@ -84,7 +87,13 @@ type ContainerProps struct {
 type CardProps struct {
 	Surface Surface // panel (default) or well
 	Heading string  // optional title rendered in the card header
-	Attrs   datastar.Attrs
+	// Level is the heading level for Heading, 2–6. It defaults to 3, which is
+	// right under a SectionHeading (h2) and wrong directly under a PageHeading
+	// (h1) — a skipped level is how a screen reader's heading list loses the
+	// shape of the page (WCAG 1.3.1). The kit cannot know where a card sits, so
+	// the caller owns the outline.
+	Level int
+	Attrs datastar.Attrs
 }
 
 type PageHeadingProps struct {
@@ -95,6 +104,8 @@ type PageHeadingProps struct {
 
 type SectionHeadingProps struct {
 	Label string
+	// Level is the heading level, 2–6; defaults to 2.
+	Level int
 	Attrs datastar.Attrs
 }
 
@@ -109,13 +120,28 @@ type DividerProps struct {
 type AppShellProps struct {
 	Topbar  templ.Component // optional navbar/topbar slot
 	Sidebar templ.Component // optional left sidebar nav; nil = stacked shell
-	Attrs   datastar.Attrs
+	// SidebarLabel names the <aside> landmark so a screen reader's landmark
+	// list distinguishes it from the topbar. Defaults to the kit's translated
+	// "Sidebar"; set it when an app's rail holds something more specific.
+	SidebarLabel string
+	// Embedded marks this Shell as a preview inside another page rather than
+	// the page root — the shape a component gallery or a docs page needs.
+	//
+	// A page has exactly one main landmark, one bypass link, and one live
+	// region. A second Shell on the same page would duplicate all three, along
+	// with their ids, which is worse than having none: a screen reader's
+	// landmark list gains a phantom, and a patch aimed at the live region has
+	// two targets. So an embedded Shell renders its frame and nothing else.
+	Embedded bool
+	Attrs    datastar.Attrs
 }
 
 // CardHeadingProps is a richer card header: title + optional meta line + an
 // action slot rendered on the right (a Card's Heading string is the simple case).
 type CardHeadingProps struct {
-	Title  string
+	Title string
+	// Level is the heading level for Title, 2–6; defaults to 3. See CardProps.
+	Level  int
 	Meta   string          // optional secondary line
 	Action templ.Component // optional right-aligned action slot
 	Attrs  datastar.Attrs
@@ -182,10 +208,24 @@ type Tab struct {
 	Label  string
 	Active bool
 	Get    string // @get target for a deferred panel; empty = inline CSS tab
+	// Panel is the tab's content. A Tab with no Panel renders an empty panel
+	// box — which is what a Get-deferred tab wants, since the fragment patches
+	// into it — but a tab set with no panels at all is a bug, not a design.
+	Panel templ.Component
 }
 
+// MaxTabs is how many tabs one Tabs set can switch between. Selecting a panel
+// from a checked radio is a per-index CSS rule, so the kit sheet carries a
+// ladder of exactly this many ("the tab ladder" in input.css) — keep the two
+// in step. A surface wanting a ninth tab wants navigation, not tabs.
+const MaxTabs = 8
+
 type TabsProps struct {
-	Name  string // radio group name for the CSS :checked mechanism
+	Name string // radio group name for the CSS :checked mechanism
+	// Label names the tab set for assistive technology. The tabs are a radio
+	// group, and a radio group without a name is announced as an anonymous set
+	// of choices (WCAG 4.1.2).
+	Label string
 	Tabs  []Tab
 	Attrs datastar.Attrs
 }
@@ -212,6 +252,12 @@ type SidebarNavProps struct {
 
 // --- Buttons ---
 
+// ButtonProps configures a Button.
+//
+// Label (or child text) is what names the button. A button carrying only
+// LeadIcon or TailIcon has no accessible name and is announced as "button" —
+// use IconButton for that shape instead, which takes the name as a field and so
+// cannot be built without one.
 type ButtonProps struct {
 	Label    string
 	Role     Role
@@ -282,12 +328,30 @@ type MenuButtonProps struct {
 
 // --- Forms ---
 
+// FieldProps is one label / control / help / error row.
+//
+// The association is automatic. Field publishes the ids of whatever Help and
+// Error text it renders onto the context it hands its children, and the kit's
+// controls (Input, Textarea, Select, Checkbox) read them back to fill in their
+// own aria-describedby and aria-invalid. So a plain
+//
+//	@Field(FieldProps{Label: "Name", For: "name", Error: err}) {
+//		@Input(TextInputProps{ID: "name", Name: "name"})
+//	}
+//
+// announces "Name, invalid entry, <the error>" with nothing else to wire up
+// (WCAG 1.3.1 / 3.3.1). With For empty the label wraps the control instead of
+// pointing at it, so the association holds either way.
 type FieldProps struct {
 	Label string
-	For   string // id of the labelled control
+	For   string // id of the labelled control; empty makes the label wrap it
 	Help  string
 	Error string // server-rendered field error
-	Attrs datastar.Attrs
+	// Required marks the field's label so the requirement is visible and
+	// announced. It does not set the control's required attribute — that is
+	// TextInputProps.Required, on the control that owns the constraint.
+	Required bool
+	Attrs    datastar.Attrs
 }
 
 // FieldsetProps groups related fields under a legend (a styled
@@ -295,6 +359,10 @@ type FieldProps struct {
 // dark). Help renders a description line under the legend; the grouped controls
 // are the children.
 type FieldsetProps struct {
+	// ID is what the group's help line hangs off, so the <fieldset> can point
+	// aria-describedby at it. Without an ID the help still renders but is only
+	// visually associated — pass one whenever there is Help.
+	ID       string
 	Legend   string
 	Help     string
 	Disabled bool // disable every control in the group at once
@@ -302,8 +370,14 @@ type FieldsetProps struct {
 }
 
 type TextInputProps struct {
-	ID           string
-	Name         string
+	ID   string
+	Name string
+	// Label is the control's accessible name for the case where there is no
+	// visible label to point at it — a search box, a filter in a toolbar. Inside
+	// a Field, leave it empty: the Field's own label is the name, and setting
+	// both means the visible text and the announced text can drift apart.
+	Label string
+
 	Type         string // "text" (default), "email", "password", "date", ...
 	Value        string
 	Placeholder  string
@@ -315,14 +389,20 @@ type TextInputProps struct {
 	InputMode    string // virtual-keyboard hint: "numeric", "decimal", "tel", ...
 	Autocomplete string // autocomplete token, e.g. "off", "email", "one-time-code"
 	Spellcheck   string // "true"/"false" — disable for codes, units, identifiers
-	Error        bool
+	Required     bool   // native required + aria-required
+	Error        bool   // force the invalid state; an enclosing Field's Error implies it
 	Disabled     bool
 	Attrs        datastar.Attrs
 }
 
 type TextareaProps struct {
-	ID       string
-	Name     string
+	ID   string
+	Name string
+	// Label is the control's accessible name for the case where there is no
+	// visible label to point at it — a search box, a filter in a toolbar. Inside
+	// a Field, leave it empty: the Field's own label is the name, and setting
+	// both means the visible text and the announced text can drift apart.
+	Label    string
 	Value    string
 	Rows     int
 	AutoGrow bool
@@ -347,8 +427,12 @@ type OptionGroup struct {
 }
 
 type SelectProps struct {
-	ID          string
-	Name        string
+	ID   string
+	Name string
+	// Label is the control's accessible name for the case where there is no
+	// visible label to point at it. Inside a Field, leave it empty: the Field's
+	// own label is the name.
+	Label       string
 	Options     []Option      // flat options (the simple case)
 	Groups      []OptionGroup // grouped options, rendered as <optgroup>
 	Placeholder string
@@ -386,7 +470,12 @@ type RadioOption struct {
 
 // RadioGroupProps is a set of radios sharing a Name; Inline lays them out in a row.
 type RadioGroupProps struct {
-	Name    string
+	Name string
+	// Label names the group for assistive technology. role=radiogroup without
+	// an accessible name announces an anonymous set of choices (WCAG 4.1.2), so
+	// this is effectively required — unless the group sits inside a Field, whose
+	// label the group borrows automatically.
+	Label   string
 	Options []RadioOption
 	Inline  bool
 	Attrs   datastar.Attrs
@@ -412,10 +501,24 @@ type InputGroupProps struct {
 
 // FormErrorProps is a form-level error summary banner (distinct from per-field
 // errors). Messages lists the individual problems.
+// FormErrorProps is the form-level error summary banner.
+//
+// Messages is the plain-text form; Problems is the same list with an anchor, so
+// each entry links to the control it is about. Prefer Problems: a summary a
+// keyboard user cannot act on is only half of WCAG 3.3.1. Both render; Messages
+// come first.
 type FormErrorProps struct {
 	Title    string
 	Messages []string
+	Problems []Problem
 	Attrs    datastar.Attrs
+}
+
+// Problem is one entry in a FormError summary: what is wrong, and the id of the
+// control it is wrong about.
+type Problem struct {
+	Message string
+	For     string // id of the offending control; empty renders plain text
 }
 
 // --- Data ---
@@ -423,15 +526,38 @@ type FormErrorProps struct {
 // Column is a table header; Get is set when the header is sortable (@get).
 type Column struct {
 	Header string
-	Get    string
+	// HeaderHidden keeps the header text out of sight but in the accessible
+	// tree — the answer for an actions or icon column, where an empty <th>
+	// would leave that column's cells with no header at all (WCAG 1.3.1).
+	HeaderHidden bool
+	Get          string
+	// Sort is the column's current sort state — SortAsc, SortDesc, or the zero
+	// value for unsorted. It drives aria-sort and picks a directional chevron,
+	// so the state is announced and visible rather than implied by the data
+	// order alone (WCAG 1.3.1).
+	Sort SortDir
 }
+
+// SortDir is a sortable column's current state.
+type SortDir string
+
+const (
+	SortNone SortDir = ""
+	SortAsc  SortDir = "ascending"
+	SortDesc SortDir = "descending"
+)
 
 type TableProps struct {
 	Columns []Column
 	Rows    [][]string
 	Dense   bool
 	Empty   string // empty-state message rendered when Rows is empty
-	Attrs   datastar.Attrs
+	// Caption names the table. A data table with no caption and no surrounding
+	// heading is an unlabelled grid to anyone navigating by table (WCAG 1.3.1).
+	// It renders as a visible <caption> unless CaptionHidden is set.
+	Caption       string
+	CaptionHidden bool
+	Attrs         datastar.Attrs
 }
 
 // Delta is a stat's change indicator; Dir is "up"/"down"/"" and is never the
@@ -583,11 +709,18 @@ func authErrorID(p AuthModalProps) string {
 }
 
 // authTitle returns the AuthModal header (Title or a default).
-func authTitle(p AuthModalProps) string {
-	if p.Title != "" {
-		return p.Title
-	}
-	return "Welcome"
+func authTitle(ctx context.Context, p AuthModalProps) string {
+	return a11yName(p.Title, i18n.T(ctx, "ui.auth.welcome"))
+}
+
+// authTabPressed binds a switcher button's aria-pressed to the tab signal, so
+// the announced state follows the drawn state instead of being frozen at render
+// time. It is the typed-builder route to a reactive attribute; a literal
+// aria-pressed here would be a value that stops being true on the first click.
+func authTabPressed(tab string) templ.Attributes {
+	return datastar.Attrs{
+		datastar.AttrBind("aria-pressed", ariaBoolExpr("$authtab === '"+tab+"'")),
+	}.Templ()
 }
 
 // The following hold the Datastar expressions for the AuthModal tab signal. They
@@ -615,9 +748,22 @@ func authTabClass(tab string) string {
 	return "{'dw-btn-accent': $authtab === '" + tab + "'}"
 }
 
+// TooltipProps is a hover/focus tip attached to its children.
+//
+// The tip describes the trigger (aria-describedby), so it is announced rather
+// than merely displayed. Note the one place the kit knowingly falls short of
+// WCAG 2.1: SC 1.4.13 asks that hover content be dismissible without moving
+// focus, which a CSS-only tooltip cannot do — see the known exceptions in
+// docs/rfc/06-accessibility.md. Use it for supplementary hints, never for
+// information a user must have.
 type TooltipProps struct {
-	Text  string
-	Attrs datastar.Attrs
+	ID   string // id linking trigger to tip; defaults to a stable kit id
+	Text string
+	// Interactive marks the children as already focusable (a button, a link),
+	// which stops the tooltip adding a tabindex of its own and creating a
+	// second, redundant tab stop.
+	Interactive bool
+	Attrs       datastar.Attrs
 }
 
 // DrawerProps is a slide-over panel. Side is "left" or "right" (default right).
@@ -645,21 +791,36 @@ type PopoverProps struct {
 type AvatarProps struct {
 	Src      string
 	Initials string // fallback when Src is empty
-	Alt      string
-	Size     Size
-	Status   string // optional status-dot role: "online"/"away"/...
-	Attrs    datastar.Attrs
+	// Alt names the person or thing the avatar stands for. Leave it empty when
+	// the avatar sits next to that name already — the image is then decorative
+	// and repeating the name only doubles the announcement.
+	Alt  string
+	Size Size
+	// Status is the status-dot slug ("online"/"away"/...). It selects the dot's
+	// color, which is why StatusLabel exists: color alone is never the encoding.
+	Status string
+	// StatusLabel is what the dot is announced as. Empty falls back to Status,
+	// which is a slug and reads poorly — pass the app's own translated wording.
+	StatusLabel string
+	Attrs       datastar.Attrs
 }
 
 type ImageProps struct {
 	Src   string
 	Set   string // srcset
 	Sizes string
-	Alt   string // required by construction (a11y); empty is a vet smell
-	Ratio Ratio
-	Fit   Fit
-	Eager bool // above-fold hero opts into eager + fetchpriority=high
-	Attrs datastar.Attrs
+	// Alt is the image's text alternative and is required (WCAG 1.1.1). A
+	// genuinely decorative image — a texture, a rule, a duplicate of adjacent
+	// text — sets Decorative instead; leaving both empty is a beach-vet finding
+	// (rule a11y-img-alt), because that is what an accident looks like.
+	Alt string
+	// Decorative marks the image as conveying nothing, hiding it from assistive
+	// technology (alt="" plus aria-hidden). It is mutually exclusive with Alt.
+	Decorative bool
+	Ratio      Ratio
+	Fit        Fit
+	Eager      bool // above-fold hero opts into eager + fetchpriority=high
+	Attrs      datastar.Attrs
 }
 
 type AspectBoxProps struct {
@@ -692,7 +853,12 @@ type MessageListProps struct {
 }
 
 type ComposerProps struct {
-	Name        string // bound signal / field name
+	Name string // bound signal / field name
+	// Label names the message box. A placeholder is not a label: it disappears
+	// the moment there is text, and some screen readers never announce it
+	// (WCAG 3.3.2). Empty falls back to Placeholder so an existing composer
+	// still gets a name, but pass a real one.
+	Label       string
 	Placeholder string
 	Post        string // @post target for send
 	Attrs       datastar.Attrs
@@ -705,9 +871,15 @@ type PresencePillProps struct {
 }
 
 // PageProps configures the document shell Page renders.
+//
+// Lang and Dir are overrides, not the normal path: both default to the request's
+// active i18n locale, so a page served under an es-ES locale declares
+// lang="es-ES" without the app doing anything (WCAG 3.1.1). Set them only when
+// a page's language genuinely differs from the request's.
 type PageProps struct {
 	Title       string // <title> text
-	Lang        string // <html lang>, defaults to "en"
+	Lang        string // <html lang>; defaults to the request locale, then "en"
+	Dir         string // <html dir>; defaults to the direction of the active lang
 	Description string // optional meta description
 	BodyClass   string // optional extra class on <body>
 	Stylesheet  string // override the kit stylesheet href (default /static/css/app.css)

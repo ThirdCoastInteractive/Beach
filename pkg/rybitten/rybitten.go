@@ -21,6 +21,8 @@ package rybitten
 import (
 	"fmt"
 	"math"
+	"strconv"
+	"strings"
 )
 
 // RGB is a color with red, green and blue channels, each nominally in [0,1].
@@ -158,4 +160,74 @@ func (c RGB) RGB255() (r, g, b uint8) {
 func (c RGB) Hex() string {
 	r, g, b := c.RGB255()
 	return fmt.Sprintf("#%02x%02x%02x", r, g, b)
+}
+
+// ParseHex parses a CSS hex color — "#rgb", "#rrggbb", with or without the
+// leading '#' — into an [RGB]. Any alpha channel ("#rgba"/"#rrggbbaa") is
+// rejected: contrast is measured against composited, opaque colors, so an alpha
+// value here is almost always a mistake.
+func ParseHex(s string) (RGB, error) {
+	h := strings.TrimPrefix(strings.TrimSpace(s), "#")
+	if len(h) == 3 {
+		h = string([]byte{h[0], h[0], h[1], h[1], h[2], h[2]})
+	}
+	if len(h) != 6 {
+		return RGB{}, fmt.Errorf("rybitten: %q is not a #rgb or #rrggbb color", s)
+	}
+	v, err := strconv.ParseUint(h, 16, 32)
+	if err != nil {
+		return RGB{}, fmt.Errorf("rybitten: %q is not a hex color: %w", s, err)
+	}
+	return RGB{
+		float64((v>>16)&0xff) / 255,
+		float64((v>>8)&0xff) / 255,
+		float64(v&0xff) / 255,
+	}, nil
+}
+
+// Luminance returns the WCAG relative luminance of the color: the linearized,
+// human-weighted brightness that [Contrast] is built from. 0 is black, 1 is
+// white. Defined by WCAG 2.1 §relative-luminance; the 0.03928 knee and the 2.4
+// exponent are the specification's own constants, not tuning.
+func (c RGB) Luminance() float64 {
+	c = c.Clamp()
+	lin := func(v float64) float64 {
+		if v <= 0.03928 {
+			return v / 12.92
+		}
+		return math.Pow((v+0.055)/1.055, 2.4)
+	}
+	return 0.2126*lin(c[0]) + 0.7152*lin(c[1]) + 0.0722*lin(c[2])
+}
+
+// Contrast returns the WCAG contrast ratio between two colors, from 1 (identical)
+// to 21 (black on white). It is symmetric — the order of the arguments does not
+// matter.
+//
+// The thresholds the-beach holds itself to (WCAG 2.1 Level AA):
+//
+//   - 4.5 — normal-size text against its background (SC 1.4.3)
+//   - 3.0 — large text (≥24px, or ≥18.66px bold) (SC 1.4.3)
+//   - 3.0 — UI component boundaries and focus indicators (SC 1.4.11)
+//
+// Both colors must be the opaque, composited values actually painted: a
+// translucent wash has to be mixed over its backdrop first (see [RGB.Over]).
+func Contrast(a, b RGB) float64 {
+	la, lb := a.Luminance(), b.Luminance()
+	if la < lb {
+		la, lb = lb, la
+	}
+	return (la + 0.05) / (lb + 0.05)
+}
+
+// Over composites c onto bg at the given alpha (0–1) and returns the resulting
+// opaque color — the value a contrast check needs for a translucent fill like
+// the kit's color-mix role washes.
+func (c RGB) Over(bg RGB, alpha float64) RGB {
+	alpha = math.Min(1, math.Max(0, alpha))
+	var out RGB
+	for i := range out {
+		out[i] = c[i]*alpha + bg[i]*(1-alpha)
+	}
+	return out
 }

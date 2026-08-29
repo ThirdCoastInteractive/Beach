@@ -118,6 +118,12 @@ Deps: Block 1 (`auth`, `session`, `chart`, `ui-contract`), Block 2 (`beach`).
 **◆ Gate:** log in as two roles; the specimen renders the full Core catalog + all 18
 charts + the token sheet, zero hardcoded color, a11y clean. The gallery you can **see**.
 
+*["a11y clean" is defined as of 2026-08-28: WCAG 2.1 Level AA, the fifth law in
+[06-ui.md](architecture/06-ui.md#accessible-by-construction), held by three `beach-vet`
+rules plus the kit's contrast and naming tests, and verified by a Lighthouse accessibility
+audit of the specimen scoring 100 with zero failures. See
+[RFC 06](rfc/06-accessibility.md).]*
+
 ---
 
 ## Block 4 — Realtime + analytics + codegen

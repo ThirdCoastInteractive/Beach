@@ -29,6 +29,12 @@ const swatchOklch = `<span style="color:oklch(0.7 0.1 200)">hi</span>` // hardco
 // a custom inline script — not the datastar bundle.
 const reload = `<script>window.location.reload()</script>` // custom-script
 
+// an image with no text alternative at all.
+const avatar = `<img src="/me.jpg" class="avatar">` // a11y-img-alt
+
+// a graphic that announces itself and then says nothing.
+const chart = `<svg role="img" class="chart-svg"><path d="M0 0"/></svg>` // a11y-unnamed-role-img
+
 // register mounts a handler the naked way.
 func register(mux *http.ServeMux) {
 	mux.HandleFunc("/raw", func(w http.ResponseWriter, r *http.Request) {}) // naked-handlerfunc

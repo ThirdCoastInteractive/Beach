@@ -233,3 +233,80 @@ func TestSeriesVars(t *testing.T) {
 		t.Errorf("series-o is not the last wheel sample %s:\n%s", hexes[14], css)
 	}
 }
+
+// TestContrastKnownPairs pins the WCAG luminance/contrast math against the
+// values the specification itself names: black-on-white is 21:1, a color against
+// itself is 1:1, and the ratio is symmetric.
+func TestContrastKnownPairs(t *testing.T) {
+	black, white := RGB{0, 0, 0}, RGB{1, 1, 1}
+	if got := Contrast(black, white); math.Abs(got-21) > 0.001 {
+		t.Errorf("Contrast(black, white) = %.4f, want 21", got)
+	}
+	if got := Contrast(white, black); math.Abs(got-21) > 0.001 {
+		t.Errorf("Contrast is not symmetric: %.4f", got)
+	}
+	if got := Contrast(white, white); math.Abs(got-1) > 0.001 {
+		t.Errorf("Contrast(white, white) = %.4f, want 1", got)
+	}
+	// Relative luminance is defined as 0 for black and 1 for white.
+	if got := black.Luminance(); got != 0 {
+		t.Errorf("black luminance = %v, want 0", got)
+	}
+	if got := white.Luminance(); math.Abs(got-1) > 1e-12 {
+		t.Errorf("white luminance = %v, want 1", got)
+	}
+	// A mid grey: #767676 is the canonical "smallest grey that passes 4.5:1 on
+	// white" from the WCAG techniques, which makes it a good fixed point.
+	grey, err := ParseHex("#767676")
+	if err != nil {
+		t.Fatalf("ParseHex: %v", err)
+	}
+	if got := Contrast(grey, white); got < 4.5 || got > 4.6 {
+		t.Errorf("Contrast(#767676, white) = %.3f, want just over 4.5", got)
+	}
+}
+
+func TestParseHex(t *testing.T) {
+	ok := map[string]RGB{
+		"#ffffff": {1, 1, 1},
+		"ffffff":  {1, 1, 1},
+		"#000":    {0, 0, 0},
+		"#fff":    {1, 1, 1},
+	}
+	for in, want := range ok {
+		got, err := ParseHex(in)
+		if err != nil {
+			t.Errorf("ParseHex(%q): %v", in, err)
+			continue
+		}
+		if got != want {
+			t.Errorf("ParseHex(%q) = %v, want %v", in, got, want)
+		}
+	}
+	// Alpha forms are rejected: contrast is measured on composited colors, so an
+	// alpha value here means the caller has not composited yet.
+	for _, in := range []string{"#ffffffff", "#abcd", "#gg0000", "", "#12345"} {
+		if _, err := ParseHex(in); err == nil {
+			t.Errorf("ParseHex(%q) should have failed", in)
+		}
+	}
+}
+
+// TestOverComposites checks the wash helper the role-color badges need: a
+// translucent fill has to be flattened onto its backdrop before its contrast
+// means anything.
+func TestOverComposites(t *testing.T) {
+	white, black := RGB{1, 1, 1}, RGB{0, 0, 0}
+	if got := white.Over(black, 1); got != white {
+		t.Errorf("fully opaque Over changed the color: %v", got)
+	}
+	if got := white.Over(black, 0); got != black {
+		t.Errorf("fully transparent Over did not yield the backdrop: %v", got)
+	}
+	half := white.Over(black, 0.5)
+	for i, v := range half {
+		if math.Abs(v-0.5) > 1e-12 {
+			t.Errorf("half-alpha channel %d = %v, want 0.5", i, v)
+		}
+	}
+}
