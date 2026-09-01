@@ -4,7 +4,6 @@ go 1.26.1
 
 require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.46.0
-	github.com/ThirdCoastInteractive/Repute v0.0.0-20260602032549-c1ac133fc6a6
 	github.com/a-h/templ v0.3.1020
 	github.com/coder/websocket v1.8.15
 	github.com/fxamacker/cbor/v2 v2.9.2

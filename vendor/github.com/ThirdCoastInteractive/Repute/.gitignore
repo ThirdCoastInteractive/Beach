@@ -1,9 +1,0 @@
-# Binaries
-/repute
-/cmd/repute/repute
-
-# Go
-*.test
-*.out
-/vendor/
-*.exe

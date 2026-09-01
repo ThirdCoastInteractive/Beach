@@ -7,12 +7,11 @@
 # and argon2 are pure Go), so it runs on distroless/static.
 #
 # Pick the app with the APP build arg — the package path to build, e.g.
-# cmd/examples/boardwalk | cmd/examples/driftbottle | cmd/examples/pantry | cmd/hush.
+# cmd/examples/boardwalk | cmd/examples/driftbottle | cmd/examples/pantry.
 #
 # Dependencies are vendored (vendor/, tracked in git), so the build needs no
-# network, no module proxy, and no SSH — even hush's private Repute module is in
-# the tree. Every app builds identically with no extra flags:
-#   docker build --build-arg APP=cmd/hush -t hush .
+# network, no module proxy, and no SSH:
+#   docker build --build-arg APP=cmd/examples/pantry -t pantry .
 
 ARG GO_VERSION=1.26
 
