@@ -22,6 +22,17 @@ import (
 //go:embed css/input.css
 var css embed.FS
 
+// ThemePreset is the pkg/theme preset key the served palette is derived from.
+// It lives here, beside the sheet it describes, so three things cannot drift
+// apart: the generator that writes the tokens (cmd/beach-palette), the
+// stylesheet that carries them, and the test that re-derives the palette and
+// diffs it against what the sheet actually says.
+//
+// Re-theming the whole framework — both schemes, every token — is changing this
+// string and running `make palette`. `beach-palette -serve` previews the
+// alternatives.
+const ThemePreset = "driftwood"
+
 // InputCSS returns the stylesheet source: the Tailwind input the served
 // app.css is built from. It is the same text Tokens() parses, exposed whole for
 // checks a token lookup cannot express — chiefly that every animation the kit
@@ -36,21 +47,29 @@ func InputCSS() string {
 	return string(b)
 }
 
-// tokenRe matches a `--color-foo: #rrggbb;` declaration. Tokens defined through
-// color-mix or var() indirection are deliberately not matched: their painted
-// value is not knowable from the source, so a caller measuring contrast has to
-// composite them itself.
-var tokenRe = regexp.MustCompile(`(--color-[a-z0-9-]+):\s*(#[0-9a-fA-F]{3,8})\s*;`)
+// tokenRe matches a `--color-foo: <value>;` declaration. The value is captured
+// whole rather than as a hex literal: since the palette became generated it is
+// written as oklch(), which is the form the theme was specified in and the form
+// a reader can reason about.
+var tokenRe = regexp.MustCompile(`(--color-[a-z0-9-]+):\s*([^;]+);`)
 
 var (
 	tokensOnce sync.Once
 	tokens     map[string]string
 )
 
-// Tokens returns the literal hex color tokens declared in the stylesheet, keyed
-// by custom-property name ("--color-accent"). The first declaration of a name
-// wins, so a theme override further down the sheet does not displace the base
-// value. The returned map is shared and must not be mutated.
+// Tokens returns the color tokens declared in the stylesheet, keyed by
+// custom-property name ("--color-accent") with the raw CSS value.
+//
+// The sheet declares every token four times — once on bare :root, once under the
+// prefers-color-scheme query, and once under each explicit [data-theme] — so the
+// first declaration wins and what comes back is the dark scheme, the one a
+// visitor with no stated preference sees. A caller wanting both schemes should
+// derive them from pkg/theme rather than parse them back out of here: the
+// stylesheet is an output of that package, and re-reading an output to recover
+// its input is how a second source of truth gets born.
+//
+// The returned map is shared and must not be mutated.
 func Tokens() map[string]string {
 	tokensOnce.Do(func() {
 		b, err := css.ReadFile("css/input.css")
@@ -61,7 +80,7 @@ func Tokens() map[string]string {
 		tokens = map[string]string{}
 		for _, m := range tokenRe.FindAllStringSubmatch(string(b), -1) {
 			if _, seen := tokens[m[1]]; !seen {
-				tokens[m[1]] = strings.ToLower(m[2])
+				tokens[m[1]] = strings.TrimSpace(m[2])
 			}
 		}
 	})
