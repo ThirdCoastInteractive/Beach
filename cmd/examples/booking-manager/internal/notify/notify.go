@@ -6,8 +6,7 @@
 //
 // Sends are best-effort: a guest message failing to leave never fails the
 // request that triggered it. Failures are logged and the operator can resend
-// by hand; an app that needs delivery guarantees adds an outbox (see
-// cmd/hush/internal/mail for that pattern).
+// by hand; an app that needs delivery guarantees adds an outbox.
 package notify
 
 import (
