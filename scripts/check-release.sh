@@ -66,7 +66,7 @@ check_denylist_text() {
   tree="$(git ls-tree -r --name-only "$ref")"
   echo "$tree" | grep -qi 'datastar-pro' && fail "$ref names datastar-pro"
   git grep -n -E 'datastar-pro|Y:\\\\|C:\\\\Users\\\\henry|slawniak\.com' "$ref" -- \
-    ':!vendor/' ':!*.sum' >/tmp/beach-check-hits 2>/dev/null || true
+    ':!vendor/' ':!*.sum' ':!scripts/check-release.sh' >/tmp/beach-check-hits 2>/dev/null || true
   if [[ -s /tmp/beach-check-hits ]]; then
     cat /tmp/beach-check-hits >&2
     fail "$ref matches denylist (datastar-pro, private paths, slawniak.com)"

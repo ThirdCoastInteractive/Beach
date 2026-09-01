@@ -1,41 +1,76 @@
 #!/usr/bin/env bash
-# Release: squash finished work from master (dev) into main (public release).
+# Squash master into a single public commit on main (Rewind-style).
 #
-#   master / remote `origin` — dev branch, messy WIP commits welcome
-#   main   / remote `public` — release branch, ONLY squashed summary commits
+#   origin  ThirdCoastInteractive/the-beach  (private, master)
+#   public  ThirdCoastInteractive/Beach      (public, main) — optional until created
 #
 # Usage:
-#   scripts/release.sh "summary line of the finished work"
-#
-# The summary becomes the single squashed commit message on main. Write it for
-# the public changelog: what shipped, not how the sausage was made.
+#   scripts/release.sh "summary of the finished work"
+#   scripts/release.sh "summary" --dry-run    # commit-tree + check-release, no push
 set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
 
 msg="${1:-}"
 if [ -z "$msg" ]; then
-  echo "usage: scripts/release.sh \"summary of finished work\"" >&2
+  echo "usage: scripts/release.sh \"summary of finished work\" [--dry-run]" >&2
   exit 1
 fi
+dry=0
+if [[ "${2:-}" == "--dry-run" ]]; then
+  dry=1
+fi
 
-# Refuse on a dirty tree — release only committed work.
-if ! git diff --quiet || ! git diff --cached --quiet; then
+if ! git diff-index --quiet HEAD --; then
   echo "release: working tree not clean — commit or stash first" >&2
   exit 1
 fi
 
-current=$(git rev-parse --abbrev-ref HEAD)
-if [ "$current" != "master" ]; then
-  echo "release: run from master (currently on $current)" >&2
-  exit 1
+export GIT_AUTHOR_NAME="ThirdCoast"
+export GIT_AUTHOR_EMAIL="git@thirdcoast.tv"
+export GIT_COMMITTER_NAME="ThirdCoast"
+export GIT_COMMITTER_EMAIL="git@thirdcoast.tv"
+
+echo "==> Reading master tree..."
+MASTER_TREE=$(git rev-parse master^{tree})
+TMPINDEX="$(mktemp)"
+export GIT_INDEX_FILE="$TMPINDEX"
+git read-tree "$MASTER_TREE"
+bash scripts/check-release.sh --strip-index
+RELEASE_TREE=$(git write-tree)
+rm -f "$TMPINDEX"
+unset GIT_INDEX_FILE
+
+if git show-ref --verify --quiet refs/heads/main; then
+  MAIN_TREE=$(git rev-parse main^{tree})
+  if [ "$RELEASE_TREE" = "$MAIN_TREE" ]; then
+    echo "Nothing to release — main already matches stripped master."
+    exit 0
+  fi
+  PARENT=$(git rev-parse main)
+  COMMIT=$(git commit-tree "$RELEASE_TREE" -p "$PARENT" -m "$msg")
+else
+  echo "==> First public commit (no parent)..."
+  COMMIT=$(git commit-tree "$RELEASE_TREE" -m "$msg")
 fi
 
-git checkout main
-git merge --squash master
-git commit -m "$msg"
+echo "==> Checking public commit $COMMIT..."
+bash scripts/check-release.sh --commit "$COMMIT"
 
-# Push the release; push dev too so origin stays current.
-git push public main:main
-git push origin master:master
+if [[ "$dry" -eq 1 ]]; then
+  echo "dry-run: public commit $(git rev-parse --short "$COMMIT") — not pointing main, not pushing"
+  echo "inspect: git ls-tree -r --name-only $COMMIT | head"
+  exit 0
+fi
 
-git checkout master
-echo "release: main is now $(git rev-parse --short main) — \"$msg\""
+git update-ref refs/heads/main "$COMMIT"
+echo "==> main is $(git rev-parse --short main)"
+
+if git remote get-url public >/dev/null 2>&1; then
+  git push --force origin main
+  git push --force public main
+  echo "pushed main to origin and public"
+else
+  echo "no public remote — left main local only"
+fi
