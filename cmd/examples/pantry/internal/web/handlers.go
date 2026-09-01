@@ -6,11 +6,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/auth"
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/auth"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/pantry/internal/analytics"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/pantry/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/pantry/internal/analytics"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/pantry/internal/store"
 )
 
 // CRUD actions. These are the hand-written equivalents of what beach-apigen

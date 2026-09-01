@@ -8,7 +8,7 @@ package driftwood
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
+import "github.com/ThirdCoastInteractive/Beach/pkg/i18n"
 
 // --- Media -------------------------------------------------------------------
 

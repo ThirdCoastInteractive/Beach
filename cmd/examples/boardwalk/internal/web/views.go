@@ -9,8 +9,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/boardwalk/internal/game"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/boardwalk/internal/game"
+	"github.com/ThirdCoastInteractive/Beach/pkg/chart"
 	"github.com/a-h/templ"
 )
 

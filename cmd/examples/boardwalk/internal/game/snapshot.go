@@ -1,7 +1,7 @@
 package game
 
 import (
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ecs"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ecs"
 )
 
 // Snapshot is a read-only copy of everything the board surface renders, built

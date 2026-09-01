@@ -3,9 +3,9 @@ package web
 import (
 	"time"
 
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/booking-manager/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/store"
 )
 
 // dashboardData is the day sheet: what today demands, shaped in Go so the

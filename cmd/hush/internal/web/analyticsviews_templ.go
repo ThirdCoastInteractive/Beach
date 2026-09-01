@@ -17,8 +17,8 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"strconv"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/analytics"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/analytics"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui"
 )
 
 func analyticsView(handle string, admin bool, tier int, kpis analytics.KPIs) templ.Component {

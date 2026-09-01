@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/Beach/pkg/hub"
 )
 
 // newTestServer builds a Server wired to a fresh hub, with logging discarded and

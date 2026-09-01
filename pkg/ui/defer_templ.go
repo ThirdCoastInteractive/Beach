@@ -11,7 +11,7 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"context"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
 )
 
 // DeferProps configures a deferred section placeholder (see Defer). The

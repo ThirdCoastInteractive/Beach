@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/storage"
+	"github.com/ThirdCoastInteractive/Beach/pkg/storage"
 )
 
 // testStore builds a store with fake credentials. New never dials, and the

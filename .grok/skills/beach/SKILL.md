@@ -70,8 +70,8 @@ Imports:
 
 ```go
 import (
-    beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
-    "github.com/ThirdCoastInteractive/the-beach/pkg/pg"
+    beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+    "github.com/ThirdCoastInteractive/Beach/pkg/pg"
 )
 ```
 

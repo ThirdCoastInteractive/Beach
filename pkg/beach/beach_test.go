@@ -11,7 +11,7 @@ import (
 
 	"github.com/a-h/templ"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/auth"
+	"github.com/ThirdCoastInteractive/Beach/pkg/auth"
 )
 
 // comp is a tiny templ component for tests: trusted literal markup.

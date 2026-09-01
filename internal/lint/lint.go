@@ -61,6 +61,7 @@ var rules = []rule{
 	ruleImgAlt,
 	ruleUnnamedRoleImg,
 	ruleLiteralAccessibleName,
+	ruleRawSpacing,
 }
 
 // Check walks root, analyzes every eligible Go file, and returns all findings

@@ -19,9 +19,9 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"strconv"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/content"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/reputation"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/content"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/reputation"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/store"
 )
 
 // adminPage is the admin shell: the hush header, the section nav, and a wide

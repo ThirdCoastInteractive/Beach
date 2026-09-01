@@ -26,12 +26,14 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/session"
+	"github.com/ThirdCoastInteractive/Beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/Beach/pkg/session"
+	"github.com/ThirdCoastInteractive/Beach/pkg/theme"
 )
 
 // Config configures a new App. The zero value is usable: every field worth
@@ -81,6 +83,20 @@ type Config struct {
 	// (service accounts, CLIs). Without it TokenAuthed() rejects every request,
 	// which is the safe failure.
 	Tokens TokenResolver
+
+	// Theme pins the design tokens this app serves, overriding the preset the
+	// framework ships. Nil falls through to ThemeSource, then to the preset.
+	Theme *theme.Theme
+
+	// ThemeSource resolves the theme at boot and on App.ReloadTheme — the hook
+	// for an app that stores its palette rather than compiling it in. Ignored
+	// when Theme is set.
+	//
+	// A resolving *function* rather than a table the framework owns: the
+	// framework owns tables for auth and sessions and nothing else, and this way
+	// an app can back its theme with a row, a file or an env var, exactly as it
+	// already does for principals.
+	ThemeSource ThemeSource
 
 	// Hub is the in-memory topic fan-out backing StreamFunc subscriptions. A nil
 	// hub disables live events (catch-up still runs); set one to serve realtime
@@ -162,6 +178,9 @@ type App struct {
 	hub     *hub.Hub
 	srv     *http.Server
 	sockets socketRegistry
+	// theme holds the rendered token block. An atomic swap means a reload never
+	// hands a request half a palette.
+	theme atomic.Value // *renderedTheme
 }
 
 // New builds an App from cfg. It wires the static handler (computing boot-time
@@ -215,6 +234,22 @@ func New(cfg Config) *App {
 	// kit's toast reads the auto-dismiss flag. An app gets both Level A
 	// mechanisms by rendering one component (see driftwood.LiveToggle).
 	a.mux.HandleFunc("POST "+PrefsPath, a.handlePrefs)
+
+	// The design tokens. Derived once here rather than per request: it is a few
+	// hundred microseconds, which is nothing at boot and real money on a
+	// framework that budgets pages in kilobytes.
+	if err := a.loadTheme(context.Background()); err != nil {
+		// A configured source that cannot resolve at boot is a misconfiguration
+		// worth failing loudly for, but not worth taking the app down over —
+		// the shipped preset is a working palette, and a site with the default
+		// colours beats a site that will not start.
+		a.log.Error("beach: theme source failed at boot; serving the shipped preset", "err", err)
+		a.cfg.Theme, a.cfg.ThemeSource = nil, nil
+		if err := a.loadTheme(context.Background()); err != nil {
+			panic("beach: shipped theme preset does not derive: " + err.Error())
+		}
+	}
+	a.mux.HandleFunc("GET "+ThemePath, a.handleTheme)
 
 	return a
 }

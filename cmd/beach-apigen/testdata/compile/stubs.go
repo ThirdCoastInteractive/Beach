@@ -8,7 +8,7 @@ package apicompile
 import (
 	"context"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/beach-apigen/testdata/compile/page"
+	"github.com/ThirdCoastInteractive/Beach/cmd/beach-apigen/testdata/compile/page"
 )
 
 // Item is the stub sqlc row type the queries return.

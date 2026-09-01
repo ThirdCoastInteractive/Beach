@@ -110,7 +110,7 @@ The page skeleton and the surfaces content sits on.
 | --------------------- | ---------------------------------------------------- | --------- |
 | App shell — stacked   | topbar + content; the default                        | D, P      |
 | App shell — sidebar   | fixed left nav + content; collapsible                | P         |
-| Container             | max-width + gutter constraints                       | all       |
+| Container             | max-width (`Measure`) + gutter                       | all       |
 | Page heading          | title, subtitle, action slot, breadcrumb slot        | B, P      |
 | Section heading       | label + optional actions/divider                     | P         |
 | Card                  | `panel`/`well` surface; header / body / footer slots | all       |
@@ -118,8 +118,64 @@ The page skeleton and the surfaces content sits on.
 | Divider               | plain, labeled                                       | P         |
 | Dashboard grid        | responsive widget grid; hosts `ui.Defer` chart cells | P         |
 | Split / master-detail | two-pane, list + detail                              | P         |
+| **Stack**             | vertical flow, one `Gap`, optional `Align`           | Catalog   |
+| **Inline**            | wrapping row; `Gap`, `Align`, `Justify`              | Catalog   |
+| **Box**               | `Pad` + optional surface and hairline                | Catalog   |
+| **Section**           | block padding, optional heading + lead               | Catalog   |
+| **Center**            | centred column at a `Measure`                        | Catalog   |
+| **Prose**             | long-form HTML the kit did not render                | Catalog   |
+| **Rail**              | content + side column; stacks rail-last below md     | Catalog   |
 
-*Catalog:* three-column (content + right rail), sticky section rails, resizable panes.
+*Catalog:* sticky section rails, resizable panes.
+
+### Spacing
+
+**Spacing is a closed set.** Every gap and pad prop takes a `driftwood.Space` —
+nine rungs on a ~1.5x ladder — and every width takes a `Measure`. There is no
+free-form variant, which is the point: spacing is the thing that goes wrong most
+often in generated markup, and every one of those failures starts with someone
+writing a number. `p-7` and `2.3rem` are unspellable through the props.
+
+The zero value is the important part. `SpaceAuto` means *the component's own
+default*, not zero — so a caller who passes nothing gets the right answer, and a
+caller who passes something can only pick a rung. `SpaceNone` is how you actually
+ask for zero.
+
+```go
+@driftwood.Stack(driftwood.StackProps{Gap: driftwood.SpaceLg}) {
+    @driftwood.Inline(driftwood.InlineProps{}) {   // takes Inline's own default
+        @driftwood.Button(driftwood.ButtonProps{Label: "Save", Role: driftwood.RoleAccent})
+        @driftwood.Button(driftwood.ButtonProps{Label: "Discard", Role: driftwood.RoleQuiet})
+    }
+    @driftwood.Card(driftwood.CardProps{Pad: driftwood.SpaceNone}) {  // full-bleed table
+        @driftwood.Table(driftwood.TableProps{ /* … */ })
+    }
+}
+```
+
+The **primitives own the space between their children**, never the children
+themselves. Sibling margins collapse, fight, and leave the last child with
+trailing space nobody asked for; one flex or grid gap has none of those failure
+modes. Reach for `Box` when the answer is "pad this"; reach for `Card` when the
+thing is a panel with a header and a border.
+
+Two rules the CSS itself depends on:
+
+- **The ladder is plain CSS, not `@apply`.** The class names are assembled in Go
+  by concatenation (`"dw-gap-" + string(s)`), and Tailwind emits a utility only
+  when its source scanner has seen the literal name — which it cannot, for a name
+  that does not exist until runtime. `TestSpaceScaleIsClosed` walks
+  `driftwood.Spaces` and checks every rung has a rule, because a rung without one
+  fails *silently*: the class lands in the markup, matches nothing, and the prop
+  simply does not work.
+- **The ladder is unlayered**, so a caller's explicit choice beats a component's
+  built-in padding. `.dw-card-body` pads itself, and `Pad: SpaceNone` has to win.
+
+`beach-vet`'s `raw-spacing` rule closes the other door, flagging Tailwind spacing
+utilities in a `class` and `padding`/`margin` in a `style` attribute. Mail is
+exempt — HTML email clients strip stylesheets, so an email's padding genuinely has
+to live on the element. Inline style remains correct for a per-instance dimension
+the kit cannot know, such as a reserved height under `ui.Defer`.
 
 ### Nav
 

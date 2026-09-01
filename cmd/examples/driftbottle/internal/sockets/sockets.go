@@ -10,7 +10,7 @@ import (
 	"encoding/binary"
 	"time"
 
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
 )
 
 // tickFrame lays out one binary tick: a uint32 counter, an int64 server clock

@@ -35,6 +35,7 @@ Mechanism: [06-ui.md](../../../docs/architecture/06-ui.md). Inventory: [16-compo
 6. Late content: `ui.Defer` with a **fixed height/width**. First paint is the final paint; deferred fill must not move layout.
 7. After `.templ` or CSS edits: `make gen`.
 8. Adding a component? It is not done until it is in the `renderCase` maps in `pkg/ui/driftwood/driftwood_test.go` **and** `TestZeroValuePropsAreStillAccessible` in `a11y_test.go` — the second is the one that catches a name which only exists when an optional prop is set. See `beach-a11y`.
+9. Spacing comes from props, never from markup — see [Spacing](#spacing). This is linted.
 
 Do not add a second kit, copy HTML into the app "because it's faster", or restyle with utility classes in markup. The kit emits `dw-*` classes; tokens live in `pkg/beach/view/css/input.css`.
 
@@ -49,16 +50,39 @@ Do not add a second kit, copy HTML into the app "because it's faster", or restyl
 
 Do not add Chart.js, D3, or a new SVG helper. The toolbar/tooltip JS already ships in `pkg/beach/view/static/js/`.
 
+## Spacing
+
+**Never write a spacing number.** Every gap and pad prop takes a `driftwood.Space` (nine rungs: `SpaceNone`, `Space2XS`…`Space3XL`); every width takes a `Measure`. `beach-vet`'s `raw-spacing` rule fails the build on a Tailwind spacing utility in a `class` or `padding`/`margin` in a `style`.
+
+**The zero value is usually right.** `SpaceAuto` (the zero value) means *the component's own default*, not zero — pass nothing and you get the correct spacing. `SpaceNone` is how you ask for zero.
+
+Compose pages from the seven primitives instead of inventing layout:
+
+| Need | Use |
+| --- | --- |
+| Things stacked vertically | `Stack{Gap}` |
+| A row of buttons/badges/meta | `Inline{Gap, Align, Justify}` — always wraps |
+| "just pad this" | `Box{Pad, Surface, Border}` |
+| A band of a page | `Section{Heading, Level, Lead, Pad}` |
+| A centred column | `Center{Width}` |
+| Markdown / long-form HTML | `Prose{}` |
+| Content + a side rail | `Rail{Rail, Side, Width}` |
+
+`Card` is for a panel with a header and a border; `Box` is for a padded div. `Grid{Cols, Gap, Min}` is the only n-up — it auto-fills, so there is no separate switcher.
+
 ## Tokens and color
 
-Dark-first tokens: `--color-paper/panel`, `--color-fg-*`, `--color-line-*`, `--color-accent-*`, `--color-on-accent`, `--color-good/warn/bad/info`, `--color-series-a…o`. Series vars come from `rybitten.SeriesVars`. Corners are 0px by law. `beach-vet` flags hex/OKLCH in templ and kit CSS.
+**The palette is generated. Never hand-edit a token value.** `pkg/theme` derives every token from a preset by solving the WCAG ratios each one owes; `cmd/beach-palette` writes the result into `input.css` between sentinels. Changing the look is `view.ThemePreset` + `make palette`, and `TestGeneratedPaletteMatchesInputCSS` fails the build on a hand-edit. `beach-palette -serve` is the explorer (gallery + hue wheel); `-list` prints the presets.
 
-Two rules the linter cannot see, both learned the hard way:
+Tokens: `--color-paper/panel/panel-hover`, `--color-fg-strong/default/muted/disabled`, `--color-line-soft/strong`, `--color-accent*`, `--color-on-accent`, `--color-accent-2/3`, `--color-good/warn/bad/info`, `--color-series-a…o`. Values are `oklch()`. Corners are 0px by law. `beach-vet` flags hex/OKLCH in templ and kit CSS.
 
-- **Readable text uses a token, never a raw `zinc-*` utility.** A utility is outside the contrast test's reach, which is how six kit classes sat at 3.67:1 while the test passed.
+**Both schemes exist.** Light is derived, not inverted. Anything you add must work in both — `pkg/theme`'s tests hold every pair of every preset in both. Never assume a dark surface: use `--color-paper`/`--color-panel`, never a literal dark value, and if you add a pair the kit paints, add it to `Scheme.Pairs()`.
+
+Three rules the linter cannot see, all learned the hard way:
+
+- **Readable text uses a token, never a raw `zinc-*` utility.** A utility is outside the contrast test's reach, which is how six kit classes sat at 3.67:1 while the test passed. There are now zero raw `zinc-*` in the sheet — keep it that way.
 - **`opacity` is not a de-emphasis tool.** It silently divides whatever contrast the text had, and no token check can see it happen. Use `--color-fg-muted`.
-
-Changing a token means changing a *pair*: `TestPaletteMeetsAA` reads `input.css` through `view.Tokens()` and asserts every pair the kit paints. A token that moves without its partner fails the build.
+- **A new `dw-*` class name built by string concatenation in Go needs a plain CSS rule**, not `@apply` or `@utility`. Tailwind's scanner cannot see a name that does not exist until runtime, so the utility is never emitted and the class silently matches nothing.
 
 Apps do not copy `app.css` or `datastar.js` — `beach.New` serves the framework static tree at `/static`.
 

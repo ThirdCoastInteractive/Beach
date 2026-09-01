@@ -18,7 +18,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/pg"
+	"github.com/ThirdCoastInteractive/Beach/pkg/pg"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

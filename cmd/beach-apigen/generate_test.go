@@ -105,7 +105,7 @@ func TestGenerate_NoNotify_NoHubImport(t *testing.T) {
 	if strings.Contains(src, "hub.Hub") {
 		t.Errorf("query without @notify must not thread the hub\n---\n%s", src)
 	}
-	if strings.Contains(src, `"github.com/ThirdCoastInteractive/the-beach/pkg/hub"`) {
+	if strings.Contains(src, `"github.com/ThirdCoastInteractive/Beach/pkg/hub"`) {
 		t.Errorf("query without @notify must not import hub\n---\n%s", src)
 	}
 	if !strings.Contains(src, "func handleDeleteItem(q *Queries) beach.ActionFunc") {

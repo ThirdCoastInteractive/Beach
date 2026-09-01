@@ -35,7 +35,7 @@ func TestAdvisoryLockKey(t *testing.T) {
 }
 
 func TestAdvisoryLockKeyDeterministic(t *testing.T) {
-	const path = "github.com/ThirdCoastInteractive/the-beach"
+	const path = "github.com/ThirdCoastInteractive/Beach"
 	first := advisoryLockKey(path)
 	for i := 0; i < 100; i++ {
 		if got := advisoryLockKey(path); got != first {

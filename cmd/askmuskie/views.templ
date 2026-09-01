@@ -6,8 +6,8 @@
 package main
 
 import (
-	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
+	"github.com/ThirdCoastInteractive/Beach/pkg/chart"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
 )
 
 // document is the complete HTML document for GET /. sid is the visitor id;
@@ -138,7 +138,7 @@ templ statBar(label, id, cls string) {
 // form; acceptance is recorded at registration.
 templ tosPage() {
 	@driftwood.Page(driftwood.PageProps{Title: "Terms — Ask the Muskie", Description: "The terms for askmuskie.com."}) {
-		@driftwood.Container(driftwood.ContainerProps{MaxWidth: "13"}) {
+		@driftwood.Container(driftwood.ContainerProps{Width: driftwood.MeasureText}) {
 			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: "Terms of Service", Subtitle: "The short, plain version."})
 			@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel}) {
 				<p>askmuskie.com is a silly toy: a fish in a tank who says profound things. By using it you agree to the following.</p>

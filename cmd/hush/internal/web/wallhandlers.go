@@ -7,12 +7,12 @@ import (
 	"strconv"
 	"strings"
 
-	authx "github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/auth"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/content"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/store"
+	authx "github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/auth"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/content"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/store"
 
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/hub"
 )
 
 // compose serves the WebGPU camera page.

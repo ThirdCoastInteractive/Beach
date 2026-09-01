@@ -3,7 +3,7 @@ package sim
 import (
 	"context"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ecs"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ecs"
 )
 
 // This file holds the plumbing for the three persistence lanes documented in

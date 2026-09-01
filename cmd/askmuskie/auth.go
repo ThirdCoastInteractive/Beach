@@ -7,11 +7,11 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/auth"
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/passwords"
+	"github.com/ThirdCoastInteractive/Beach/pkg/auth"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/passwords"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/askmuskie/internal/authx"
+	"github.com/ThirdCoastInteractive/Beach/cmd/askmuskie/internal/authx"
 )
 
 // authHandlers bundles the deps the auth routes need. Wired only when a database

@@ -33,19 +33,19 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/analytics"
-	authx "github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/auth"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/content"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/mail"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/media"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/reputation"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/store"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/web"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/analytics"
+	authx "github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/auth"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/content"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/mail"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/media"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/reputation"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/web"
 
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/mailer"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/pg"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/Beach/pkg/mailer"
+	"github.com/ThirdCoastInteractive/Beach/pkg/pg"
 )
 
 //go:embed static

@@ -9,16 +9,16 @@ import (
 	"context"
 	"sync"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/analytics"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/auth"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/content"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/mail"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/media"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/reputation"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/analytics"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/auth"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/content"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/mail"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/media"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/reputation"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/store"
 
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/hub"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

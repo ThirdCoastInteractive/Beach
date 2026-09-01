@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
+	"github.com/ThirdCoastInteractive/Beach/pkg/chart"
 )
 
 // pages is the whole demo site, in nav order. index leads; the rest are one

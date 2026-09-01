@@ -5,8 +5,8 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/auth"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/session"
+	"github.com/ThirdCoastInteractive/Beach/pkg/auth"
+	"github.com/ThirdCoastInteractive/Beach/pkg/session"
 )
 
 // The fixed middleware stack, in the order requests traverse it on the way in:

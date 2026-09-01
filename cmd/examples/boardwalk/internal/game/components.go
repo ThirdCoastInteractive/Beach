@@ -1,6 +1,6 @@
 package game
 
-import "github.com/ThirdCoastInteractive/the-beach/pkg/ecs"
+import "github.com/ThirdCoastInteractive/Beach/pkg/ecs"
 
 // The ECS components that make up the live game slice. Everything the board
 // renders from lives here in the sim's ecs.Store, mutated only on the sim loop

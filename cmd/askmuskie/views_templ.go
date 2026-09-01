@@ -19,8 +19,8 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
+	"github.com/ThirdCoastInteractive/Beach/pkg/chart"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
 )
 
 // document is the complete HTML document for GET /. sid is the visitor id;
@@ -509,7 +509,7 @@ func tosPage() templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Container(driftwood.ContainerProps{MaxWidth: "13"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var20), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = driftwood.Container(driftwood.ContainerProps{Width: driftwood.MeasureText}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var20), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}

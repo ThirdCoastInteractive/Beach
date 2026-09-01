@@ -5,7 +5,7 @@ import (
 	"hash/fnv"
 	"strconv"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/store"
 )
 
 // The fancy-spa palette: every post is a soft, airy tint at the *same* high

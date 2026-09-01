@@ -18,12 +18,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/beach/view"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/rybitten"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/theme"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
+	"github.com/ThirdCoastInteractive/Beach/pkg/beach/view"
+	"github.com/ThirdCoastInteractive/Beach/pkg/chart"
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/Beach/pkg/rybitten"
+	"github.com/ThirdCoastInteractive/Beach/pkg/theme"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
 	"github.com/a-h/templ"
 )
 

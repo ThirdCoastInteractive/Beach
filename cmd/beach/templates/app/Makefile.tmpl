@@ -15,7 +15,7 @@ BIN := bin/$(APP)
 # go.mod, so `make gen` runs it without a network fetch. sqlc is looked up on
 # PATH and is a no-op (warn-and-continue) when absent, so `make gen` never
 # hard-fails a fresh clone.
-BEACH := go run github.com/ThirdCoastInteractive/the-beach/cmd/beach
+BEACH := go run github.com/ThirdCoastInteractive/Beach/cmd/beach
 
 .DEFAULT_GOAL := help
 

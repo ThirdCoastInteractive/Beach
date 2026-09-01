@@ -62,7 +62,7 @@ package ch
 // the upstream half of the bridge; the caller does the one
 // chart.Layout*/chart.*SVG call.)
 
-import "github.com/ThirdCoastInteractive/the-beach/pkg/chart"
+import "github.com/ThirdCoastInteractive/Beach/pkg/chart"
 
 // ToSeries turns query rows into a []chart.Datum (label + value), the input
 // shape for the SSE bar race (chart.BarRaceInput.Bars). label and value pull

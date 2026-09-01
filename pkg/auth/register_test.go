@@ -8,8 +8,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/pg"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/session"
+	"github.com/ThirdCoastInteractive/Beach/pkg/pg"
+	"github.com/ThirdCoastInteractive/Beach/pkg/session"
 )
 
 func TestValidUsername(t *testing.T) {

@@ -19,7 +19,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/ThirdCoastInteractive/the-beach/internal/lint"
+	"github.com/ThirdCoastInteractive/Beach/internal/lint"
 )
 
 func main() {

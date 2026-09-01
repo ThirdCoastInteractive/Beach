@@ -8,10 +8,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
 	"github.com/a-h/templ"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/booking-manager/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/store"
 )
 
 // View-data helpers shared across the .templ files: formatting, option

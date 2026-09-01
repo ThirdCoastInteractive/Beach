@@ -50,16 +50,16 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/boardwalk/internal/analytics"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/boardwalk/internal/game"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/boardwalk/internal/store"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/boardwalk/internal/web"
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ch"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/pg"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/sim"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/specimen"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/boardwalk/internal/analytics"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/boardwalk/internal/game"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/boardwalk/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/boardwalk/internal/web"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ch"
+	"github.com/ThirdCoastInteractive/Beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/Beach/pkg/pg"
+	"github.com/ThirdCoastInteractive/Beach/pkg/sim"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/specimen"
 )
 
 //go:embed migrations/*.sql

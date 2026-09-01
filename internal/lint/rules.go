@@ -106,9 +106,15 @@ var oklchRe = regexp.MustCompile(`\boklch\(`)
 // The chart package legitimately composes var(--*) fallbacks and is allowed to
 // reference raw colors only as the currentColor fallback, so we still scan it —
 // genuine hex there is a real finding.
+// colorSanctioned is where a colour literal is the subject rather than a smell.
+// pkg/color converts and formats colours for a living, and pkg/theme derives the
+// palette the tokens are generated from — flagging an oklch() there is the same
+// category of mistake as flagging the analyzer's own regexes.
+var colorSanctioned = []string{lintSelf, "color", "theme"}
+
 func ruleHardcodedColor(fc *fileCtx, out *[]Finding) {
-	if fc.onPath(lintSelf) {
-		return // the analyzer's own color regexes are not markup
+	if fc.onPath(colorSanctioned...) {
+		return
 	}
 	fc.stringLits2(func(val string, line int) {
 		// A literal that already routes through a design token on this line is
@@ -144,6 +150,9 @@ func ruleHardcodedColor(fc *fileCtx, out *[]Finding) {
 // framework's own routing internals (module root) and the ui kit are exempt;
 // app code must register through app.Page/Action/Stream/Raw.
 func ruleNakedHandlerFunc(fc *fileCtx, out *[]Finding) {
+	if fc.onPath("cmd/beach-palette") {
+		return // a generator's preview server is a tool, not an application
+	}
 	// The framework root package "beach" owns the mux and its register/adapt
 	// internals; framework libs aren't apps. App code registers via the App.
 	if fc.file.Name.Name == "beach" ||

@@ -28,7 +28,7 @@ import (
 	"math"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/Beach/pkg/datastar"
 )
 
 // --- Input types ------------------------------------------------------------

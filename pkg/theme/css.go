@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/color"
+	"github.com/ThirdCoastInteractive/Beach/pkg/color"
 )
 
 // Emission.

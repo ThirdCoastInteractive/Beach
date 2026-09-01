@@ -24,7 +24,7 @@ make the importable surface explicit; `pkg/beach` is still the package an app
 touches first.)
 
 ```
-the-beach/                module github.com/ThirdCoastInteractive/the-beach
+the-beach/                module github.com/ThirdCoastInteractive/Beach
 ├── go.mod
 ├── pkg/                   the external API surface
 │   ├── beach/            package beach — the framework's front door: App builder,
@@ -87,9 +87,9 @@ alias the hyphenated module path — the `go-cmp`/`cmp` convention):
 
 ```go
 import (
-    beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
-    "github.com/ThirdCoastInteractive/the-beach/pkg/sim"
-    "github.com/ThirdCoastInteractive/the-beach/pkg/ui"
+    beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+    "github.com/ThirdCoastInteractive/Beach/pkg/sim"
+    "github.com/ThirdCoastInteractive/Beach/pkg/ui"
 )
 ```
 

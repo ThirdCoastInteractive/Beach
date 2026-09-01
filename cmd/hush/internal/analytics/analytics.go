@@ -15,9 +15,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/store"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ch"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ch"
+	"github.com/ThirdCoastInteractive/Beach/pkg/chart"
 
 	"github.com/a-h/templ"
 )

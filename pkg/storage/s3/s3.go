@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/storage"
+	"github.com/ThirdCoastInteractive/Beach/pkg/storage"
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 )

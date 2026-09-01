@@ -24,7 +24,7 @@ func TestCompile(t *testing.T) {
 	}
 
 	const compileDir = "testdata/compile"
-	const pkgPath = "github.com/ThirdCoastInteractive/the-beach/cmd/beach-apigen/testdata/compile/page"
+	const pkgPath = "github.com/ThirdCoastInteractive/Beach/cmd/beach-apigen/testdata/compile/page"
 
 	queries, err := parseSQLDir("testdata/queries")
 	if err != nil {
@@ -50,7 +50,7 @@ func TestCompile(t *testing.T) {
 	}
 
 	// Build by full import path so the package resolves regardless of cmd.Dir.
-	const buildTarget = "github.com/ThirdCoastInteractive/the-beach/cmd/beach-apigen/testdata/compile/..."
+	const buildTarget = "github.com/ThirdCoastInteractive/Beach/cmd/beach-apigen/testdata/compile/..."
 	cmd := exec.Command(goBin, "build", buildTarget)
 	cmd.Dir = moduleRoot(t)
 	out, err := cmd.CombinedOutput()

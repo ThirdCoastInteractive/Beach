@@ -1,8 +1,8 @@
 package sim
 
 import (
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ecs"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ecs"
+	"github.com/ThirdCoastInteractive/Beach/pkg/hub"
 )
 
 // A Projection maps a changed component onto a hub topic and a rendered patch.

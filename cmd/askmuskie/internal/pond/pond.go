@@ -25,10 +25,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/Beach/pkg/hub"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/askmuskie/internal/quotes"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/askmuskie/internal/speech"
+	"github.com/ThirdCoastInteractive/Beach/cmd/askmuskie/internal/quotes"
+	"github.com/ThirdCoastInteractive/Beach/cmd/askmuskie/internal/speech"
 )
 
 // Hub topics.

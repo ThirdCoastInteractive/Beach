@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/booking-manager/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/store"
 )
 
 // Row/desc shapers called from the .templ files. They keep the templates

@@ -13,10 +13,10 @@ import (
 	"testing/fstest"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/prefs"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
+	"github.com/ThirdCoastInteractive/Beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/Beach/pkg/prefs"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
 )
 
 // TestPatchAnnounceTargetsTheLiveRegion is the server half of WCAG 4.1.3.

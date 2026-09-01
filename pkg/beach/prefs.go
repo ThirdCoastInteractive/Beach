@@ -6,7 +6,7 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/prefs"
+	"github.com/ThirdCoastInteractive/Beach/pkg/prefs"
 )
 
 // The HTTP half of visitor timing preferences: the cookie, the middleware that

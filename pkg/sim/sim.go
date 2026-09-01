@@ -15,8 +15,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ecs"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ecs"
+	"github.com/ThirdCoastInteractive/Beach/pkg/hub"
 )
 
 // Tick is the simulation's logical clock value, mirroring ecs.Tick.

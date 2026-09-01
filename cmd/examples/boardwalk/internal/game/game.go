@@ -6,10 +6,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/boardwalk/internal/analytics"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ch"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ecs"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/sim"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/boardwalk/internal/analytics"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ch"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ecs"
+	"github.com/ThirdCoastInteractive/Beach/pkg/sim"
 )
 
 // Topics. The board everyone watches (spectators included) is one hub topic;

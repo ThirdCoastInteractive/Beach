@@ -9,16 +9,16 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/auth"
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/session"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/specimen"
+	"github.com/ThirdCoastInteractive/Beach/pkg/auth"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/Beach/pkg/session"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/specimen"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/pantry/internal/analytics"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/pantry/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/pantry/internal/analytics"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/pantry/internal/store"
 )
 
 // SessionCookie is the name of pantry's session cookie.

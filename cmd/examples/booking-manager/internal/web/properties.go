@@ -4,10 +4,10 @@ import (
 	"strings"
 	"time"
 
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/booking-manager/internal/locks"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/booking-manager/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/locks"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/store"
 )
 
 // propertiesPage lists the operation's properties with the create form.

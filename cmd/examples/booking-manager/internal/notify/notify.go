@@ -15,8 +15,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/mailer"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/sms"
+	"github.com/ThirdCoastInteractive/Beach/pkg/mailer"
+	"github.com/ThirdCoastInteractive/Beach/pkg/sms"
 )
 
 // Notifier fans one guest event out to the configured channels: email always

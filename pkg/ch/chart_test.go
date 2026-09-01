@@ -3,7 +3,7 @@ package ch
 import (
 	"testing"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
+	"github.com/ThirdCoastInteractive/Beach/pkg/chart"
 )
 
 // fakeRow stands in for a scanned ch.Rows[T] result: an ordinary struct, no

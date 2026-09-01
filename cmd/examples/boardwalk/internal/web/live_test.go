@@ -12,8 +12,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/boardwalk/internal/game"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/prefs"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/boardwalk/internal/game"
+	"github.com/ThirdCoastInteractive/Beach/pkg/prefs"
 )
 
 // render draws the whole index page under the given preferences.

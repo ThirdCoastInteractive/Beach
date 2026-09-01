@@ -9,7 +9,7 @@ import (
 	"testing"
 	"testing/fstest"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
 	"github.com/a-h/templ"
 )
 
@@ -54,7 +54,7 @@ type renderCase struct {
 
 func TestEveryCoreComponentRenders(t *testing.T) {
 	cases := map[string]renderCase{
-		"container":   {c: Container(ContainerProps{MaxWidth: "13"}), children: []templ.Component{PageHeading(PageHeadingProps{Title: "Wallet", Subtitle: "Balances"})}},
+		"container":   {c: Container(ContainerProps{Width: MeasureText, Pad: SpaceLg}), children: []templ.Component{PageHeading(PageHeadingProps{Title: "Wallet", Subtitle: "Balances"})}},
 		"card":        {c: Card(CardProps{Surface: SurfacePanel, Heading: "Holdings"}), children: []templ.Component{text("body")}},
 		"cardwell":    {c: Card(CardProps{Surface: SurfaceWell})},
 		"section":     {c: SectionHeading(SectionHeadingProps{Label: "Recent"})},

@@ -1,4 +1,4 @@
-module github.com/ThirdCoastInteractive/the-beach
+module github.com/ThirdCoastInteractive/Beach
 
 go 1.26.1
 

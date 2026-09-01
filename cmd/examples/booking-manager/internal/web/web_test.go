@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/booking-manager/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/store"
 )
 
 func TestBuildCalendar(t *testing.T) {

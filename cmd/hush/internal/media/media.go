@@ -13,10 +13,10 @@ import (
 	"encoding/hex"
 	"io"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/store"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/storage"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/storage/cfimages"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/storage/s3"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/pkg/storage"
+	"github.com/ThirdCoastInteractive/Beach/pkg/storage/cfimages"
+	"github.com/ThirdCoastInteractive/Beach/pkg/storage/s3"
 )
 
 // Config carries the validated R2 + Cloudflare Images credentials and variant

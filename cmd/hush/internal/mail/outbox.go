@@ -11,7 +11,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/mailer"
+	"github.com/ThirdCoastInteractive/Beach/pkg/mailer"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

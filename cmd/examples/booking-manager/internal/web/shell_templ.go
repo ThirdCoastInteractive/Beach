@@ -14,7 +14,7 @@ package web
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
+import "github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
 
 // shellView wraps a page body in the document plus the app topbar/sidebar.
 // active is the nav slug to highlight; authed flips the topbar session link.

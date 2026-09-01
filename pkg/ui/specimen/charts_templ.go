@@ -15,8 +15,8 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
+	"github.com/ThirdCoastInteractive/Beach/pkg/chart"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
 )
 
 // chartGallery renders every chart type in the suite — including the geo

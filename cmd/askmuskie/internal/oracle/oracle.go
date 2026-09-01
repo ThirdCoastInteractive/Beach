@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/askmuskie/internal/pond"
+	"github.com/ThirdCoastInteractive/Beach/cmd/askmuskie/internal/pond"
 )
 
 // Config wires the oracle to its model. BaseURL empty means "disabled".

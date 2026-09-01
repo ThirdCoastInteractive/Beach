@@ -1,6 +1,6 @@
 package main
 
-import bcfg "github.com/ThirdCoastInteractive/the-beach/pkg/config"
+import bcfg "github.com/ThirdCoastInteractive/Beach/pkg/config"
 
 // cfg is boardwalk's typed env, loaded once at boot by the framework config
 // loader. It embeds Core (AppEnv, Port, DSN via POSTGRES_DSN|DATABASE_URL —

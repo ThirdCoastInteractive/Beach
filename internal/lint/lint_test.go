@@ -39,6 +39,11 @@ func TestBadSnippet(t *testing.T) {
 		"hardcoded-color":   2, // hex + oklch
 		"naked-handlerfunc": 1,
 		"custom-script":     1,
+		// Both spellings: a Tailwind utility in a class, and a padding
+		// declaration in a style attribute. The two non-findings beside them in
+		// testdata are the point — a dw-gap-lg and a reserved height must not
+		// fire, or the rule would make the sanctioned path unusable.
+		"raw-spacing": 2,
 
 		// The a11y rules. a11y-literal-name is not exercised here: it only fires
 		// inside the kit (pkg/ui, pkg/chart), and testdata/bad is app-shaped

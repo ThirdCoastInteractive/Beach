@@ -14,9 +14,9 @@ import (
 	"net/mail"
 	"strings"
 
-	hmail "github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/mail"
+	hmail "github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/mail"
 
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
 )
 
 // emailSection is what the profile shows its owner about their email: the

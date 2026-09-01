@@ -3,7 +3,7 @@ package main
 import (
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
+	"github.com/ThirdCoastInteractive/Beach/pkg/chart"
 )
 
 // Deterministic beach-resort demo data for the geo suite. The narrative is the

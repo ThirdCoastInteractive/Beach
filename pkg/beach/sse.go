@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"html"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
+	"github.com/ThirdCoastInteractive/Beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/Beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
 	sdk "github.com/starfederation/datastar-go/datastar"
 )
 

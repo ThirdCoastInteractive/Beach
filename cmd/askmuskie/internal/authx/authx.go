@@ -11,10 +11,10 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/auth"
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/pg"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/session"
+	"github.com/ThirdCoastInteractive/Beach/pkg/auth"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/pg"
+	"github.com/ThirdCoastInteractive/Beach/pkg/session"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

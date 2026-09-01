@@ -19,11 +19,11 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"fmt"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/boardwalk/internal/game"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/boardwalk/internal/game"
+	"github.com/ThirdCoastInteractive/Beach/pkg/chart"
+	"github.com/ThirdCoastInteractive/Beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
 )
 
 // indexView is the full board page. The three SSE streams — the shared board,

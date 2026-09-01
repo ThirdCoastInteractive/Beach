@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/pg"
+	"github.com/ThirdCoastInteractive/Beach/pkg/pg"
 )
 
 func TestHashTokenMatchesSHA256(t *testing.T) {

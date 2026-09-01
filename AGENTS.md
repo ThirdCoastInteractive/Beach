@@ -17,7 +17,7 @@ net/http · templ · Datastar free core · Tailwind v4 + rybitten · pgx · sqlc
 ## Front door
 
 ```go
-import beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+import beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
 ```
 
 Handlers are `PageFunc` / `ActionFunc` / `StreamFunc` / `SocketFunc`. Transactions are `pg.InTx`. Datastar attributes come from `pkg/datastar`. Components come from `pkg/ui/driftwood`. Charts come from `pkg/chart`.

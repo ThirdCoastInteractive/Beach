@@ -15,14 +15,14 @@ import (
 	"net/http"
 	"strings"
 
-	authx "github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/auth"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/mail"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/media"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/reputation"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/store"
+	authx "github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/auth"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/mail"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/media"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/reputation"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/store"
 
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/passwords"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/passwords"
 )
 
 // inviteAllowance is the throttle, applied against the live policy: the pure

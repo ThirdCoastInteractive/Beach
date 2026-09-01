@@ -1,11 +1,11 @@
 # Beach package catalog
 
-Import prefix: `github.com/ThirdCoastInteractive/the-beach/pkg/<name>`
+Import prefix: `github.com/ThirdCoastInteractive/Beach/pkg/<name>`
 
 Front door is `pkg/beach` (alias the hyphenated module path):
 
 ```go
-import beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+import beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
 ```
 
 Docs of record: [docs/README.md](../../../../docs/README.md). Layout: [docs/architecture/01-layout.md](../../../../docs/architecture/01-layout.md). Laws: [docs/rfc/02-scope.md](../../../../docs/rfc/02-scope.md).

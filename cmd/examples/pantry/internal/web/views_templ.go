@@ -19,10 +19,10 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/pantry/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/pantry/internal/store"
 )
 
 // shellView wraps a page body in the document plus the app topbar/sidebar.

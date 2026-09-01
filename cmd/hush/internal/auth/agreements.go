@@ -8,7 +8,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/store"
 )
 
 const (

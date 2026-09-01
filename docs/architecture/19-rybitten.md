@@ -3,9 +3,23 @@
 [← docs index](../README.md) · prev: [hush](18-hush.md) · next: [sync boundary](20-sync.md) · related: [Analytics](14-analytics.md) · [UI toolkit](06-ui.md)
 
 `rybitten` is a dependency-free Go port of meodai's [RYBitten](https://rybitten.space)
-— a pseudo-RYB color model derived from Johannes Itten's chromatic circle. It is
-the source of the framework's default palette and the one place a whole app's
-color character is decided.
+— a pseudo-RYB color model derived from Johannes Itten's chromatic circle.
+
+**Scope note (2026-08-31).** rybitten is no longer the framework's theming engine.
+The design tokens are now derived in OKLCH by [`pkg/theme`](06-ui.md#tokens), and
+this package's job is *chart series palettes*, where a historical gamut's
+character is the whole point and 3:1 against the page is the only hard constraint.
+
+That is not a knock on the model, it is a statement of what each is for. An RYB
+cube is a **lookup**: a hue is a trilinear interpolation between eight fixed
+corners, so the palette wears the source gamut's character — which is exactly what
+you want from Munsell's wheel or a 1982 Marvel newsprint chart. It is exactly what
+you do not want from a UI accent, because you cannot *ask* for a vivid teal, only
+for a position on an arc and whatever the cube happens to hold there. On several
+gamuts the green-to-blue arc runs through sage and olive, and no amount of tuning
+recovers chroma the cube does not contain. OKLCH has no such dead zones, and
+`color.MaxChroma` makes "as vivid as this hue gets at this lightness" a question
+with an answer. See [11-decisions.md](11-decisions.md).
 
 Digital tools mix in additive RGB, which flattens the warm neutrals and muddy
 intermediates a painter gets for free. RYBitten instead interpolates through an
@@ -22,7 +36,7 @@ The math is a faithful port of upstream `main.ts`: smoothstep easing on each
 axis, then trilinear interpolation across the cube corners.
 
 ```go
-import "github.com/ThirdCoastInteractive/the-beach/pkg/rybitten"
+import "github.com/ThirdCoastInteractive/Beach/pkg/rybitten"
 
 rgb := rybitten.RYBHSL2RGB([3]float64{30, 1, 0.5}, rybitten.Itten, true)
 css := rgb.Hex() // an Itten orange, ~"#f08e1c"
@@ -88,14 +102,15 @@ that vocabulary:
 | `SeriesVars(g Gamut)` | A `:root` block defining `--color-series-a…o` (`SeriesCount` = 15) from the gamut's hue wheel, with a provenance comment, ready to paste into `input.css`. |
 | `Series(g Gamut, n int)` | The same colors as values (`[]RGB`) — for server-side swatches and image rendering. The specimen's gamut preview uses it. |
 
-**The current default is the `munsell` gamut.** Its `SeriesVars` output lives in
-[`pkg/beach/view/css/input.css`](../../pkg/beach/view/css/input.css) `:root`, built
-into the served `app.css`; the `--color-accent*` tokens are a munsell teal picked
-by hand in the same sheet. The eight alternate `[data-chart-theme]` palettes (plus
-a munsell one) redefine the series tokens per scope — the
-[chart toolbar's](14-analytics.md#the-client-interaction-layer) Theme control swaps
-that attribute. Role tokens (`--color-good`/`--color-warn`/`--color-bad`/
-`--color-info`) are deliberately left alone — green still means good.
+**The framework's own `--color-series-a…o` no longer come from here.** They are
+derived with the rest of the palette, at one shared lightness and one shared
+chroma fraction, so the fifteen read as equally prominent — a balance a per-hue
+solve destroys and a contrast check cannot see. A gamut's series palette remains
+available for a chart that wants a specific historical character, and the eight
+alternate `[data-chart-theme]` palettes still redefine the tokens per scope, which
+the [chart toolbar's](14-analytics.md#the-client-interaction-layer) Theme control
+swaps. Role tokens are deliberately left alone in every palette — green still
+means good.
 
 Chart SVG text is themed in the same sheet (the `.cbar-label`/`.cbar-value` and
 `.cline-*` rules from the Atlas port): the SVGs carry no color of their own, so

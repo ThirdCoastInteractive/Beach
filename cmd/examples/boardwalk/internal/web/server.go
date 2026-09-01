@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/boardwalk/internal/game"
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/boardwalk/internal/game"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
 )
 
 // seatCookie names the cookie that ties a browser to its claimed seat. With no

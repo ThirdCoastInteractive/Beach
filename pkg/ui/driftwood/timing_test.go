@@ -13,7 +13,7 @@ import (
 
 	"github.com/a-h/templ"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/prefs"
+	"github.com/ThirdCoastInteractive/Beach/pkg/prefs"
 )
 
 // --- timing (WCAG 2.2.1 / 2.2.2) -------------------------------------------------

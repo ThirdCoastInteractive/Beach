@@ -33,19 +33,19 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/auth"
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/pg"
+	"github.com/ThirdCoastInteractive/Beach/pkg/auth"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/chart"
+	"github.com/ThirdCoastInteractive/Beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/Beach/pkg/pg"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/askmuskie/internal/authx"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/askmuskie/internal/chat"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/askmuskie/internal/oracle"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/askmuskie/internal/pond"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/askmuskie/internal/quotes"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/askmuskie/internal/speech"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/askmuskie/internal/stats"
+	"github.com/ThirdCoastInteractive/Beach/cmd/askmuskie/internal/authx"
+	"github.com/ThirdCoastInteractive/Beach/cmd/askmuskie/internal/chat"
+	"github.com/ThirdCoastInteractive/Beach/cmd/askmuskie/internal/oracle"
+	"github.com/ThirdCoastInteractive/Beach/cmd/askmuskie/internal/pond"
+	"github.com/ThirdCoastInteractive/Beach/cmd/askmuskie/internal/quotes"
+	"github.com/ThirdCoastInteractive/Beach/cmd/askmuskie/internal/speech"
+	"github.com/ThirdCoastInteractive/Beach/cmd/askmuskie/internal/stats"
 )
 
 //go:embed static

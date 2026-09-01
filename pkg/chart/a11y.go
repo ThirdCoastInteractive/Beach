@@ -3,7 +3,7 @@ package chart
 import (
 	"context"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
 )
 
 // Accessibility of a server-rendered chart.

@@ -8,7 +8,7 @@ package driftwood
 import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
-import "github.com/ThirdCoastInteractive/the-beach/pkg/ui"
+import "github.com/ThirdCoastInteractive/Beach/pkg/ui"
 
 // --- Data --------------------------------------------------------------------
 

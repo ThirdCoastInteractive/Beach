@@ -30,19 +30,16 @@ spine, package dependencies) and links every sub-document:
 
 ## Branching & releases
 
-| Branch   | Remote   | Discipline                                                   |
-| -------- | -------- | ------------------------------------------------------------ |
-| `master` | `origin` | Dev. Messy WIP commits welcome — commit early, commit often. |
-| `main`   | `public` | Release. ONLY squashed summary commits of finished work.     |
+Module path: `github.com/ThirdCoastInteractive/Beach`.
 
-Never commit directly to `main`. When a unit of work is finished on `master`:
+| Branch   | Remote   | Repo | Discipline |
+| -------- | -------- | ---- | ---------- |
+| `master` | `origin` | `ThirdCoastInteractive/the-beach` (private) | Dev. Messy WIP commits welcome. |
+| `main`   | `public` | `ThirdCoastInteractive/Beach` | Release. Squashed summary commits. **Does not exist yet.** |
 
-```bash
-scripts/release.sh "summary of the finished work"
-```
-
-That squash-merges `master` into `main` as one commit whose message reads like a
-changelog entry, pushes `main` to the public remote, and pushes `master` to origin.
+Do not commit directly to `main`. A public cut is `scripts/release.sh` once the
+`public` remote exists — Rewind-style strip + parentless squash, identity
+`ThirdCoast <git@thirdcoast.tv>`. Until then, work stays on `origin/master`.
 
 ## Status & workflow
 

@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ch"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ch"
 )
 
 //go:embed chmigrations/*.sql

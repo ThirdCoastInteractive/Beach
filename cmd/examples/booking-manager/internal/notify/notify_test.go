@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/mailer"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/sms"
+	"github.com/ThirdCoastInteractive/Beach/pkg/mailer"
+	"github.com/ThirdCoastInteractive/Beach/pkg/sms"
 )
 
 type capturedMail struct{ sent []*mailer.Email }

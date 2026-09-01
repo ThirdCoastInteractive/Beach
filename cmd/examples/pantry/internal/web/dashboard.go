@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ch"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ch"
+	"github.com/ThirdCoastInteractive/Beach/pkg/chart"
 	"github.com/a-h/templ"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/pantry/internal/analytics"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/pantry/internal/analytics"
 )
 
 // The dashboard widgets read real data: the activity line comes from the

@@ -4,7 +4,7 @@ A reusable, hypermedia-first, SSR web framework for Go, with a custom entity
 component system for realtime app state.
 Stack: net/http · templ · Datastar (free core) · Tailwind v4 + rybitten · pgx · sqlc · goose · Postgres
 LISTEN/NOTIFY · SSE · custom `ecs` engine. The module root is the framework's
-front door: `import beach "github.com/ThirdCoastInteractive/the-beach"`.
+front door: `import beach "github.com/ThirdCoastInteractive/Beach"`.
 
 **Status:** all six [roadmap](ROADMAP.md) blocks built. 29 packages, ~24.5k LOC
 (excluding generated templ output), `make build/vet/test` green; the root `beach`

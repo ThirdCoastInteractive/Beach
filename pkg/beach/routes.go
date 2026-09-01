@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/auth"
+	"github.com/ThirdCoastInteractive/Beach/pkg/auth"
 )
 
 // Route registration. Each typed shape registers under its natural HTTP method

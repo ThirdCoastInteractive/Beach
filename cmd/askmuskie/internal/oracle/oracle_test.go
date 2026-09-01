@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/askmuskie/internal/pond"
+	"github.com/ThirdCoastInteractive/Beach/cmd/askmuskie/internal/pond"
 )
 
 // stubOllama returns a server that records the last request body and replies with

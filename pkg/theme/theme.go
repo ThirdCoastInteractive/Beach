@@ -23,7 +23,7 @@ package theme
 import (
 	"fmt"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/color"
+	"github.com/ThirdCoastInteractive/Beach/pkg/color"
 )
 
 // SeriesCount is how many chart series slots the token vocabulary defines —

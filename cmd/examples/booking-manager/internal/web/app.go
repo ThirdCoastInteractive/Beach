@@ -11,16 +11,16 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/auth"
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/session"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/specimen"
+	"github.com/ThirdCoastInteractive/Beach/pkg/auth"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/session"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/specimen"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/booking-manager/internal/locks"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/booking-manager/internal/notify"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/booking-manager/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/locks"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/notify"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/store"
 )
 
 // SessionCookie is the name of booking-manager's session cookie.

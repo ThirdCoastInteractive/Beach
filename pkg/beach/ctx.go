@@ -4,9 +4,9 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/auth"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/session"
+	"github.com/ThirdCoastInteractive/Beach/pkg/auth"
+	"github.com/ThirdCoastInteractive/Beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/Beach/pkg/session"
 )
 
 // Principal is re-exported so handler signatures and guard call sites name a

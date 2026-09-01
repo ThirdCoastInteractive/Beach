@@ -1,153 +1,72 @@
 package driftwood
 
-// The palette contract, as a test.
+// What the stylesheet owes, as tests.
 //
-// Contrast is a property of pairs, not of colors, so a token sheet cannot be
-// checked by looking at it: --color-accent is fine as a focus ring and was, for
-// a long time, not fine behind white button text. This reads the real tokens out
-// of input.css — the source the stylesheet is built from, so a token edit is
-// caught before `make css` ever runs — and asserts every pair the kit actually
-// paints, at the WCAG 2.1 AA thresholds.
+// The palette itself is no longer checked here. It is derived by pkg/theme from
+// a preset, and pkg/theme's own tests hold every pair of every preset to WCAG AA
+// in both schemes — which is a stronger check than this file could make, because
+// it tests the thing that produces the colours rather than a parse of the
+// colours it produced.
 //
-// Adding a component that puts one token on another means adding its pair here.
-// That is the point: the sheet is where the pairing decision is made, and this
-// is where it is held to.
+// What is left is the part that is genuinely about the *sheet*: that the sheet
+// carries exactly what the generator would write, and that every animation it
+// starts can be stopped.
 
 import (
 	"regexp"
 	"strings"
 	"testing"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/beach/view"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/rybitten"
+	"github.com/ThirdCoastInteractive/Beach/pkg/beach/view"
+	"github.com/ThirdCoastInteractive/Beach/pkg/theme"
 )
 
-// tokens returns the painted color tokens, read from the stylesheet itself via
-// view.Tokens rather than from a copy — a copy is a copy that drifts, and this
-// test exists precisely to catch a token that moved.
-func tokens(t *testing.T) map[string]rybitten.RGB {
-	t.Helper()
-	out := map[string]rybitten.RGB{}
-	for name, hex := range view.Tokens() {
-		c, err := rybitten.ParseHex(hex)
-		if err != nil {
-			continue // an 8-digit alpha value is a wash, not a painted stop
-		}
-		out[name] = c
-	}
-	if len(out) < 10 {
-		t.Fatalf("parsed only %d color tokens from input.css — did the token block move?", len(out))
-	}
-	return out
-}
-
-// pair is one contrast obligation: a foreground painted on a background, and
-// the ratio WCAG requires for that kind of pairing.
-type pair struct {
-	what      string
-	fg, bg    string // token names, or a literal hex for white/black
-	min       float64
-	criterion string
-}
-
-const (
-	// aaText is SC 1.4.3 for normal-size text.
-	aaText = 4.5
-	// aaNonText is SC 1.4.11 for UI component boundaries and focus indicators,
-	// and SC 1.4.3 for large text.
-	aaNonText = 3.0
-)
-
-func TestPaletteMeetsAA(t *testing.T) {
-	tk := tokens(t)
-	resolve := func(name string) (rybitten.RGB, bool) {
-		if len(name) > 0 && name[0] == '#' {
-			c, err := rybitten.ParseHex(name)
-			return c, err == nil
-		}
-		c, ok := tk[name]
-		return c, ok
-	}
-
-	pairs := []pair{
-		// Body text on every surface it lands on.
-		{"body text on the page", "--color-fg-default", "--color-paper", aaText, "1.4.3"},
-		{"body text on a card", "--color-fg-default", "--color-panel", aaText, "1.4.3"},
-		{"muted text on the page", "--color-fg-muted", "--color-paper", aaText, "1.4.3"},
-		{"muted text on a card", "--color-fg-muted", "--color-panel", aaText, "1.4.3"},
-		{"muted text on a raised panel", "--color-fg-muted", "--color-panel-hover", aaText, "1.4.3"},
-
-		// The primary button, in both of its states. This is the pair that was
-		// failing at 3.74:1 and drove the accent down the munsell axis.
-		{"accent button label", "--color-on-accent", "--color-accent", aaText, "1.4.3"},
-		{"accent button label, hovered", "--color-on-accent", "--color-accent-hover", aaText, "1.4.3"},
-
-		// Links and the ghost button, including its hover wash.
-		{"link text on the page", "--color-accent-text", "--color-paper", aaText, "1.4.3"},
-		{"link text on a card", "--color-accent-text", "--color-panel", aaText, "1.4.3"},
-		{"ghost button label, hovered", "--color-accent-text", "--color-accent-soft", aaText, "1.4.3"},
-
-		// Role colors as text — badges and alerts tint from these.
-		{"success text", "--color-good", "--color-panel", aaText, "1.4.3"},
-		{"warning text", "--color-warn", "--color-panel", aaText, "1.4.3"},
-		{"error text", "--color-bad", "--color-panel", aaText, "1.4.3"},
-		{"info text", "--color-info", "--color-panel", aaText, "1.4.3"},
-		{"field error text", "--color-bad", "--color-paper", aaText, "1.4.3"},
-
-		// Chat bubbles: an own message is an accent fill, and its metadata lines
-		// have to clear the same bar as its body text.
-		{"message text on a received bubble", "--color-fg-default", "--color-panel-hover", aaText, "1.4.3"},
-		{"message metadata on a received bubble", "--color-fg-muted", "--color-panel-hover", aaText, "1.4.3"},
-		{"message metadata on an own bubble", "--color-on-accent", "--color-accent", aaText, "1.4.3"},
-
-		// Non-text: the focus ring has to be visible on every surface it can be
-		// drawn against, and an input's edge is what identifies the control.
-		{"focus ring on the page", "--color-accent", "--color-paper", aaNonText, "1.4.11"},
-		{"focus ring on a card", "--color-accent", "--color-panel", aaNonText, "1.4.11"},
-		{"focus ring on a raised panel", "--color-accent", "--color-panel-hover", aaNonText, "1.4.11"},
-		{"input edge on the page", "--color-line-strong", "--color-paper", aaNonText, "1.4.11"},
-		{"input edge on a card", "--color-line-strong", "--color-panel", aaNonText, "1.4.11"},
-		{"input edge on a raised panel", "--color-line-strong", "--color-panel-hover", aaNonText, "1.4.11"},
-	}
-
-	for _, p := range pairs {
-		fg, okf := resolve(p.fg)
-		bg, okb := resolve(p.bg)
-		if !okf || !okb {
-			t.Errorf("%s: token %s or %s is missing from input.css", p.what, p.fg, p.bg)
-			continue
-		}
-		got := rybitten.Contrast(fg, bg)
-		if got < p.min {
-			t.Errorf("%s: %s on %s is %.2f:1, WCAG %s needs %.1f:1",
-				p.what, p.fg, p.bg, got, p.criterion, p.min)
-		}
-	}
-}
-
-// TestChartSeriesAreDistinguishable holds the series palette to the non-text
-// threshold against the page. A series color is the entire encoding of a line
-// or a wedge, so one that fades into the background takes its data with it.
+// TestGeneratedPaletteMatchesInputCSS re-derives the shipped preset and asserts
+// the stylesheet contains that exact block.
 //
-// Note what this does *not* claim: 3:1 against the paper makes each series
-// visible, not distinguishable from its neighbours. Telling two series apart by
-// color alone is beyond what a ratio can check, which is why the kit pairs color
-// with a second encoding — labels, arrows, direct annotation — everywhere it can.
-func TestChartSeriesAreDistinguishable(t *testing.T) {
-	tk := tokens(t)
-	paper, ok := tk["--color-paper"]
-	if !ok {
-		t.Fatal("--color-paper missing from input.css")
+// It is what makes "do not edit the generated values" enforceable rather than
+// advisory. Hand-tuning one stop in the sheet is the single most tempting thing
+// to do to a generated palette and the single most destructive: the value stops
+// being the solution to its contrast obligations, nothing recomputes it, and the
+// next regeneration silently reverts it.
+func TestGeneratedPaletteMatchesInputCSS(t *testing.T) {
+	want, err := theme.BuildPreset(view.ThemePreset)
+	if err != nil {
+		t.Fatalf("deriving %s: %v", view.ThemePreset, err)
 	}
-	for c := 'a'; c <= 'o'; c++ {
-		name := "--color-series-" + string(c)
-		col, ok := tk[name]
-		if !ok {
-			t.Errorf("%s missing from input.css", name)
-			continue
+	if !strings.Contains(view.InputCSS(), want.CSS()) {
+		t.Errorf("input.css does not carry the palette that preset %q derives to. "+
+			"Either a generated value was hand-edited, or the preset changed without "+
+			"`make palette` being run.", view.ThemePreset)
+	}
+}
+
+// TestSheetDeclaresEveryTokenTheKitPaints guards the other direction: a token the
+// components reference but the palette never defines resolves to nothing, and a
+// CSS custom property that resolves to nothing takes its whole declaration with
+// it — so the element paints as though the rule had never been written.
+func TestSheetDeclaresEveryTokenTheKitPaints(t *testing.T) {
+	declared := view.Tokens()
+	for _, name := range theme.TokenNames() {
+		if _, ok := declared[name]; !ok {
+			t.Errorf("%s is derived but never lands in the stylesheet", name)
 		}
-		if got := rybitten.Contrast(col, paper); got < aaNonText {
-			t.Errorf("%s on the page is %.2f:1, WCAG 1.4.11 needs %.1f:1", name, got, aaNonText)
+	}
+}
+
+// TestBothSchemesReachTheSheet checks the three-state block survived into the
+// sheet. Losing the :not() guard is the classic failure: the toggle then works
+// in one direction and silently does nothing in the other.
+func TestBothSchemesReachTheSheet(t *testing.T) {
+	css := view.InputCSS()
+	for _, want := range []string{
+		"@media (prefers-color-scheme: light)",
+		`:root:not([data-theme="dark"])`,
+		`:root[data-theme="light"]`,
+		`:root[data-theme="dark"]`,
+	} {
+		if !strings.Contains(css, want) {
+			t.Errorf("input.css is missing %q", want)
 		}
 	}
 }

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/color"
+	"github.com/ThirdCoastInteractive/Beach/pkg/color"
 )
 
 // The palette contract, as a test.

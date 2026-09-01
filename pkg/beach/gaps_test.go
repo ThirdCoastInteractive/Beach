@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/session"
+	"github.com/ThirdCoastInteractive/Beach/pkg/session"
 )
 
 // --- Gap 1: Config.Middleware injection + ordering ---

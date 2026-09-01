@@ -4,7 +4,7 @@
 # Generated *_templ.go files are committed, so plain `go build` works without
 # running gen first; run `make gen` after editing any .templ or css file.
 
-.PHONY: gen css build vet test gen-geo demos
+.PHONY: gen css palette build vet test gen-geo demos
 
 gen:
 	go tool templ generate
@@ -21,6 +21,15 @@ gen-geo:
 
 css:
 	npx @tailwindcss/cli -i pkg/beach/view/css/input.css -o pkg/beach/view/static/css/app.css
+
+# Re-derive the design tokens and rebuild the sheet. The palette is computed, not
+# picked: every stop is solved against the WCAG ratios it owes (pkg/theme), so
+# re-theming the whole framework — both schemes, every token — is changing
+# view.ThemePreset and running this. `beach-palette -serve :7777` is the explorer
+# for choosing one; `-list` prints them all.
+palette:
+	go run ./cmd/beach-palette
+	$(MAKE) css
 
 # Writes the static geo-chart demo site to demos/ — self-contained HTML files
 # (stylesheet, JS modules, and globe geometry inlined) that open from disk with

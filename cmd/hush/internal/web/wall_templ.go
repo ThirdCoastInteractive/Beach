@@ -13,9 +13,9 @@ import templruntime "github.com/a-h/templ/runtime"
 import (
 	"strconv"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/content"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/store"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/content"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/pkg/datastar"
 )
 
 // homePage is the wall: the centered header + composer, then the prints.

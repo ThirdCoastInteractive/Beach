@@ -34,20 +34,20 @@ import (
 	"os"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/auth"
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/mailer"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/passwords"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/pg"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/session"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/sms"
+	"github.com/ThirdCoastInteractive/Beach/pkg/auth"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/mailer"
+	"github.com/ThirdCoastInteractive/Beach/pkg/passwords"
+	"github.com/ThirdCoastInteractive/Beach/pkg/pg"
+	"github.com/ThirdCoastInteractive/Beach/pkg/session"
+	"github.com/ThirdCoastInteractive/Beach/pkg/sms"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/booking-manager/internal/locks"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/booking-manager/internal/notify"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/booking-manager/internal/store"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/booking-manager/internal/web"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/locks"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/notify"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/web"
 )
 
 //go:embed migrations/*.sql

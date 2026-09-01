@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/store"
 )
 
 func TestLayoutValidate(t *testing.T) {

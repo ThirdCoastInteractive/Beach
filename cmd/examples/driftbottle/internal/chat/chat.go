@@ -30,11 +30,11 @@ import (
 	"sync"
 	"time"
 
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/hub"
 	"github.com/a-h/templ"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/driftbottle/internal/analytics"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/driftbottle/internal/analytics"
 )
 
 const (

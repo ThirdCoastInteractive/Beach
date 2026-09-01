@@ -1,7 +1,7 @@
 package web
 
 import (
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
 	"github.com/a-h/templ"
 )
 

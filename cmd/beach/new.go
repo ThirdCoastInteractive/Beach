@@ -262,7 +262,7 @@ func copyGoSum(target string) error {
 // findCheckout walks up from the working directory looking for the go.mod that
 // declares the the-beach module path.
 func findCheckout() (string, error) {
-	const moduleLine = "module github.com/ThirdCoastInteractive/the-beach"
+	const moduleLine = "module github.com/ThirdCoastInteractive/Beach"
 	dir, err := os.Getwd()
 	if err != nil {
 		return "", err

@@ -3,8 +3,8 @@ package web
 import (
 	"net/http"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/auth"
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/auth"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
 )
 
 // loginPage renders the sign-in form (shell.templ loginView).

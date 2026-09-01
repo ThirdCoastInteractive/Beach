@@ -3,7 +3,7 @@ package sim
 import (
 	"context"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ecs"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ecs"
 )
 
 // Snapshot returns an immutable, off-loop-safe read view of the live store as of

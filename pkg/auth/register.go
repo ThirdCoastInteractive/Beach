@@ -10,8 +10,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/passwords"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/pg"
+	"github.com/ThirdCoastInteractive/Beach/pkg/passwords"
+	"github.com/ThirdCoastInteractive/Beach/pkg/pg"
 )
 
 // Registration outcomes.

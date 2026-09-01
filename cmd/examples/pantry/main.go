@@ -31,19 +31,19 @@ import (
 	"os"
 	"time"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/auth"
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ch"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/passwords"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/pg"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/session"
+	"github.com/ThirdCoastInteractive/Beach/pkg/auth"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ch"
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/Beach/pkg/passwords"
+	"github.com/ThirdCoastInteractive/Beach/pkg/pg"
+	"github.com/ThirdCoastInteractive/Beach/pkg/session"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/pantry/internal/analytics"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/pantry/internal/store"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/pantry/internal/web"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/pantry/internal/analytics"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/pantry/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/pantry/internal/web"
 )
 
 //go:embed static

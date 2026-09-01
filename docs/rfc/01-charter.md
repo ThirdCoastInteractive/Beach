@@ -5,7 +5,7 @@
 A reusable, hypermedia-first, SSR web framework for Go, with an entity component
 system for realtime app state.
 
-Module: `github.com/ThirdCoastInteractive/the-beach`
+Module: `github.com/ThirdCoastInteractive/Beach`
 
 ## Problem
 
@@ -62,12 +62,13 @@ than tribal knowledge.
 - No migration of existing production services onto the framework as part of this
   work. The framework proves itself on greenfield apps first; migrations are their
   own programs, decided afterward.
-- Not published. the-beach vendors Datastar Pro and Stellar, which are licensed and
-  non-redistributable, so it is a **private module shared across our own apps** — never
-  an open-source release. "Reusable" means reusable by us. *[Updated 2026-06-12:
-  no licensed asset remains (free Datastar core, locally generated CSS); the
-  module stays private as a product decision — see the
-  [decisions log](../architecture/11-decisions.md).]*
+- Private-dev vs public cut. This checkout is `the-beach` (`origin/master`,
+  messy). The Go module path is `github.com/ThirdCoastInteractive/Beach` on both
+  trees. A public squash to `ThirdCoastInteractive/Beach` (`public/main`) is a
+  later cut — Rewind-style strip, identity `ThirdCoast <git@thirdcoast.tv>`.
+  *[Updated 2026-06-12: no licensed asset remains (free Datastar core, locally
+  generated CSS). Updated 2026-09-01: the module path is `Beach`; the public
+  remote does not exist yet.]*
 
 ## Philosophy
 

@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/reputation"
-	bcfg "github.com/ThirdCoastInteractive/the-beach/pkg/config"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/reputation"
+	bcfg "github.com/ThirdCoastInteractive/Beach/pkg/config"
 )
 
 // config is hush's env-driven knobs, loaded once at boot by the framework config

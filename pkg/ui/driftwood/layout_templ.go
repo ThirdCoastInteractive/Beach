@@ -9,9 +9,9 @@ import "github.com/a-h/templ"
 import templruntime "github.com/a-h/templ/runtime"
 
 import (
-	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/prefs"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui"
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/Beach/pkg/prefs"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui"
 )
 
 // ToastTarget is the DOM id of the page's live region — the one place

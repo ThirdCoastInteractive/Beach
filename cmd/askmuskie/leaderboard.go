@@ -5,7 +5,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
+	"github.com/ThirdCoastInteractive/Beach/pkg/chart"
 )
 
 // lbRow is one leaderboard entry.

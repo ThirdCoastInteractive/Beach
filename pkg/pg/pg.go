@@ -189,7 +189,7 @@ func modulePath() string {
 	if bi, ok := debug.ReadBuildInfo(); ok && bi.Main.Path != "" {
 		return bi.Main.Path
 	}
-	return "github.com/ThirdCoastInteractive/the-beach"
+	return "github.com/ThirdCoastInteractive/Beach"
 }
 
 // advisoryLockKey derives a stable int64 key from the module path so two

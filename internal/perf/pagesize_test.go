@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
 )
 
 // newApp builds a database-less beach.App — the same configuration the example

@@ -5,7 +5,7 @@
 package main
 
 import (
-	bcfg "github.com/ThirdCoastInteractive/the-beach/pkg/config"
+	bcfg "github.com/ThirdCoastInteractive/Beach/pkg/config"
 )
 
 // cfg is driftbottle's typed configuration. Core supplies Port (default 8080),

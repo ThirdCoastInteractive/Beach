@@ -77,7 +77,7 @@ func TestNewRendersAppName(t *testing.T) {
 	if !strings.Contains(gomod, "module lagoon") {
 		t.Errorf("go.mod missing module line:\n%s", gomod)
 	}
-	if !strings.Contains(gomod, "replace github.com/ThirdCoastInteractive/the-beach =>") {
+	if !strings.Contains(gomod, "replace github.com/ThirdCoastInteractive/Beach =>") {
 		t.Errorf("go.mod missing replace directive:\n%s", gomod)
 	}
 	// The mirrored transitive require block must be present (templ is a known dep).

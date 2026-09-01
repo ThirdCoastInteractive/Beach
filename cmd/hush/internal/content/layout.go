@@ -11,7 +11,7 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/store"
+	"github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/store"
 	"github.com/a-h/templ"
 )
 

@@ -9,7 +9,7 @@ import (
 
 	"github.com/coder/websocket"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/Beach/pkg/datastar"
 )
 
 // The four typed handler shapes. Each is a function from *Ctx to a typed result

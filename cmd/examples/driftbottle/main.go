@@ -37,15 +37,15 @@ import (
 	"log/slog"
 	"os"
 
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ch"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/pg"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/specimen"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ch"
+	"github.com/ThirdCoastInteractive/Beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/Beach/pkg/pg"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/specimen"
 
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/driftbottle/internal/analytics"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/driftbottle/internal/chat"
-	"github.com/ThirdCoastInteractive/the-beach/cmd/examples/driftbottle/internal/sockets"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/driftbottle/internal/analytics"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/driftbottle/internal/chat"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/driftbottle/internal/sockets"
 )
 
 //go:embed migrations/*.sql

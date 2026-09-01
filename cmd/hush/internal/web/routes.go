@@ -4,11 +4,11 @@ import (
 	"context"
 	"net/http"
 
-	authx "github.com/ThirdCoastInteractive/the-beach/cmd/hush/internal/auth"
+	authx "github.com/ThirdCoastInteractive/Beach/cmd/hush/internal/auth"
 
-	fwauth "github.com/ThirdCoastInteractive/the-beach/pkg/auth"
-	beach "github.com/ThirdCoastInteractive/the-beach/pkg/beach"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/specimen"
+	fwauth "github.com/ThirdCoastInteractive/Beach/pkg/auth"
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/specimen"
 )
 
 // Routes registers the wall, the post action, image upload, and file serving,

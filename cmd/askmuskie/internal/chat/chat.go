@@ -14,7 +14,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/Beach/pkg/hub"
 )
 
 // Topic is the hub topic chat frames publish to.

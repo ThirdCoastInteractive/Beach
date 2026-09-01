@@ -7,7 +7,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/Beach/pkg/hub"
 )
 
 // heapAlloc forces a GC and returns the current live-heap byte count, so two

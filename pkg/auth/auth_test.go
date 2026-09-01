@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/passwords"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/session"
+	"github.com/ThirdCoastInteractive/Beach/pkg/passwords"
+	"github.com/ThirdCoastInteractive/Beach/pkg/session"
 )
 
 func TestHasPermission(t *testing.T) {

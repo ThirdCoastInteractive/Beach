@@ -5,9 +5,9 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/ThirdCoastInteractive/the-beach/pkg/datastar"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
-	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
+	"github.com/ThirdCoastInteractive/Beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
 )
 
 // ToastTarget is the DOM id of the page's live region, where error toasts and
