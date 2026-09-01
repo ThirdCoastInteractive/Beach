@@ -10,7 +10,7 @@ import beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
 
 Docs of record: [docs/README.md](../../../../docs/README.md). Layout: [docs/architecture/01-layout.md](../../../../docs/architecture/01-layout.md). Laws: [docs/rfc/02-scope.md](../../../../docs/rfc/02-scope.md).
 
-If a row exists, **call that package**. New `pkg/` code only when no row owns the job and [17-gaps.md](../../../../docs/architecture/17-gaps.md) agrees it is a gap.
+If a row exists, **call that package**. New `pkg/` code only when no row owns the job.
 
 ## Intent → package
 

@@ -1,6 +1,6 @@
 # Architecture 19 — rybitten: RYB color & gamut theming
 
-[← docs index](../README.md) · prev: [Gaps](17-gaps.md) · next: [sync boundary](20-sync.md) · related: [Analytics](14-analytics.md) · [UI toolkit](06-ui.md)
+[← docs index](../README.md) · prev: [Component catalog](16-components.md) · next: [sync boundary](20-sync.md) · related: [Analytics](14-analytics.md) · [UI toolkit](06-ui.md)
 
 `rybitten` is a dependency-free Go port of meodai's [RYBitten](https://rybitten.space)
 — a pseudo-RYB color model derived from Johannes Itten's chromatic circle.
@@ -19,7 +19,7 @@ for a position on an arc and whatever the cube happens to hold there. On several
 gamuts the green-to-blue arc runs through sage and olive, and no amount of tuning
 recovers chroma the cube does not contain. OKLCH has no such dead zones, and
 `color.MaxChroma` makes "as vivid as this hue gets at this lightness" a question
-with an answer. See [11-decisions.md](11-decisions.md).
+with an answer. See [06-ui.md](06-ui.md#tokens).
 
 Digital tools mix in additive RGB, which flattens the warm neutrals and muddy
 intermediates a painter gets for free. RYBitten instead interpolates through an

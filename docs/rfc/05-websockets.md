@@ -1,6 +1,6 @@
 # RFC 05 — WebSocket support (`App.Socket`)
 
-[← docs index](../README.md) · prev: [Program & risks](04-program.md) · next: [Accessibility](06-accessibility.md)
+[← docs index](../README.md) · prev: [The ECS pitch](03-ecs.md) · next: [Accessibility](06-accessibility.md)
 
 **Status: shipped.** `pkg/beach/socket.go` + the fourth shape in `routes.go`/`handlers.go`;
 tests in `socket_test.go`; demo at driftbottle `/sockets`. Decisions taken at
@@ -12,9 +12,9 @@ The sync unit for UI remains HTML fragments over SSE (RFC/architecture 20-sync).
 applications additionally need a **high-rate, bidirectional, binary** channel that is not
 UI sync: live simulation state at 60 Hz, controller/gamepad input upstream, binary
 telemetry. SSE is text-framed, unidirectional, and gzip-oriented — wrong tool. The
-framework currently offers no path (architecture 17-gaps), forcing apps to mount foreign
-handlers behind `Raw` and carry their own WS dependency. This RFC adds WebSockets as a
-first-class fourth handler shape.
+framework had no path, forcing apps to mount foreign handlers behind `Raw` and
+carry their own WS dependency. This RFC adds WebSockets as a first-class fourth
+handler shape.
 
 Doctrine update (20-sync.md): **SSE carries hypermedia; WebSocket carries payloads that
 are not hypermedia.** A socket never patches the DOM through the framework; if a socket
@@ -153,11 +153,6 @@ the socket for real, and ~13 s of stall showed 929 frames coalesced server-side 
 client snapping to fresh state on release. Non-Chromium browsers get the stream without
 the stall button. Native/Go consumers (and `DialSocket`) backpressure properly — the
 handoff into `Read` is synchronous.
-
-## Docs to update
-
-`architecture/03-http.md` (fourth shape), `architecture/20-sync.md` (doctrine line
-above), `architecture/17-gaps.md` (remove WS gap), `README.md` dependency map.
 
 ## Acceptance
 

@@ -9,8 +9,7 @@ Module: `github.com/ThirdCoastInteractive/Beach`
 
 ## Problem
 
-The stack — Go + net/http + templ + Datastar + Stellar *[since replaced by
-Tailwind v4 + `rybitten` — see the [decisions log](../architecture/11-decisions.md)]*
+The stack — Go + net/http + templ + Datastar + Tailwind v4 + `rybitten`
 + sqlc + pgx + goose + Postgres
 LISTEN/NOTIFY + SSE — is proven in production at real scale: live platforms
 sustaining thousands of concurrent SSE connections, full design-system theming,

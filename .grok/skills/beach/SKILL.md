@@ -28,7 +28,7 @@ Agents fail here by writing a parallel of something that already exists. The fix
 
 If you cannot name the `pkg/…` owner, discovery is not done. Do not start a sibling helper "for now".
 
-New framework surface belongs in the owning package (or a new `pkg/` only when [17-gaps.md](../../../docs/architecture/17-gaps.md) says the gap is real). App folders do not grow secret frameworks.
+New framework surface belongs in the owning package (or a new `pkg/` only when no row owns the job). App folders do not grow secret frameworks.
 
 ## Stack (not pluggable)
 
@@ -100,4 +100,4 @@ Generated `*_templ.go` is committed. Verification: gen → vet → tests → bro
 
 ## Gaps vs invention
 
-Example apps already hit missing APIs; those are listed in [17-gaps.md](../../../docs/architecture/17-gaps.md) with the shipped surface. A local workaround in an app is not a license to fork the framework into `internal/`.
+A local workaround in an app is not a license to fork the framework into `internal/`. If `pkg/` cannot do the job, that is a Beach card, not a new helper.

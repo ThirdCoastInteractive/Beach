@@ -1,6 +1,6 @@
 # Architecture 12 — `auth` + `passwords`: identity, argon2id, simple RBAC
 
-[← docs index](../README.md) · prev: [Decisions log](11-decisions.md) · next: [API codegen](13-apigen.md)
+[← docs index](../README.md) · prev: [Tooling & testing](10-tooling.md) · next: [API codegen](13-apigen.md)
 
 Two packages: `passwords` (argon2id hashing, zero dependencies) and `auth` (the
 principal, the login flow, and a deliberately small RBAC). Sessions are covered in

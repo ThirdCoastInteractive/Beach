@@ -15,10 +15,8 @@ realtime) **and** marketing surfaces (heroes, pricing, FAQs) **and** commerce (p
 grids, carts, checkout). Breadth is the point — a beach app should reach for a kit
 component, not hand-roll one.
 
-This doesn't fight the [framework-itis rule](../rfc/04-program.md#risks): that rule warns
-against speculative *abstraction* — building a layer for something that happened once.
-These are concrete, universally-understood UI patterns, not abstractions. Shipping a
-pricing table carries none of the risk of inventing a config system nobody asked for.
+These are concrete UI patterns, not speculative abstraction. Shipping a pricing
+table is not inventing a config system nobody asked for.
 
 The catalog is sequenced, not gated. Two markers:
 

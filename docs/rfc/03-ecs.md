@@ -1,6 +1,6 @@
 # RFC 3 — What's new: the ECS
 
-[← docs index](../README.md) · prev: [Scope](02-scope.md) · next: [Program & risks](04-program.md)
+[← docs index](../README.md) · prev: [Scope](02-scope.md) · next: [WebSockets](05-websockets.md)
 
 This is the RFC-level pitch. The full designs live in
 [architecture/07-ecs.md](../architecture/07-ecs.md) (the engine) and

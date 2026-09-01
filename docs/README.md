@@ -6,14 +6,10 @@ Stack: net/http · templ · Datastar (free core) · Tailwind v4 + rybitten · pg
 LISTEN/NOTIFY · SSE · custom `ecs` engine. The module root is the framework's
 front door: `import beach "github.com/ThirdCoastInteractive/Beach"`.
 
-**Status:** all six [roadmap](ROADMAP.md) blocks built. 29 packages, ~24.5k LOC
-(excluding generated templ output), `make build/vet/test` green; the root `beach`
-package, the `driftwood` kit (every view a generated `.templ` component), `sim`,
-`chart` (geometry + templ render + the client interaction layer), the `rybitten`
-color package, `apigen`, the scaffold/lint/perf tooling, and all four example apps
-compile, test, and serve — each mounting the `ui/specimen` showcase at `/specimen`.
-Known rough edges are tracked in [17-gaps.md](architecture/17-gaps.md).
-The RFC and architecture docs are the design of record.
+29 packages; `make build/vet/test` green. The root `beach` package, the
+`driftwood` kit, `sim`, `chart`, `rybitten`, `apigen`, the scaffold/lint tooling,
+and all four example apps compile, test, and serve — each mounting `ui/specimen`
+at `/specimen`. The RFC and architecture docs are the design of record.
 
 ## The realtime spine
 
@@ -115,7 +111,6 @@ the solid `ui --> rybitten` edge is the specimen's gamut preview — see
 | [1 — Charter](rfc/01-charter.md)         | Problem, goal, non-goals, philosophy                         |
 | [2 — Scope](rfc/02-scope.md)             | Every package and its responsibility; the framework laws     |
 | [3 — The ECS pitch](rfc/03-ecs.md)       | Why a custom engine, the design pillars, the hybrid boundary |
-| [4 — Program & risks](rfc/04-program.md) | The 10 shippable projects, validation criteria, risks        |
 | [5 — WebSockets](rfc/05-websockets.md)   | `App.Socket`: the non-hypermedia channel, coalescing, relay  |
 | [6 — Accessibility](rfc/06-accessibility.md) | WCAG 2.1 AA as a law: the audit, the palette move, names as translations, the live region, pausing a stream, the keyboard layer for charts, enforcement, and the known exceptions |
 
@@ -133,23 +128,19 @@ the solid `ui --> rybitten` edge is the specimen's gamut preview — see
 | [8 — Sim](architecture/08-sim.md)                       | The boundary, tick loop, projections, persistence lanes                                  |
 | [9 — Lifecycles](architecture/09-lifecycles.md)         | Page / action / stream / external write, end to end                                      |
 | [10 — Tooling & testing](architecture/10-tooling.md)    | `beach new` / `beach ecs gen` / `beach i18n` / `beach-vet`, test doctrine                |
-| [11 — Decisions log](architecture/11-decisions.md)      | Every load-bearing choice and why                                                        |
 | [12 — Auth](architecture/12-auth.md)                    | argon2id passwords, login flow, principal/RBAC, guards                                   |
 | [13 — API codegen](architecture/13-apigen.md)           | `beach-apigen`: six SQL annotations → routes, handlers, NOTIFY (hypermedia-only)         |
 | [14 — Analytics](architecture/14-analytics.md)          | `chart` (one package: geometry + templ render, 22 types, fragments, the client interaction layer) + `ch` (ClickHouse client, batcher, migrations, query→chart adapters) |
 | [15 — Example apps](architecture/15-examples.md)        | boardwalk (sim + live bar race), driftbottle (hub), pantry (apigen+analytics), booking-manager (mailer+sms, Postgres-only) |
 | [16 — Component catalog](architecture/16-components.md) | The concrete driftwood component inventory, and the `ui/specimen` page every example mounts |
-| [17 — Gaps](architecture/17-gaps.md)                    | Framework rough edges the example apps surfaced, with proposed fixes                     |
 | [19 — rybitten](architecture/19-rybitten.md)            | RYB color model port, 36 gamut presets, `SeriesVars` → the `--color-series-*` tokens, the specimen gamut preview |
 | [20 — sync boundary](architecture/20-sync.md)          | Why no sync engine; the sync unit is HTML, not data; read-path liveness via the hub; the topic-scope rule; the offline exit condition |
 
 ## Reading paths
 
-- **Auditing the plan?** RFC 1 → 2 → 3 → 4, then the decisions log.
 - **Auditing the ECS?** RFC 3 → Architecture 7 → 8 → 9.
 - **Auditing the frontend story?** Architecture 3 → 6 → 16 → 9.
 - **Auditing accessibility?** RFC 6 → Architecture 6 (the law) → 16 (the per-component contract) → 10 (what `beach-vet` checks).
 - **Auditing auth & codegen?** Architecture 12 → 13 → 10.
-- **Building project 1?** Architecture 1 → 2, RFC 4 for scope.
 - **Changing the color palette?** Architecture 19 → 14 (chart theming) → 6 (UI tokens).
 - **Auditing the sync/realtime story?** Architecture 4 (hub) → 8 (sim) → 20 (the sync boundary).

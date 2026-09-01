@@ -45,7 +45,7 @@ four cells generalize across applications; one resists:
 
 Beach has independently arrived at every choice the thesis marks "safe":
 
-- **Server-authoritative** — forced ([decisions](11-decisions.md): system of record is Postgres).
+- **Server-authoritative** — the system of record is Postgres.
 - **Always-online** — SSE needs a live connection; offline is a non-goal (see below).
 - **Server owns the write path** — every mutation is a server transaction (`pg.InTx`,
   the sim's [sync-tx lane](08-sim.md)). There is no optimistic client write to reconcile,

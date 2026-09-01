@@ -11,8 +11,8 @@ Decisions taken at implementation time are marked ⚑ below.
 
 ## Motivation
 
-[ROADMAP block 3](../ROADMAP.md) has always gated the component kit on the specimen being
-"**a11y clean**". The phrase was never defined anywhere in the repo and nothing checked it.
+The component kit was gated on the specimen being "**a11y clean**". The phrase was
+never defined anywhere in the repo and nothing checked it.
 
 Meanwhile the kit was most of the way there on instinct — 216 `aria-*` attributes,
 `ui.Icon` decorative-by-default with an opt-in name, an `.sr-only` utility, "color is never
@@ -441,7 +441,7 @@ Stated plainly, because a conformance claim with no exceptions list is not a cla
   direction on text and the wrong side for some spacing. The kit already uses `border-s`,
   `ms-`, `text-start` and `inset-inline-start` in places, so it is partly there.
 - **No `forced-colors` or `prefers-contrast` support**, and no light theme — the palette is
-  dark-only by [explicit decision](../architecture/11-decisions.md).
+  dark-only by design (see [06-ui.md](../architecture/06-ui.md#tokens)).
 - **`Tabs` caps at `MaxTabs` (8).** Selecting a panel from a checked radio is a per-index
   CSS rule, and the sheet carries a ladder of exactly eight. A ninth tab renders and does
   not switch. A surface wanting nine tabs wants navigation.

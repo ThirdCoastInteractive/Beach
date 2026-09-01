@@ -1,6 +1,6 @@
 # Architecture 10 — Tooling, testing & performance doctrine
 
-[← docs index](../README.md) · prev: [Lifecycles](09-lifecycles.md) · next: [Decisions log](11-decisions.md)
+[← docs index](../README.md) · prev: [Lifecycles](09-lifecycles.md) · next: [Auth](12-auth.md)
 
 ## `cmd/beach` and the skeleton
 
