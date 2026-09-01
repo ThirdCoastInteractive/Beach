@@ -1,0 +1,130 @@
+// The chart gallery: every chart templ component, fed by the deterministic
+// samples in samples.go, each wrapped in the .dash-widget structure so
+// chart-toolbar.js (grid/legend/theme/fullscreen) attaches to every card.
+package specimen
+
+import (
+	"github.com/ThirdCoastInteractive/Beach/pkg/chart"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
+)
+
+// chartGallery renders every chart type in the suite — including the geo
+// family (choropleth, interactive map, globes, sun clock) — plus a static
+// bar-race frame, on the dashboard grid.
+//
+// Most widgets here name their chart with a visible card title and leave the SVG
+// decorative, which is the right shape for a titled dashboard cell. The line and
+// bar charts additionally carry chart.Label and chart.Describe, so the gallery
+// shows what a chart with a real text alternative looks like: the name, and the
+// sentence someone who cannot see it would need instead.
+templ chartGallery() {
+	@driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Charts"})
+	<div class="dash-grid">
+		@chartWidget("Line — visitors by hour", "dash-col-8 dash-row-2") {
+			@chart.ChartLineFragment(sampleLine(),
+				chart.Label("Visitors by hour"),
+				chart.Describe("A single peak just after midday, tailing off through the afternoon."))
+		}
+		@chartWidget("Billboard — daily visitors", "dash-col-4 dash-row-1") {
+			@chart.ChartBillboardFragment("spec-billboard", sampleBillboard())
+		}
+		@chartWidget("Sparkline — water temp", "dash-col-4 dash-row-1") {
+			@chart.ChartSparklineFragment("spec-sparkline", sampleSparkline())
+		}
+		@chartWidget("Gauge — occupancy", "dash-col-4 dash-row-1") {
+			@chart.ChartGaugeFragment("spec-gauge", sampleGauge())
+		}
+		@chartWidget("Stacked gauge — revenue", "dash-col-4 dash-row-1") {
+			@chart.ChartStackedGaugeFragment("spec-stacked-gauge", sampleStackedGauge())
+		}
+		@chartWidget("Bar — visits by beach", "dash-col-6 dash-row-2") {
+			@chart.ChartBarFragment("spec-hbar", sampleHBar(),
+				chart.Label("Visits by beach"),
+				chart.Describe("North Beach leads at 9,420, then The Cove at 7,180."))
+		}
+		@chartWidget("Stacked bar — vendor mix", "dash-col-6 dash-row-2") {
+			@chart.ChartStackedBarFragment("spec-stacked-bar", sampleStackedBar())
+		}
+		@chartWidget("Grouped bar — rentals YoY", "dash-col-6 dash-row-2") {
+			@chart.ChartGroupedBarFragment("spec-grouped-bar", sampleGroupedBar())
+		}
+		@chartWidget("Bullet bar — fleet vs. target", "dash-col-6 dash-row-2") {
+			@chart.ChartBulletBarFragment("spec-bullet-bar", sampleBulletBar())
+		}
+		@chartWidget("Scatter — ride sessions", "dash-col-6 dash-row-2") {
+			@chart.ChartScatterFragment("spec-scatter", sampleScatter())
+		}
+		@chartWidget("Box plot — wave height", "dash-col-6 dash-row-2") {
+			@chart.ChartBoxPlotFragment("spec-box", sampleBoxPlot())
+		}
+		@chartWidget("Bollinger — water temp", "dash-col-6 dash-row-2") {
+			@chart.ChartBollingerFragment("spec-bollinger", sampleBollinger())
+		}
+		@chartWidget("Difference — swell windows", "dash-col-6 dash-row-2") {
+			@chart.ChartDifferenceFragment("spec-difference", sampleDifference())
+		}
+		@chartWidget("Horizon — crowd deltas", "dash-col-6 dash-row-2") {
+			@chart.ChartHorizonFragment("spec-horizon", sampleHorizon())
+		}
+		@chartWidget("Ridgeline — activity by hour", "dash-col-6 dash-row-2") {
+			@chart.ChartRidgelineFragment("spec-ridgeline", sampleRidgeline())
+		}
+		@chartWidget("Timeline — season plan", "dash-col-6 dash-row-2") {
+			@chart.ChartTimelineFragment("spec-timeline", sampleTimeline())
+		}
+		@chartWidget("Stream — revenue layers", "dash-col-6 dash-row-2") {
+			@chart.ChartStreamFragment("spec-stream", sampleStream())
+		}
+		@chartWidget("Sankey — visitor flow", "dash-col-12 dash-row-2") {
+			@chart.ChartSankeyFragment("spec-sankey", sampleSankey())
+		}
+		@chartWidget("Chord — walkers between beaches", "dash-col-6 dash-row-2") {
+			@chart.ChartChordFragment("spec-chord", sampleChord())
+		}
+		@chartWidget("Bundle — trail connections", "dash-col-6 dash-row-2") {
+			@chart.ChartBundleFragment("spec-bundle", sampleBundle())
+		}
+		@chartWidget("Calendar — rental year", "dash-col-12 dash-row-2") {
+			@chart.ChartCalendarFragment("spec-calendar", sampleCalendar())
+		}
+		@chartWidget("Heatmap — crowd by hour", "dash-col-6 dash-row-2") {
+			@chart.ChartHeatmapFragment("spec-heatmap", sampleHeatmap())
+		}
+		@chartWidget("Geo map — visitor origins", "dash-col-12 dash-row-2") {
+			@chart.ChartGeoMapFragment("spec-geomap", sampleGeoMap())
+		}
+		@chartWidget("Geo map — interactive", "dash-col-6 dash-row-2") {
+			@chart.ChartGeoMapFragment("spec-geomap-interactive", sampleGeoMapInteractive())
+		}
+		@chartWidget("Globe — themed", "dash-col-3 dash-row-2") {
+			@chart.ChartGlobeFragment("spec-globe-themed", sampleGlobeThemed())
+		}
+		@chartWidget("Globe — wireframe", "dash-col-3 dash-row-2") {
+			@chart.ChartGlobeFragment("spec-globe-wire", sampleGlobeWire())
+		}
+		@chartWidget("Sun clock", "dash-col-12 dash-row-2") {
+			@chart.ChartGeoClockFragment("spec-sun-clock", sampleSunClock())
+		}
+		@chartWidget("Bar race — static frame", "dash-col-6 dash-row-2") {
+			@chart.BarRaceSVG(sampleBarRace())
+			<p class="spec-note">
+				One frame of the SSE bar race. The live version — the server patching
+				frames over SSE — runs in examples/boardwalk.
+			</p>
+		}
+	</div>
+}
+
+// chartWidget is the dashboard card shell every gallery chart sits in:
+// .dash-widget / .dash-widget-header / .dash-widget-body is the structure
+// chart-toolbar.js scans for, so each card grows the toolbar on load.
+templ chartWidget(title string, span string) {
+	<article class={ "dash-widget " + span }>
+		<header class="dash-widget-header">
+			<span class="heading-eyebrow">{ title }</span>
+		</header>
+		<div class="dash-widget-body">
+			{ children... }
+		</div>
+	</article>
+}

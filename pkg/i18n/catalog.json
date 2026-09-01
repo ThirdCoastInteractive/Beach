@@ -1,0 +1,350 @@
+{
+  "framework.error.bad_request": {
+    "label": "Invalid request",
+    "comment": "Title of the 400 error page."
+  },
+  "framework.error.bad_request.detail": {
+    "label": "The request could not be processed.",
+    "comment": "Body of the 400 error page."
+  },
+  "framework.error.forbidden": {
+    "label": "Forbidden",
+    "comment": "Title of the 403 error page."
+  },
+  "framework.error.forbidden.detail": {
+    "label": "You do not have permission to view this page.",
+    "comment": "Body of the 403 error page."
+  },
+  "framework.error.form": {
+    "label": "Please fix the errors below",
+    "comment": "Summary toast shown when a submitted form fails validation."
+  },
+  "framework.error.home": {
+    "label": "Go home",
+    "comment": "Link out of an error page, back to the site root."
+  },
+  "framework.error.internal": {
+    "label": "Something went wrong",
+    "comment": "Title of the 500 error page."
+  },
+  "framework.error.internal.detail": {
+    "label": "An unexpected error occurred. Please try again.",
+    "comment": "Body of the 500 error page; never leaks the underlying error."
+  },
+  "framework.error.not_found": {
+    "label": "Not found",
+    "comment": "Title of the 404 error page."
+  },
+  "framework.error.not_found.detail": {
+    "label": "The page you were looking for does not exist.",
+    "comment": "Body of the 404 error page."
+  },
+  "framework.error.unauthorized": {
+    "label": "Sign in required",
+    "comment": "Title of the 401 error page."
+  },
+  "framework.error.unauthorized.detail": {
+    "label": "Please sign in to continue.",
+    "comment": "Body of the 401 error page."
+  },
+  "ui.a11y.apply": {
+    "label": "Apply",
+    "comment": "Submit button on a preference form that posts a choice."
+  },
+  "ui.a11y.chart.generic": {
+    "label": "Chart.",
+    "comment": "Fallback name for a keyboard-operable chart the caller did not name."
+  },
+  "ui.a11y.chart.keys": {
+    "label": "Use the arrow keys to step through it, Home and End for the ends, Escape to leave.",
+    "comment": "Key hint appended to every keyboard-operable chart name."
+  },
+  "ui.a11y.close": {
+    "label": "Close",
+    "comment": "Accessible name for the X button that closes a modal or drawer."
+  },
+  "ui.a11y.composer": {
+    "label": "Message",
+    "comment": "Fallback accessible name for the chat composer's text box."
+  },
+  "ui.a11y.delta.down": {
+    "label": "down",
+    "comment": "Screen-reader label for a falling stat delta."
+  },
+  "ui.a11y.delta.none": {
+    "label": "no change",
+    "comment": "Screen-reader label for a flat stat delta."
+  },
+  "ui.a11y.delta.up": {
+    "label": "up",
+    "comment": "Screen-reader label for a rising stat delta, so the arrow's meaning does not depend on color."
+  },
+  "ui.a11y.dismiss": {
+    "label": "Dismiss",
+    "comment": "Accessible name for the X button that removes an alert or toast."
+  },
+  "ui.a11y.live.pause": {
+    "label": "Pause updates",
+    "comment": "Control that stops server-pushed updates (WCAG 2.2.2). Visible text and accessible name."
+  },
+  "ui.a11y.live.pause_named": {
+    "label": "Pause %s updates",
+    "comment": "Pause control naming what updates. %s is the caller's label, e.g. \"Board\"."
+  },
+  "ui.a11y.live.paused": {
+    "label": "Updates are paused.",
+    "comment": "Status line shown in place of the stream while updates are paused."
+  },
+  "ui.a11y.live.resume": {
+    "label": "Resume updates",
+    "comment": "Control that restarts server-pushed updates."
+  },
+  "ui.a11y.live.resume_named": {
+    "label": "Resume %s updates",
+    "comment": "Resume control naming what updates. %s is the caller's label."
+  },
+  "ui.a11y.loading": {
+    "label": "Loading",
+    "comment": "Announced by a spinner and by a deferred section still waiting for its content."
+  },
+  "ui.a11y.md.bold": {
+    "label": "Bold",
+    "comment": "Markdown toolbar: wrap the selection in bold."
+  },
+  "ui.a11y.md.code": {
+    "label": "Code",
+    "comment": "Markdown toolbar: wrap the selection as code."
+  },
+  "ui.a11y.md.h2": {
+    "label": "Heading",
+    "comment": "Markdown toolbar: turn the current line into a heading."
+  },
+  "ui.a11y.md.image": {
+    "label": "Insert image",
+    "comment": "Markdown toolbar: upload an image and insert its Markdown."
+  },
+  "ui.a11y.md.italic": {
+    "label": "Italic",
+    "comment": "Markdown toolbar: wrap the selection in italic."
+  },
+  "ui.a11y.md.link": {
+    "label": "Link",
+    "comment": "Markdown toolbar: turn the selection into a link."
+  },
+  "ui.a11y.md.ol": {
+    "label": "Numbered list",
+    "comment": "Markdown toolbar: prefix the selection as a numbered list."
+  },
+  "ui.a11y.md.preview": {
+    "label": "Preview",
+    "comment": "Accessible name of the Markdown editor live-preview pane."
+  },
+  "ui.a11y.md.quote": {
+    "label": "Quote",
+    "comment": "Markdown toolbar: prefix the selection as a block quote."
+  },
+  "ui.a11y.md.source": {
+    "label": "Markdown",
+    "comment": "Fallback accessible name of the Markdown editor textarea."
+  },
+  "ui.a11y.md.toolbar": {
+    "label": "Formatting",
+    "comment": "Accessible name of the Markdown editor toolbar."
+  },
+  "ui.a11y.md.ul": {
+    "label": "Bulleted list",
+    "comment": "Markdown toolbar: prefix the selection as a bulleted list."
+  },
+  "ui.a11y.md.video": {
+    "label": "Insert video",
+    "comment": "Markdown toolbar: upload a video via tus and insert its fence."
+  },
+  "ui.a11y.menu": {
+    "label": "Menu",
+    "comment": "Fallback accessible name for a menu trigger that shows only a caret."
+  },
+  "ui.a11y.more": {
+    "label": "More",
+    "comment": "Fallback accessible name for a popover trigger with no label of its own."
+  },
+  "ui.a11y.nav.breadcrumb": {
+    "label": "Breadcrumb",
+    "comment": "Name of the ancestry-trail navigation landmark."
+  },
+  "ui.a11y.nav.next": {
+    "label": "Next",
+    "comment": "Visible text and accessible name of the pagination forward link. Keep it short: it is rendered, not only announced."
+  },
+  "ui.a11y.nav.page": {
+    "label": "Page %d",
+    "comment": "Accessible name of a numbered pagination link. %d is the page number."
+  },
+  "ui.a11y.nav.pagination": {
+    "label": "Pagination",
+    "comment": "Name of the page-number navigation landmark."
+  },
+  "ui.a11y.nav.prev": {
+    "label": "Previous",
+    "comment": "Visible text and accessible name of the pagination back link. Keep it short: it is rendered, not only announced."
+  },
+  "ui.a11y.nav.primary": {
+    "label": "Primary",
+    "comment": "Name of the main navigation landmark. Screen readers append \"navigation\", so do not repeat the word."
+  },
+  "ui.a11y.nav.sidebar": {
+    "label": "Sidebar",
+    "comment": "Name of the side navigation landmark. Screen readers append \"navigation\"."
+  },
+  "ui.a11y.new_tab": {
+    "label": "(opens in a new tab)",
+    "comment": "Screen-reader-only suffix on a link that leaves the page for a new tab."
+  },
+  "ui.a11y.notifications": {
+    "label": "Notifications",
+    "comment": "Name of the page's live region, where status messages and toasts arrive."
+  },
+  "ui.a11y.progress": {
+    "label": "Progress",
+    "comment": "Fallback accessible name for a progress bar the caller did not name."
+  },
+  "ui.a11y.required": {
+    "label": "required",
+    "comment": "Appended to a form field's label when the field must be filled in."
+  },
+  "ui.a11y.scheme.auto": {
+    "label": "Match system",
+    "comment": "The colour-scheme choice that defers to the operating system. The default, and the state a visitor needs a way back to."
+  },
+  "ui.a11y.scheme.dark": {
+    "label": "Dark",
+    "comment": "The dark colour-scheme choice."
+  },
+  "ui.a11y.scheme.legend": {
+    "label": "Colour scheme",
+    "comment": "Legend for the light/dark control's radio group."
+  },
+  "ui.a11y.scheme.light": {
+    "label": "Light",
+    "comment": "The light colour-scheme choice."
+  },
+  "ui.a11y.send": {
+    "label": "Send",
+    "comment": "Accessible name for the send button on a chat composer."
+  },
+  "ui.a11y.skip_to_content": {
+    "label": "Skip to content",
+    "comment": "The bypass-blocks link: the first thing a keyboard reaches on every page."
+  },
+  "ui.a11y.sort.asc": {
+    "label": "%s, sorted ascending",
+    "comment": "Accessible name of a table header sorted ascending. %s is the column heading."
+  },
+  "ui.a11y.sort.desc": {
+    "label": "%s, sorted descending",
+    "comment": "Accessible name of a table header sorted descending. %s is the column heading."
+  },
+  "ui.a11y.sort.none": {
+    "label": "sort by %s",
+    "comment": "Accessible name of an unsorted sortable table header. %s is the column heading."
+  },
+  "ui.auth.choose": {
+    "label": "Sign in or create an account",
+    "comment": "Accessible name of the sign-in dialog's login/register switcher."
+  },
+  "ui.auth.email_optional": {
+    "label": "Email (optional)",
+    "comment": "Optional email field label in the create-account form."
+  },
+  "ui.auth.login": {
+    "label": "Log in",
+    "comment": "Switcher label and submit button of the sign-in form."
+  },
+  "ui.auth.password": {
+    "label": "Password",
+    "comment": "Password field label in the sign-in dialog."
+  },
+  "ui.auth.register": {
+    "label": "Register",
+    "comment": "Switcher label for the create-account form."
+  },
+  "ui.auth.register_submit": {
+    "label": "Create account",
+    "comment": "Submit button of the create-account form."
+  },
+  "ui.auth.terms_accept": {
+    "label": "I am 18+ and accept the terms",
+    "comment": "Terms checkbox in the create-account form."
+  },
+  "ui.auth.terms_read": {
+    "label": "Read the terms",
+    "comment": "Link to the terms document from the create-account form."
+  },
+  "ui.auth.username": {
+    "label": "Username",
+    "comment": "Username field label in the sign-in dialog."
+  },
+  "ui.auth.welcome": {
+    "label": "Welcome",
+    "comment": "Default title of the sign-in dialog."
+  },
+  "ui.confirm.cancel": {
+    "label": "Cancel",
+    "comment": "Label of the dialog's cancel button, which is the focused control on open."
+  },
+  "ui.confirm.confirm": {
+    "label": "Confirm",
+    "comment": "Fallback label of the destructive button. Callers should name the verb instead."
+  },
+  "ui.confirm.title": {
+    "label": "Are you sure?",
+    "comment": "Fallback title of the destructive-action dialog when the caller gives none."
+  },
+  "ui.consent.allow": {
+    "label": "Allow optional",
+    "comment": "Banner button that records yes for optional cookie categories."
+  },
+  "ui.consent.always_on": {
+    "label": "Always on",
+    "comment": "Badge on a necessary cookie category that cannot be switched off."
+  },
+  "ui.consent.body": {
+    "label": "We use necessary cookies to run the site. Optional cookies stay off until you allow them.",
+    "comment": "Body copy of the first-visit cookie banner."
+  },
+  "ui.consent.category": {
+    "label": "Category",
+    "comment": "Fallback name for a cookie category the caller did not label."
+  },
+  "ui.consent.cookies": {
+    "label": "Cookie settings",
+    "comment": "Footer link or button that reopens the cookie banner or goes to /cookies."
+  },
+  "ui.consent.customize": {
+    "label": "Customize",
+    "comment": "Banner control that opens the cookie preference list."
+  },
+  "ui.consent.manager_lead": {
+    "label": "Necessary cookies run the site. Everything else is off until you allow it.",
+    "comment": "Standfirst under the cookie preference manager heading."
+  },
+  "ui.consent.manager_title": {
+    "label": "Cookie preferences",
+    "comment": "Heading of the /cookies category list. Also the region's accessible name."
+  },
+  "ui.consent.necessary": {
+    "label": "Necessary only",
+    "comment": "Banner button that records no for optional categories, and the name of the always-on category in the manager."
+  },
+  "ui.consent.necessary_help": {
+    "label": "Session, security, and this preference. Always on.",
+    "comment": "Description of the necessary cookie category in the manager."
+  },
+  "ui.consent.save": {
+    "label": "Save preferences",
+    "comment": "Submit button on the cookie preference manager."
+  },
+  "ui.consent.title": {
+    "label": "Cookies",
+    "comment": "Title of the first-visit cookie banner. Also the region's accessible name."
+  }
+}

@@ -1,0 +1,277 @@
+package driftwood
+
+import (
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui"
+)
+
+// --- Overlays ----------------------------------------------------------------
+
+// Modal is a native <dialog>: open/close is the platform's, never script. The
+// close control uses the dialog's own form method=dialog. Datastar enters only
+// to @get a heavy body under the 14KB budget; stacking sits on
+// var(--zindex-dialog) in the kit CSS.
+templ Modal(p ModalProps) {
+	{{ titleID := overlayTitleID(p.ID, "dw-modal") }}
+	<dialog
+		class="dw-modal"
+		if p.ID != "" {
+			id={ p.ID }
+		}
+		if p.Title != "" {
+			aria-labelledby={ titleID }
+		}
+		if p.Describe != "" {
+			aria-describedby={ p.Describe }
+		}
+		{ p.Attrs.Templ()... }
+	>
+		<header class="dw-modal-head">
+			if p.Title != "" {
+				<h2 class="dw-modal-title" id={ titleID }>{ p.Title }</h2>
+			}
+			<form class="dw-modal-x" method="dialog">
+				<button class="dw-iconbtn" type="submit" aria-label={ i18n.T(ctx, "ui.a11y.close") }>
+					@ui.Icon("x")
+				</button>
+			</form>
+		</header>
+		<div
+			class="dw-modal-body"
+			if p.Get != "" {
+				data-init={ "@get('" + p.Get + "')" }
+			}
+		>
+			{ children... }
+		</div>
+	</dialog>
+}
+
+// AuthModal is a reusable login/register dialog: a Modal holding two tabbed
+// Forms. The tab is a Datastar signal (no script beyond Datastar); each Form
+// posts its bound signals to the configured endpoint, and the handler sets the
+// session cookie + redirects on success or patches an error into the error slot
+// on failure. Open it from a trigger with
+// datastar.OnClick("document.getElementById('<ID>').showModal()").
+//
+// Every string it renders comes from the catalog, because this is the one kit
+// component that ships finished user-facing copy rather than slots for an app's
+// own — a sign-in dialog reading English on a Spanish page is the most visible
+// possible version of that bug. Override any of it through AuthModalProps.
+//
+// The two switchers are a labelled pair of toggle buttons carrying aria-pressed
+// bound to the same signal that drives the panels, so which form is showing is
+// announced rather than merely drawn. They are not role="tab": there is no
+// tablist wiring behind them, and a role the markup cannot honour is worse than
+// none (see Tabs).
+templ AuthModal(p AuthModalProps) {
+	{{ id := defaultID(p.ID, "auth-modal") }}
+	{{ errID := authErrorID(p) }}
+	@Modal(ModalProps{ID: id, Title: authTitle(ctx, p), Attrs: p.Attrs}) {
+		<div
+			class="dw-authmodal"
+			data-signals={ authSignalsTab(authTab(p)) }
+			if p.OpenOnLoad {
+				data-init={ authOpenScript(id) }
+			}
+		>
+			<div class="dw-authmodal-tabs" role="group" aria-label={ i18n.T(ctx, "ui.auth.choose") }>
+				<button
+					type="button"
+					class="dw-btn"
+					data-on:click={ "$authtab = 'login'" }
+					data-class={ authTabClass("login") }
+					{ authTabPressed("login")... }
+				>{ i18n.T(ctx, "ui.auth.login") }</button>
+				<button
+					type="button"
+					class="dw-btn"
+					data-on:click={ "$authtab = 'register'" }
+					data-class={ authTabClass("register") }
+					{ authTabPressed("register")... }
+				>{ i18n.T(ctx, "ui.auth.register") }</button>
+			</div>
+			<div id={ errID } class="dw-authmodal-error" role="alert">
+				if p.Error != "" {
+					<p class="dw-authmodal-msg">{ p.Error }</p>
+				}
+			</div>
+			<div data-show={ "$authtab === 'login'" }>
+				<form class="dw-form" method="post" action={ p.LoginPost }>
+					@Field(FieldProps{Label: i18n.T(ctx, "ui.auth.username"), For: id + "-lu", Required: true}) {
+						@Input(TextInputProps{ID: id + "-lu", Name: "username", Autocomplete: AutocompleteUsername, Required: true})
+					}
+					@Field(FieldProps{Label: i18n.T(ctx, "ui.auth.password"), For: id + "-lp", Required: true}) {
+						@Input(TextInputProps{ID: id + "-lp", Name: "password", Type: "password", Autocomplete: AutocompleteCurrentPassword, Required: true})
+					}
+					@Button(ButtonProps{Label: i18n.T(ctx, "ui.auth.login"), Role: RoleAccent, Type: "submit"})
+				</form>
+			</div>
+			<div data-show={ "$authtab === 'register'" }>
+				<form class="dw-form" method="post" action={ p.RegisterPost }>
+					@Field(FieldProps{Label: i18n.T(ctx, "ui.auth.username"), For: id + "-ru", Required: true}) {
+						@Input(TextInputProps{ID: id + "-ru", Name: "username", Autocomplete: AutocompleteUsername, Required: true})
+					}
+					if p.ShowEmail {
+						@Field(FieldProps{Label: i18n.T(ctx, "ui.auth.email_optional"), For: id + "-re"}) {
+							@Input(TextInputProps{ID: id + "-re", Name: "email", Type: "email", Autocomplete: AutocompleteEmail})
+						}
+					}
+					@Field(FieldProps{Label: i18n.T(ctx, "ui.auth.password"), For: id + "-rp", Required: true}) {
+						@Input(TextInputProps{ID: id + "-rp", Name: "password", Type: "password", Autocomplete: AutocompleteNewPassword, Required: true})
+					}
+					if p.TOSHref != "" {
+						@Checkbox(CheckboxProps{Name: "agree", Label: i18n.T(ctx, "ui.auth.terms_accept")})
+						<p class="dw-authmodal-tos">
+							<a href={ p.TOSHref } target="_blank" rel="noopener">
+								{ i18n.T(ctx, "ui.auth.terms_read") }
+								// The link leaves the dialog for a new tab. Saying so in the
+								// name is the only warning a screen-reader user gets, since
+								// the change of context is otherwise silent.
+								<span class="sr-only">{ i18n.T(ctx, "ui.a11y.new_tab") }</span>
+							</a>
+						</p>
+					}
+					@Button(ButtonProps{Label: i18n.T(ctx, "ui.auth.register_submit"), Role: RoleAccent, Type: "submit"})
+				</form>
+			</div>
+		</div>
+	}
+}
+
+// Drawer is a slide-over panel built on the native <dialog> (same open/close
+// mechanism as Modal: showModal + method="dialog" close, no script). Side picks
+// the edge; the kit CSS slides it in. Get lazy-loads a heavy body under budget.
+templ Drawer(p DrawerProps) {
+	{{ titleID := overlayTitleID(p.ID, "dw-drawer") }}
+	<dialog
+		class={ "dw-drawer", "dw-drawer-" + drawerSide(p.Side) }
+		if p.ID != "" {
+			id={ p.ID }
+		}
+		if p.Title != "" {
+			aria-labelledby={ titleID }
+		}
+		{ p.Attrs.Templ()... }
+	>
+		<header class="dw-drawer-head">
+			if p.Title != "" {
+				<h2 class="dw-drawer-title" id={ titleID }>{ p.Title }</h2>
+			}
+			<form class="dw-drawer-x" method="dialog">
+				<button class="dw-iconbtn" type="submit" aria-label={ i18n.T(ctx, "ui.a11y.close") }>
+					@ui.Icon("x")
+				</button>
+			</form>
+		</header>
+		<div
+			class="dw-drawer-body"
+			if p.Get != "" {
+				data-init={ "@get('" + p.Get + "')" }
+			}
+		>
+			{ children... }
+		</div>
+	</dialog>
+}
+
+// Popover is a native popover flyout anchored to its trigger: the trigger's
+// popovertarget points at the panel, and the platform toggles it with zero
+// script. The children are the panel body (menu items, info, a form).
+templ Popover(p PopoverProps) {
+	{{ id := defaultID(p.ID, "dw-popover") }}
+	<div class="dw-popover" id={ id } { p.Attrs.Templ()... }>
+		<button
+			type="button"
+			class="dw-btn dw-popover-trigger"
+			popovertarget={ id + "-panel" }
+			aria-haspopup="dialog"
+			aria-controls={ id + "-panel" }
+			if p.Label == "" {
+				aria-label={ i18n.T(ctx, "ui.a11y.more") }
+			}
+		>
+			if p.Icon != "" {
+				@ui.Icon(p.Icon)
+			}
+			if p.Label != "" {
+				<span class="dw-btn-label">{ p.Label }</span>
+			}
+		</button>
+		<div class="dw-popover-panel" id={ id + "-panel" } popover anchor={ id }>
+			{ children... }
+		</div>
+	</div>
+}
+
+// Tooltip wraps its children as the trigger; the tip is CSS-positioned off the
+// native focus/hover states — zero script, works before any bundle loads.
+//
+// aria-describedby ties the trigger to the tip, without which role=tooltip
+// describes nothing and the text is never announced. Interactive children keep
+// their own tab stop rather than being wrapped in a second one.
+//
+// Known limitation: WCAG 2.1 SC 1.4.13 asks that content shown on hover be
+// dismissible without moving the pointer or focus, which needs an Escape
+// handler and therefore script. See the exceptions list in
+// docs/rfc/06-accessibility.md — a tooltip here is a hint, never the only place
+// something is said.
+templ Tooltip(p TooltipProps) {
+	{{ tipID := defaultID(p.ID, "dw-tooltip") + "-text" }}
+	<span class="dw-tooltip" { p.Attrs.Templ()... }>
+		<span
+			class="dw-tooltip-trigger"
+			aria-describedby={ tipID }
+			if !p.Interactive {
+				tabindex="0"
+			}
+		>
+			{ children... }
+		</span>
+		<span class="dw-tooltip-text" id={ tipID } role="tooltip">{ p.Text }</span>
+	</span>
+}
+
+// Confirm is the destructive-action dialog: the pause between meaning to delete
+// something and deleting it.
+//
+// It is a Modal, so open/close, the focus trap and Escape are the platform's.
+// Three things it adds:
+//
+//   - The consequence is the dialog's accessible description, so it is announced
+//     with the dialog's name. A confirmation whose warning is only reachable by
+//     hunting through the body is a confirmation someone will click past.
+//   - Cancel is first in the DOM, so it is what the native dialog focuses on
+//     open and what Enter reaches first. The safe answer should be the easy one.
+//   - Cancel closes with the dialog's own form method="dialog" — no script, and
+//     no way for a broken handler to leave the dialog stuck open.
+//
+// Open it from a trigger with
+// datastar.OnClick("document.getElementById('<ID>').showModal()").
+templ Confirm(p ConfirmProps) {
+	{{ id := defaultID(p.ID, "dw-confirm") }}
+	{{ msgID := id + "-message" }}
+	@Modal(ModalProps{ID: id, Title: confirmTitle(ctx, p), Describe: confirmDescribe(p, msgID), Attrs: p.Attrs}) {
+		<div class="dw-confirm">
+			if p.Message != "" {
+				<p class="dw-confirm-msg" id={ msgID }>{ p.Message }</p>
+			}
+			{ children... }
+			<div class="dw-modal-foot">
+				<form method="dialog">
+					<button type="submit" class="dw-btn dw-btn-quiet" autofocus>
+						{ confirmCancel(ctx, p) }
+					</button>
+				</form>
+				<form method="post" action={ templ.SafeURL(p.Post) }>
+					@Button(ButtonProps{
+						Label:  confirmConfirm(ctx, p),
+						Role:   RoleDanger,
+						Type:   "submit",
+						Hazard: p.Hazard,
+					})
+				</form>
+			</div>
+		</div>
+	}
+}

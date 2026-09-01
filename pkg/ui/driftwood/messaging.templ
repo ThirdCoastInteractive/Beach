@@ -1,0 +1,73 @@
+package driftwood
+
+import (
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui"
+)
+
+// --- Messaging ---------------------------------------------------------------
+
+// MessageList renders a chat transcript: system notices, own messages, and
+// others' messages each carry a placement class.
+templ MessageList(p MessageListProps) {
+	<ul class="dw-msglist" { p.Attrs.Templ()... }>
+		for _, m := range p.Messages {
+			@messageItem(m)
+		}
+	</ul>
+}
+
+// messageItem is one transcript entry. (A struct named Message already holds
+// the props, so the item renderer stays an internal helper.)
+templ messageItem(m Message) {
+	<li class={ "dw-msg", msgClass(m) }>
+		if !m.System && m.Author != "" {
+			<span class="dw-msg-author">{ m.Author }</span>
+		}
+		<span class="dw-msg-body">{ m.Body }</span>
+		if m.At != "" {
+			<time class="dw-msg-time">{ m.At }</time>
+		}
+	</li>
+}
+
+// Composer is the message input: a one-row textarea bound to a signal and a
+// send button, submitting over a hypermedia @post.
+//
+// The textarea carries a real accessible name rather than leaning on its
+// placeholder, which vanishes as soon as there is text and is not a label
+// (WCAG 3.3.2).
+templ Composer(p ComposerProps) {
+	<form
+		class="dw-composer"
+		if p.Post != "" {
+			data-on:submit={ "@post('" + p.Post + "')" }
+		}
+		{ p.Attrs.Templ()... }
+	>
+		<textarea
+			class="dw-composer-input"
+			rows="1"
+			if p.Name != "" {
+				name={ p.Name }
+				{ bind(p.Name)... }
+			}
+			if p.Placeholder != "" {
+				placeholder={ p.Placeholder }
+			}
+			aria-label={ composerLabel(ctx, p) }
+		></textarea>
+		<button class="dw-composer-send" type="submit" aria-label={ i18n.T(ctx, "ui.a11y.send") }>
+			@ui.Icon("send")
+		</button>
+	</form>
+}
+
+// Presence is the connection-state pill: a dot plus a label, both driven by
+// the State class so reconnects restyle without script.
+templ Presence(p PresencePillProps) {
+	<span class={ "dw-presence", presenceClass(p.State) } role="status" { p.Attrs.Templ()... }>
+		<span class="dw-presence-dot" aria-hidden="true"></span>
+		{ p.Label }
+	</span>
+}

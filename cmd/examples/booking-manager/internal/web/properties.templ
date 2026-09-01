@@ -1,0 +1,161 @@
+// The properties desk: the list with its create form, and the per-property
+// detail (spec, standing key codes, lock status, upcoming stays).
+package web
+
+import (
+	"strconv"
+
+	"github.com/ThirdCoastInteractive/Beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
+
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/locks"
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/store"
+)
+
+// propertiesView lists the operation with an optional create form.
+templ (a *app) propertiesView(authed, canWrite bool, props []store.Property) {
+	@a.shellView("Properties", "prop", authed) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: "Properties", Subtitle: "Every unit you rent, with its codes and connected lock."})
+			if canWrite {
+				@a.addPropertyForm()
+			}
+			@a.propertyList(props)
+		}
+	}
+}
+
+// propertyList renders the property rows under a stable id for the create
+// patch.
+templ (a *app) propertyList(props []store.Property) {
+	<div id="prop-list">
+		if len(props) == 0 {
+			@driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "home", Message: "No properties yet — add the first one above."})
+		} else {
+			@driftwood.StackedList(driftwood.StackedListProps{Rows: propertyRows(props)})
+		}
+	</div>
+}
+
+// addPropertyForm is the create form (hypermedia @post).
+templ (a *app) addPropertyForm() {
+	@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfaceWell, Heading: "Add a property"}) {
+		@driftwood.Form(driftwood.FormProps{Post: "/properties", TwoCol: true}) {
+			@driftwood.Field(driftwood.FieldProps{Label: "Name", For: "name"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "name", Name: "name", Placeholder: "Loon Lake Cottage"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Address", For: "address"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "address", Name: "address"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Sleeps", For: "sleeps"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "sleeps", Name: "sleeps", Type: "number", Value: "2", Min: "1"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Bedrooms", For: "bedrooms"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "bedrooms", Name: "bedrooms", Type: "number", Value: "1", Min: "1"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Nightly rate", For: "rate"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "rate", Name: "rate", Type: "number", Prefix: "$", Min: "0", Step: "1"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Lock device id", For: "lock_device_id", Help: "The smart-lock identifier, if this unit has one."}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "lock_device_id", Name: "lock_device_id", Spellcheck: "false"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Description", For: "description"}) {
+				@driftwood.Textarea(driftwood.TextareaProps{ID: "description", Name: "description", Rows: 2})
+			}
+			@driftwood.Button(driftwood.ButtonProps{Label: "Add property", Role: driftwood.RoleAccent, Type: "submit", LeadIcon: "plus"})
+		}
+	}
+}
+
+// propertyDetailView is one property's page.
+templ (a *app) propertyDetailView(authed, canWrite bool, p store.Property, codes []store.KeyCode, stays []store.Booking, lock *locks.Status) {
+	@a.shellView(p.Name, "prop", authed) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.Breadcrumbs(driftwood.BreadcrumbsProps{Items: []driftwood.NavItem{
+				{Label: "Properties", Href: "/properties"},
+				{Label: p.Name},
+			}})
+			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: p.Name, Subtitle: propertyMeta(p)})
+			@driftwood.Grid(driftwood.GridProps{Cols: 2}) {
+				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Details"}) {
+					@driftwood.DescList(driftwood.DescListProps{TwoCol: true, Items: propertyDetails(p)})
+					if p.Description != "" {
+						<p>{ p.Description }</p>
+					}
+				}
+				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Smart lock"}) {
+					@lockStatus(p, lock)
+				}
+				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Key codes"}) {
+					@a.codeList(p.ID, codes)
+					if canWrite {
+						@a.addCodeForm(p.ID)
+					}
+				}
+				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Next 90 days"}) {
+					if len(stays) == 0 {
+						@driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "calendar", Message: "No stays on the books."})
+					} else {
+						@driftwood.StackedList(driftwood.StackedListProps{Rows: stayRows(stays)})
+					}
+				}
+			}
+		}
+	}
+}
+
+// lockStatus renders the connected lock's last-known state, or the "no lock"
+// note. The locks provider is an interface — today's implementation logs, a
+// real brand slots in without this view changing.
+templ lockStatus(p store.Property, lock *locks.Status) {
+	if lock == nil {
+		@driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "key", Message: "No connected lock. Set a lock device id to program per-stay door codes."})
+	} else if lock.Online {
+		@driftwood.DescList(driftwood.DescListProps{TwoCol: true, Items: []driftwood.DescItem{
+			{Term: "Device", Value: lock.DeviceID},
+			{Term: "Battery", Value: strconv.Itoa(lock.Battery) + "%"},
+		}})
+		@driftwood.Badge(driftwood.BadgeProps{Label: "online", Role: driftwood.RoleGood, Dot: true})
+	} else {
+		@driftwood.DescList(driftwood.DescListProps{TwoCol: true, Items: []driftwood.DescItem{
+			{Term: "Device", Value: lock.DeviceID},
+		}})
+		@driftwood.Badge(driftwood.BadgeProps{Label: "offline", Role: driftwood.RoleDanger, Dot: true})
+	}
+}
+
+// codeList renders a property's standing codes under a stable id for the
+// add/toggle patches. Inactive codes stay listed (struck through by their
+// badge) so the history is visible.
+templ (a *app) codeList(propID int64, codes []store.KeyCode) {
+	<div id="code-list">
+		if len(codes) == 0 {
+			@driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "key", Message: "No standing codes."})
+		} else {
+			@driftwood.StackedList(driftwood.StackedListProps{Rows: codeRows(codes)})
+		}
+	</div>
+}
+
+// codeToggle is the per-code enable/disable control.
+templ codeToggle(k store.KeyCode) {
+	@driftwood.Button(driftwood.ButtonProps{
+		Label: toggleLabel(k),
+		Role:  driftwood.RoleGhost,
+		Size:  driftwood.SizeSm,
+		Attrs: datastar.Attrs{datastar.OnClick("@post('/codes/" + strconv.FormatInt(k.ID, 10) + "/toggle')")},
+	})
+}
+
+// addCodeForm adds one standing code.
+templ (a *app) addCodeForm(propID int64) {
+	@driftwood.Form(driftwood.FormProps{Post: "/properties/" + strconv.FormatInt(propID, 10) + "/codes"}) {
+		@driftwood.Field(driftwood.FieldProps{Label: "Label", For: "label"}) {
+			@driftwood.Input(driftwood.TextInputProps{ID: "label", Name: "label", Placeholder: "Lockbox"})
+		}
+		@driftwood.Field(driftwood.FieldProps{Label: "Code", For: "code"}) {
+			@driftwood.Input(driftwood.TextInputProps{ID: "code", Name: "code", InputMode: "numeric", Spellcheck: "false"})
+		}
+		@driftwood.Button(driftwood.ButtonProps{Label: "Add code", Role: driftwood.RoleAccent, Type: "submit", LeadIcon: "key"})
+	}
+}

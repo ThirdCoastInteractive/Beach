@@ -1,0 +1,57 @@
+# {{.App}} — Beach app Makefile.
+#
+# The verification pipeline is framework doctrine: `make gen` -> `make vet` ->
+# `make up` -> browser check. A task is not done until every step passes.
+#
+# Views are .templ components compiled by `templ generate` (installed as a Go
+# tool — see the tool directive in go.mod). Generated *_templ.go files are
+# committed, so plain `go build` works without running gen first; run
+# `make gen` after editing any .templ file.
+
+APP := {{.App}}
+BIN := bin/$(APP)
+
+# beach is this checkout's scaffold CLI, resolved through the local `replace` in
+# go.mod, so `make gen` runs it without a network fetch. sqlc is looked up on
+# PATH and is a no-op (warn-and-continue) when absent, so `make gen` never
+# hard-fails a fresh clone.
+BEACH := go run github.com/ThirdCoastInteractive/Beach/cmd/beach
+
+.DEFAULT_GOAL := help
+
+.PHONY: help gen css vet up down start-db stop-db build sql-new
+
+help: ## Show this help
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
+
+gen: ## Compile .templ views + css, then DB code (sqlc) and components (beach ecs gen)
+	go tool templ generate
+	$(MAKE) css
+	@command -v sqlc    >/dev/null 2>&1 && sqlc generate || echo "skip: sqlc not on PATH"
+	@test -f components.beach.yaml && $(BEACH) ecs gen || echo "skip: no components.beach.yaml"
+
+css: ## Build the app's own stylesheet (Tailwind v4 CLI); the framework serves the design system's app.css
+	@test -f css/input.css && npx @tailwindcss/cli -i css/input.css -o static/css/$(APP).css \
+		|| echo "skip: no css/input.css (the framework serves /static/css/app.css)"
+
+vet: gen ## Run gen then go vet
+	go vet ./...
+
+build: ## Compile the app binary
+	go build -o $(BIN) .
+
+up: build ## Build and run the app (PORT defaults to 8080)
+	$(BIN)
+
+down: ## Stop the app (placeholder; the dev binary stops on Ctrl-C)
+	@echo "stop the running $(APP) process (Ctrl-C in its terminal)"
+
+start-db: ## Start Postgres via docker-compose
+	docker compose up -d db
+
+stop-db: ## Stop Postgres. NEVER rm the db volume to "fix" a migration — fix the migration.
+	docker compose stop db
+
+sql-new: ## Stamp the next goose SQL migration; NAME=foo [DIR=migrations]
+	$(BEACH) sql new $(NAME) $(if $(DIR),--dir $(DIR))

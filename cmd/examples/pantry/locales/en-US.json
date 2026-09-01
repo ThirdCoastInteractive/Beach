@@ -1,0 +1,38 @@
+{
+  "app.title": "Pantry",
+  "app.tagline": "At-home grocery ERP",
+  "nav.dashboard": "Dashboard",
+  "nav.items": "Inventory",
+  "nav.locations": "Locations",
+  "nav.lists": "Shopping lists",
+  "nav.login": "Sign in",
+
+  "dash.heading": "Household dashboard",
+  "dash.subtitle": "Activity, stock and waste at a glance",
+  "dash.spend": "Activity",
+  "dash.category": "Inventory by category",
+  "dash.expiry": "Expiry calendar",
+  "dash.waste": "Spoilage",
+
+  "items.heading": "Inventory",
+  "items.subtitle": "%d items on hand",
+  "items.empty": "No items yet — add your first.",
+  "items.add": "Add item",
+  "items.field.name": "Name",
+  "items.field.qty": "Quantity",
+  "items.field.location": "Location",
+  "items.field.expiry": "Expires",
+  "items.expires.soon": "Expiring soon",
+  "items.expires.none": "No expiry",
+
+  "loc.heading": "Storage locations",
+  "loc.empty": "No locations yet.",
+
+  "lists.heading": "Shopping lists",
+  "lists.empty": "No shopping lists yet.",
+
+  "login.heading": "Sign in",
+  "login.username": "Username",
+  "login.password": "Password",
+  "login.submit": "Sign in"
+}

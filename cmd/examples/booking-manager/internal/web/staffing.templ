@@ -1,0 +1,203 @@
+// The people desk: the hiring pipeline and the staff board (payroll, the
+// week's schedule, the time clock).
+package web
+
+import (
+	"strconv"
+	"time"
+
+	"github.com/ThirdCoastInteractive/Beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
+
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/store"
+)
+
+// --- hiring ---
+
+// hiringView is the applicant pipeline with the add form.
+templ (a *app) hiringView(authed, canWrite bool, apps []store.Applicant) {
+	@a.shellView("Hiring", "hire", authed) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: "Hiring", Subtitle: "Candidates work applied → interview → offer → hired."})
+			if canWrite {
+				@a.addApplicantForm()
+			}
+			if len(apps) == 0 {
+				@driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "user", Message: "Nobody in the pipeline."})
+			} else {
+				@driftwood.StackedList(driftwood.StackedListProps{Rows: applicantRows(apps, canWrite)})
+			}
+		}
+	}
+}
+
+// applicantActions renders the stage moves a candidate currently allows.
+templ applicantActions(ap store.Applicant) {
+	@driftwood.ButtonGroup(driftwood.ButtonGroupProps{Label: "Pipeline actions"}) {
+		switch ap.Stage {
+			case "applied":
+				@driftwood.Button(driftwood.ButtonProps{
+					Label: "Interview", Size: driftwood.SizeSm,
+					Attrs: datastar.Attrs{datastar.OnClick(applicantPost(ap.ID, "stage?to=interview"))},
+				})
+			case "interview":
+				@driftwood.Button(driftwood.ButtonProps{
+					Label: "Offer", Size: driftwood.SizeSm,
+					Attrs: datastar.Attrs{datastar.OnClick(applicantPost(ap.ID, "stage?to=offer"))},
+				})
+			case "offer":
+				@driftwood.Button(driftwood.ButtonProps{
+					Label: "Hire", Role: driftwood.RoleAccent, Size: driftwood.SizeSm,
+					Attrs: datastar.Attrs{datastar.OnClick(applicantPost(ap.ID, "hire"))},
+				})
+		}
+		if ap.Stage == "applied" || ap.Stage == "interview" || ap.Stage == "offer" {
+			@driftwood.Button(driftwood.ButtonProps{
+				Label: "Reject", Role: driftwood.RoleGhost, Size: driftwood.SizeSm, Hazard: true,
+				Attrs: datastar.Attrs{datastar.OnClick(applicantPost(ap.ID, "stage?to=rejected"))},
+			})
+		}
+	}
+}
+
+// addApplicantForm takes a new candidate.
+templ (a *app) addApplicantForm() {
+	@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfaceWell, Heading: "Add an applicant"}) {
+		@driftwood.Form(driftwood.FormProps{Post: "/applicants", TwoCol: true}) {
+			@driftwood.Field(driftwood.FieldProps{Label: "Name", For: "name"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "name", Name: "name"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Email", For: "email"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "email", Name: "email", Type: "email"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Phone", For: "phone"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "phone", Name: "phone", Type: "tel"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Role", For: "role"}) {
+				@driftwood.Select(driftwood.SelectProps{ID: "role", Name: "role", Options: roleOptions()})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Notes", For: "notes"}) {
+				@driftwood.Textarea(driftwood.TextareaProps{ID: "notes", Name: "notes", Rows: 2})
+			}
+			@driftwood.Button(driftwood.ButtonProps{Label: "Add applicant", Role: driftwood.RoleAccent, Type: "submit", LeadIcon: "plus"})
+		}
+	}
+}
+
+// --- staff ---
+
+// staffView is the staff board: payroll with the time clock, this week's
+// schedule, the clocked-hours table, and the add forms.
+templ (a *app) staffView(authed, canWrite bool, staff []store.Staff, shifts []store.Shift, hours []store.StaffHours, props []store.Property, weekStart time.Time) {
+	@a.shellView("Staff", "staff", authed) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: "Staff", Subtitle: "Payroll, the clock, and the week of " + dateShort(weekStart) + "."})
+			@driftwood.Grid(driftwood.GridProps{Cols: 2}) {
+				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "On payroll"}) {
+					@staffList(staff)
+				}
+				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Hours this week"}) {
+					@driftwood.Table(driftwood.TableProps{
+						Columns: []driftwood.Column{{Header: "Staff"}, {Header: "Hours"}, {Header: "Status"}},
+						Rows:    hourRows(hours),
+						Dense:   true,
+						Empty:   "No hours clocked yet this week.",
+					})
+				}
+			}
+			@driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "This week's schedule"})
+			if len(shifts) == 0 {
+				@driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "calendar", Message: "Nothing scheduled this week."})
+			} else {
+				@driftwood.StackedList(driftwood.StackedListProps{Rows: shiftRows(shifts)})
+			}
+			if canWrite {
+				@driftwood.Grid(driftwood.GridProps{Cols: 2}) {
+					@a.addShiftForm(staff, props)
+					@a.addStaffForm()
+				}
+			}
+		}
+	}
+}
+
+// staffList renders payroll under a stable id: the clock action patches it in
+// place.
+templ staffList(staff []store.Staff) {
+	<div id="staff-list">
+		if len(staff) == 0 {
+			@driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "user", Message: "Nobody on payroll — hire from the pipeline."})
+		} else {
+			@driftwood.StackedList(driftwood.StackedListProps{Rows: staffRows(staff)})
+		}
+	</div>
+}
+
+// clockButton punches one staffer in or out.
+templ clockButton(st store.Staff) {
+	if st.OnClockSince != nil {
+		@driftwood.Button(driftwood.ButtonProps{
+			Label: "Clock out", Size: driftwood.SizeSm,
+			Attrs: datastar.Attrs{datastar.OnClick("@post('/staff/" + strconv.FormatInt(st.ID, 10) + "/clock')")},
+		})
+	} else {
+		@driftwood.Button(driftwood.ButtonProps{
+			Label: "Clock in", Role: driftwood.RoleAccent, Size: driftwood.SizeSm,
+			Attrs: datastar.Attrs{datastar.OnClick("@post('/staff/" + strconv.FormatInt(st.ID, 10) + "/clock')")},
+		})
+	}
+}
+
+// addShiftForm schedules one block of work.
+templ (a *app) addShiftForm(staff []store.Staff, props []store.Property) {
+	@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfaceWell, Heading: "Schedule a shift"}) {
+		@driftwood.Form(driftwood.FormProps{Post: "/shifts"}) {
+			@driftwood.Field(driftwood.FieldProps{Label: "Staff", For: "staff_id"}) {
+				@driftwood.Select(driftwood.SelectProps{ID: "staff_id", Name: "staff_id", Options: staffOptions(staff)})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Property", For: "shift_property_id"}) {
+				@driftwood.Select(driftwood.SelectProps{ID: "shift_property_id", Name: "shift_property_id", Options: shiftPropertyOptions(props)})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Day", For: "day"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "day", Name: "day", Type: "date"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Starts", For: "start"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "start", Name: "start", Type: "time", Value: "09:00"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Hours", For: "hours"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "hours", Name: "hours", Type: "number", Value: "4", Min: "1", Step: "0.5"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Kind", For: "kind"}) {
+				@driftwood.Select(driftwood.SelectProps{ID: "kind", Name: "kind", Options: kindOptions()})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Notes", For: "shift_notes"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "shift_notes", Name: "shift_notes"})
+			}
+			@driftwood.Button(driftwood.ButtonProps{Label: "Schedule", Role: driftwood.RoleAccent, Type: "submit", LeadIcon: "calendar"})
+		}
+	}
+}
+
+// addStaffForm puts someone straight on payroll.
+templ (a *app) addStaffForm() {
+	@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfaceWell, Heading: "Add staff directly"}) {
+		@driftwood.Form(driftwood.FormProps{Post: "/staff"}) {
+			@driftwood.Field(driftwood.FieldProps{Label: "Name", For: "st_name"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "st_name", Name: "name"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Email", For: "st_email"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "st_email", Name: "email", Type: "email"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Phone", For: "st_phone"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "st_phone", Name: "phone", Type: "tel"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Role", For: "st_role"}) {
+				@driftwood.Select(driftwood.SelectProps{ID: "st_role", Name: "role", Options: roleOptions()})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Hourly rate", For: "st_rate"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "st_rate", Name: "rate", Type: "number", Prefix: "$", Min: "0", Step: "0.5", Value: "0"})
+			}
+			@driftwood.Button(driftwood.ButtonProps{Label: "Add staff", Role: driftwood.RoleAccent, Type: "submit", LeadIcon: "plus"})
+		}
+	}
+}

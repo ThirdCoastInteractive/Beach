@@ -1,0 +1,51 @@
+package driftwood
+
+// Page renders a complete, server-rendered HTML document around its children:
+// the <html> shell with theme-correct surfaces, the render-blocking stylesheet
+// link, and the deferred Datastar + chart modules (no-blocking law). Theme
+// classes sit on <html> before paint (no pop-in); the page targets the 14KB
+// budget — heavier content becomes a ui.Defer section.
+//
+// lang and dir are resolved from the request's active i18n locale unless
+// PageProps overrides them, so a localized app declares its language correctly
+// without doing anything (WCAG 3.1.1).
+//
+// The colour scheme is stamped the same way, from the visitor's preference. A
+// visitor who has chosen gets data-theme on <html> in the first bytes of the
+// response; a visitor who has not gets no attribute, and prefers-color-scheme
+// decides. Doing it here rather than in a script is what makes a chosen theme
+// survive the first paint: the usual localStorage-and-inline-script approach is
+// a render-blocking script the framework does not allow, and it flashes the
+// wrong theme on every navigation when it fails.
+templ Page(p PageProps) {
+	<!DOCTYPE html>
+	<html
+		lang={ pageLang(ctx, p.Lang) }
+		dir={ pageDir(ctx, p) }
+		class="dw-root"
+		if scheme := pageScheme(ctx); scheme != "" {
+			data-theme={ scheme }
+		}
+	>
+		<head>
+			<meta charset="utf-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<title>{ p.Title }</title>
+			if p.Description != "" {
+				<meta name="description" content={ p.Description }/>
+			}
+			<link rel="stylesheet" href={ pageStylesheet(p.Stylesheet) }/>
+			// The design tokens, served separately from the rules that reference
+			// them. app.css is a build artefact and caches hard; this is ~40
+			// values an app can change at runtime, and it revalidates. Both are
+			// render-blocking and fetched in parallel, so the second link costs a
+			// header rather than a round trip.
+			<link rel="stylesheet" href={ ThemeHref }/>
+			<script type="module" src="/static/js/datastar.js" defer></script>
+			<script type="module" src="/static/js/chart.js" defer></script>
+		</head>
+		<body class={ "dw-body", maybeClass(p.BodyClass) }>
+			{ children... }
+		</body>
+	</html>
+}

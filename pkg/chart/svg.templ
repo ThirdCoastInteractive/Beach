@@ -1,0 +1,736 @@
+// Server-rendered SVG chart components. Geometry is precomputed in Go
+// (the *.go files in this package) as percentages; these templates emit
+// the SVG markup. No viewBox on the percentage charts: the SVG fills its
+// container via width/height 100% and percentage coordinates, so text
+// (sized in rem via CSS) stays a fixed screen size while bars stretch.
+// Hover and tooltips are CSS + native <title>, so no client JS is
+// involved in the rendering itself.
+package chart
+
+// LineChartSVG renders a line/area chart. The outer SVG holds the fixed
+// layer (gridlines, axis labels, sample dots, hover overlay) at
+// percentage coordinates with rem text; the inner SVG stretches the line
+// path to fill the plot area without scaling its stroke. The hover
+// payload feeds the client interaction module.
+templ LineChartSVG(c LineChart) {
+	@templ.JSONScript(c.HoverID+"-hover", c.Hover)
+	if c.MultiSeries {
+		<div class="cline-legend">
+			for i, it := range c.LegendItems {
+				<button type="button" class="cline-legend-item" data-series={ Itoa(i) }>
+					<svg class="cline-legend-swatch" viewBox="0 0 16 8" width="16" height="8">
+						<line x1="0" y1="4" x2="16" y2="4" stroke={ it.Color } stroke-width="2.5"></line>
+					</svg>
+					{ it.Label }
+				</button>
+			}
+		</div>
+	}
+	<svg class="chart-svg cline chart-fill" aria-hidden="true">
+		for _, gy := range c.GridYs {
+			<line class="cline-grid" x1={ Pct(c.PlotLeftPct) } x2={ Pct(c.PlotRightPct) } y1={ Pct(gy) } y2={ Pct(gy) }></line>
+		}
+		for _, t := range c.YTicks {
+			<text class="cline-ylabel" x={ Pct(c.PlotLeftPct - 1) } y={ Pct(t.Pos) }>{ t.Label }</text>
+		}
+		for _, t := range c.XTicks {
+			<text class="cline-xlabel" x={ Pct(t.Pos) } y={ Pct(c.PlotBottomPct + 5) }>{ t.Label }</text>
+		}
+		if c.HasRef {
+			<line class="cline-ref" x1={ Pct(c.PlotLeftPct) } x2={ Pct(c.PlotRightPct) } y1={ Pct(c.RefY) } y2={ Pct(c.RefY) }></line>
+			<text class="cline-ref-label" x={ Pct(c.PlotRightPct) } y={ Pct(c.RefY - 1.5) }>{ c.RefLabel }</text>
+		}
+		if c.Footnote != "" {
+			<text class="cline-footnote" x="50%" y={ Pct(c.PlotBottomPct + 11) }>{ c.Footnote }</text>
+		}
+		<svg
+			class="cline-plot"
+			x={ Pct(c.PlotLeftPct) }
+			y={ Pct(c.PlotTopPct) }
+			width={ Pct(c.PlotWPct) }
+			height={ Pct(c.PlotHPct) }
+			viewBox="0 0 1000 1000"
+			preserveAspectRatio="none"
+		>
+			for i, s := range c.Series {
+				if c.ShowArea && s.AreaD != "" {
+					<path class="cline-area" data-series={ Itoa(i) } d={ s.AreaD } fill={ s.Color }></path>
+				}
+			}
+			for i, s := range c.Series {
+				<path class="cline-line" data-series={ Itoa(i) } d={ s.PathD } stroke={ s.Color }></path>
+				if s.MAPathD != "" {
+					<path class="cline-ma" data-series={ Itoa(i) } d={ s.MAPathD } stroke={ s.Color }></path>
+				}
+			}
+		</svg>
+		for _, d := range c.Dots {
+			<circle class="cline-dot" data-series={ Itoa(d.Series) } cx={ Pct(d.XPct) } cy={ Pct(d.YPct) } r="2.5" fill={ d.Color }></circle>
+		}
+		<rect class="cline-overlay" x="0" y="0" width="100%" height="100%"></rect>
+	</svg>
+}
+
+// StackedGaugeSVG renders overlapping arcs on one track — widest fill
+// first (lightest), narrowest last (boldest), like a bullet chart but
+// as a gauge arc.
+templ StackedGaugeSVG(g StackedGauge) {
+	<svg
+		width="100%"
+		height="100%"
+		class="chart-svg"
+		aria-hidden="true"
+		style="cursor:pointer"
+		if g.Tip != "" {
+			data-tip={ g.Tip }
+		}
+	>
+		<svg x="15%" y="2%" width="70%" height="55%" viewBox="0 0 200 140" preserveAspectRatio="xMidYMid meet">
+			@stackedGaugeBody(g)
+		</svg>
+		<text class="cbar-value" x="50%" y="48%" dy="0.35em" text-anchor="middle" style="font-size:1.5rem">
+			{ g.Value }
+		</text>
+		for i, tier := range g.Tiers {
+			<text class="cbar-label" x="50%" y={ StackedGaugeLegendY(i, len(g.Tiers)) } dy="0.35em" text-anchor="middle" style="font-size:0.75rem">
+				<tspan fill={ tier.Color }>■</tspan>
+				{ tier.Label }: { tier.ValueStr }
+			</text>
+		}
+		if g.Footer != "" {
+			<text class="cbar-label" x="50%" y="96%" dy="0.35em" text-anchor="middle" style="font-size:0.75rem;font-weight:700">
+				{ g.Footer }
+			</text>
+		}
+	</svg>
+}
+
+// stackedGaugeBody renders the track + overlapping arc fills.
+templ stackedGaugeBody(g StackedGauge) {
+	if trackD, arcs := StackedGaugeArcs(g.Tiers); len(arcs) > 0 {
+		<path d={ trackD } fill="none" stroke="var(--color-line-soft)" stroke-width="20" stroke-linecap="butt"></path>
+		for _, arc := range arcs {
+			<path d={ arc.PathD } fill="none" stroke={ arc.Color } stroke-width="20" stroke-linecap="butt" stroke-dasharray={ arc.Dash }></path>
+		}
+	}
+}
+
+// GaugeSVG renders a gauge arc. Uses an inner viewBox SVG for the arc
+// geometry (fixed aspect) centered in the container, with rem text
+// positioned by percentage so it stays a fixed screen size.
+templ GaugeSVG(g Gauge) {
+	<svg
+		width="100%"
+		height="100%"
+		class="chart-svg"
+		aria-hidden="true"
+		style="cursor:pointer"
+		if g.Tip != "" {
+			data-tip={ g.Tip }
+		}
+	>
+		<svg x="20%" y="2%" width="60%" height="55%" viewBox="0 0 200 140" preserveAspectRatio="xMidYMid meet">
+			<path d="M 30 120 A 70 70 0 1 1 170 120" fill="none" stroke="var(--color-line-soft)" stroke-width="14"></path>
+			<path d="M 30 120 A 70 70 0 1 1 170 120" fill="none" stroke="var(--color-series-a)" stroke-width="14" stroke-dasharray={ GaugeDash(g.Pct) }>
+				<title>{ g.Value }</title>
+			</path>
+		</svg>
+		<text class="cbar-value" x="50%" y="50%" dy="0.35em" text-anchor="middle" style="font-size:1.25rem">
+			{ g.Value }
+		</text>
+		if g.Subtitle != "" {
+			<text class="cbar-label" x="50%" y="78%" dy="0.35em" text-anchor="middle" style="font-size:0.7rem">
+				{ g.Subtitle }
+			</text>
+		}
+		if g.Footer != "" {
+			<text class="cbar-label" x="50%" y="90%" dy="0.35em" text-anchor="middle" style="font-size:0.7rem;font-weight:700">
+				{ g.Footer }
+			</text>
+		}
+	</svg>
+}
+
+// BillboardSVG renders a big headline number with optional background
+// sparkline area and trend indicator.
+templ BillboardSVG(b Billboard) {
+	<svg
+		width="100%"
+		height="100%"
+		class="chart-svg"
+		aria-hidden="true"
+		style="cursor:pointer"
+		if b.Tip != "" {
+			data-tip={ b.Tip }
+		}
+	>
+		if b.SparklineD != "" {
+			<svg x="0" y="0" width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+				<path d={ b.SparklineD } fill="var(--color-series-a)" opacity="0.06"></path>
+				<path d={ b.SparklineD } fill="none" stroke="var(--color-series-a)" stroke-width="1" vector-effect="non-scaling-stroke" opacity="0.25"></path>
+			</svg>
+		}
+		if b.Label != "" {
+			<text class="cbar-label" x="50%" y="18%" dy="0.35em" text-anchor="middle" style="font-size:0.7rem;letter-spacing:0.08em">
+				{ b.Label }
+			</text>
+		}
+		<text class="cbar-value" x="50%" y="42%" dy="0.35em" text-anchor="middle" style="font-size:1.6rem">
+			{ b.Value }
+		</text>
+		if b.Subtitle != "" {
+			<text class="cbar-label" x="50%" y="64%" dy="0.35em" text-anchor="middle" style="font-size:0.65rem">
+				{ b.Subtitle }
+			</text>
+		}
+		if b.TrendValue != "" {
+			<text
+				x="50%"
+				y="80%"
+				dy="0.35em"
+				text-anchor="middle"
+				style="font-size:0.65rem;font-weight:700"
+				if b.TrendColor != "" {
+					fill={ b.TrendColor }
+				}
+			>
+				if b.TrendDir == "up" {
+					▲
+				}
+				if b.TrendDir == "down" {
+					▼
+				}
+				{ b.TrendValue }
+			</text>
+		}
+	</svg>
+}
+
+// StackedBarSVG renders a stacked horizontal bar chart.
+templ StackedBarSVG(c StackedBar) {
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true">
+		for _, r := range c.Rows {
+			<g class="cbar">
+				<text class="cbar-label" x={ c.LabelX } y={ r.CenterY } dy="0.35em" text-anchor="end">{ r.Label }</text>
+				<rect class="cbar-track" x={ c.PlotX } y={ r.BarY } width={ c.TrackW } height={ r.BarH } rx="0"></rect>
+				for _, seg := range r.Segs {
+					<rect x={ seg.X } y={ r.BarY } width={ seg.W } height={ r.BarH } rx="0" fill={ seg.Color }></rect>
+				}
+				<rect x={ c.PlotX } y={ r.BarY } width={ c.TrackW } height={ r.BarH } fill="transparent" style="cursor:pointer" data-tip={ r.Tip }></rect>
+				<text class="cbar-value" x="100%" dx="-6" y={ r.CenterY } dy="0.35em" text-anchor="end">{ r.Total }</text>
+			</g>
+		}
+	</svg>
+}
+
+// BundleSVG renders a hierarchical edge bundling diagram.
+templ BundleSVG(b Bundle) {
+	<svg width="100%" height="100%" class="chart-svg bundle-svg" aria-hidden="true" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
+		for _, arc := range b.Arcs {
+			<path d={ arc.PathD } fill="none" stroke={ arc.Color } stroke-width="1.2" opacity="0.25" stroke-linecap="round"></path>
+		}
+		for _, link := range b.Links {
+			<path class="bundle-link" d={ link.PathD } fill="none" stroke={ link.Color } stroke-width="0.4" opacity="0.2" data-src={ link.SrcID } data-dst={ link.DstID }></path>
+		}
+		for _, node := range b.Nodes {
+			<circle class="bundle-node" cx={ node.X } cy={ node.Y } r="1.5" fill={ node.Color } data-tip={ node.Tip } data-node-id={ node.NodeID } data-group={ node.Group }></circle>
+			<text transform={ node.Rotate } x={ node.LabelX } y={ node.LabelY } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="2.6" text-anchor={ node.TextAnchor } dy="0.35em" pointer-events="none">{ node.Label }</text>
+		}
+	</svg>
+}
+
+// GroupedBarSVG renders a grouped (side-by-side) bar chart. Each row
+// has multiple thin bars placed side by side within the track.
+templ GroupedBarSVG(c GroupedBar) {
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true">
+		for _, r := range c.Rows {
+			<g class="cbar">
+				<text class="cbar-label" x={ c.LabelX } y={ r.CenterY } dy="0.35em" text-anchor="end">{ r.Label }</text>
+				<rect class="cbar-track" x={ c.PlotX } y={ r.BarY } width={ c.TrackW } height={ r.BarH } rx="0"></rect>
+				for _, bar := range r.Bars {
+					<rect x={ bar.X } y={ bar.Y } width={ bar.W } height={ bar.H } rx="0" fill={ bar.Color }></rect>
+				}
+				<rect x={ c.PlotX } y={ r.BarY } width={ c.TrackW } height={ r.BarH } fill="transparent" style="cursor:pointer" data-tip={ r.Tip }></rect>
+			</g>
+		}
+	</svg>
+}
+
+// StreamSVG renders a streamgraph from precomputed geometry.
+templ StreamSVG(s Stream) {
+	<div class="cline-legend">
+		for _, item := range s.Legend {
+			<span class="cline-legend-item">
+				<svg class="cline-legend-swatch" viewBox="0 0 16 8" width="16" height="8">
+					<rect width="16" height="8" fill={ item.Color } rx="1"></rect>
+				</svg>
+				{ item.Label }
+			</span>
+		}
+	</div>
+	<svg class="chart-svg chart-fill" aria-hidden="true" viewBox="0 0 1000 600" preserveAspectRatio="none">
+		for _, layer := range s.Layers {
+			<path class="chart-hover-fade" d={ layer.PathD } fill={ layer.Color } opacity="0.75" style="cursor:pointer" data-tip={ layer.Tip }></path>
+		}
+	</svg>
+	<div class="chart-ticks">
+		for _, t := range s.XTicks {
+			if t.Label != "" {
+				<span class="chart-tick">{ t.Label }</span>
+			}
+		}
+	</div>
+}
+
+templ ScatterSVG(s Scatter) {
+	if len(s.Legend) > 1 {
+		<div class="cline-legend">
+			for _, item := range s.Legend {
+				<span class="cline-legend-item">
+					<svg class="cline-legend-swatch" viewBox="0 0 10 10" width="10" height="10">
+						<circle cx="5" cy="5" r="4" fill={ item.Color }></circle>
+					</svg>
+					{ item.Label }
+				</span>
+			}
+		</div>
+	}
+	<svg class="chart-svg chart-fill" aria-hidden="true" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet">
+		for _, gy := range s.GridYs {
+			<line x1={ F(s.PlotL) } x2={ F(s.PlotR) } y1={ F(gy) } y2={ F(gy) } stroke="var(--color-line-soft)" stroke-opacity="0.5"></line>
+		}
+		for _, gx := range s.GridXs {
+			<line x1={ F(gx) } x2={ F(gx) } y1={ F(s.PlotT) } y2={ F(s.PlotB) } stroke="var(--color-line-soft)" stroke-opacity="0.5"></line>
+		}
+		for _, t := range s.YTicks {
+			<text x={ F(s.PlotL - 8) } y={ F(t.Pos) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="22" text-anchor="end" dy="0.35em">{ t.Label }</text>
+		}
+		for _, t := range s.XTicks {
+			<text x={ F(t.Pos) } y={ F(s.PlotB + 35) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="22" text-anchor="middle">{ t.Label }</text>
+		}
+		for _, trend := range s.TrendLines {
+			<line x1={ F(trend.X1) } y1={ F(trend.Y1) } x2={ F(trend.X2) } y2={ F(trend.Y2) } stroke={ trend.Color } stroke-width="2" stroke-dasharray="8 5" opacity="0.5"></line>
+		}
+		for _, dot := range s.Dots {
+			<circle class="chart-hover-dot" cx={ F(dot.CX) } cy={ F(dot.CY) } r={ F(dot.R) } fill={ dot.Color } opacity="0.75" style="cursor:pointer" data-tip={ dot.Tip }></circle>
+		}
+	</svg>
+}
+
+// SingleLineSVG renders an electrical single-line diagram: tiered gear/PDU/rack
+// nodes, continuous busbar runs, and role-typed conductors. The viewBox is derived
+// from the laid-out height. It reuses the sankey hover contract (the sankey-svg
+// class + sankey-link conductors carrying data-src/data-dst + nodes carrying
+// data-node-id) so the shipped chart-sankey-hover module traces the connected chain
+// on hover with no new client module. Every node is wrapped in a drill-in link when
+// it carries an Href. All colors are CSS-variable tokens — no hard-coded fills.
+templ SingleLineSVG(s SingleLine) {
+	<svg width="100%" height="100%" class="chart-svg sankey-svg single-line-svg" aria-hidden="true" viewBox={ SingleLineViewBox(s) } preserveAspectRatio="xMidYMid meet">
+		// Busbars first (behind the conductors + nodes): a thick horizontal run.
+		for _, b := range s.Buses {
+			<line class="single-line-bus" x1={ F(b.X1) } y1={ F(b.Y) } x2={ F(b.X2) } y2={ F(b.Y) } stroke={ b.Color } stroke-width="6" stroke-linecap="round" data-node-id={ b.ID } data-tip={ b.Tip } style="cursor:pointer"></line>
+			<text class="single-line-bus-label" x={ F(b.LabelX) } y={ F(b.LabelY) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="9" pointer-events="none">{ b.Label }</text>
+		}
+		// Conductors: role-typed orthogonal runs. Reuse sankey-link so the hover
+		// module dims off-chain edges; dashed for tie/continuation couplers.
+		for _, e := range s.Conductors {
+			if e.Dashed {
+				<path class="sankey-link single-line-conductor" d={ e.PathD } fill="none" stroke={ e.Color } stroke-width="1.4" stroke-dasharray="5 4" opacity="0.7" data-tip={ e.Tip } data-src={ e.FromID } data-dst={ e.ToID }></path>
+			} else {
+				<path class="sankey-link single-line-conductor" d={ e.PathD } fill="none" stroke={ e.Color } stroke-width="1.6" opacity="0.7" data-tip={ e.Tip } data-src={ e.FromID } data-dst={ e.ToID }></path>
+			}
+		}
+		// Nodes: a glyph box, the label, an optional sub line, and a live badge.
+		for _, n := range s.Nodes {
+			@singleLineNode(n)
+		}
+	</svg>
+}
+
+// singleLineNode renders one node: the drill-in link wrapper, the kind glyph, the
+// label + sub line, and the live-state badge. The stable id (n.ID) is on the glyph
+// group so a live patch targets the node in place without a re-layout.
+templ singleLineNode(n SingleLineLayoutNode) {
+	<a
+		if n.Href != "" {
+			href={ templ.SafeURL(n.Href) }
+			data-on-click={ "@get('" + n.Href + "')" }
+		}
+		style="cursor:pointer"
+	>
+		<g id={ n.ID } class="single-line-node" data-node-id={ n.ID } data-tip={ n.Tip }>
+			if n.Glyph == "transformer" {
+				<rect class="chart-hover-node" x={ F(n.X) } y={ F(n.Y) } width={ F(n.W) } height={ F(n.H) } rx="0" fill="var(--color-panel)" stroke={ n.Color } stroke-width="1.5"></rect>
+				<circle cx={ F(n.CX - 8) } cy={ F(n.CY) } r={ F(TransformerCircleR()) } fill="none" stroke={ n.Color } stroke-width="1.3"></circle>
+				<circle cx={ F(n.CX + 8) } cy={ F(n.CY) } r={ F(TransformerCircleR()) } fill="none" stroke={ n.Color } stroke-width="1.3"></circle>
+			} else if n.Glyph == "circle" {
+				<rect class="chart-hover-node" x={ F(n.X) } y={ F(n.Y) } width={ F(n.W) } height={ F(n.H) } rx="0" fill="var(--color-panel)" stroke={ n.Color } stroke-width="1.5"></rect>
+				<circle cx={ F(n.CX) } cy={ F(n.CY) } r={ F(TransformerCircleR()) } fill="none" stroke={ n.Color } stroke-width="1.3"></circle>
+			} else if n.Glyph == "source" {
+				<rect class="chart-hover-node" x={ F(n.X) } y={ F(n.Y) } width={ F(n.W) } height={ F(n.H) } rx="0" fill="var(--color-panel)" stroke={ n.Color } stroke-width="2"></rect>
+				<line x1={ F(n.X + 6) } y1={ F(n.Y + n.H - 5) } x2={ F(n.X + 18) } y2={ F(n.Y + 5) } stroke={ n.Color } stroke-width="1.3"></line>
+			} else {
+				<rect class="chart-hover-node" x={ F(n.X) } y={ F(n.Y) } width={ F(n.W) } height={ F(n.H) } rx="0" fill="var(--color-panel)" stroke={ n.Color } stroke-width="1.5"></rect>
+			}
+			<text x={ F(n.CX) } y={ F(n.Y + n.H/2) } dy="0.35em" text-anchor="middle" fill="var(--color-fg-default)" font-family="var(--font-mono)" font-size="11" pointer-events="none">{ n.Label }</text>
+			if n.Sub != "" {
+				<text x={ F(n.CX) } y={ F(n.LabelY) } text-anchor="middle" fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="8.5" pointer-events="none">{ n.Sub }</text>
+			}
+			if n.Badge != "" {
+				<text x={ F(n.BadgeX) } y={ F(n.BadgeY) } text-anchor="end" fill={ BadgeColorVar(n.BadgeRole) } font-family="var(--font-mono)" font-size="9" font-weight="700" pointer-events="none">{ n.Badge }</text>
+			}
+		</g>
+	</a>
+}
+
+templ SankeySVG(s Sankey) {
+	<svg width="100%" height="100%" class="chart-svg sankey-svg" aria-hidden="true" viewBox="0 0 1000 210" preserveAspectRatio="xMidYMid meet">
+		for _, link := range s.Links {
+			<path class="sankey-link" d={ link.PathD } fill={ link.Color } stroke="none" opacity="0.4" data-tip={ link.Tip } data-src={ link.SrcID } data-dst={ link.DstID }></path>
+		}
+		for _, node := range s.Nodes {
+			<rect class="chart-hover-node" x={ F(node.X) } y={ F(node.Y) } width={ F(node.W) } height={ F(node.H) } fill={ node.Color } rx="0" style="cursor:pointer" data-tip={ node.Tip } data-node-id={ node.ID }></rect>
+			<text class="sankey-label" x={ F(node.LabelX) } y={ F(node.LabelY) } dy="0.35em" text-anchor={ node.LabelAnchor } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="11" pointer-events="bounding-box" data-node-id={ node.ID }>{ node.Label }</text>
+		}
+	</svg>
+}
+
+templ ChordSVG(c Chord) {
+	<svg width="100%" height="100%" class="chart-svg chord-svg" aria-hidden="true" viewBox="0 0 200 200" preserveAspectRatio="xMidYMid meet">
+		for _, ribbon := range c.Ribbons {
+			<path class="chord-ribbon" d={ ribbon.PathD } fill={ ribbon.Color } opacity="0.35" data-tip={ ribbon.Tip } data-src={ Itoa(ribbon.SrcGroup) } data-dst={ Itoa(ribbon.DstGroup) }></path>
+		}
+		for _, arc := range c.Arcs {
+			<path class="chord-arc" d={ arc.PathD } fill={ arc.Color } data-tip={ arc.Tip } data-group={ Itoa(arc.GroupIdx) }></path>
+			<text x={ arc.LabelX } y={ arc.LabelY } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="5" text-anchor={ arc.LabelAnchor } dy="0.35em" pointer-events="none">{ arc.Label }</text>
+		}
+	</svg>
+}
+
+// BoxPlotSVG renders a box-and-whisker plot.
+templ BoxPlotSVG(b BoxPlot) {
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet">
+		for _, gy := range b.GridYs {
+			<line x1={ F(b.PlotL) } x2={ F(b.PlotR) } y1={ F(gy) } y2={ F(gy) } stroke="var(--color-line-soft)" stroke-opacity="0.5"></line>
+		}
+		for _, t := range b.YTicks {
+			<text x={ F(b.PlotL - 8) } y={ F(t.Pos) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="22" text-anchor="end" dy="0.35em">{ t.Label }</text>
+		}
+		for _, box := range b.Boxes {
+			<line x1={ F(box.CX) } x2={ F(box.CX) } y1={ F(box.MaxY) } y2={ F(box.Q3Y) } stroke={ box.Color } stroke-width="2"></line>
+			<line x1={ F(box.CX) } x2={ F(box.CX) } y1={ F(box.Q1Y) } y2={ F(box.MinY) } stroke={ box.Color } stroke-width="2"></line>
+			<line x1={ F(box.CX - box.BoxW*0.3) } x2={ F(box.CX + box.BoxW*0.3) } y1={ F(box.MaxY) } y2={ F(box.MaxY) } stroke={ box.Color } stroke-width="2"></line>
+			<line x1={ F(box.CX - box.BoxW*0.3) } x2={ F(box.CX + box.BoxW*0.3) } y1={ F(box.MinY) } y2={ F(box.MinY) } stroke={ box.Color } stroke-width="2"></line>
+			<rect class="chart-hover-node" x={ F(box.CX - box.BoxW/2) } y={ F(box.Q3Y) } width={ F(box.BoxW) } height={ F(box.Q1Y - box.Q3Y) } fill={ box.Color } opacity="0.4" stroke={ box.Color } stroke-width="2" rx="2" style="cursor:pointer" data-tip={ box.Tip }></rect>
+			<line x1={ F(box.CX - box.BoxW/2) } x2={ F(box.CX + box.BoxW/2) } y1={ F(box.MedY) } y2={ F(box.MedY) } stroke={ box.Color } stroke-width="3"></line>
+			<text x={ F(box.CX) } y={ F(box.LabelY) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="22" text-anchor="middle">{ box.Label }</text>
+		}
+	</svg>
+}
+
+// CalendarSVG renders a GitHub-style calendar heatmap.
+templ CalendarSVG(c Calendar) {
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true" viewBox={ CalendarViewBox(c) } preserveAspectRatio="xMidYMid meet">
+		for _, label := range c.MonthLabels {
+			<text x={ F(label.X) } y="15" fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="12" text-anchor="start">{ label.Label }</text>
+		}
+		for _, label := range c.DayLabels {
+			<text x="30" y={ F(label.Y) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="10" text-anchor="end" dy="0.35em">{ label.Label }</text>
+		}
+		for _, cell := range c.Cells {
+			<rect class="chart-hover-node" x={ F(cell.X) } y={ F(cell.Y) } width={ F(cell.W) } height={ F(cell.H) } fill={ cell.Color } rx="2" style="cursor:pointer" data-tip={ cell.Tip }></rect>
+		}
+	</svg>
+}
+
+// BollingerSVG renders a Bollinger bands chart.
+templ BollingerSVG(b Bollinger) {
+	@templ.JSONScript(b.HoverID+"-vb", b.Hover)
+	<svg width="100%" height="100%" class="chart-svg vb-hover" data-vb-hover={ b.HoverID + "-vb" } aria-hidden="true" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" data-plot-l={ F(b.PlotL) } data-plot-r={ F(b.PlotR) } data-plot-t={ F(b.PlotT) } data-plot-b={ F(b.PlotB) }>
+		for _, gy := range b.GridYs {
+			<line x1={ F(b.PlotL) } x2={ F(b.PlotR) } y1={ F(gy) } y2={ F(gy) } stroke="var(--color-line-soft)" stroke-opacity="0.5"></line>
+		}
+		for _, t := range b.YTicks {
+			<text x={ F(b.PlotL - 8) } y={ F(t.Pos) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="20" text-anchor="end" dy="0.35em">{ t.Label }</text>
+		}
+		for _, t := range b.XTicks {
+			<text x={ F(t.X) } y={ F(b.PlotB + 30) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="20" text-anchor="middle">{ t.Label }</text>
+		}
+		<path d={ b.BandPath } fill={ b.Color } opacity="0.08"></path>
+		<path d={ b.UpperPath } fill="none" stroke={ b.Color } stroke-width="1" stroke-dasharray="4 3" opacity="0.5"></path>
+		<path d={ b.LowerPath } fill="none" stroke={ b.Color } stroke-width="1" stroke-dasharray="4 3" opacity="0.5"></path>
+		<path d={ b.MidPath } fill="none" stroke={ b.Color } stroke-width="1.5" stroke-dasharray="6 4" opacity="0.6"></path>
+		<path d={ b.LinePath } fill="none" stroke={ b.Color } stroke-width="2.5"></path>
+		<rect class="vb-hover-overlay" x={ F(b.PlotL) } y={ F(b.PlotT) } width={ F(b.PlotR - b.PlotL) } height={ F(b.PlotB - b.PlotT) } fill="transparent" style="cursor:crosshair"></rect>
+	</svg>
+}
+
+// HorizonSVG renders a multi-row horizon chart.
+templ HorizonSVG(h Horizon) {
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true" viewBox={ HorizonViewBox(h) } preserveAspectRatio="xMidYMid meet">
+		for _, row := range h.Rows {
+			<text x="90" y={ F(row.Y + row.H/2) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="14" text-anchor="end" dy="0.35em">{ row.Label }</text>
+			for _, band := range row.Bands {
+				<path d={ band.PathD } fill={ band.Color }></path>
+			}
+			<line x1="100" x2="990" y1={ F(row.Y + row.H) } y2={ F(row.Y + row.H) } stroke="var(--color-line-soft)" stroke-width="0.5"></line>
+		}
+	</svg>
+}
+
+// RidgelineSVG renders a ridgeline (joy) plot.
+templ RidgelineSVG(r Ridgeline) {
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true" viewBox={ RidgelineViewBox(r) } preserveAspectRatio="xMidYMid meet">
+		for _, row := range r.Rows {
+			<path class="chart-hover-fade" d={ row.PathD } fill={ row.Color } opacity="0.6" stroke={ row.Color } stroke-width="1.5"></path>
+			<text x="90" y={ F(row.Y) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="14" text-anchor="end" dy="0.35em">{ row.Label }</text>
+		}
+	</svg>
+}
+
+// DifferenceSVG renders a difference chart with colored fill between two series.
+templ DifferenceSVG(d Difference) {
+	@templ.JSONScript(d.HoverID+"-vb", d.Hover)
+	<svg width="100%" height="100%" class="chart-svg vb-hover" data-vb-hover={ d.HoverID + "-vb" } aria-hidden="true" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMid meet" data-plot-l={ F(d.PlotL) } data-plot-r={ F(d.PlotR) } data-plot-t={ F(d.PlotT) } data-plot-b={ F(d.PlotB) }>
+		for _, gy := range d.GridYs {
+			<line x1={ F(d.PlotL) } x2={ F(d.PlotR) } y1={ F(gy) } y2={ F(gy) } stroke="var(--color-line-soft)" stroke-opacity="0.5"></line>
+		}
+		for _, t := range d.YTicks {
+			<text x={ F(d.PlotL - 8) } y={ F(t.Pos) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="20" text-anchor="end" dy="0.35em">{ t.Label }</text>
+		}
+		for _, t := range d.XTicks {
+			<text x={ F(t.X) } y={ F(d.PlotB + 30) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="20" text-anchor="middle">{ t.Label }</text>
+		}
+		<path d={ d.AboveD } fill={ d.ColorA } opacity="0.15"></path>
+		<path d={ d.PathA } fill="none" stroke={ d.ColorA } stroke-width="2.5"></path>
+		<path d={ d.PathB } fill="none" stroke={ d.ColorB } stroke-width="2.5"></path>
+		<rect class="vb-hover-overlay" x={ F(d.PlotL) } y={ F(d.PlotT) } width={ F(d.PlotR - d.PlotL) } height={ F(d.PlotB - d.PlotT) } fill="transparent" style="cursor:crosshair"></rect>
+	</svg>
+}
+
+// TimelineSVG renders a horizontal Gantt-style timeline.
+templ TimelineSVG(t Timeline) {
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true" viewBox={ TimelineViewBox(t) } preserveAspectRatio="xMidYMid meet">
+		for _, gx := range t.GridXs {
+			<line x1={ F(gx) } x2={ F(gx) } y1="20" y2={ F(t.VH - 10) } stroke="var(--color-line-soft)" stroke-opacity="0.3"></line>
+		}
+		for _, tick := range t.XTicks {
+			<text x={ F(tick.X) } y="18" fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="14" text-anchor="middle">{ tick.Label }</text>
+		}
+		for _, bar := range t.Bars {
+			<text x={ F(bar.X - 6) } y={ F(bar.Y + bar.H/2) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="13" text-anchor="end" dy="0.35em">{ bar.Label }</text>
+			<rect class="chart-hover-node" x={ F(bar.X) } y={ F(bar.Y) } width={ F(bar.W) } height={ F(bar.H) } fill={ bar.Color } rx="3" opacity="0.7" style="cursor:pointer" data-tip={ bar.Tip }></rect>
+		}
+	</svg>
+}
+
+// SparklineSVG renders a tiny inline sparkline with area fill, a trend
+// dot at the last value, and an optional trend label.
+templ SparklineSVG(s Sparkline) {
+	<svg
+		width="100%"
+		height="100%"
+		class="chart-svg"
+		aria-hidden="true"
+		style="cursor:pointer"
+		if s.Tip != "" {
+			data-tip={ s.Tip }
+		}
+	>
+		<svg x="0" y="0" width="100%" height="80%" viewBox="0 0 100 100" preserveAspectRatio="none">
+			if s.AreaD != "" {
+				<path d={ s.AreaD } fill={ s.Color } opacity="0.12"></path>
+			}
+			if s.Points != "" {
+				<polyline points={ s.Points } fill="none" stroke={ s.Color } stroke-width="1.5" vector-effect="non-scaling-stroke"></polyline>
+			}
+		</svg>
+		if s.Value != "" {
+			<text class="cbar-value" x="50%" y="90%" dy="0.35em" text-anchor="middle" style="font-size:0.85rem">
+				{ s.Value }
+			</text>
+		}
+	</svg>
+}
+
+// PhaseChartSVG renders a phase diagram: a banded 2-D field with labeled points
+// plotted on top (e.g. a VPD / psychrometric chart). The field cells are painted
+// first, then axes, then the points with haloed labels so they read on any band.
+templ PhaseChartSVG(p Phase) {
+	<div class="cline-legend">
+		for _, it := range p.Legend {
+			<span class="cline-legend-item">
+				<svg class="cline-legend-swatch" viewBox="0 0 16 8" width="16" height="8">
+					<rect width="16" height="8" fill={ it.Fill } rx="1"></rect>
+				</svg>
+				{ it.Label }
+			</span>
+		}
+	</div>
+	<svg class="chart-svg chart-fill" aria-hidden="true" viewBox="0 0 1000 700" preserveAspectRatio="xMidYMid meet">
+		for _, c := range p.Cells {
+			<rect x={ F(c.X) } y={ F(c.Y) } width={ F(c.W) } height={ F(c.H) } fill={ c.Fill }></rect>
+		}
+		for _, t := range p.YTicks {
+			<text x={ F(p.PlotL - 10) } y={ F(t.Pos) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="32" text-anchor="end" dy="0.35em">{ t.Label }</text>
+		}
+		for _, t := range p.XTicks {
+			<text x={ F(t.Pos) } y={ F(p.PlotB + 44) } fill="var(--color-fg-muted)" font-family="var(--font-mono)" font-size="32" text-anchor="middle">{ t.Label }</text>
+		}
+		<rect x={ F(p.PlotL) } y={ F(p.PlotT) } width={ F(p.PlotR - p.PlotL) } height={ F(p.PlotB - p.PlotT) } fill="none" stroke="var(--color-line-soft)" stroke-width="1.5"></rect>
+		for _, d := range p.Dots {
+			<circle cx={ F(d.CX) } cy={ F(d.CY) } r={ F(d.R) } fill="#16181f" stroke="#ffffff" stroke-width="3" style="cursor:pointer" data-tip={ d.Tip }></circle>
+			if d.Label != "" {
+				<text x={ F(d.LabelX) } y={ F(d.LabelY) } fill="#16181f" font-family="var(--font-sans)" font-weight="600" font-size="30" text-anchor={ d.LabelAnchor } dy="0.35em" pointer-events="none" paint-order="stroke" stroke="#ffffff" stroke-width="6" stroke-linejoin="round">{ d.Label }</text>
+			}
+		}
+	</svg>
+}
+
+// HeatmapSVG renders a color-coded grid from precomputed geometry.
+templ HeatmapSVG(h Heatmap) {
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true">
+		for _, label := range h.Rows {
+			<text class="cbar-label" x={ label.X } y={ label.Y } dy="0.35em" text-anchor="end" style="font-size:0.7rem">{ label.Text }</text>
+		}
+		for _, label := range h.Cols {
+			<text class="cbar-label" x={ label.X } y={ label.Y } dy="0.35em" text-anchor="middle" style="font-size:0.7rem">{ label.Text }</text>
+		}
+		for _, cell := range h.Cells {
+			<rect x={ cell.X } y={ cell.Y } width={ cell.W } height={ cell.H } fill={ cell.Color } rx="1" style="cursor:pointer" data-tip={ cell.Tip }></rect>
+		}
+	</svg>
+}
+
+// BulletBarSVG renders a bullet (overlapping) bar chart. Each row draws
+// bars back-to-front: widest (dimmest) first, narrowest (boldest) last.
+templ BulletBarSVG(c BulletBar) {
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true">
+		for _, r := range c.Rows {
+			<g class="cbar">
+				<text class="cbar-label" x={ c.LabelX } y={ r.CenterY } dy="0.35em" text-anchor="end">{ r.Label }</text>
+				<rect class="cbar-track" x={ c.PlotX } y={ r.BarY } width={ c.TrackW } height={ r.BarH } rx="0"></rect>
+				for _, seg := range r.Bars {
+					<rect x={ seg.X } y={ r.BarY } width={ seg.W } height={ r.BarH } rx="0" fill={ seg.Color }></rect>
+				}
+				<rect x={ c.PlotX } y={ r.BarY } width={ c.TrackW } height={ r.BarH } fill="transparent" style="cursor:pointer" data-tip={ r.Tip }></rect>
+				<text class="cbar-value" x="100%" dx="-6" y={ r.CenterY } dy="0.35em" text-anchor="end">{ r.Total }</text>
+			</g>
+		}
+	</svg>
+}
+
+// BarChartSVG renders a horizontal bar chart from precomputed geometry.
+templ BarChartSVG(c BarChart) {
+	<svg width="100%" height="100%" class="chart-svg" aria-hidden="true">
+		for _, b := range c.Bars {
+			<g class="cbar">
+				<text class="cbar-label" x={ c.LabelX } y={ b.CenterY } dy="0.35em" text-anchor="end">{ b.Label }</text>
+				<rect
+					class="cbar-track"
+					x={ c.PlotX }
+					y={ b.BarY }
+					width={ c.TrackW }
+					height={ b.BarH }
+					rx="0"
+				></rect>
+				<rect
+					class="cbar-fill"
+					x={ c.PlotX }
+					y={ b.BarY }
+					width={ b.FillW }
+					height={ b.BarH }
+					rx="0"
+					fill={ b.Color }
+				></rect>
+				<rect
+					x={ c.PlotX }
+					y={ b.BarY }
+					width={ c.TrackW }
+					height={ b.BarH }
+					fill="transparent"
+					style="cursor:pointer"
+					data-tip={ b.Tip }
+				></rect>
+				<text class="cbar-value" x="100%" dx="-6" y={ b.CenterY } dy="0.35em" text-anchor="end">{ b.ValueText }</text>
+			</g>
+		}
+	</svg>
+}
+
+// GeoMapSVG renders an Equal Earth choropleth from precomputed geometry.
+// Shapes without data draw as neutral landmass; valued shapes carry the
+// OKLCH ramp fill plus a tooltip. Cities and points layer on top.
+templ GeoMapSVG(g GeoMap) {
+	if g.Legend.Show {
+		<div class="cline-legend geomap-legend">
+			<span class="cline-legend-item">{ g.Legend.MinLabel }</span>
+			for _, c := range g.Legend.Swatches {
+				<svg class="cline-legend-swatch" viewBox="0 0 16 8" width="16" height="8">
+					<rect width="16" height="8" fill={ c } rx="1"></rect>
+				</svg>
+			}
+			<span class="cline-legend-item">{ g.Legend.MaxLabel }</span>
+		</div>
+	}
+	<svg
+		width="100%"
+		height="100%"
+		class="chart-svg geomap-svg"
+		aria-hidden="true"
+		viewBox={ g.ViewBox }
+		preserveAspectRatio="xMidYMid meet"
+		if g.Interactive {
+			data-geomap-interact="1"
+			data-vb0={ g.ViewBox }
+		}
+	>
+		if g.Outline != "" {
+			<path class="geomap-outline" vector-effect="non-scaling-stroke" d={ g.Outline }></path>
+		}
+		for _, m := range g.Parallels {
+			<path class="geomap-graticule" vector-effect="non-scaling-stroke" d={ m }></path>
+		}
+		for _, m := range g.Meridians {
+			<path class="geomap-graticule" vector-effect="non-scaling-stroke" d={ m }></path>
+		}
+		for _, m := range g.MajorMeridians {
+			<path class="geomap-graticule-major" vector-effect="non-scaling-stroke" d={ m }></path>
+		}
+		if g.Equator != "" {
+			<path class="geomap-equator" vector-effect="non-scaling-stroke" d={ g.Equator }></path>
+		}
+		for _, m := range g.Tropics {
+			<path class="geomap-tropic" vector-effect="non-scaling-stroke" d={ m }></path>
+		}
+		for _, m := range g.PolarCircles {
+			<path class="geomap-polar" vector-effect="non-scaling-stroke" d={ m }></path>
+		}
+		for _, f := range g.Insets {
+			<rect class="geomap-inset" vector-effect="non-scaling-stroke" x={ f.X } y={ f.Y } width={ f.W } height={ f.H } rx="3"></rect>
+		}
+		for _, s := range g.Shapes {
+			<path
+				class="geomap-shape" vector-effect="non-scaling-stroke"
+				d={ s.Path }
+				fill={ s.Fill }
+				fill-rule="evenodd"
+				style="cursor:pointer"
+				data-tip={ s.Tip }
+				if s.Code != "" {
+					data-region={ s.Code }
+				}
+				if s.Drill != "" {
+					data-on:click={ s.Drill }
+				}
+			></path>
+		}
+		for _, c := range g.Cities {
+			<circle class="geomap-city" vector-effect="non-scaling-stroke" cx={ c.CX } cy={ c.CY } r="4" style="cursor:pointer" data-tip={ c.Tip }></circle>
+			<text class="geomap-city-label" x={ c.CX } y={ c.CY } dy="-9" text-anchor="middle" pointer-events="none">{ c.Label }</text>
+		}
+		for _, p := range g.Points {
+			<circle class="geomap-point" cx={ p.CX } cy={ p.CY } r={ p.R } fill={ p.Fill } style="cursor:pointer" data-tip={ p.Tip }></circle>
+		}
+	</svg>
+}

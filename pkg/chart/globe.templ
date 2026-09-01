@@ -1,0 +1,76 @@
+// Orthographic globe rendering. Geometry comes from LayoutGlobe
+// (globe.go); these templates emit one SSR frame. When the globe
+// animates (RotateSpeed > 0 or Orbit) the figure carries data-globe
+// plus a JSONScript payload and globe.js swaps in a canvas; the SSR
+// frame stays as the graceful no-JS fallback.
+package chart
+
+// GlobeSVG renders one static orthographic frame: ocean disc,
+// hemisphere-clipped graticule, country shapes, the solid style's
+// limb-darkening overlay, and the limb circle.
+templ GlobeSVG(g Globe) {
+	<svg
+		width="100%"
+		height="100%"
+		class="chart-svg globe-svg"
+		aria-hidden="true"
+		viewBox={ g.ViewBox }
+		preserveAspectRatio="xMidYMid meet"
+	>
+		if g.Style == "solid" {
+			<defs>
+				// Fixed oklch stops with opacity rather than var() stop-colors:
+				// a translucent darkening works over any theme, while var() in
+				// stop-color is unreliable across renderers.
+				<radialGradient id={ g.ShadeID } cx="50%" cy="50%" r="50%">
+					<stop offset="0%" stop-color="oklch(0.15 0.02 250)" stop-opacity="0"></stop>
+					<stop offset="72%" stop-color="oklch(0.15 0.02 250)" stop-opacity="0"></stop>
+					<stop offset="94%" stop-color="oklch(0.15 0.02 250)" stop-opacity="0.28"></stop>
+					<stop offset="100%" stop-color="oklch(0.15 0.02 250)" stop-opacity="0.45"></stop>
+				</radialGradient>
+			</defs>
+		}
+		<circle class="globe-ocean" cx={ g.CX } cy={ g.CY } r={ g.R }></circle>
+		for _, p := range g.Graticule {
+			<path class="globe-graticule" d={ p }></path>
+		}
+		for _, s := range g.Shapes {
+			<path
+				class="globe-shape"
+				d={ s.Path }
+				fill={ s.Fill }
+				fill-rule="evenodd"
+				if s.Code != "" {
+					data-region={ s.Code }
+				}
+				if s.Tip != "" {
+					data-tip={ s.Tip }
+					style="cursor:pointer"
+				}
+			></path>
+		}
+		if g.Style == "solid" {
+			<circle class="globe-shade" cx={ g.CX } cy={ g.CY } r={ g.R } fill={ "url(#" + g.ShadeID + ")" } pointer-events="none"></circle>
+		}
+		<circle class="globe-limb" cx={ g.CX } cy={ g.CY } r={ g.R }></circle>
+	</svg>
+}
+
+// ChartGlobeFragment wraps a server-rendered globe in a figure that
+// Datastar can merge by id. Animated globes carry data-globe plus the
+// JSONScript payload (id + "-globe") that globe.js reads before taking
+// over with a canvas.
+templ ChartGlobeFragment(id string, g Globe) {
+	<figure
+		id={ id }
+		class={ "chart-frag globe-frag globe-" + g.Style }
+		if g.Animate {
+			data-globe="1"
+		}
+	>
+		if g.Animate {
+			@templ.JSONScript(id+"-globe", g.Payload)
+		}
+		@GlobeSVG(g)
+	</figure>
+}

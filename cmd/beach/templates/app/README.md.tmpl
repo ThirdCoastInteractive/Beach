@@ -1,0 +1,58 @@
+# {{.App}}
+
+A [Beach](https://github.com/ThirdCoastInteractive/Beach) skeleton app:
+SSR + Datastar over SSE, one page of driftwood components. It boots with no
+database — one page, one Datastar action, one live SSE fragment.
+
+## Run
+
+    make up            # build + run on :8080 (or PORT=xxxx make up)
+
+Then open http://localhost:8080/. The Tick card advances over SSE; the
+Increment button mutates server state and patches the same fragment.
+
+## Views are .templ components
+
+All markup lives in `views.templ`. Driftwood components are called directly —
+`@driftwood.Card(driftwood.CardProps{...}) { ... }` — and handlers in `main.go`
+return the resulting components as `beach.View{Page: ..., Fragment: ...}`.
+
+`templ generate` (installed as a Go tool, see go.mod) compiles `views.templ`
+to `views_templ.go`. The generated file is committed, so a fresh clone builds
+with plain `go build`; after editing any `.templ` file, regenerate:
+
+    make gen           # go tool templ generate (+ css, sqlc, beach ecs gen)
+
+Never hand-edit `*_templ.go`.
+
+## The verification pipeline (framework doctrine)
+
+    make gen           # templ generate + css + sqlc + beach ecs gen
+    make vet           # gen, then go vet ./...
+    make up            # build + run
+
+Then a browser check: no console errors, the change is visible, no 404s. A task
+is not complete until every step passes.
+
+## Styling
+
+The framework serves the design system from its own static tree — the
+stylesheet (`/static/css/app.css`: tokens, the `dw-*` component classes), the
+Datastar client, and the chart runtime. There is nothing to vendor and no
+external CDN. House style: markup carries short semantic classes; long utility
+strings do not belong in `.templ` files.
+
+When the app grows custom styles, add `css/input.css` (Tailwind v4 source) —
+`make css` then builds it to `static/css/{{.App}}.css` with the Tailwind CLI.
+
+## Layout
+
+- `main.go` — wiring only: the App, routes, the clock ticker.
+- `views.templ` — all markup; `views_templ.go` is its committed compile output.
+- `sqlc.yaml` — DB codegen with the `beach-apigen` plugin registered.
+- `docker-compose.yml` — Postgres (ClickHouse commented out).
+- `components.beach.yaml` — optional ECS component schema for `beach ecs gen`.
+- `locales/` + `catalog.json` — i18n runtime + extracted catalog (`beach i18n`).
+
+This app builds against a local Beach checkout via the `replace` directive
+in `go.mod`. Point it at a published module version before shipping.

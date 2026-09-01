@@ -1,0 +1,74 @@
+package ui
+
+import (
+	"context"
+
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
+)
+
+// DeferProps configures a deferred section placeholder (see Defer). The
+// placeholder reserves Height up front so late content fills reserved space and
+// never shifts rendered pixels (the no-pop-in law).
+type DeferProps struct {
+	ID     string // element id the fragment patch morphs into
+	Height string // reserved height, e.g. "24rem" — required for zero shift
+	Width  string // optional reserved width; defaults to 100%
+	Get    string // @get target; lands on a PageFunc returning the fragment
+	OnLoad bool   // fire on element init instead of viewport intersection (behind a tab)
+	// Label says what is still loading. role="status" with nothing inside it
+	// announces nothing, so the placeholder carries screen-reader-only text;
+	// empty falls back to the framework's translated "Loading".
+	Label string
+}
+
+// deferStyle reserves the exact box: the inline style carries only dimensions
+// (genuinely per-instance values), while color/radius/animation come from the
+// .ui-defer class styled in input.css against design tokens.
+func deferStyle(p DeferProps) map[string]string {
+	width := p.Width
+	if width == "" {
+		width = "100%"
+	}
+	return map[string]string{"height": p.Height, "width": width}
+}
+
+// deferGet is the @get expression the placeholder fires when it activates.
+func deferGet(p DeferProps) string { return "@get('" + p.Get + "')" }
+
+// deferLabel is the placeholder's screen-reader text. A busy region has to say
+// what it is busy with, or a keyboard user landing on it hears an empty status.
+func deferLabel(ctx context.Context, p DeferProps) string {
+	if p.Label != "" {
+		return p.Label
+	}
+	return i18n.T(ctx, "ui.a11y.loading")
+}
+
+// Defer renders a server-side placeholder for a deferred section with exact
+// reserved dimensions (a skeleton box, zero layout shift) and a Datastar @get
+// that fires on viewport intersection — or once on element init for
+// behind-a-tab content (DeferProps.OnLoad), since no DOM "load" event exists
+// for ordinary elements. The @get lands on a normal beach.PageFunc; the
+// framework's dual-purpose branch returns the fragment and the patch morphs
+// into this placeholder.
+//
+// This is the deferred-sections law made concrete: the placeholder reserves its
+// height up front so late content fills reserved space and never moves rendered
+// pixels. Anything bigger than the 14KB budget, or an expensive query that
+// shouldn't block first paint, becomes a Defer.
+templ Defer(p DeferProps) {
+	<div
+		id={ p.ID }
+		class="ui-defer ui-skeleton"
+		style={ deferStyle(p) }
+		role="status"
+		aria-busy="true"
+		if p.OnLoad {
+			data-init={ deferGet(p) }
+		} else {
+			data-on-intersect={ deferGet(p) }
+		}
+	>
+		<span class="sr-only">{ deferLabel(ctx, p) }</span>
+	</div>
+}

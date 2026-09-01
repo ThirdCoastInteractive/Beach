@@ -1,0 +1,232 @@
+// boardwalk's views, as templ components. The handlers and sim wiring
+// (main.go, internal/game) stay plain Go and call these with snapshot data;
+// everything that emits markup lives here. Fragments carry stable DOM ids
+// (views.go) so SSE projections morph them in place.
+package web
+
+import (
+	"fmt"
+
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/boardwalk/internal/game"
+	"github.com/ThirdCoastInteractive/Beach/pkg/chart"
+	"github.com/ThirdCoastInteractive/Beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
+)
+
+// indexView is the full board page. The three SSE streams — the shared board,
+// the private hand (it self-resolves the spectator case server-side), and the
+// cash race — are opened by driftwood.LiveToggle and its two LiveStream
+// siblings rather than by a data-init on the container.
+//
+// That is not decoration. A board that redraws itself every time any player acts
+// is auto-updating information, and WCAG 2.2.2 asks for a way to stop it; here
+// the same press stops all three, because the control renders the elements that
+// open them. Anyone reading the log or counting their money gets to do that
+// without the page moving underneath them.
+templ indexView(snap game.Snapshot, seat int, lay chart.BarRaceLayout) {
+	@driftwood.Page(driftwood.PageProps{
+		Title:       "Boardwalk — Beach",
+		Description: "A database-less sim/ecs board game over SSE.",
+	}) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{
+				Title:    "Boardwalk",
+				Subtitle: "A sim/ecs real-estate game. Roll, move, buy, pay rent — live over SSE.",
+			})
+			<p class="bw-nav"><a href="/stats">View game stats →</a></p>
+			@driftwood.LiveToggle(driftwood.LiveToggleProps{Stream: "/board", Label: "board"})
+			@driftwood.LiveStream(driftwood.LiveStreamProps{Stream: "/hand"})
+			@driftwood.LiveStream(driftwood.LiveStreamProps{Stream: "/race"})
+			@sinks()
+			@driftwood.Grid(driftwood.GridProps{Cols: 2}) {
+				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Board"}) {
+					@boardFragment(snap)
+				}
+				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfaceWell, Heading: "Your hand"}) {
+					@handFragment(snap, seat)
+				}
+				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Cash race"}) {
+					@raceFragment(lay)
+				}
+			}
+		}
+	}
+}
+
+// sinks renders the two always-present morph targets: a toast region for action
+// feedback and the #bw-reopen sink the join action patches a data-init element
+// into to re-open the hand stream. Keeping them in the initial document means
+// action patches always have a stable target.
+templ sinks() {
+	<div id="bw-toast" class="bw-toast-region" aria-live="polite"></div>
+	<div id="bw-reopen" hidden></div>
+}
+
+// reopenHand re-fires @get('/hand'). Patched into #bw-reopen after a seat claim,
+// it makes Datastar open a fresh hand stream that resubscribes to user:<seat>
+// with the just-set cookie.
+//
+// It goes through LiveStream rather than writing the data-init itself so that a
+// visitor who has paused updates does not get one re-opened behind their back by
+// an action they took. The server would drop the topics anyway, but opening a
+// connection that immediately closes is not what the button promised.
+templ reopenHand() {
+	@driftwood.LiveStream(driftwood.LiveStreamProps{Stream: "/hand"})
+}
+
+// boardFragment renders the whole shared board surface: the turn banner, the
+// tile ring, the standings, and the log. It carries id=boardTarget so every
+// projection morphs it in place.
+templ boardFragment(snap game.Snapshot) {
+	<div id={ boardTarget } class="bw-board">
+		<p class="bw-turn">
+			Current turn: <strong>{ turnName(snap) }</strong>
+			if snap.Board.LastD1 > 0 {
+				<span class="bw-dice">{ fmt.Sprintf("last roll %d + %d", snap.Board.LastD1, snap.Board.LastD2) }</span>
+			}
+		</p>
+		<div class="bw-tiles">
+			for idx, t := range game.Tiles {
+				@boardTile(snap, idx, t)
+			}
+		</div>
+		<div class="bw-standings">
+			<h3>Standings</h3>
+			<ul>
+				for _, p := range snap.Players {
+					if p.Spec {
+						<li class="bw-open">{ p.Name } <em>open seat</em></li>
+					} else {
+						<li>
+							{ p.Token + " " + p.Name + " — " + dollars(p.Cash) }
+							if p.Seat == snap.Board.Turn {
+								<span class="bw-toturn">▶</span>
+							}
+						</li>
+					}
+				}
+			</ul>
+		</div>
+		<div class="bw-log">
+			<h3>Game log</h3>
+			<ol>
+				for _, ln := range snap.Board.Log {
+					<li>{ ln }</li>
+				}
+			</ol>
+		</div>
+	</div>
+}
+
+// boardTile is one square of the ring: name, price-or-owner meta for
+// properties, and the tokens currently standing on it.
+templ boardTile(snap game.Snapshot, idx int, t game.Tile) {
+	<div
+		class="bw-tile"
+		if t.Group != "" {
+			style={ groupAccent(t.Group) }
+		}
+	>
+		<div class="bw-tile-name">{ t.Name }</div>
+		if t.Kind == game.KindProperty {
+			if owner, ok := snap.Owners[idx]; ok {
+				<div class="bw-tile-meta">{ "owned " + owner }</div>
+			} else {
+				<div class="bw-tile-meta">{ dollars(t.Price) }</div>
+			}
+		}
+		{{ here := tokensOn(snap, idx) }}
+		if here != "" {
+			<div class="bw-tile-here">{ here }</div>
+		}
+	</div>
+}
+
+// handFragment renders one player's private panel: cash, position, deeds, and
+// the turn control. The seat-claim and Roll controls live here so the SSE
+// stream swaps them with no page reload (and no inline script — the CSP
+// forbids it). Carries id=handTarget.
+templ handFragment(snap game.Snapshot, seat int) {
+	<div id={ handTarget } class="bw-hand">
+		if seat < 0 || seat >= len(snap.Players) {
+			<p>Spectating. Join to get a hand.</p>
+			@driftwood.Button(driftwood.ButtonProps{
+				Label: "Take a seat",
+				Role:  driftwood.RoleAccent,
+				Attrs: datastar.Attrs{datastar.OnClick("@post('/join')")},
+			})
+		} else {
+			{{ p := snap.Players[seat] }}
+			<h3>{ p.Token + " " + p.Name }</h3>
+			<p class="bw-cash">Cash: <strong>{ dollars(p.Cash) }</strong></p>
+			<p>On: <strong>{ game.Tiles[p.Square].Name }</strong></p>
+			<h4>Your deeds</h4>
+			<ul class="bw-deeds">
+				{{ deeds := deedsOf(snap, p.Token) }}
+				if len(deeds) == 0 {
+					<li class="bw-muted">none yet</li>
+				}
+				for _, d := range deeds {
+					<li>{ d }</li>
+				}
+			</ul>
+			if snap.Board.Turn == seat {
+				@driftwood.Button(driftwood.ButtonProps{
+					Label: "Roll dice",
+					Role:  driftwood.RoleAccent,
+					Attrs: datastar.Attrs{datastar.OnClick("@post('/roll')")},
+				})
+			} else {
+				<p class="bw-muted">Waiting for your turn…</p>
+			}
+		}
+	</div>
+}
+
+// raceFragment is the live cash race: a fixed id=raceTarget wrapper around one
+// bar-race frame. The ticker in main.go re-renders and publishes this whole
+// fragment each tick; Datastar morphs it in place and the chart CSS transition
+// on .race-fill tweens the bar geometry between frames — no client animation
+// code.
+templ raceFragment(lay chart.BarRaceLayout) {
+	<div id={ raceTarget } class="bw-race">
+		@chart.BarRaceSVG(lay)
+	</div>
+}
+
+// statsPage is the public analytics page: a grid of deferred chart widgets, each
+// a placeholder that @gets its fragment from one of the widget PageFuncs
+// (internal/analytics). The rolls/tiles widgets read the ClickHouse firehose; the
+// cash widget reads the live store off the loop. Each placeholder reserves its
+// height so the deferred chart patches in with zero layout shift.
+templ statsPage() {
+	@driftwood.Page(driftwood.PageProps{
+		Title:       "Boardwalk stats — Beach",
+		Description: "Live and historical analytics over the boardwalk game's action firehose.",
+	}) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{
+				Title:    "Game stats",
+				Subtitle: "Rolls and landings from the ClickHouse firehose; current cash from the live board.",
+			})
+			<p class="bw-nav"><a href="/">← Back to the board</a></p>
+			@driftwood.Grid(driftwood.GridProps{Cols: 2}) {
+				@statWidget("Rolls per day", "anl-rolls", "/stats/rolls", "240px")
+				@statWidget("Busiest tiles", "anl-tiles", "/stats/tiles", "280px")
+				@statWidget("Cash standings", "anl-cash", "/stats/cash", "240px")
+			}
+		}
+	}
+}
+
+// statWidget is one deferred chart card on the stats page. The body reserves its
+// height inline (a per-instance dimension) so the chart patches in with zero
+// layout shift; everything else comes from the deferred fragment.
+templ statWidget(title, id, src, height string) {
+	@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: title}) {
+		<div style={ "height:" + height }>
+			@ui.Defer(ui.DeferProps{ID: id, Get: src, Height: "100%"})
+		</div>
+	}
+}

@@ -1,0 +1,83 @@
+// The guest-facing landing page: the properties on offer plus the inquiry
+// intake form. Everything else in the app lives behind the desk.
+package web
+
+import (
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
+
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/store"
+)
+
+// homeView is the public page: hero, property cards, and the inquiry form.
+templ (a *app) homeView(authed bool, props []store.Property) {
+	@a.shellView("Stay with us", "", authed) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{
+				Title:    "Stay with us",
+				Subtitle: "A few quiet places on the water and in the woods. Ask about dates — a real person answers.",
+			})
+			@driftwood.Grid(driftwood.GridProps{Cols: 3}) {
+				for _, p := range props {
+					@propertyCard(p)
+				}
+			}
+			@driftwood.Divider(driftwood.DividerProps{Label: "Ask about dates"})
+			@a.inquireCard(props)
+		}
+	}
+}
+
+// propertyCard is one public listing tile.
+templ propertyCard(p store.Property) {
+	@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: p.Name}) {
+		<p class="dw-card-meta">{ propertyMeta(p) }</p>
+		<p>{ p.Description }</p>
+	}
+}
+
+// inquireCard holds the intake form under a stable id so the create action
+// can swap in the thank-you note with a single patch.
+templ (a *app) inquireCard(props []store.Property) {
+	<div id="inquire-card">
+		@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfaceWell, Heading: "Send an inquiry"}) {
+			@driftwood.Form(driftwood.FormProps{Post: "/inquire", TwoCol: true}) {
+				@driftwood.Field(driftwood.FieldProps{Label: "Your name", For: "name"}) {
+					@driftwood.Input(driftwood.TextInputProps{ID: "name", Name: "name", Autocomplete: driftwood.AutocompleteName})
+				}
+				@driftwood.Field(driftwood.FieldProps{Label: "Email", For: "email"}) {
+					@driftwood.Input(driftwood.TextInputProps{ID: "email", Name: "email", Type: "email", Autocomplete: driftwood.AutocompleteEmail})
+				}
+				@driftwood.Field(driftwood.FieldProps{Label: "Phone (for texts)", For: "phone"}) {
+					@driftwood.Input(driftwood.TextInputProps{ID: "phone", Name: "phone", Type: "tel", InputMode: "tel", Placeholder: "+1 555 000 1234"})
+				}
+				@driftwood.Field(driftwood.FieldProps{Label: "Party size", For: "party_size"}) {
+					@driftwood.Input(driftwood.TextInputProps{ID: "party_size", Name: "party_size", Type: "number", Value: "2", Min: "1"})
+				}
+				@driftwood.Field(driftwood.FieldProps{Label: "Property", For: "property_id"}) {
+					@driftwood.Select(driftwood.SelectProps{ID: "property_id", Name: "property_id", Options: propertyOptions(props, true)})
+				}
+				@driftwood.Field(driftwood.FieldProps{Label: "Check-in", For: "check_in"}) {
+					@driftwood.Input(driftwood.TextInputProps{ID: "check_in", Name: "check_in", Type: "date"})
+				}
+				@driftwood.Field(driftwood.FieldProps{Label: "Check-out", For: "check_out"}) {
+					@driftwood.Input(driftwood.TextInputProps{ID: "check_out", Name: "check_out", Type: "date"})
+				}
+				@driftwood.Field(driftwood.FieldProps{Label: "Anything we should know?", For: "message"}) {
+					@driftwood.Textarea(driftwood.TextareaProps{ID: "message", Name: "message", Rows: 3})
+				}
+				@driftwood.Button(driftwood.ButtonProps{Label: "Send inquiry", Role: driftwood.RoleAccent, Type: "submit", LeadIcon: "send"})
+			}
+		}
+	</div>
+}
+
+// inquiryThanks replaces the intake form once an inquiry lands.
+templ inquiryThanks(name string) {
+	<div id="inquire-card">
+		@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfaceWell}) {
+			@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleGood, Title: "Thanks, " + name + "!"}) {
+				<p>We got your inquiry and sent a confirmation to your email. We'll get back to you with a quote shortly.</p>
+			}
+		}
+	</div>
+}

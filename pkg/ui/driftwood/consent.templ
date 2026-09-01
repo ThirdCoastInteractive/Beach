@@ -1,0 +1,70 @@
+package driftwood
+
+import (
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
+)
+
+// ConsentBanner is the first-visit cookie prompt: a non-blocking corner card
+// (role=region), not a modal — no backdrop, no focus trap. It stays in the
+// DOM when closed so a footer ConsentLink can reopen it. Copy is catalog-only.
+templ ConsentBanner(p ConsentBannerProps) {
+	<div
+		class="dw-consent"
+		role="region"
+		aria-labelledby={ consentTitleID }
+		if !p.Open {
+			hidden
+		}
+		{ p.Attrs.Templ()... }
+	>
+		<h2 class="dw-consent-title" id={ consentTitleID }>{ i18n.T(ctx, "ui.consent.title") }</h2>
+		<p class="dw-consent-body">{ i18n.T(ctx, "ui.consent.body") }</p>
+		<div class="dw-consent-actions">
+			@Button(ButtonProps{Label: i18n.T(ctx, "ui.consent.allow"), Role: RoleAccent, Attrs: p.AllowAttrs})
+			@Button(ButtonProps{Label: i18n.T(ctx, "ui.consent.necessary"), Role: RoleQuiet, Attrs: p.NecessaryAttrs})
+			if p.DetailsURL != "" {
+				<a class="dw-btn dw-btn-quiet" href={ p.DetailsURL } { p.CustomizeAttrs.Templ()... }>{ i18n.T(ctx, "ui.consent.customize") }</a>
+			} else {
+				@Button(ButtonProps{Label: i18n.T(ctx, "ui.consent.customize"), Role: RoleQuiet, Attrs: p.CustomizeAttrs})
+			}
+		</div>
+	</div>
+}
+
+// ConsentManager is the always-visible category list for /cookies. Necessary
+// rows are listed as always-on; optional rows are Toggles. Zero-value still
+// names the region and shows the necessary category from the catalog.
+templ ConsentManager(p ConsentManagerProps) {
+	<div class="dw-consent-mgr" role="region" aria-labelledby={ consentManagerTitleID } { p.Attrs.Templ()... }>
+		<h2 class="dw-consent-mgr-title" id={ consentManagerTitleID }>{ i18n.T(ctx, "ui.consent.manager_title") }</h2>
+		<p class="dw-consent-mgr-lead">{ i18n.T(ctx, "ui.consent.manager_lead") }</p>
+		<ul class="dw-consent-cats">
+			for _, cat := range consentCategories(ctx, p) {
+				<li class="dw-consent-cat">
+					if cat.Necessary {
+						<div class="dw-consent-cat-row">
+							<strong class="dw-consent-cat-name">{ consentCatLabel(ctx, cat) }</strong>
+							<span class="dw-consent-always">{ i18n.T(ctx, "ui.consent.always_on") }</span>
+						</div>
+						if cat.Description != "" {
+							<p class="dw-consent-cat-desc">{ cat.Description }</p>
+						}
+					} else {
+						@Toggle(ToggleProps{Name: cat.Name, Label: consentCatLabel(ctx, cat), Description: cat.Description, Checked: cat.Allowed})
+					}
+				</li>
+			}
+		</ul>
+		@Button(ButtonProps{Label: i18n.T(ctx, "ui.consent.save"), Role: RoleAccent, Type: "submit", Attrs: p.SaveAttrs})
+	</div>
+}
+
+// ConsentLink is the footer control labelled from the catalog. Href makes a
+// link to /cookies; otherwise it is a button (wire Attrs to reopen the banner).
+templ ConsentLink(p ConsentLinkProps) {
+	if p.Href != "" {
+		<a class="dw-consent-link" href={ p.Href } { p.Attrs.Templ()... }>{ i18n.T(ctx, "ui.consent.cookies") }</a>
+	} else {
+		<button type="button" class="dw-consent-link" { p.Attrs.Templ()... }>{ i18n.T(ctx, "ui.consent.cookies") }</button>
+	}
+}

@@ -1,0 +1,49 @@
+package driftwood
+
+import (
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui"
+)
+
+// --- Errors --------------------------------------------------------------------
+
+// ErrorPage is the full-document error view the framework renders on a failed
+// navigation: the status code, a short title, and a human message, centered in
+// the Page shell with a way back home.
+templ ErrorPage(status int, title string, message string) {
+	@Page(PageProps{Title: title}) {
+		@Main() {
+			<div class="dw-errorpage">
+				<p class="dw-errorpage-code" aria-hidden="true">{ itoa(status) }</p>
+				<h1 class="dw-errorpage-title">{ title }</h1>
+				if message != "" {
+					<p class="dw-errorpage-msg">{ message }</p>
+				}
+				<a class="dw-btn" href="/">{ i18n.T(ctx, "framework.error.home") }</a>
+			</div>
+		}
+	}
+}
+
+// ErrorAlert is the toast/alert item the framework patches into the toast
+// region when a fragment or SSE request fails; id lets a retry morph the same
+// element instead of stacking duplicates. danger marks failures the user must
+// act on; the rest render as warnings.
+templ ErrorAlert(id string, danger bool, title string, message string) {
+	<div id={ id } class={ "dw-toast", errorAlertClass(danger) } role="alert">
+		<span class="dw-toast-icon" aria-hidden="true">
+			@ui.Icon(errorAlertIcon(danger))
+		</span>
+		<div class="dw-toast-body">
+			if title != "" {
+				<strong class="dw-toast-title">{ title }</strong>
+			}
+			if message != "" {
+				<p class="dw-toast-msg">{ message }</p>
+			}
+		</div>
+		<button class="dw-toast-close" type="button" aria-label={ i18n.T(ctx, "ui.a11y.dismiss") } data-on:click="el.closest('.dw-toast').remove()">
+			@ui.Icon("x")
+		</button>
+	</div>
+}

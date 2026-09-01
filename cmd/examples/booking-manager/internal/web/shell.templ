@@ -1,0 +1,107 @@
+// The document shell every desk page wraps itself in, plus the login page.
+// Markup lives in .templ files; the handlers shape data and pick a component.
+// Driftwood is called directly (no kit indirection).
+package web
+
+import "github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
+
+// shellView wraps a page body in the document plus the app topbar/sidebar.
+// active is the nav slug to highlight; authed flips the topbar session link.
+// Guests get the stacked shell — the desk rail only renders signed in.
+templ (a *app) shellView(title, active string, authed bool) {
+	@driftwood.Page(driftwood.PageProps{
+		Title:       title + " — Booking Manager",
+		Description: "Run a handful of seasonal rentals yourself.",
+	}) {
+		@driftwood.Shell(driftwood.AppShellProps{Topbar: a.topbar(authed), Sidebar: deskRail(a, active, authed)}) {
+			{ children... }
+		}
+	}
+}
+
+// topbar is the session corner of the shell: brand, the public site, and
+// log in/out.
+templ (a *app) topbar(authed bool) {
+	if authed {
+		@driftwood.Navbar(driftwood.NavbarProps{Brand: "Booking Manager", Items: []driftwood.NavItem{
+			{Label: "Public site", Href: "/"},
+			{Label: "Log out", Href: "/logout"},
+		}})
+	} else {
+		@driftwood.Navbar(driftwood.NavbarProps{Brand: "Booking Manager", Items: []driftwood.NavItem{
+			{Label: "Public site", Href: "/"},
+			{Label: "Log in", Href: "/login"},
+		}})
+	}
+}
+
+// sidebar is the desk navigation rail.
+templ (a *app) sidebar(active string) {
+	@driftwood.Sidebar(driftwood.SidebarNavProps{Sections: []driftwood.SidebarSection{
+		{
+			Label: "Guests",
+			Items: []driftwood.NavItem{
+				{Label: "Dashboard", Href: "/dashboard", Icon: "chart", Active: active == "dash"},
+				{Label: "Inquiries", Href: "/inquiries", Icon: "inbox", Active: active == "inq"},
+				{Label: "Bookings", Href: "/bookings", Icon: "calendar", Active: active == "book"},
+			},
+		},
+		{
+			Label: "Operation",
+			Items: []driftwood.NavItem{
+				{Label: "Properties", Href: "/properties", Icon: "home", Active: active == "prop"},
+				{Label: "Inventory", Href: "/inventory", Icon: "box", Active: active == "inv"},
+			},
+		},
+		{
+			Label: "People",
+			Items: []driftwood.NavItem{
+				{Label: "Staff", Href: "/staff", Icon: "user", Active: active == "staff"},
+				{Label: "Hiring", Href: "/hiring", Icon: "plus", Active: active == "hire"},
+			},
+		},
+	}})
+}
+
+// loginView renders the sign-in page. errCode surfaces the post-redirect
+// failure banner.
+templ (a *app) loginView(authed bool, errCode string) {
+	@a.shellView("Log in", "", authed) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: "Log in", Subtitle: "The seeded owner account is admin / password."})
+			@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel}) {
+				switch errCode {
+					case "1":
+						@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleDanger, Title: "Invalid username or password."})
+					case "locked":
+						@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleDanger, Title: "Account locked. Try again later."})
+				}
+				@loginForm()
+			}
+		}
+	}
+}
+
+// noteAlert is the shared action-feedback fragment: handlers patch it into a
+// page's note slot (#inq-note, #book-note) when a write was refused with a
+// reason worth reading.
+templ noteAlert(msg string) {
+	@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleWarn, Title: msg, Dismissible: true})
+}
+
+// loginForm is a plain browser POST on purpose: no Datastar, no JS. The
+// server answers with a 303 the browser follows — what login wants under a
+// strict CSP. The dw-* classes keep it visually a driftwood form.
+templ loginForm() {
+	<form method="post" action="/login" class="dw-form">
+		<div class="dw-field">
+			<label class="dw-label" for="username">Username</label>
+			<input class="dw-input" type="text" id="username" name="username" autocomplete="username" required/>
+		</div>
+		<div class="dw-field">
+			<label class="dw-label" for="password">Password</label>
+			<input class="dw-input" type="password" id="password" name="password" autocomplete="current-password" required/>
+		</div>
+		<button class="dw-btn dw-btn-accent" type="submit">Log in</button>
+	</form>
+}

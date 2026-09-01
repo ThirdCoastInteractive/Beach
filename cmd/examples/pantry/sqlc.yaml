@@ -1,0 +1,29 @@
+# sqlc + beach-apigen wiring (docs/architecture/13-apigen.md).
+#
+# `sqlc generate` runs sqlc's own Go codegen AND the beach-apigen process plugin,
+# which reads the @api/@page/@fragment/@requires/@notify annotations on the
+# queries under internal/db/sql/queries/* and emits the route + handler surface
+# into ./api. No separate pipeline stage: one `make gen`.
+#
+# This file is the showcase artifact — pantry ships hand-written handlers too so
+# the binary builds without running sqlc, but this is the generated path.
+version: "2"
+plugins:
+  - name: beach-apigen
+    process:
+      cmd: ../../bin/beach-apigen
+sql:
+  - engine: postgresql
+    schema: migrations
+    queries:
+      - internal/db/sql/queries/items
+      - internal/db/sql/queries/locations
+      - internal/db/sql/queries/lists
+    gen:
+      go:
+        package: db
+        out: internal/db
+        sql_package: pgx/v5
+    codegen:
+      - plugin: beach-apigen
+        out: api

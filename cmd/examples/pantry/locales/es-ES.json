@@ -1,0 +1,38 @@
+{
+  "app.title": "Despensa",
+  "app.tagline": "ERP de compras del hogar",
+  "nav.dashboard": "Panel",
+  "nav.items": "Inventario",
+  "nav.locations": "Ubicaciones",
+  "nav.lists": "Listas de compra",
+  "nav.login": "Iniciar sesión",
+
+  "dash.heading": "Panel del hogar",
+  "dash.subtitle": "Actividad, existencias y desperdicio de un vistazo",
+  "dash.spend": "Actividad",
+  "dash.category": "Inventario por categoría",
+  "dash.expiry": "Calendario de caducidad",
+  "dash.waste": "Caducados",
+
+  "items.heading": "Inventario",
+  "items.subtitle": "%d artículos disponibles",
+  "items.empty": "Aún no hay artículos — añade el primero.",
+  "items.add": "Añadir artículo",
+  "items.field.name": "Nombre",
+  "items.field.qty": "Cantidad",
+  "items.field.location": "Ubicación",
+  "items.field.expiry": "Caduca",
+  "items.expires.soon": "Caduca pronto",
+  "items.expires.none": "Sin caducidad",
+
+  "loc.heading": "Ubicaciones de almacenamiento",
+  "loc.empty": "Aún no hay ubicaciones.",
+
+  "lists.heading": "Listas de compra",
+  "lists.empty": "Aún no hay listas de compra.",
+
+  "login.heading": "Iniciar sesión",
+  "login.username": "Usuario",
+  "login.password": "Contraseña",
+  "login.submit": "Iniciar sesión"
+}

@@ -1,0 +1,40 @@
+# Beach
+#
+# NOTE what is deliberately NOT ignored, per house style:
+#   - vendor/            Go deps are vendored and tracked
+#   - *_templ.go, *_gen.go, api/*.gen.go
+#                        generated code is committed — required for `go get`
+#                        (never hand-edit; regenerate via make gen)
+
+# Build output
+/bin/
+*.exe
+/dist/
+
+# Generated static demo site (make demos)
+/demos/
+
+# Environment & secrets (.env.example is the tracked template)
+.env
+.env.local
+.env.*.local
+
+# Node
+node_modules/
+
+# Test & perf artifacts
+/test-results/
+/playwright-report/
+coverage.out
+*.coverprofile
+*.prof
+
+# Logs
+*.log
+
+# OS / editor noise
+.DS_Store
+Thumbs.db
+
+# Claude Code local settings
+.claude/settings.local.json
