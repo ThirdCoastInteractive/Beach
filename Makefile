@@ -4,7 +4,7 @@
 # Generated *_templ.go files are committed, so plain `go build` works without
 # running gen first; run `make gen` after editing any .templ or css file.
 
-.PHONY: gen css palette build vet test gen-geo demos
+.PHONY: gen css palette build vet test gen-geo demos notice
 
 gen:
 	go tool templ generate
@@ -45,6 +45,10 @@ vet: gen
 
 test: build
 	go test ./...
+
+notice:
+	go list -m -mod=mod all > /tmp/beach-mods.txt
+	{ echo "Beach third-party notices"; echo; echo "Datastar free core — Apache-2.0"; echo "templ, pgx, goose, ClickHouse Go, goldmark, bluemonday, minio-go, mailgun-go, coder/websocket — see their licenses in vendor/"; echo "rybitten Go port — MIT; attribute meodai/RYBitten"; echo "Natural Earth — public domain"; echo "Tailwind CSS — MIT (build-time)"; echo; echo "Go modules:"; cat /tmp/beach-mods.txt; } > NOTICE
 
 # --- example stacks (docker) -------------------------------------------------
 # Each example ships a self-contained stack: the app plus its own Postgres and
