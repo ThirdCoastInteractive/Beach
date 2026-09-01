@@ -67,8 +67,8 @@ than tribal knowledge.
   trees. A public squash to `ThirdCoastInteractive/Beach` (`public/main`) is a
   later cut — Rewind-style strip, identity `ThirdCoast <git@thirdcoast.tv>`.
   *[Updated 2026-06-12: no licensed asset remains (free Datastar core, locally
-  generated CSS). Updated 2026-09-01: the module path is `Beach`; the public
-  remote does not exist yet.]*
+  generated CSS). Updated 2026-09-01: the module path is `Beach`. The public
+  remote is `ThirdCoastInteractive/Beach`.]*
 
 ## Philosophy
 

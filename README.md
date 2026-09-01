@@ -1,7 +1,7 @@
-# the-beach
+# Beach
 
 A hypermedia-first, server-rendered web framework for Go, with an entity component
-system for realtime app state.
+system for realtime app state. Private development lives in `the-beach`.
 
 **Stack (non-negotiable):** net/http · templ · Datastar (free core) · Tailwind v4 +
 rybitten · pgx · sqlc · goose · Postgres LISTEN/NOTIFY · SSE · custom `ecs` engine ·
@@ -35,11 +35,11 @@ Module path: `github.com/ThirdCoastInteractive/Beach`.
 | Branch   | Remote   | Repo | Discipline |
 | -------- | -------- | ---- | ---------- |
 | `master` | `origin` | `ThirdCoastInteractive/the-beach` (private) | Dev. Messy WIP commits welcome. |
-| `main`   | `public` | `ThirdCoastInteractive/Beach` | Release. Squashed summary commits. **Does not exist yet.** |
+| `main`   | `public` | `ThirdCoastInteractive/Beach` | Release. Squashed summary commits. |
 
-Do not commit directly to `main`. A public cut is `scripts/release.sh` once the
-`public` remote exists — Rewind-style strip + parentless squash, identity
-`ThirdCoast <git@thirdcoast.tv>`. Until then, work stays on `origin/master`.
+Do not commit directly to `main`. A public cut is `scripts/release.sh` —
+Rewind-style strip + squash, identity `ThirdCoast <git@thirdcoast.tv>`.
+Work stays on `origin/master`.
 
 ## Status & workflow
 
