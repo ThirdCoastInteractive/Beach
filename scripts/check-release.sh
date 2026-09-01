@@ -64,8 +64,9 @@ check_denylist_text() {
   local ref="$1"
   local tree
   tree="$(git ls-tree -r --name-only "$ref")"
-  echo "$tree" | grep -qi 'datastar-pro' && fail "$ref names datastar-pro"
-  git grep -n -E 'datastar-pro|Y:\\\\|C:\\\\Users\\\\henry|slawniak\.com' "$ref" -- \
+  # Word-boundary: free-core datastar.js contains "datastar-prop-change".
+  echo "$tree" | grep -qiE '\bdatastar-pro\b' && fail "$ref names datastar-pro"
+  git grep -n -E '\bdatastar-pro\b|Y:\\\\|C:\\\\Users\\\\henry|slawniak\.com' "$ref" -- \
     ':!vendor/' ':!*.sum' ':!scripts/check-release.sh' >/tmp/beach-check-hits 2>/dev/null || true
   if [[ -s /tmp/beach-check-hits ]]; then
     cat /tmp/beach-check-hits >&2
@@ -76,12 +77,11 @@ check_denylist_text() {
 }
 
 strip_index() {
-  git rm --cached -f --ignore-unmatch -- AGENTS.md CLAUDE.md >/dev/null 2>&1 || true
-  git rm -r --cached -f --ignore-unmatch -- .grok .claude cmd/hush cmd/askmuskie cmd/saltbox \
-    cmd/lotophages.com lotophages cmd/beach-demos internal/perf >/dev/null 2>&1 || true
-  git rm --cached -f --ignore-unmatch -- docs/master_Siidorow_Mikael_2026.pdf docs/master_thesis.txt \
-    docs/HKVTJ2Pa4AA99v-.jpg docs/HKyVhlTbsAA-3wC.jpg docs/HKyVhlTbwAAlO8e.jpg \
-    docs/HKyVhlUaMAAlET_.jpg docs/HKyVhlVa8AAc_-I.jpg >/dev/null 2>&1 || true
+  local f
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    git rm --cached -f -- "$f" >/dev/null
+  done < <(git ls-files | grep -E "$PRIVATE_PATH_GREP" || true)
 }
 
 usage() {
