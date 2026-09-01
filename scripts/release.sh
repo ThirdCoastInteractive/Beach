@@ -42,8 +42,8 @@ RELEASE_TREE=$(git write-tree)
 rm -f "$TMPINDEX"
 unset GIT_INDEX_FILE
 
-# Parent from public/main only when that remote is Beach. Local main on
-# the-beach is leftover v0 (Henry identity) and must not become a parent.
+# Public/main is always one parentless squash. Never parent onto a previous
+# public commit — git log on Beach is a single ThirdCoast commit.
 PUBLIC_REMOTE_URL="$(git remote get-url public 2>/dev/null || true)"
 PUBLIC_IS_BEACH=0
 if [[ "$PUBLIC_REMOTE_URL" == *ThirdCoastInteractive/Beach* ]]; then
@@ -53,18 +53,15 @@ elif [[ -n "$PUBLIC_REMOTE_URL" ]]; then
 fi
 
 if [[ "$PUBLIC_IS_BEACH" -eq 1 ]] && git show-ref --verify --quiet refs/remotes/public/main; then
-  PARENT="$(git rev-parse refs/remotes/public/main)"
-  PARENT_TREE="$(git rev-parse "$PARENT^{tree}")"
+  PARENT_TREE="$(git rev-parse refs/remotes/public/main^{tree})"
   if [ "$RELEASE_TREE" = "$PARENT_TREE" ]; then
     echo "Nothing to release — public/main already matches stripped master."
     exit 0
   fi
-  echo "==> Parenting onto public/main $PARENT"
-  COMMIT=$(git commit-tree "$RELEASE_TREE" -p "$PARENT" -m "$msg")
-else
-  echo "==> First public commit (no parent)..."
-  COMMIT=$(git commit-tree "$RELEASE_TREE" -m "$msg")
 fi
+
+echo "==> Public commit (no parent)..."
+COMMIT=$(git commit-tree "$RELEASE_TREE" -m "$msg")
 
 echo "==> Checking public commit $COMMIT..."
 bash scripts/check-release.sh --commit "$COMMIT"
