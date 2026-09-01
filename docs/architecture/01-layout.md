@@ -70,15 +70,13 @@ the-beach/                module github.com/ThirdCoastInteractive/Beach
 │   ├── beach-vet/        the lint analyzers as a CI gate
 │   ├── beach-apigen/     sqlc process plugin: SQL annotations → routes, handler
 │   │                     stubs, NOTIFY plumbing (hypermedia-only)
-│   ├── examples/         the three validation apps (15-examples.md), each shaped
+│   ├── examples/         the four validation apps (15-examples.md), each shaped
 │   │   ├── boardwalk/    exactly like a consuming app:
 │   │   │                 Monopoly-style real-estate game — the sim/ecs showcase
 │   │   ├── driftbottle/  Omegle-style stranger chat — the hub/SSE showcase,
 │   │   │                 hosts the 5k fan-out benchmark
-│   │   └── pantry/       at-home grocery ERP — the apigen/auth/ch/chart showcase
-│   └── hush/             the gated anonymous social product (no longer an
-│                         example): custom layout + client-JS island, storage +
-│                         Repute (18-hush.md)
+│   │   ├── pantry/       at-home grocery ERP — the apigen/auth/ch/chart showcase
+│   │   └── booking-manager/  mailer/sms, Postgres-only
 └── docs/
 ```
 
@@ -101,8 +99,7 @@ importable by anything, the-beach or not; `pkg/sim` is the only bridge between
 
 ## What a consuming app looks like
 
-Each app in `cmd/examples/` (and the `cmd/hush` product) is this exact shape
-(what `beach new` stamps):
+Each app in `cmd/examples/` is this exact shape (what `beach new` stamps):
 
 ```
 myapp/
@@ -123,7 +120,6 @@ myapp/
 The split is **by concern**: `main.go` only wires; the app's `app`/`server`
 struct and its handler methods + `.templ` views live together in `internal/web`
 (splitting handlers off their receiver would just force mass-exporting), and
-genuinely decouplable concerns (data store, sim, scoring, media, mail,
-ch-analytics) each get a sibling `internal/` package. The three `cmd/examples/`
-apps and the `cmd/hush` product are this shape at varying sizes
-([15-examples.md](15-examples.md)).
+genuinely decouplable concerns (data store, sim, mail, ch-analytics) each get a
+sibling `internal/` package. The four `cmd/examples/` apps are this shape at
+varying sizes ([15-examples.md](15-examples.md)).

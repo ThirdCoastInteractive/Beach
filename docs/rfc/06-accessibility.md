@@ -445,9 +445,8 @@ Stated plainly, because a conformance claim with no exceptions list is not a cla
 - **`Tabs` caps at `MaxTabs` (8).** Selecting a panel from a checked radio is a per-index
   CSS rule, and the sheet carries a ladder of exactly eight. A ninth tab renders and does
   not switch. A surface wanting nine tabs wants navigation.
-- **App code is out of scope.** `cmd/hush`'s collage editors are pointer-only, and it has
-  five `alt=""` on real user photos; `cmd/askmuskie`'s stylesheet has no focus styles and
-  its WebGL canvas has no text alternative. Those are product work, tracked separately.
+- **App code is out of scope.** Product apps outside `cmd/examples/` are tracked
+  separately. The kit law is what this RFC holds.
 
 ## What the zero-value suite found
 

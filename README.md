@@ -26,7 +26,7 @@ spine, package dependencies) and links every sub-document:
   decisions log, auth (argon2id + RBAC), API codegen, analytics (`chart` — SSR SVG,
   22 types, client interaction layer — + `ch` ClickHouse), RYB color & gamut
   theming (`rybitten`), and the example apps (boardwalk / driftbottle / pantry /
-  hush).
+  booking-manager).
 
 ## Branching & releases
 

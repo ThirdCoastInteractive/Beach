@@ -77,8 +77,7 @@ server-rendered SVG:
 The old "no client script for charts" absolute is retired; what stands is the
 rendering story — SSR SVG, SSE animation, server-built tooltip content — with
 hover/tooltip polish as **progressive enhancement**: every chart renders, updates,
-and animates with `chart.js` absent (hush proves it — its custom shell deliberately
-doesn't load it).
+and animates with `chart.js` absent.
 
 The toolbar's contract is structural: a dashboard card is an
 `<article class="dash-widget">` with a `.dash-widget-header` and a

@@ -1,6 +1,6 @@
 # Architecture 19 — rybitten: RYB color & gamut theming
 
-[← docs index](../README.md) · prev: [hush](18-hush.md) · next: [sync boundary](20-sync.md) · related: [Analytics](14-analytics.md) · [UI toolkit](06-ui.md)
+[← docs index](../README.md) · prev: [Gaps](17-gaps.md) · next: [sync boundary](20-sync.md) · related: [Analytics](14-analytics.md) · [UI toolkit](06-ui.md)
 
 `rybitten` is a dependency-free Go port of meodai's [RYBitten](https://rybitten.space)
 — a pseudo-RYB color model derived from Johannes Itten's chromatic circle.

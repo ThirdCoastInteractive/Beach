@@ -98,17 +98,18 @@ bugs* — stale data, stale permissions, a change by user A invisible to user B 
 — in any server-authoritative app that fetches per-component and treats responses as
 snapshots.
 
-[hush](18-hush.md) is the worked example: it is `useSWRImmutable`-equivalent, so an admin
-grants a permission and the user files a *support ticket* instead of reloading. That is a
-latent sync bug, not a missing feature.
+[pantry](15-examples.md) is the worked example: a list page that is
+`useSWRImmutable`-equivalent, so an admin restocks an item and another operator
+files a *support ticket* instead of reloading. That is a latent sync bug, not a
+missing feature.
 
 Two rules follow.
 
 ### Treat staleness per surface, not globally
 
 Do **not** force everything through a stream. Most surfaces are fine pull-on-navigation —
-the hush wall being a few seconds stale costs nothing. The criterion for adding liveness
-is one question: *does a stale view here cause a support ticket or a wrong action?* Wall
+a grocery list being a few seconds stale costs nothing. The criterion for adding liveness
+is one question: *does a stale view here cause a support ticket or a wrong action?* Catalog
 freshness → marginal, leave it pull-based. Admin permission/flag propagation → high value,
 make it live. Adding a stream where staleness is harmless is the same mistake as shipping
 a sync engine you don't need.

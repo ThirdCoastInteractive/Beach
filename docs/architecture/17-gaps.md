@@ -1,6 +1,6 @@
 # Architecture 17 — Gaps surfaced by the example apps
 
-[← docs index](../README.md) · prev: [Component catalog](16-components.md)
+[← docs index](../README.md) · prev: [Component catalog](16-components.md) · next: [rybitten](19-rybitten.md)
 
 The three example apps are the framework's falsifiable proof — and in building them, each
 hit a rough edge worth fixing. This is the punch-list: what bit, where, and the fix. None

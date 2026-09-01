@@ -9,13 +9,7 @@ every package is exercised by at least one of them.
 
 This doc is the **full architecture of each app**: how it boots, where state
 lives, how a request becomes an SSE patch, and — just as important — what each
-app deliberately does *not* do. All three are built and runnable.
-
-(A fourth app, **hush**, grew out of this validation set into a standalone
-product. It now lives at `cmd/hush` and is **no longer an example**; its full
-architecture is in [18-hush.md](18-hush.md). It still exercises `storage`,
-Repute, custom layout, and a client-JS island, so the coverage note below keeps
-it in view.)
+app deliberately does *not* do. All four are built and runnable.
 
 | App | Showcase | State home | Persistence |
 | --- | --- | --- | --- |
@@ -35,8 +29,8 @@ A rule every app obeys, learned the hard way: **a rendered page is not a working
 feature.** Each is verified in a real browser (chrome-devtools/playwright)
 clicking the actual flows, not just compiling and serving a 200.
 
-Two things every app shares: views are `.templ` components (`views.templ` /
-hush's per-surface files, compiled by `make gen`, generated output committed), and
+Two things every app shares: views are `.templ` components (`views.templ`,
+compiled by `make gen`, generated output committed), and
 each mounts the framework's [specimen](16-components.md#the-specimen) at
 `/specimen` — the component/token/chart gallery rides the examples instead of a
 dedicated demo binary.
@@ -46,7 +40,7 @@ a thin `main.go` + `config.go` at the root, and everything else under app-local
 `internal/<concern>` packages — `internal/web` for the app/server struct +
 handlers + `.templ` views, plus sibling packages for the decouplable concerns
 (`internal/store`, `internal/analytics`, and per app `internal/game`,
-`internal/chat`, `internal/content`, `internal/reputation`, `internal/media`,
+`internal/chat`, `internal/notify`,
 `internal/mail`, `internal/auth`). The file names called out below (`views.templ`,
 `game.go`, `board.go`, …) live inside the relevant `internal/<concern>` package
 rather than the app root.
@@ -405,8 +399,8 @@ template.
 gets live Grid/Legend/Theme/Expand controls), each body a
 `ui.Defer{ID, Get: "/widgets/<id>"}` placeholder with reserved height — zero
 layout shift. Datastar fetches each widget on intersection and morphs it in by
-id; the widget routes (the hush `anlWidget` adapter — a per-request query, not a
-cached fragment) return `chart.Chart*Fragment`s carrying the same id. The data is
+id; the widget routes (a per-request query, not a cached fragment) return
+`chart.Chart*Fragment`s carrying the same id. The data is
 real, split honestly: the **activity** line (`ChartLineFragment`) reads the
 ClickHouse firehose (items added per day, `WITH FILL`); the inventory-derived
 widgets read Postgres, the system of record — **by category**
@@ -511,8 +505,8 @@ lifecycle changes are real navigations (a `Redirect` patch), not in-page state.
 ### Deliberately not there
 
 No payments, no channel-sync (Airbnb/VRBO iCal), no guest accounts, no
-mail/SMS outbox (sends are best-effort and logged; hush owns the outbox
-pattern), no ClickHouse analytics. One operator, a handful of properties —
+mail/SMS outbox (sends are best-effort and logged), no ClickHouse analytics.
+One operator, a handful of properties —
 that scale is the point.
 
 **Validates:** `mailer` + `sms` (the add-on convention, exercised from an
@@ -522,35 +516,20 @@ note-slot refusal pattern, and Redirect patches as real navigation.
 
 ---
 
-## `cmd/hush` — graduated to a product
-
-hush began as the custom-layout + client-JS example and has since grown into a
-standalone product (a gated, anonymous social network). It is **no longer one of
-the validation examples** and lives at `cmd/hush`; its full architecture is in
-[18-hush.md](18-hush.md). It remains the only consumer of `storage` and Repute
-and the proof that a custom shell + WebGPU client-JS island sit cleanly on the
-SSR core, so it stays in the coverage matrix below.
-
----
-
 ## Coverage matrix
 
-(`hush` is the `cmd/hush` product, not an example — shown here for package
-coverage only.)
-
-| Package                       | boardwalk |  driftbottle  | pantry | booking-manager |  hush  |
-| ----------------------------- | :-------: | :-----------: | :----: | :-------------: | :----: |
-| beach (root) / datastar / ui  |     ●     |       ●       |   ●    |        ●        |   ●    |
-| hub                           |     ●     |    **●●**     |   ○    |        —        |   ●    |
-| ecs / sim                     |  **●●**   |       ○       |   —    |        —        |   —    |
-| auth / passwords              |     —     | ● (anonymous) | **●●** |        ●        | **●●** |
-| apigen                        |     —     |       —       | **●●** |        —        |   ○    |
-| ch / chart                    |     ●     |       ●       | **●●** |        —        |   ●    |
-| i18n                          |     —     |       —       | **●●** |        —        |   ○    |
-| mailer / sms                  |     —     |       —       |   —    |     **●●**      | ● (mailer) |
-| storage                       |     —     |       —       |   —    |        —        | **●●** |
-| Repute                        |     —     |       —       |   —    |        —        | **●●** |
-| cache / session / pg / config |     ●     |       ●       |   ●    |        ●        |   ●    |
+| Package                       | boardwalk |  driftbottle  | pantry | booking-manager |
+| ----------------------------- | :-------: | :-----------: | :----: | :-------------: |
+| beach (root) / datastar / ui  |     ●     |       ●       |   ●    |        ●        |
+| hub                           |     ●     |    **●●**     |   ○    |        —        |
+| ecs / sim                     |  **●●**   |       ○       |   —    |        —        |
+| auth / passwords              |     —     | ● (anonymous) | **●●** |        ●        |
+| apigen                        |     —     |       —       | **●●** |        —        |
+| ch / chart                    |     ●     |       ●       | **●●** |        —        |
+| i18n                          |     —     |       —       | **●●** |        —        |
+| mailer / sms                  |     —     |       —       |   —    |     **●●**      |
+| storage                       |     —     |       —       |   —    |        —        |
+| cache / session / pg / config |     ●     |       ●       |   ●    |        ●        |
 
 ●● = the showcase, ● = exercised, ○ = incidental, — = unused (deliberately: not
 every app needs every package, and the examples should prove that too).
