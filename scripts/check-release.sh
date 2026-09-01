@@ -65,15 +65,18 @@ check_denylist_text() {
   local tree
   tree="$(git ls-tree -r --name-only "$ref")"
   # Word-boundary: free-core datastar.js contains "datastar-prop-change".
-  echo "$tree" | grep -qiE '\bdatastar-pro\b' && fail "$ref names datastar-pro"
+  if echo "$tree" | grep -qiE '\bdatastar-pro\b'; then
+    fail "$ref names datastar-pro"
+  fi
   git grep -n -E '\bdatastar-pro\b|Y:\\\\|C:\\\\Users\\\\henry|slawniak\.com' "$ref" -- \
     ':!vendor/' ':!*.sum' ':!scripts/check-release.sh' >/tmp/beach-check-hits 2>/dev/null || true
   if [[ -s /tmp/beach-check-hits ]]; then
     cat /tmp/beach-check-hits >&2
     fail "$ref matches denylist (datastar-pro, private paths, slawniak.com)"
   fi
-  git grep -l 'github.com/ThirdCoastInteractive/Repute' "$ref" -- go.mod >/dev/null 2>&1 && \
+  if git grep -l 'github.com/ThirdCoastInteractive/Repute' "$ref" -- go.mod >/dev/null 2>&1; then
     fail "$ref go.mod still requires Repute"
+  fi
 }
 
 strip_index() {
