@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// CSP is a small, composable Content-Security-Policy builder. The-beach pages are
+// CSP is a small, composable Content-Security-Policy builder. Beach pages are
 // HTML-and-CSS-first with Datastar as the only script, so the default is strict:
 // self for everything, no inline script. Apps widen specific directives for the
 // genuinely needed (e.g. a video CDN for media) via the Allow* methods, which

@@ -89,8 +89,10 @@ check_denylist_text() {
   if echo "$tree" | grep -qiE 'the-beach'; then
     fail "$ref names the-beach"
   fi
-  git grep -n -E '\bdatastar-pro\b|\bthe-beach\b|ThirdCoastInteractive/the-beach|Y:\\\\|C:\\\\Users\\\\henry|slawniak\.com' "$ref" -- \
+  git grep -n -E '\bdatastar-pro\b|Y:\\\\|C:\\\\Users\\\\henry|slawniak\.com' "$ref" -- \
     ':!vendor/' ':!*.sum' >/tmp/beach-check-hits 2>/dev/null || true
+  git grep -n -i -E 'the-beach' "$ref" -- \
+    ':!vendor/' ':!*.sum' >>/tmp/beach-check-hits 2>/dev/null || true
   if [[ -s /tmp/beach-check-hits ]]; then
     cat /tmp/beach-check-hits >&2
     fail "$ref matches denylist (datastar-pro, the-beach, private paths, slawniak.com)"

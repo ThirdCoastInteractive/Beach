@@ -26,7 +26,7 @@ onto Beach does not extend it; it converts it into a worse SPA. That is the cate
 error.
 
 The taxonomy's most differentiating axis after offline capability is the **sync unit**:
-rows, documents, operations, events, pages. The-beach's sync unit is **the rendered
+rows, documents, operations, events, pages. Beach's sync unit is **the rendered
 fragment** — state transfer taken to its limit, where the transferred state is already
 projected to its final UI form. That single choice is why two of the taxonomy's hardest
 problems never reach us: **partial replication** (the server renders only what it chooses
@@ -43,7 +43,7 @@ four cells generalize across applications; one resists:
 | **Read path** | Generalizes (push deltas) | Generalizes (local replica) |
 | **Write path** | **Generalizes** when the engine owns the mutation | **Resists** — auth, conflict, business logic vary by domain |
 
-The-beach has independently arrived at every choice the thesis marks "safe":
+Beach has independently arrived at every choice the thesis marks "safe":
 
 - **Server-authoritative** — forced ([decisions](11-decisions.md): system of record is Postgres).
 - **Always-online** — SSE needs a live connection; offline is a non-goal (see below).
@@ -78,7 +78,7 @@ The thesis found conflicts rare under server authority and last-write-wins domin
 recurring practitioner advice is "know the model explicitly and design conflicts out"
 rather than build merge machinery. Zero users reported *zero* production conflicts.
 
-The-beach is server-serialized by construction, so the honest stance is:
+Beach is server-serialized by construction, so the honest stance is:
 
 - **Last-write-wins at the database is the default**, and that is fine. Money, items, and
   trades commit in a synchronous transaction first (the [sim is a cache of the committed
