@@ -38,6 +38,10 @@ func LiveUpdates(ctx context.Context) bool { return prefs.LiveUpdates(ctx) }
 // AutoDismiss reports whether notifications may still expire on a timer.
 func AutoDismiss(ctx context.Context) bool { return prefs.AutoDismiss(ctx) }
 
+// ColorScheme reports the visitor's light/dark choice, or prefs.SchemeAuto when
+// they have expressed none and the operating system should decide.
+func ColorScheme(ctx context.Context) prefs.Scheme { return prefs.ColorScheme(ctx) }
+
 // prefsMiddleware resolves the preference cookie onto every request's context.
 // It sits in the fixed stack: the cost is one cookie read, and making it opt-in
 // would mean an app that forgets it silently loses two Level A criteria.
@@ -79,6 +83,15 @@ func (a *App) handlePrefs(w http.ResponseWriter, r *http.Request) {
 	}
 	if v := r.PostForm.Get("toast"); v != "" {
 		p.AutoDismiss = v == "on"
+	}
+	// The scheme is tri-state, so "auto" is a value a control can post rather
+	// than an absence it has to express by omitting the field.
+	if v := r.PostForm.Get("scheme"); v != "" {
+		if sc := prefs.Scheme(v); sc.Valid() {
+			p.Scheme = sc
+		} else if v == "auto" {
+			p.Scheme = prefs.SchemeAuto
+		}
 	}
 
 	http.SetCookie(w, &http.Cookie{

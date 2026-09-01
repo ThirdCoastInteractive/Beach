@@ -34,13 +34,42 @@ const Cookie = "beach-prefs"
 // prefix marks it as the framework's rather than an app's.
 const Path = "/_beach/prefs"
 
-// The tokens stored in the cookie. Each names something switched *off*, so the
-// absence of a cookie is a first visit rather than a visitor who refused
-// everything.
+// The tokens stored in the cookie. The bare ones each name something switched
+// *off*, so the absence of a cookie is a first visit rather than a visitor who
+// refused everything; the one key=value token carries a choice that has no
+// natural "off".
 const (
 	offLive  = "live"
 	offToast = "toast"
 )
+
+// schemeKey prefixes the colour-scheme token. It is a key=value token rather than
+// a bare one because a colour scheme is not a switch: "light" and "dark" are both
+// choices, and neither is the absence of one.
+const schemeKey = "scheme="
+
+// Scheme is the visitor's colour-scheme choice.
+//
+// Three states, not two. A visitor has chosen light, has chosen dark, or has
+// chosen nothing — and the third is not a default to be resolved server-side, it
+// is a deferral to the operating system that only CSS can honour. Collapsing it
+// to a boolean is what produces a site that ignores the OS setting.
+type Scheme string
+
+const (
+	// SchemeAuto is the zero value: no choice, so prefers-color-scheme decides
+	// and the page stamps no attribute at all.
+	SchemeAuto  Scheme = ""
+	SchemeLight Scheme = "light"
+	SchemeDark  Scheme = "dark"
+)
+
+// Valid reports whether s is a scheme the framework recognises. An unrecognised
+// value from a hand-edited cookie resolves to auto rather than to a broken
+// attribute selector.
+func (s Scheme) Valid() bool {
+	return s == SchemeAuto || s == SchemeLight || s == SchemeDark
+}
 
 // Prefs is what a visitor has asked this page to stop doing.
 //
@@ -59,6 +88,17 @@ type Prefs struct {
 	// encountered — and it is what makes an on-by-default toast timer
 	// defensible rather than a violation.
 	AutoDismiss bool
+
+	// Scheme is the visitor's light/dark choice, or SchemeAuto for "ask the
+	// operating system".
+	//
+	// It rides here rather than in a cookie of its own for one reason: the page
+	// shell reads it during server render and stamps it on <html>, which is what
+	// makes a chosen theme survive the first paint. The usual alternative — a
+	// blocking <script> in the head that reads localStorage — is a render-
+	// blocking script the framework's whole posture rules out, and it flashes
+	// the wrong theme on every navigation when it fails.
+	Scheme Scheme
 }
 
 // Default is what a visitor who has expressed no preference gets: content
@@ -93,6 +133,9 @@ func LiveUpdates(ctx context.Context) bool { return From(ctx).LiveUpdates }
 // AutoDismiss reports whether notifications may still expire on a timer.
 func AutoDismiss(ctx context.Context) bool { return From(ctx).AutoDismiss }
 
+// ColorScheme reports this request's visitor's colour-scheme choice.
+func ColorScheme(ctx context.Context) Scheme { return From(ctx).Scheme }
+
 // Parse reads a cookie value: a comma-separated list of switched-off features.
 // An unrecognised token is ignored, so a cookie written by an older or newer
 // build degrades to the default instead of to nonsense.
@@ -104,6 +147,12 @@ func Parse(v string) Prefs {
 			p.LiveUpdates = false
 		case offToast:
 			p.AutoDismiss = false
+		default:
+			if v, ok := strings.CutPrefix(tok, schemeKey); ok {
+				if sc := Scheme(v); sc.Valid() {
+					p.Scheme = sc
+				}
+			}
 		}
 	}
 	return p
@@ -118,6 +167,9 @@ func (p Prefs) String() string {
 	}
 	if !p.AutoDismiss {
 		off = append(off, offToast)
+	}
+	if p.Scheme != SchemeAuto && p.Scheme.Valid() {
+		off = append(off, schemeKey+string(p.Scheme))
 	}
 	return strings.Join(off, ",")
 }

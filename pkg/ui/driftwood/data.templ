@@ -157,7 +157,11 @@ templ stackedRow(r ListRow) {
 // are the cells. Column count rides on a CSS custom property the kit sheet
 // clamps responsively.
 templ GridList(p GridListProps) {
-	<ul class="dw-gridlist" style={ gridStyle(p.Cols, p.Gap) } { p.Attrs.Templ()... }>
+	<ul
+		class={ "dw-gridlist", spaceClass("dw-gap", p.Gap), measureClass("dw-cell", p.Min) }
+		style={ gridStyle(p.Cols) }
+		{ p.Attrs.Templ()... }
+	>
 		{ children... }
 	</ul>
 }
