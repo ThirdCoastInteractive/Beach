@@ -3,7 +3,7 @@
 [← docs index](../README.md) · prev: [UI toolkit](06-ui.md) · next: [Sim](08-sim.md)
 
 No third-party engine. `ecs` is a standalone, zero-dependency archetype ECS with no
-knowledge of the-beach, hubs, or Postgres — importable by a game server, a simulation
+knowledge of Beach, hubs, or Postgres — importable by a game server, a simulation
 CLI, or any other Go project. [`sim`](08-sim.md) is the web-framework integration
 over it. We own the engine for two concrete reasons: tick-stamped change detection
 is the heart of the rendering pipeline and deserves to be native rather than bolted

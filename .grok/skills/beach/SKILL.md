@@ -1,12 +1,12 @@
 ---
 name: beach
 description: >
-  Work with the-beach (Beach) by discovering and calling existing packages
+  Work with Beach by discovering and calling existing packages
   instead of reinventing them. Use whenever writing or reviewing Go, templ,
   HTTP handlers, UI, auth, sessions, passwords, charts, Postgres, ClickHouse,
   SSE, WebSockets, ECS, sim, i18n, email, SMS, storage, sqlc, goose, Datastar,
   driftwood, rybitten, or scaffolding in this repo or a Beach app. Use when
-  the user mentions Beach, the-beach, pkg/, driftwood, beach-apigen, beach-vet,
+  the user mentions Beach, pkg/, driftwood, beach-apigen, beach-vet,
   hub, sim, quantity, or runs /beach. Always inventory pkg/ before adding a
   helper, component, middleware, chart, login flow, cache, websocket, or
   mail/SMS/file client.
@@ -14,7 +14,7 @@ description: >
 
 # Beach
 
-the-beach is a hypermedia-first, server-rendered Go framework. The public API is `pkg/`. Architecture docs under `docs/architecture/` are the design of record.
+Beach is a hypermedia-first, server-rendered Go framework. The public API is `pkg/`. Architecture docs under `docs/architecture/` are the design of record.
 
 Agents fail here by writing a parallel of something that already exists. The fix is discovery, then a call.
 
@@ -23,7 +23,7 @@ Agents fail here by writing a parallel of something that already exists. The fix
 1. Open [references/packages.md](references/packages.md). Map the task to a row.
 2. Read that package's non-test `.go` / `.templ` files — the exported types are the API.
 3. Read the architecture doc named in the row.
-4. Copy the wiring from the named example app (`cmd/examples/…` or `cmd/hush`).
+4. Copy the wiring from the named example app (`cmd/examples/…`).
 5. Write **app** code that imports and calls the package.
 
 If you cannot name the `pkg/…` owner, discovery is not done. Do not start a sibling helper "for now".

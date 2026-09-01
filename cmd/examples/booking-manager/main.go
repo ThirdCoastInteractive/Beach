@@ -1,4 +1,4 @@
-// Command booking-manager is the-beach's small-operator showcase: a
+// Command booking-manager is Beach's small-operator showcase: a
 // self-hostable manager for a handful of seasonal rentals (cottages,
 // cabins, getaways). Guest intake from a public inquiry form works a
 // pipeline into dated bookings on a per-property calendar; confirmation

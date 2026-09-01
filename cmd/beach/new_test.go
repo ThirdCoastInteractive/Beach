@@ -30,6 +30,7 @@ func TestNewStampsBuildableSkeleton(t *testing.T) {
 		".env",
 		".gitignore",
 		"README.md",
+		"AGENTS.md",
 		"components.beach.yaml",
 		"catalog.json",
 		filepath.Join("locales", "en-US.json"),
@@ -83,6 +84,14 @@ func TestNewRendersAppName(t *testing.T) {
 	// The mirrored transitive require block must be present (templ is a known dep).
 	if !strings.Contains(gomod, "github.com/a-h/templ") {
 		t.Errorf("go.mod missing mirrored framework requires:\n%s", gomod)
+	}
+
+	agents := readFile(t, filepath.Join(app, "AGENTS.md"))
+	if !strings.Contains(agents, "PageFunc") {
+		t.Errorf("AGENTS.md missing PageFunc; got:\n%s", first(agents, 400))
+	}
+	if !strings.Contains(agents, "driftwood") {
+		t.Errorf("AGENTS.md missing driftwood; got:\n%s", first(agents, 400))
 	}
 }
 

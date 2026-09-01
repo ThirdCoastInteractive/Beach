@@ -12,7 +12,7 @@ import (
 //
 // NOTE on the protobuf dependency. sqlc's plugin SDK
 // (github.com/sqlc-dev/plugin-sdk-go) ships generated Go structs for these
-// messages, but the-beach's go.mod is frozen and does not require it. Rather than
+// messages, but Beach's go.mod is frozen and does not require it. Rather than
 // add a dependency, this file hand-decodes only the handful of fields apigen
 // needs from sqlc's codegen.proto, and hand-encodes the response. The field
 // numbers below come straight from that .proto and are pinned by the

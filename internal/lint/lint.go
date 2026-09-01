@@ -1,5 +1,5 @@
 // Package lint holds the beach vet analyzers: static checks that enforce
-// the-beach's house rules over a Go source tree. Every rule is implemented with
+// Beach's house rules over a Go source tree. Every rule is implemented with
 // the standard library only (go/parser, go/ast, go/token) — no external deps —
 // so the runner stays trivially buildable inside the frozen module.
 //

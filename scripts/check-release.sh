@@ -17,7 +17,15 @@ PUBLIC_NAME="ThirdCoast"
 PUBLIC_EMAIL="git@thirdcoast.tv"
 
 # Paths that must not appear on public/main. Examples ship. hush must already be gone.
-PRIVATE_PATH_GREP='^(AGENTS\.md|CLAUDE\.md|\.grok/|\.claude/|cmd/hush/|cmd/askmuskie|cmd/saltbox/|cmd/lotophages\.com/|lotophages/|cmd/beach-demos/|internal/perf/|docs/master_|docs/HK)'
+# AGENTS.md and CLAUDE.md ship (agent-native). Cutter scripts stay private.
+PRIVATE_PATH_GREP='^(\.grok/|\.claude/|cmd/hush/|cmd/askmuskie|cmd/saltbox/|cmd/lotophages\.com/|lotophages/|cmd/beach-demos/|internal/perf/|docs/master_|docs/HK|scripts/release\.sh|scripts/check-release\.sh|scripts/copy-public-skills\.py)'
+
+REQUIRED_PUBLIC_FILES=(
+  AGENTS.md
+  CLAUDE.md
+  skills/beach/SKILL.md
+  .github/copilot-instructions.md
+)
 
 fail() { echo "check-release: $*" >&2; exit 1; }
 
@@ -62,6 +70,14 @@ check_private_files() {
   fi
 }
 
+check_required_public() {
+  local ref="$1" f missing=""
+  for f in "${REQUIRED_PUBLIC_FILES[@]}"; do
+    git cat-file -e "$ref:$f" 2>/dev/null || missing+="$f "
+  done
+  [[ -z "$missing" ]] || fail "$ref missing required public files: $missing"
+}
+
 check_denylist_text() {
   local ref="$1"
   local tree
@@ -70,11 +86,14 @@ check_denylist_text() {
   if echo "$tree" | grep -qiE '\bdatastar-pro\b'; then
     fail "$ref names datastar-pro"
   fi
-  git grep -n -E '\bdatastar-pro\b|Y:\\\\|C:\\\\Users\\\\henry|slawniak\.com' "$ref" -- \
-    ':!vendor/' ':!*.sum' ':!scripts/check-release.sh' >/tmp/beach-check-hits 2>/dev/null || true
+  if echo "$tree" | grep -qiE 'the-beach'; then
+    fail "$ref names the-beach"
+  fi
+  git grep -n -E '\bdatastar-pro\b|\bthe-beach\b|ThirdCoastInteractive/the-beach|Y:\\\\|C:\\\\Users\\\\henry|slawniak\.com' "$ref" -- \
+    ':!vendor/' ':!*.sum' >/tmp/beach-check-hits 2>/dev/null || true
   if [[ -s /tmp/beach-check-hits ]]; then
     cat /tmp/beach-check-hits >&2
-    fail "$ref matches denylist (datastar-pro, private paths, slawniak.com)"
+    fail "$ref matches denylist (datastar-pro, the-beach, private paths, slawniak.com)"
   fi
   if git grep -l 'github.com/ThirdCoastInteractive/Repute' "$ref" -- go.mod >/dev/null 2>&1; then
     fail "$ref go.mod still requires Repute"
@@ -110,6 +129,7 @@ if [[ $# -eq 2 && "$1" == "--commit" ]]; then
   git rev-parse -q --verify "$REF^{commit}" >/dev/null || fail "not a commit: $REF"
   check_identity_public "$REF"
   check_private_files "$REF"
+  check_required_public "$REF"
   check_denylist_text "$REF"
   echo "OK: $REF is a legal public commit ($PUBLIC_NAME <$PUBLIC_EMAIL>)"
   exit 0

@@ -225,7 +225,7 @@ func indexView(snap game.Snapshot, seat int, lay chart.BarRaceLayout) templ.Comp
 			return nil
 		})
 		templ_7745c5c3_Err = driftwood.Page(driftwood.PageProps{
-			Title:       "Boardwalk — the-beach",
+			Title:       "Boardwalk — Beach",
 			Description: "A database-less sim/ecs board game over SSE.",
 		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var2), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
@@ -919,7 +919,7 @@ func statsPage() templ.Component {
 			return nil
 		})
 		templ_7745c5c3_Err = driftwood.Page(driftwood.PageProps{
-			Title:       "Boardwalk stats — the-beach",
+			Title:       "Boardwalk stats — Beach",
 			Description: "Live and historical analytics over the boardwalk game's action firehose.",
 		}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var32), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {

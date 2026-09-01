@@ -92,7 +92,7 @@ templ buttonsSection() {
 templ navSection() {
 	@driftwood.Card(driftwood.CardProps{Heading: "Navigation"}) {
 		@driftwood.Navbar(driftwood.NavbarProps{
-			Brand: "the-beach",
+			Brand: "Beach",
 			Items: []driftwood.NavItem{
 				{Label: "Dashboard", Href: "/", Icon: "home", Active: true},
 				{Label: "Rentals", Href: "/rentals", Icon: "box"},
@@ -664,7 +664,7 @@ templ layoutSection() {
 		</p>
 		@driftwood.Shell(driftwood.AppShellProps{
 			Topbar: driftwood.Navbar(driftwood.NavbarProps{
-				Brand: "the-beach",
+				Brand: "Beach",
 				Items: []driftwood.NavItem{{Label: "Dashboard", Href: "/", Active: true}},
 			}),
 			Sidebar: specSidebar(),

@@ -462,7 +462,7 @@
   border: 0;
 }
 
-/* Keyboard-only focus indicator (Atlas's @utility as a plain rule; the-beach
+/* Keyboard-only focus indicator (Atlas's @utility as a plain rule; Beach
    has no accent-3, so the base accent draws the ring). */
 .focus-ring:focus-visible {
   outline: 2px solid var(--color-accent);
@@ -1420,7 +1420,7 @@
 .icon-x::before              { content: "✕"; }
 
 /* ==========================================================================
- * the-beach reference kit (driftwood) — Tailwind v4 build.
+ * Beach reference kit (driftwood) — Tailwind v4 build.
  * A dark, dense dashboard theme. Components emit semantic dw-* classes; this
  * sheet styles them with Tailwind utilities via @apply, so markup stays clean
  * and the whole kit restyles from one place. Colors come from the tokens

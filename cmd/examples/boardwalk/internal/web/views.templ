@@ -26,7 +26,7 @@ import (
 // without the page moving underneath them.
 templ indexView(snap game.Snapshot, seat int, lay chart.BarRaceLayout) {
 	@driftwood.Page(driftwood.PageProps{
-		Title:       "Boardwalk — the-beach",
+		Title:       "Boardwalk — Beach",
 		Description: "A database-less sim/ecs board game over SSE.",
 	}) {
 		@driftwood.Container(driftwood.ContainerProps{}) {
@@ -202,7 +202,7 @@ templ raceFragment(lay chart.BarRaceLayout) {
 // height so the deferred chart patches in with zero layout shift.
 templ statsPage() {
 	@driftwood.Page(driftwood.PageProps{
-		Title:       "Boardwalk stats — the-beach",
+		Title:       "Boardwalk stats — Beach",
 		Description: "Live and historical analytics over the boardwalk game's action firehose.",
 	}) {
 		@driftwood.Container(driftwood.ContainerProps{}) {

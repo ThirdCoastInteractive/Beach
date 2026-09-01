@@ -1,10 +1,13 @@
-"""Copy .grok/skills/beach* to skills/ with public-tree doc links."""
+"""Copy canonical skills/ into .grok/skills for the local Grok loader.
+
+Author in skills/. This script is private-dev (stripped from public).
+"""
 from pathlib import Path
 import shutil
 
 root = Path(__file__).resolve().parents[1]
-src = root / ".grok" / "skills"
-dst = root / "skills"
+src = root / "skills"
+dst = root / ".grok" / "skills"
 if dst.exists():
     shutil.rmtree(dst)
 for name in ("beach", "beach-ui", "beach-a11y", "beach-test"):
@@ -17,10 +20,6 @@ for name in ("beach", "beach-ui", "beach-a11y", "beach-test"):
         out = d / p.relative_to(s)
         out.parent.mkdir(parents=True, exist_ok=True)
         t = p.read_text(encoding="utf-8")
-        t = t.replace("../../../docs", "../../docs")
-        t = t.replace("../../../../docs", "../../docs")
-        t = t.replace(" or `cmd/hush`", "")
-        t = t.replace("(`cmd/examples/…` or `cmd/hush`)", "(`cmd/examples/…`)")
-        t = t.replace("cmd/hush", "cmd/examples")
+        t = t.replace("../../docs", "../../../docs")
         out.write_text(t, encoding="utf-8", newline="\n")
         print(out)

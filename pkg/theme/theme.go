@@ -1,4 +1,4 @@
-// Package theme derives the-beach's design tokens — every colour the kit paints,
+// Package theme derives Beach's design tokens — every colour the kit paints,
 // in both a light and a dark scheme — from a short list of parameters.
 //
 // The palette is computed, not picked. That is a reaction to how the framework's

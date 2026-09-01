@@ -218,7 +218,7 @@ flags `http.HandlerFunc` registered anywhere else.
 
 The conventional wisdom says skip gzip for SSE, because gzip middleware buffers —
 events would sit in the compressor's 32KB buffer instead of arriving. That's a
-middleware artifact, not a protocol limit, so the-beach moves compression into the
+middleware artifact, not a protocol limit, so Beach moves compression into the
 SSE path itself instead of giving it up:
 
 - The stream writer (inside `beach.NewSSE`, under every `StreamFunc` and `ActionFunc`

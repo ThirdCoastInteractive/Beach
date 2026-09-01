@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# Multi-stage build for a the-beach example app. The static assets the app serves
+# Multi-stage build for a Beach example app. The static assets the app serves
 # (the generated app.css, the Datastar client, pantry's item images) are embedded
 # in the binary via go:embed, so the runtime image only carries the binary — no
 # CSS build step, no asset volume. The binary is fully static (pgx, clickhouse-go

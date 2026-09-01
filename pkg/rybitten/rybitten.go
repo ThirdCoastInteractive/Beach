@@ -204,7 +204,7 @@ func (c RGB) Luminance() float64 {
 // to 21 (black on white). It is symmetric — the order of the arguments does not
 // matter.
 //
-// The thresholds the-beach holds itself to (WCAG 2.1 Level AA):
+// The thresholds Beach holds itself to (WCAG 2.1 Level AA):
 //
 //   - 4.5 — normal-size text against its background (SC 1.4.3)
 //   - 3.0 — large text (≥24px, or ≥18.66px bold) (SC 1.4.3)

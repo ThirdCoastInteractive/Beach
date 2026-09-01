@@ -1,4 +1,4 @@
-// Package quantity is the-beach's typed value-with-unit system: a domain-
+// Package quantity is Beach's typed value-with-unit system: a domain-
 // agnostic way to carry a measured value together with the unit it arrived in.
 //
 // The central type is [Quantity] — a value plus its native unit, the unit a

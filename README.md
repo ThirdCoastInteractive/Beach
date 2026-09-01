@@ -1,7 +1,12 @@
 # Beach
 
 A hypermedia-first, server-rendered web framework for Go, with an entity component
-system for realtime app state. Private development lives in `the-beach`.
+system for realtime app state.
+
+```
+git clone https://github.com/ThirdCoastInteractive/Beach
+go get github.com/ThirdCoastInteractive/Beach
+```
 
 **Stack (non-negotiable):** net/http · templ · Datastar (free core) · Tailwind v4 +
 rybitten · pgx · sqlc · goose · Postgres LISTEN/NOTIFY · SSE · custom `ecs` engine ·
@@ -28,18 +33,26 @@ spine, package dependencies) and links every sub-document:
   theming (`rybitten`), and the example apps (boardwalk / driftbottle / pantry /
   booking-manager).
 
-## Branching & releases
+## Module
 
-Module path: `github.com/ThirdCoastInteractive/Beach`.
+`github.com/ThirdCoastInteractive/Beach`. Default branch is `main`.
 
-| Branch   | Remote   | Repo | Discipline |
-| -------- | -------- | ---- | ---------- |
-| `master` | `origin` | `ThirdCoastInteractive/the-beach` (private) | Dev. Messy WIP commits welcome. |
-| `main`   | `public` | `ThirdCoastInteractive/Beach` | Release. Squashed summary commits. |
+## Agents
 
-Do not commit directly to `main`. A public cut is `scripts/release.sh` —
-Rewind-style strip + squash, identity `ThirdCoast <git@thirdcoast.tv>`.
-Work stays on `origin/master`.
+This repo is meant to be used by coding agents. Start at [AGENTS.md](AGENTS.md).
+Skills live under `skills/` (`beach`, `beach-ui`, `beach-a11y`, `beach-test`).
+`beach new` stamps an `AGENTS.md` into a new app.
+
+## Examples
+
+```
+make up-pantry             # CRUD / apigen / auth / charts
+make up-driftbottle        # hub / SSE matchmaking
+make up-boardwalk          # sim / ecs + snapshot
+make up-booking-manager    # mailer / sms
+```
+
+Each example mounts the driftwood specimen at `/specimen`.
 
 ## Status & workflow
 

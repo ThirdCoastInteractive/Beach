@@ -1,4 +1,4 @@
-// Command pantry is the-beach's CRUD / apigen / auth / analytics showcase: an
+// Command pantry is Beach's CRUD / apigen / auth / analytics showcase: an
 // at-home grocery ERP. Household inventory (items with photos, quantities,
 // expiry), storage locations, and shopping lists, behind two roles
 // (household-admin vs household-member); a dashboard of deferred chart widgets

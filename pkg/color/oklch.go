@@ -1,4 +1,4 @@
-// Package color is the-beach's color math: OKLCH, sRGB, and the WCAG contrast
+// Package color is Beach's color math: OKLCH, sRGB, and the WCAG contrast
 // the framework's palette is derived under.
 //
 // It exists because the design tokens are *computed*, not picked, and computing
@@ -236,7 +236,7 @@ func (c OKLCH) Luminance() float64 {
 // Contrast returns the WCAG 2.1 contrast ratio between two colors, 1 (identical)
 // to 21 (black on white). It is symmetric.
 //
-// The thresholds the-beach holds itself to, all Level AA:
+// The thresholds Beach holds itself to, all Level AA:
 //
 //   - [AAText] 4.5 — normal-size text (SC 1.4.3)
 //   - [AANonText] 3.0 — component boundaries and focus indicators (SC 1.4.11),

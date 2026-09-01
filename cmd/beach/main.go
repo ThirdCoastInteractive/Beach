@@ -1,4 +1,4 @@
-// Command beach is the-beach's scaffold CLI. It stamps buildable skeleton apps
+// Command beach is Beach's scaffold CLI. It stamps buildable skeleton apps
 // and runs the framework's source-level codegen that does not belong inside the
 // sqlc pipeline.
 //
@@ -9,7 +9,7 @@
 //	beach ecs gen [--file F]      generate Go components from components.beach.yaml
 //	beach i18n [--write]          verify (or write) the i18n catalog from source
 //
-// `beach new` writes a complete, compiling the-beach app: wiring in main.go
+// `beach new` writes a complete, compiling Beach app: wiring in main.go
 // (one page, one Datastar action, one SSE fragment), driftwood markup in
 // views.templ (plus its committed views_templ.go compile output), a Makefile,
 // sqlc.yaml (apigen plugin registered),
@@ -24,7 +24,7 @@ import (
 )
 
 // usage is printed on `beach`, `beach help`, or any malformed invocation.
-const usage = `beach — the-beach scaffold CLI
+const usage = `beach — Beach scaffold CLI
 
 usage:
   beach new <app> [--dir DIR]        stamp a buildable skeleton app into DIR/<app>

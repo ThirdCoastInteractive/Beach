@@ -6,7 +6,7 @@ boot. ClickHouse is the action firehose behind `/stats`.
 
 ```
 cp .env.example .env
-# from the-beach repo root:
+# from Beach repo root:
 make up-boardwalk
 ```
 

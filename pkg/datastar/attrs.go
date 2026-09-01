@@ -1,5 +1,5 @@
 // Package datastar is the only sanctioned way to emit Datastar data-*
-// attributes and to open a server-sent event stream inside the-beach.
+// attributes and to open a server-sent event stream inside Beach.
 //
 // Raw data-* strings in templ are a build failure via the beach vet analyzer;
 // the typed builders here render the attributes by construction. Colon event

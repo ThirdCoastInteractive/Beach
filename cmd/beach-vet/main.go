@@ -1,4 +1,4 @@
-// Command beach-vet runs the-beach lint analyzers over a source tree and prints
+// Command beach-vet runs Beach lint analyzers over a source tree and prints
 // findings. It exits non-zero when any finding is reported, so it slots into
 // `make vet` and CI as a gate.
 //

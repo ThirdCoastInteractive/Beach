@@ -3,7 +3,7 @@
 [← docs index](../README.md) · prev: [rybitten](19-rybitten.md)
 
 "Sync engines" — Zero, ElectricSQL, PowerSync, Convex, Jazz — are the loud answer to
-"keep the screen fresh without spinners." A recurring question is whether the-beach
+"keep the screen fresh without spinners." A recurring question is whether Beach
 should adopt or grow one. It should not, and the reason is a category boundary, not a
 maturity gap. This doc states the boundary, what it buys us for free, the one problem it
 leaves on our plate, and where it ends.
@@ -22,7 +22,7 @@ server is the only thing that ever knows the schema.
 These are not points on a spectrum — they are mutually exclusive at the core. The moment
 the client holds queryable data, the "H" is gone (the client now owns application state),
 and Datastar signals + DOM morphing are the wrong renderer for it. Bolting a sync engine
-onto the-beach does not extend it; it converts it into a worse SPA. That is the category
+onto Beach does not extend it; it converts it into a worse SPA. That is the category
 error.
 
 The taxonomy's most differentiating axis after offline capability is the **sync unit**:
@@ -175,8 +175,8 @@ building a queue — the same drop-on-full stance the hub takes.
 
 SSE, the hub, and Datastar all require a live connection. **Offline writes are the explicit
 exit from hypermedia.** If an app genuinely needs to accept writes with no network, it is
-not a the-beach app — it needs a different architecture (or a non-hypermedia island with
-its own RFC). We do not make the-beach offline-capable; doing so buys the entire Chapter 5
+not a Beach app — it needs a different architecture (or a non-hypermedia island with
+its own RFC). We do not make Beach offline-capable; doing so buys the entire Chapter 5
 of the thesis (write-path reconciliation, dual client/server schemas, client-generated IDs,
 browser-storage immaturity) for a requirement our target apps do not have.
 

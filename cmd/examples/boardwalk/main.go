@@ -1,5 +1,5 @@
 // Command boardwalk is a sim/ecs + persistence + analytics showcase of
-// the-beach's stack: a Monopoly-style real-estate game where the whole live
+// Beach's stack: a Monopoly-style real-estate game where the whole live
 // slice — player positions, cash, turn order, property ownership — lives in an
 // ecs.Store owned by a single-writer sim loop, mutated by commands, and pushed
 // to every watcher over SSE via hub projections.

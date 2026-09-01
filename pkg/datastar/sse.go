@@ -35,7 +35,7 @@ const gzipHuffmanOnly = -2
 const gzipBestSpeed = 1
 
 // SSE wraps the upstream Datastar server-sent event generator. Only the methods
-// the-beach handlers need are surfaced; the embedded *sdk.ServerSentEventGenerator
+// Beach handlers need are surfaced; the embedded *sdk.ServerSentEventGenerator
 // is exported so the genuinely weird can reach the full SDK.
 type SSE struct {
 	*sdk.ServerSentEventGenerator

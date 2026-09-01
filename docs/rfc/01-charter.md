@@ -55,20 +55,16 @@ than tribal knowledge.
 - Not an ORM. sqlc stays. Plain SQL stays.
 - The UI is hypermedia or bust: server-rendered HTML over the wire, Datastar for
   interaction, state on the server. That rules out an SPA mode and a JSON/machine-API
-  layer — the-beach renders pages, not endpoints. An app that genuinely needs a machine
+  layer — Beach renders pages, not endpoints. An app that genuinely needs a machine
   API writes its own RFC.
 - No multi-node story in v1. LISTEN/NOTIFY is the cross-process bell; the seam where
   NATS would slot in later is identified but not built.
 - No migration of existing production services onto the framework as part of this
   work. The framework proves itself on greenfield apps first; migrations are their
   own programs, decided afterward.
-- Private-dev vs public cut. This checkout is `the-beach` (`origin/master`,
-  messy). The Go module path is `github.com/ThirdCoastInteractive/Beach` on both
-  trees. A public squash to `ThirdCoastInteractive/Beach` (`public/main`) is a
-  later cut — Rewind-style strip, identity `ThirdCoast <git@thirdcoast.tv>`.
-  *[Updated 2026-06-12: no licensed asset remains (free Datastar core, locally
-  generated CSS). Updated 2026-09-01: the module path is `Beach`. The public
-  remote is `ThirdCoastInteractive/Beach`.]*
+- *[Updated 2026-06-12: no licensed asset remains (free Datastar core, locally
+  generated CSS). Updated 2026-09-01: the module path is
+  `github.com/ThirdCoastInteractive/Beach`.]*
 
 ## Philosophy
 

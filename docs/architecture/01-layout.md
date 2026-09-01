@@ -24,7 +24,7 @@ make the importable surface explicit; `pkg/beach` is still the package an app
 touches first.)
 
 ```
-the-beach/                module github.com/ThirdCoastInteractive/Beach
+Beach/                module github.com/ThirdCoastInteractive/Beach
 ├── go.mod
 ├── pkg/                   the external API surface
 │   ├── beach/            package beach — the framework's front door: App builder,
@@ -94,7 +94,7 @@ import (
 The package dependency diagram lives in the
 [docs index](../README.md#package-dependencies). The shape in one sentence: the boot
 spine (`pkg/config`, `pkg/pg`) stands alone; `pkg/ecs` imports nothing and is
-importable by anything, the-beach or not; `pkg/sim` is the only bridge between
+importable by anything, Beach or not; `pkg/sim` is the only bridge between
 `pkg/ecs` and the web packages; the `pkg/beach` package is what an app touches first.
 
 ## What a consuming app looks like

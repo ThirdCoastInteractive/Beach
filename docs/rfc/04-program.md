@@ -88,7 +88,7 @@ example usage. Order is dependency order, not priority tiers.
 - An existing production service on this stack could adopt the framework with a
   net-negative diff (assessed on paper as a writeup; actual migration is its own
   project).
-- `ecs` imports nothing from the rest of the-beach — it compiles and benchmarks with
+- `ecs` imports nothing from the rest of Beach — it compiles and benchmarks with
   zero framework imports, which is the modularity claim that matters. Its benchmark
   exists to catch iteration regressions, not to chase a competitor's numbers.
 - pantry's login is argon2id end to end with two real roles; the authz analyzer
@@ -113,7 +113,7 @@ example usage. Order is dependency order, not priority tiers.
   [architecture/08-sim.md](../architecture/08-sim.md#the-boundary) is written to
   be quoted back at whoever tries.
 - **Framework-itis.** Grug warning: abstracting what has only happened once.
-  Countermeasure: nothing enters the-beach that isn't proven in production or
+  Countermeasure: nothing enters Beach that isn't proven in production or
   demanded by an example app — new ideas earn their way in through an app first,
   and the coverage matrix in
   [architecture/15-examples.md](../architecture/15-examples.md) keeps that honest.

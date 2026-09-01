@@ -1,4 +1,4 @@
-name: the-beach
+name: beach
 
 # Postgres + ClickHouse and the four example apps. Every example requires the
 # Beach stack and fails to boot without it (15-examples.md) — boardwalk keeps

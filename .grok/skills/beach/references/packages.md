@@ -183,7 +183,7 @@ Living inventory: `ui/specimen` mounted at `/specimen` by every example.
 
 ### `pkg/storage` — files
 
-**Read:** [18-hush.md](../../../../docs/architecture/18-hush.md) (hush is the proving app)
+**Read:** `pkg/storage`
 
 **API:** `Store` (`Put`/`Open`/`Stat`/`Delete`/`URL`). Backends: `storage.Local`, `storage/s3`, `storage/cfimages`.
 
@@ -193,7 +193,7 @@ Living inventory: `ui/specimen` mounted at `/specimen` by every example.
 
 ### `pkg/md` — Markdown
 
-**API:** `Render` / `RenderWith` through goldmark then bluemonday. Profiles: `Strict` (no tags), `Post` (hush-sized), `Article` (headings, links, CF Images, code, quotes, tables, `:::video` → Stream iframes). Pair with `driftwood.MarkdownEditor` + `/static/js/md-editor.js`.
+**API:** `Render` / `RenderWith` through goldmark then bluemonday. Profiles: `Strict` (no tags), `Post`, `Article` (headings, links, CF Images, code, quotes, tables, `:::video` → Stream iframes). Pair with `driftwood.MarkdownEditor` + `/static/js/md-editor.js`.
 
 ### `pkg/consent` — cookie preference record
 
@@ -227,6 +227,5 @@ Private (do not import from apps): `internal/deps`, `internal/lint`, `internal/p
 | `cmd/examples/driftbottle` | `hub`/SSE, `App.Socket`, anon sessions |
 | `cmd/examples/pantry` | `auth`, apigen, `ch`/`chart`, CRUD forms |
 | `cmd/examples/booking-manager` | `mailer`/`sms`, Postgres-only |
-| `cmd/hush` | custom layout, `storage`, Repute — product, not a template to copy blindly |
 
 Shape of a consuming app: [01-layout.md](../../../../docs/architecture/01-layout.md#what-a-consuming-app-looks-like). Stamp one with `beach new`.

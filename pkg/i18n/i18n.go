@@ -1,4 +1,4 @@
-// Package i18n is the-beach's flat-key translation runtime.
+// Package i18n is Beach's flat-key translation runtime.
 //
 // A catalog maps each key to a reference label and translator comment
 // (catalog.json); each locale file (locales/<tag>.json) maps the same keys to

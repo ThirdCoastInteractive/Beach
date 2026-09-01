@@ -1,5 +1,5 @@
 // Command driftbottle is an Omegle-style anonymous stranger-chat: the hub/SSE
-// fan-out benchmark for the-beach. The LIVE matchmaking and feed stay in memory
+// fan-out benchmark for Beach. The LIVE matchmaking and feed stay in memory
 // on the hot path (internal/chat) — a per-session cookie identity, a matchmaking
 // queue, and the live pairings — because driftbottle measures fan-out and
 // nothing may sit in the path of a message. Two waiting strangers are paired

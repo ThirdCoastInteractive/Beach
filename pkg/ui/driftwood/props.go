@@ -1,4 +1,4 @@
-// Package driftwood is the-beach's component kit: a package of exported,
+// Package driftwood is Beach's component kit: a package of exported,
 // package-level templ components that render clean semantic HTML. Every color,
 // space, radius, and motion value comes from a CSS custom property defined in
 // the app stylesheet; no literal hex/OKLCH ever appears in the markup. Markup

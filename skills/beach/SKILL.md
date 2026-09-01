@@ -1,12 +1,12 @@
 ---
 name: beach
 description: >
-  Work with the-beach (Beach) by discovering and calling existing packages
+  Work with Beach by discovering and calling existing packages
   instead of reinventing them. Use whenever writing or reviewing Go, templ,
   HTTP handlers, UI, auth, sessions, passwords, charts, Postgres, ClickHouse,
   SSE, WebSockets, ECS, sim, i18n, email, SMS, storage, sqlc, goose, Datastar,
   driftwood, rybitten, or scaffolding in this repo or a Beach app. Use when
-  the user mentions Beach, the-beach, pkg/, driftwood, beach-apigen, beach-vet,
+  the user mentions Beach, pkg/, driftwood, beach-apigen, beach-vet,
   hub, sim, quantity, or runs /beach. Always inventory pkg/ before adding a
   helper, component, middleware, chart, login flow, cache, websocket, or
   mail/SMS/file client.
@@ -14,7 +14,7 @@ description: >
 
 # Beach
 
-the-beach is a hypermedia-first, server-rendered Go framework. The public API is `pkg/`. Architecture docs under `docs/architecture/` are the design of record.
+Beach is a hypermedia-first, server-rendered Go framework. The public API is `pkg/`. Architecture docs under `docs/architecture/` are the design of record.
 
 Agents fail here by writing a parallel of something that already exists. The fix is discovery, then a call.
 

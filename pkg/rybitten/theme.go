@@ -9,7 +9,7 @@ import (
 // Theme derivation — the framework's whole token vocabulary as a function of one
 // gamut.
 //
-// The alternative, and what the-beach did first, is to hand-pick the stops and
+// The alternative, and what Beach did first, is to hand-pick the stops and
 // hold them with a contrast test. That works, but it inverts the effort: every
 // token is chosen by guessing, pasting, running the test, and nudging. Worse, it
 // makes the constraints invisible in the result. The accent sat at a muted
@@ -62,7 +62,7 @@ type ThemeOptions struct {
 	WashAlpha float64
 }
 
-// DefaultThemeOptions is the-beach's own derivation: a warm sand-tinted neutral
+// DefaultThemeOptions is Beach's own derivation: a warm sand-tinted neutral
 // ladder, a tidepool accent where green turns to blue, and a coral/violet
 // category pair chosen for distance from the accent and from each other.
 //

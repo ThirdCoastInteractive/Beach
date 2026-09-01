@@ -1,11 +1,7 @@
 # Contributing
 
-Private development is on `origin/master` (`ThirdCoastInteractive/the-beach`).
-Public cuts are squashed onto `public/main` (`ThirdCoastInteractive/Beach`) by
-`scripts/release.sh`. Identity on public commits is `ThirdCoast <git@thirdcoast.tv>`.
-
-`scripts/check-release.sh` is the source of truth for what a public commit may
-contain. Do not invent extra rules.
+Fork [ThirdCoastInteractive/Beach](https://github.com/ThirdCoastInteractive/Beach)
+and open a pull request against `main`. Follow [AGENTS.md](AGENTS.md).
 
 - App UI calls `pkg/ui/driftwood`. Do not add HTML primitives the kit already owns.
 - SQL lives in sqlc queries. Do not put SQL string literals in Go.

@@ -1,4 +1,4 @@
-# sqlc + beach-apigen wiring (the-beach docs/architecture/13-apigen.md).
+# sqlc + beach-apigen wiring (Beach docs/architecture/13-apigen.md).
 #
 # `sqlc generate` runs sqlc's own Go codegen AND the beach-apigen process
 # plugin, which reads @api/@page/@fragment/@requires/@notify annotations on the
@@ -12,7 +12,7 @@ version: "2"
 plugins:
   - name: beach-apigen
     process:
-      # Build it from the the-beach checkout: `go build -o bin/beach-apigen \
+      # Build it from the Beach checkout: `go build -o bin/beach-apigen \
       # github.com/ThirdCoastInteractive/Beach/cmd/beach-apigen`
       cmd: ./bin/beach-apigen
 sql:

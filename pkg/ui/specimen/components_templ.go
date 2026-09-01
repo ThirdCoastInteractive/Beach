@@ -376,7 +376,7 @@ func navSection() templ.Component {
 			}
 			ctx = templ.InitializeContext(ctx)
 			templ_7745c5c3_Err = driftwood.Navbar(driftwood.NavbarProps{
-				Brand: "the-beach",
+				Brand: "Beach",
 				Items: []driftwood.NavItem{
 					{Label: "Dashboard", Href: "/", Icon: "home", Active: true},
 					{Label: "Rentals", Href: "/rentals", Icon: "box"},
@@ -2794,7 +2794,7 @@ func layoutSection() templ.Component {
 			})
 			templ_7745c5c3_Err = driftwood.Shell(driftwood.AppShellProps{
 				Topbar: driftwood.Navbar(driftwood.NavbarProps{
-					Brand: "the-beach",
+					Brand: "Beach",
 					Items: []driftwood.NavItem{{Label: "Dashboard", Href: "/", Active: true}},
 				}),
 				Sidebar: specSidebar(),

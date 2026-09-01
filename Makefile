@@ -1,4 +1,4 @@
-# the-beach build entry points. Views are .templ components compiled by
+# Beach build entry points. Views are .templ components compiled by
 # `templ generate` (installed as a Go tool — see the tool directive in go.mod);
 # the stylesheet is built by the Tailwind v4 CLI from pkg/beach/view/css/input.css.
 # Generated *_templ.go files are committed, so plain `go build` works without

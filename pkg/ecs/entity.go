@@ -2,7 +2,7 @@
 // columnar (struct-of-arrays) component storage with tick-stamped change
 // detection, typed queries, CBOR snapshots, and entity-valued relationships.
 //
-// It has no knowledge of the-beach, hubs, or Postgres. The container is a
+// It has no knowledge of Beach, hubs, or Postgres. The container is a
 // Store; it does not tick, schedule, or know about time — that is the caller's
 // job. See docs/architecture/07-ecs.md.
 package ecs

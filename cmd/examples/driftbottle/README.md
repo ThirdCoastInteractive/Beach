@@ -6,7 +6,7 @@ event firehose.
 
 ```
 cp .env.example .env
-# from the-beach repo root:
+# from Beach repo root:
 make up-driftbottle
 ```
 

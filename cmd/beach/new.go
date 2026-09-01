@@ -15,7 +15,7 @@ import (
 type appData struct {
 	App         string // the app name as given on the command line
 	Module      string // Go module path for the stamped app
-	ReplacePath string // relative path from the app dir to this the-beach checkout
+	ReplacePath string // relative path from the app dir to this Beach checkout
 	Requires    string // the framework's transitive require block, mirrored verbatim
 }
 
@@ -173,7 +173,7 @@ func applyDotfile(out string) string {
 }
 
 // replaceToCheckout returns a relative path usable in a go.mod `replace` that
-// points from the stamped app directory back to this the-beach checkout (the
+// points from the stamped app directory back to this Beach checkout (the
 // repo whose go.mod declares the module). The CLI runs from the checkout, so
 // the checkout root is found by walking up from the working directory until a
 // go.mod naming the framework module is found; falls back to cwd.
@@ -260,7 +260,7 @@ func copyGoSum(target string) error {
 }
 
 // findCheckout walks up from the working directory looking for the go.mod that
-// declares the the-beach module path.
+// declares the Beach module path.
 func findCheckout() (string, error) {
 	const moduleLine = "module github.com/ThirdCoastInteractive/Beach"
 	dir, err := os.Getwd()

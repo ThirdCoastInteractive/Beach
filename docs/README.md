@@ -1,4 +1,4 @@
-# the-beach — documentation index
+# Beach — documentation index
 
 A reusable, hypermedia-first, SSR web framework for Go, with a custom entity
 component system for realtime app state.
@@ -22,7 +22,7 @@ How a beach app hangs together — handlers, the sim, the hub, and Postgres:
 ```mermaid
 flowchart LR
     B["Browser<br/>(templ SSR + Datastar)"]
-    subgraph proc["the-beach app process"]
+    subgraph proc["Beach app process"]
         H["handlers<br/>(beach + sqlc + templ)"]
         SIM["sim (ECS)<br/>single goroutine, fixed ticks"]
         HUB["hub<br/>topic fan-out"]
@@ -46,7 +46,7 @@ flowchart LR
 ## Package dependencies
 
 Arrows point at what a package imports. The boot spine stands alone; `ecs` imports
-nothing and is importable by anything, the-beach or not; the root `beach` package is
+nothing and is importable by anything, Beach or not; the root `beach` package is
 what an app touches first:
 
 ```mermaid

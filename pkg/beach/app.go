@@ -1,4 +1,4 @@
-// Package beach is the-beach's HTTP layer: the framework's front door. It is the
+// Package beach is Beach's HTTP layer: the framework's front door. It is the
 // module root (package beach) rather than a sub-package — services build their
 // main.go against beach.New and the three typed handler shapes.
 //
@@ -168,7 +168,7 @@ type PrincipalResolver func(ctx context.Context, userID int64) (*Principal, erro
 // auth.Authenticator.ResolveToken.
 type TokenResolver func(ctx context.Context, token string) (*Principal, error)
 
-// App is a configured the-beach application. Build one with New, register routes
+// App is a configured Beach application. Build one with New, register routes
 // with Page/Action/Stream/Raw, then Start. The zero App is not usable.
 type App struct {
 	cfg     Config

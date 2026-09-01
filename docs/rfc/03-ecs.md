@@ -12,7 +12,7 @@ spine. Routing, auth, forms, and CRUD pages stay handler → sqlc → templ. The
 landed on:
 
 - **A custom, standalone engine (`ecs`).** No third-party ECS. `ecs` is a
-  zero-dependency package with no knowledge of the-beach, hubs, or Postgres —
+  zero-dependency package with no knowledge of Beach, hubs, or Postgres —
   reusable by any Go project (game server, simulation, CLI tooling); `sim` is just
   the web integration on top. Storage follows the proven archetype/columnar design —
   fast enough for the live slice (connected users + their hot components), which is the

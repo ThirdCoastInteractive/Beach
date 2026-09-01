@@ -1,5 +1,5 @@
 {
-  "name": "the-beach",
+  "name": "beach",
   "version": "1.0.0",
   "description": "A hypermedia-first, server-rendered web framework for Go, with an entity component system for realtime app state.",
   "private": true,
