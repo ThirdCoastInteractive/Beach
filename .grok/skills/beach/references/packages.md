@@ -39,6 +39,9 @@ If a row exists, **call that package**. New `pkg/` code only when no row owns th
 | Send email | `mailer` | net/smtp helper, a Mailgun client in the app |
 | Send SMS | `sms` | a Twilio client in the app |
 | Store files (disk, S3/R2, CF Images) | `storage` (+ `storage/s3`, `storage/cfimages`) | a local upload helper, minio client in the app |
+| Hosted video / tus upload (Cloudflare Stream) | `storage/cfstream` | a Cloudflare Stream client in the app |
+| Render Markdown to sanitized HTML | `md` | a goldmark wrapper, blackfriday, a sanitizer copy |
+| Record cookie preferences / GPC / DNT | `consent` | a cookie helper, OneTrust, a CMP |
 | Color palette / gamut / series CSS vars | `rybitten` | a palette generator, hardcoded hex |
 | Values with units (W/kW, °C/°F) | `quantity` | a units library, stringly-typed "2500W" |
 | Scaffold an app | `cmd/beach` `new` | a hand-made main.go that ignores the template |
@@ -183,6 +186,18 @@ Living inventory: `ui/specimen` mounted at `/specimen` by every example.
 **Read:** [18-hush.md](../../../../docs/architecture/18-hush.md) (hush is the proving app)
 
 **API:** `Store` (`Put`/`Open`/`Stat`/`Delete`/`URL`). Backends: `storage.Local`, `storage/s3`, `storage/cfimages`.
+
+### `pkg/storage/cfstream` — Cloudflare Stream
+
+**API:** `New(accountID, token, customerCode)`, `CreateTus` (returns Location + UID; hand the Location to the browser unmodified), `Delete`, `IframeURL`, thumbnail URL. The browser PATCHes the file; the API token never leaves the server.
+
+### `pkg/md` — Markdown
+
+**API:** `Render` / `RenderWith` through goldmark then bluemonday. Profiles: `Strict` (no tags), `Post` (hush-sized), `Article` (headings, links, CF Images, code, quotes, tables, `:::video` → Stream iframes). Pair with `driftwood.MarkdownEditor` + `/static/js/md-editor.js`.
+
+### `pkg/consent` — cookie preference record
+
+**API:** `Parse` / `Encode`, `FromRequest`, `BrowserOptOut` (GPC/DNT), `Allows`, `NeedsPrompt`, `Cookie` / `ExpireCookie`, `DomainForHost`. Necessary cookies are not stored; optional slugs stay off until recorded yes. Driftwood's `ConsentBanner` / `ConsentManager` / `ConsentLink` render the prompt — they do not import this package.
 
 ### `pkg/rybitten` — RYB color
 

@@ -51,6 +51,76 @@ func surfaceClass(s Surface) templ.KeyValue[string, bool] {
 	return maybeClass("")
 }
 
+// --- spacing ------------------------------------------------------------------
+//
+// These build class names by concatenation, which is why the .dw-gap-* /
+// .dw-pad-* / .dw-w-* rules in input.css are written out as plain CSS instead of
+// generated on demand. Tailwind emits a utility only when its source scanner has
+// seen the literal class name, and a name assembled in Go is a name it never
+// sees — the same trap the chart classes are written out for.
+
+// spaceClass maps a Space rung to a modifier class under the given prefix.
+// SpaceAuto yields nothing at all, so the component's own rule stands: the zero
+// value has to mean "you already know", not "zero".
+func spaceClass(prefix string, s Space) templ.KeyValue[string, bool] {
+	if s == SpaceAuto {
+		return maybeClass("")
+	}
+	return maybeClass(prefix + "-" + string(s))
+}
+
+// measureClass maps a Measure to its width class, under a prefix so a container,
+// a centred column and a rail can each carry their own ladder.
+func measureClass(prefix string, m Measure) templ.KeyValue[string, bool] {
+	if m == MeasureDefault {
+		return maybeClass("")
+	}
+	return maybeClass(prefix + "-" + string(m))
+}
+
+// alignClass and justifyClass are the same shape for the flex axes.
+func alignClass(prefix string, a Align) templ.KeyValue[string, bool] {
+	if a == AlignStretch {
+		return maybeClass("")
+	}
+	return maybeClass(prefix + "-" + string(a))
+}
+
+func justifyClass(prefix string, j Justify) templ.KeyValue[string, bool] {
+	if j == JustifyStart {
+		return maybeClass("")
+	}
+	return maybeClass(prefix + "-" + string(j))
+}
+
+// centerWidth and proseWidth give Center and Prose a different default from
+// Container's. Both exist to hold text, so an unset width means the readable
+// measure rather than the full page column — the zero value has to be the good
+// answer, or the prop gets set to the same thing at every call site.
+func centerWidth(m Measure) Measure {
+	if m == MeasureDefault {
+		return MeasureText
+	}
+	return m
+}
+
+func proseWidth(m Measure) Measure {
+	if m == MeasureDefault {
+		return MeasureText
+	}
+	return m
+}
+
+// railSideClass picks which edge a Rail's secondary column takes. Anything other
+// than "start" is the default end placement — an unrecognized value must not
+// silently drop the rail.
+func railSideClass(side string) templ.KeyValue[string, bool] {
+	if side == "start" {
+		return maybeClass("dw-rail-start")
+	}
+	return maybeClass("dw-rail-end")
+}
+
 // alertIcon picks a glyph that matches the alert role, so the meaning survives
 // without color (color is never the only encoding).
 func alertIcon(r Role) string {
@@ -174,23 +244,15 @@ func deltaClass(dir string) templ.KeyValue[string, bool] {
 	return maybeClass("dw-delta-" + dir)
 }
 
-// gridStyle pins the grid's column count and gap on CSS custom properties the
-// kit sheet clamps responsively (no media queries in Go). The values are
-// developer-supplied design tokens, not user input, hence SafeCSS.
-func gridStyle(cols int, gap string) templ.SafeCSS {
+// gridStyle pins the grid's column count on a CSS custom property the kit sheet
+// clamps responsively (no media queries in Go). The count is a developer-supplied
+// number, not user input, hence SafeCSS. Gap and cell width are classes off the
+// Space and Measure ladders, so they are not here.
+func gridStyle(cols int) templ.SafeCSS {
 	if cols < 1 {
 		cols = 3
 	}
-	s := "--dw-grid-cols:" + strconv.Itoa(cols)
-	if gap != "" {
-		s += ";--dw-grid-gap:" + gap
-	}
-	return templ.SafeCSS(s)
-}
-
-// containerStyle pins an optional max-width to a size token; never a literal length.
-func containerStyle(maxWidth string) templ.SafeCSS {
-	return templ.SafeCSS("max-width:var(--size-" + maxWidth + ")")
+	return templ.SafeCSS("--dw-grid-cols:" + strconv.Itoa(cols))
 }
 
 // dashColClass builds a DashCol's span classes: a column span clamped to the
@@ -320,6 +382,52 @@ func pageStylesheet(href string) string {
 		return appHref
 	}
 	return href
+}
+
+// ThemeHref is where the page links the derived design tokens. It is spelled out
+// here rather than imported from pkg/beach because the kit cannot import the HTTP
+// layer — the same reason pkg/prefs exists. beach.ThemePath is the other half,
+// and TestThemeHrefMatchesTheRoute holds the two together.
+const ThemeHref = "/_beach/theme.css"
+
+// pageScheme returns the data-theme value for this request, or "" when the
+// visitor has expressed no preference.
+//
+// Empty is not a fallback here, it is the third state: no attribute means the
+// prefers-color-scheme query in the stylesheet decides, which is the only way
+// the operating system's setting can be honoured. Stamping a guessed default
+// would silently override it.
+func pageScheme(ctx context.Context) string {
+	switch prefs.ColorScheme(ctx) {
+	case prefs.SchemeLight:
+		return "light"
+	case prefs.SchemeDark:
+		return "dark"
+	}
+	return ""
+}
+
+// schemeOption is one radio in a [SchemeToggle].
+type schemeOption struct{ Value, Label string }
+
+// schemeOptions lists the three choices, named from the catalog. Auto comes
+// first because it is the state a visitor starts in, and the one they should be
+// able to get back to.
+func schemeOptions(ctx context.Context) []schemeOption {
+	return []schemeOption{
+		{"auto", i18n.T(ctx, "ui.a11y.scheme.auto")},
+		{"light", i18n.T(ctx, "ui.a11y.scheme.light")},
+		{"dark", i18n.T(ctx, "ui.a11y.scheme.dark")},
+	}
+}
+
+// schemeFormValue maps the stamped attribute back to the radio value. The empty
+// attribute — no explicit choice — is the "auto" radio.
+func schemeFormValue(stamped string) string {
+	if stamped == "" {
+		return "auto"
+	}
+	return stamped
 }
 
 // errorAlertClass styles an error toast by severity: danger for failures the
@@ -693,4 +801,101 @@ func confirmCancel(ctx context.Context, p ConfirmProps) string {
 
 func confirmConfirm(ctx context.Context, p ConfirmProps) string {
 	return a11yName(p.ConfirmLabel, i18n.T(ctx, "ui.confirm.confirm"))
+}
+
+// --- markdown editor --------------------------------------------------------
+
+// mdCmd is one toolbar action. Name is the data-md-cmd token md-editor.js
+// dispatches on; Icon is the ui.Icon glyph.
+type mdCmd struct {
+	Name string
+	Icon string
+}
+
+func mdCommands() []mdCmd {
+	return []mdCmd{
+		{Name: "bold", Icon: "bold"},
+		{Name: "italic", Icon: "italic"},
+		{Name: "h2", Icon: "heading"},
+		{Name: "link", Icon: "link"},
+		{Name: "ul", Icon: "list"},
+		{Name: "ol", Icon: "list-ol"},
+		{Name: "code", Icon: "code"},
+		{Name: "quote", Icon: "quote"},
+		{Name: "image", Icon: "image"},
+		{Name: "video", Icon: "video"},
+	}
+}
+
+func mdEditorName(p MarkdownEditorProps) string {
+	if p.Name != "" {
+		return p.Name
+	}
+	return "body"
+}
+
+func mdEditorID(p MarkdownEditorProps) string {
+	return "dw-md-" + mdEditorName(p)
+}
+
+func mdSourceLabel(ctx context.Context, p MarkdownEditorProps) string {
+	return a11yName(p.Label, i18n.T(ctx, "ui.a11y.md.source"))
+}
+
+// mdCmdLabel names a toolbar button from the catalog. Every key is written
+// out: beach i18n only sees literal T calls.
+func mdCmdLabel(ctx context.Context, cmd string) string {
+	switch cmd {
+	case "bold":
+		return i18n.T(ctx, "ui.a11y.md.bold")
+	case "italic":
+		return i18n.T(ctx, "ui.a11y.md.italic")
+	case "h2":
+		return i18n.T(ctx, "ui.a11y.md.h2")
+	case "link":
+		return i18n.T(ctx, "ui.a11y.md.link")
+	case "ul":
+		return i18n.T(ctx, "ui.a11y.md.ul")
+	case "ol":
+		return i18n.T(ctx, "ui.a11y.md.ol")
+	case "code":
+		return i18n.T(ctx, "ui.a11y.md.code")
+	case "quote":
+		return i18n.T(ctx, "ui.a11y.md.quote")
+	case "image":
+		return i18n.T(ctx, "ui.a11y.md.image")
+	case "video":
+		return i18n.T(ctx, "ui.a11y.md.video")
+	}
+	return cmd
+}
+
+// --- consent ----------------------------------------------------------------
+
+const consentTitleID = "dw-consent-title"
+const consentManagerTitleID = "dw-consent-mgr-title"
+
+func consentCategories(ctx context.Context, p ConsentManagerProps) []ConsentCategory {
+	if len(p.Categories) > 0 {
+		return p.Categories
+	}
+	return []ConsentCategory{{
+		Label:       i18n.T(ctx, "ui.consent.necessary"),
+		Description: i18n.T(ctx, "ui.consent.necessary_help"),
+		Necessary:   true,
+		Allowed:     true,
+	}}
+}
+
+func consentCatLabel(ctx context.Context, cat ConsentCategory) string {
+	if cat.Label != "" {
+		return cat.Label
+	}
+	if cat.Necessary {
+		return i18n.T(ctx, "ui.consent.necessary")
+	}
+	if cat.Name != "" {
+		return cat.Name
+	}
+	return i18n.T(ctx, "ui.consent.category")
 }

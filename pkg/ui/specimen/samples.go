@@ -22,6 +22,8 @@ import (
 	"github.com/ThirdCoastInteractive/the-beach/pkg/chart"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/i18n"
 	"github.com/ThirdCoastInteractive/the-beach/pkg/rybitten"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/theme"
+	"github.com/ThirdCoastInteractive/the-beach/pkg/ui/driftwood"
 	"github.com/a-h/templ"
 )
 
@@ -118,10 +120,11 @@ const sampleTrackSrc = "/static/media/specimen.en.vtt"
 // ui.Icon records each render for the font subsetter, so showing the set here
 // also guarantees the specimen build ships every glyph.
 var iconNames = []string{
-	"alert-octagon", "box", "calendar", "chart", "check", "chevron-down",
-	"chevron-up-down", "gear", "home", "inbox", "key", "list", "mail", "pencil",
-	"pin", "play", "plus", "refresh", "search", "send", "skip-forward",
-	"spinner", "trash", "user", "x",
+	"alert-octagon", "bold", "box", "calendar", "chart", "check", "chevron-down",
+	"chevron-up-down", "code", "gear", "heading", "home", "image", "inbox",
+	"italic", "key", "link", "list", "list-ol", "mail", "pencil", "pin", "play",
+	"plus", "quote", "refresh", "search", "send", "skip-forward", "spinner",
+	"trash", "user", "video", "x",
 }
 
 // --- gamut preview -------------------------------------------------------------
@@ -659,83 +662,49 @@ func sampleSunClock() chart.GeoClock {
 
 // --- accessibility section ------------------------------------------------------
 
-// contrastPair is one row of the specimen's contrast table: two tokens the kit
-// paints on top of each other, and the ratio WCAG requires for that pairing.
-type contrastPair struct {
-	what      string
-	fg, bg    string
-	min       float64
-	criterion string
-}
-
-// contrastPairs is a readable subset of the pairs asserted by
-// driftwood.TestPaletteMeetsAA. The list is duplicated because a test is not
-// linkable from the page, but the *values* are not: both sides resolve tokens
-// through view.Tokens, so the page and the test are always measuring the colors
-// the stylesheet actually declares. TestContrastRowsAllPass fails if anything
-// shown here would advertise a failure.
-var contrastPairs = []contrastPair{
-	{"body text on the page", "--color-fg-default", "--color-paper", 4.5, "1.4.3"},
-	{"muted text on a card", "--color-fg-muted", "--color-panel", 4.5, "1.4.3"},
-	{"accent button label", "--color-on-accent", "--color-accent", 4.5, "1.4.3"},
-	{"accent button label, hovered", "--color-on-accent", "--color-accent-hover", 4.5, "1.4.3"},
-	{"link text on the page", "--color-accent-text", "--color-paper", 4.5, "1.4.3"},
-	{"ghost button label, hovered", "--color-accent-text", "--color-accent-soft", 4.5, "1.4.3"},
-	{"error text on a card", "--color-bad", "--color-panel", 4.5, "1.4.3"},
-	{"focus ring on the page", "--color-accent", "--color-paper", 3.0, "1.4.11"},
-	{"focus ring on a card", "--color-accent", "--color-panel", 3.0, "1.4.11"},
-	{"input edge on a card", "--color-line-strong", "--color-panel", 3.0, "1.4.11"},
-	{"input edge on the page", "--color-line-strong", "--color-paper", 3.0, "1.4.11"},
-}
-
-// contrastRows renders the pair list as table rows, computing each ratio at
-// render time so the page reports what the palette actually does.
+// contrastRows renders every pair the kit paints, in both schemes, measured at
+// render time.
+//
+// The list used to be duplicated here — a readable subset, kept in step with the
+// test by hand. It is not any more: theme.Scheme.Pairs() is the single list, and
+// the test and this table walk the same one. A contrast table that could drift
+// from the assertion behind it is worse than no table, because it advertises a
+// guarantee nobody is holding.
 func contrastRows() [][]string {
-	rows := make([][]string, 0, len(contrastPairs))
-	for _, p := range contrastPairs {
-		ratio := pairContrast(p)
-		verdict := "pass"
-		if ratio < p.min {
-			verdict = "FAIL"
+	t, err := theme.BuildPreset(view.ThemePreset)
+	if err != nil {
+		return [][]string{{"theme did not derive", err.Error(), "", "", "FAIL"}}
+	}
+	var rows [][]string
+	for _, s := range []struct {
+		name   string
+		scheme theme.Scheme
+	}{{"dark", t.Dark}, {"light", t.Light}} {
+		for _, p := range s.scheme.Pairs() {
+			verdict := "pass"
+			if !p.Passes() {
+				verdict = "FAIL"
+			}
+			rows = append(rows, []string{
+				s.name,
+				p.What,
+				strconv.FormatFloat(p.Ratio(), 'f', 2, 64) + ":1",
+				strconv.FormatFloat(p.Min, 'f', 1, 64) + ":1",
+				p.Criterion,
+				verdict,
+			})
 		}
-		rows = append(rows, []string{
-			p.what,
-			strconv.FormatFloat(ratio, 'f', 2, 64) + ":1",
-			strconv.FormatFloat(p.min, 'f', 1, 64) + ":1",
-			p.criterion,
-			verdict,
-		})
 	}
 	return rows
 }
 
-// pairContrast resolves both sides of a pair and measures them. A name that is
-// already a hex literal (white button text) resolves to itself.
-func pairContrast(p contrastPair) float64 {
-	fg, okf := resolveToken(p.fg)
-	bg, okb := resolveToken(p.bg)
-	if !okf || !okb {
-		return 0
+// contrastRowCount is how many rows the table should hold: every pair, twice.
+func contrastRowCount() int {
+	t, err := theme.BuildPreset(view.ThemePreset)
+	if err != nil {
+		return 1
 	}
-	return rybitten.Contrast(fg, bg)
-}
-
-// resolveToken turns a token name into the color the page will actually paint,
-// reading it out of the stylesheet itself (view.Tokens) rather than a copy — a
-// contrast table reporting ratios for colors the page no longer paints would be
-// worse than no table. A name that is already a hex literal (white button text)
-// resolves to itself.
-func resolveToken(name string) (rybitten.RGB, bool) {
-	hex := name
-	if !strings.HasPrefix(name, "#") {
-		v, ok := view.Tokens()[name]
-		if !ok {
-			return rybitten.RGB{}, false
-		}
-		hex = v
-	}
-	c, err := rybitten.ParseHex(hex)
-	return c, err == nil
+	return len(t.Dark.Pairs()) + len(t.Light.Pairs())
 }
 
 // specimenLang reports the language the document declared, so the page can show
@@ -745,4 +714,29 @@ func specimenLang(ctx context.Context) string {
 		return loc
 	}
 	return "en (no locale configured)"
+}
+
+// --- spacing ladder --------------------------------------------------------------
+
+// spaceRung is one row of the specimen's spacing table.
+type spaceRung struct{ Name, Class, Value string }
+
+// spaceRungs walks driftwood.Spaces so the table cannot list a rung the kit does
+// not have, or miss one it does. The bar in each row is painted by the real
+// padding class, so the page is measuring the ladder rather than describing it.
+func spaceRungs() []spaceRung {
+	vals := map[driftwood.Space]string{
+		driftwood.SpaceNone: "0", driftwood.Space2XS: "0.25rem", driftwood.SpaceXS: "0.5rem",
+		driftwood.SpaceSm: "0.75rem", driftwood.SpaceMd: "1rem", driftwood.SpaceLg: "1.5rem",
+		driftwood.SpaceXL: "2rem", driftwood.Space2XL: "3rem", driftwood.Space3XL: "4rem",
+	}
+	out := make([]spaceRung, 0, len(driftwood.Spaces))
+	for _, s := range driftwood.Spaces {
+		out = append(out, spaceRung{
+			Name:  "Space" + strings.ToUpper(string(s)),
+			Class: "dw-padx-" + string(s),
+			Value: vals[s],
+		})
+	}
+	return out
 }

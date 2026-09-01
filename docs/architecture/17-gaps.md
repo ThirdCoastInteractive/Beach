@@ -87,6 +87,22 @@ ui, ch) and spawn their own items.
   when any member component in the set changed, deduping dirty entities to one render per
   topic per pass.
 
+## Markdown, consent, Stream
+
+- [x] **No Markdown renderer.** Article and post bodies had nowhere to go that
+  was sanitized and Stream-aware; apps would wrap goldmark + bluemonday locally.
+  **Shipped:** `pkg/md` (`Render` / `RenderWith`, profiles Strict / Post / Article,
+  `:::video` fences → Cloudflare Stream iframes). The editor island is
+  `/static/js/md-editor.js`; the kit face is `driftwood.MarkdownEditor`.
+- [x] **No first-party cookie-preference record.** A prompt that is a modal, or
+  a third-party CMP, both fight the kit laws (no focus-trap banner, GPC/DNT
+  win). **Shipped:** `pkg/consent` (`NeedsPrompt`, `Allows`, `Cookie`, GPC/DNT
+  skip the prompt) plus `driftwood.ConsentBanner` (corner region, stays in the
+  DOM), `ConsentManager` (/cookies), `ConsentLink`.
+- [x] **No Cloudflare Stream client.** Video upload was either a raw tus call
+  in the app or missing. **Shipped:** `pkg/storage/cfstream` (`CreateTus` returns
+  Location + UID; the browser PATCHes; the API token stays on the server).
+
 ## Disposition
 
 These were sharpenings, not redesigns — each landed as a small additive change behind the

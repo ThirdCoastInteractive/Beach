@@ -59,6 +59,79 @@ const (
 	SizeLg Size = "lg"
 )
 
+// Space is a step on the kit's spacing ladder, shared by every gap and pad prop.
+//
+// It is a closed set on purpose. Spacing is the thing that goes wrong most often
+// in generated markup — too much, too little, or none at all — and every one of
+// those failures starts with someone writing a number. A caller here cannot
+// write a number: they pick a rung, or they leave the field alone and take the
+// component's own default, which is the right answer nearly every time.
+//
+// The rungs are a ~1.5x ladder rather than a linear one, so adjacent steps are
+// visibly different and a layout cannot drift into "8px here, 9px there".
+// [SpaceAuto] is the zero value: it means "whatever this component already
+// knows", not "zero" — that is [SpaceNone].
+type Space string
+
+const (
+	SpaceAuto Space = ""     // the component's own default; the zero value
+	SpaceNone Space = "none" // 0
+	Space2XS  Space = "2xs"  // 0.25rem
+	SpaceXS   Space = "xs"   // 0.5rem
+	SpaceSm   Space = "sm"   // 0.75rem
+	SpaceMd   Space = "md"   // 1rem
+	SpaceLg   Space = "lg"   // 1.5rem
+	SpaceXL   Space = "xl"   // 2rem
+	Space2XL  Space = "2xl"  // 3rem
+	Space3XL  Space = "3xl"  // 4rem
+)
+
+// Spaces is every rung, in order. TestSpaceScaleIsClosed walks it to prove each
+// one has CSS behind it — a constant with no rule is a silent no-op, which is
+// worse than not offering the rung at all.
+var Spaces = []Space{SpaceNone, Space2XS, SpaceXS, SpaceSm, SpaceMd, SpaceLg, SpaceXL, Space2XL, Space3XL}
+
+// Measure is how wide a column of content is allowed to get.
+//
+// The names are about reading, not about pixels: [MeasureText] is the ~65
+// character line that long-form prose wants (typography's measure, and the
+// reason the type is called this), while the rest step out from there. Naming
+// them by intent is what stops a caller reaching for a literal width, which is
+// how a layout ends up with a 1400px paragraph nobody can read.
+type Measure string
+
+const (
+	MeasureDefault Measure = ""       // the standard page column; the zero value
+	MeasureText    Measure = "text"   // ~65ch — the readable measure for prose
+	MeasureNarrow  Measure = "narrow" // a form or a single-column dialog page
+	MeasureWide    Measure = "wide"   // dashboards and tables
+	MeasureFull    Measure = "full"   // no constraint but the gutter
+)
+
+// Measures is every step, for the same closed-set check as [Spaces].
+var Measures = []Measure{MeasureDefault, MeasureText, MeasureNarrow, MeasureWide, MeasureFull}
+
+// Align is cross-axis alignment for the layout primitives.
+type Align string
+
+const (
+	AlignStretch  Align = "" // fill the cross axis; the zero value
+	AlignStart    Align = "start"
+	AlignCenter   Align = "center"
+	AlignEnd      Align = "end"
+	AlignBaseline Align = "baseline"
+)
+
+// Justify is main-axis distribution for [Inline].
+type Justify string
+
+const (
+	JustifyStart   Justify = "" // the zero value
+	JustifyCenter  Justify = "center"
+	JustifyEnd     Justify = "end"
+	JustifyBetween Justify = "between"
+)
+
 // Ratio names an aspect-ratio step for the media box, mapped to a dw-aspect-*
 // class in app.css.
 type Ratio string
@@ -80,14 +153,26 @@ const (
 
 // --- Layout ---
 
+// ContainerProps constrains a page's content column.
+//
+// Width was a free-form token name until it turned out to name nothing: the
+// style it emitted referenced a --size-* custom property no sheet defined, so
+// setting it made the declaration invalid at computed-value time and *removed*
+// the max-width rather than setting one. A closed [Measure] cannot miss.
 type ContainerProps struct {
-	MaxWidth string // a size token name or empty for the default gutter
-	Attrs    datastar.Attrs
+	Width Measure // the content column's width; zero value is the standard page
+	Pad   Space   // gutter around the column; zero value is the standard gutter
+	Attrs datastar.Attrs
 }
 
 type CardProps struct {
 	Surface Surface // panel (default) or well
-	Heading string  // optional title rendered in the card header
+	// Pad overrides the body padding. Left alone, a card pads itself correctly;
+	// this exists for the two cases where it genuinely should not — a card whose
+	// body is a full-bleed table or image (SpaceNone), and a card carrying a
+	// page's primary content rather than a widget (SpaceLg).
+	Pad     Space
+	Heading string // optional title rendered in the card header
 	// Level is the heading level for Heading, 2–6. It defaults to 3, which is
 	// right under a SectionHeading (h2) and wrong directly under a PageHeading
 	// (h1) — a skipped level is how a screen reader's heading list loses the
@@ -148,12 +233,20 @@ type CardHeadingProps struct {
 	Attrs  datastar.Attrs
 }
 
-// GridProps is a responsive dashboard widget grid. Cols is the column count at
-// the widest breakpoint (the kit collapses it down responsively); cells are the
-// children.
+// GridProps is a responsive card grid. Cols is the column count at the widest
+// breakpoint; cells are the children.
+//
+// The grid is intrinsically responsive — it auto-fills at a minimum cell width
+// rather than switching at breakpoints — so it is also the kit's "n-up that
+// stacks when it has to". There is no separate switcher component, because this
+// is one.
 type GridProps struct {
-	Cols  int // target columns at the widest breakpoint (default 3)
-	Gap   string
+	Cols int   // target columns at the widest breakpoint (default 3)
+	Gap  Space // gap between cells; zero value is the standard grid gap
+	// Min is the narrowest a cell may get before the grid drops a column. The
+	// zero value suits cards; MeasureNarrow gives wider cells and so fewer of
+	// them, MeasureText is for a grid of prose columns.
+	Min   Measure
 	Attrs datastar.Attrs
 }
 
@@ -161,6 +254,7 @@ type GridProps struct {
 type SplitProps struct {
 	List   templ.Component
 	Detail templ.Component
+	Gap    Space // between the panes; zero value is the standard gap
 	Attrs  datastar.Attrs
 }
 
@@ -179,6 +273,109 @@ type DashGridProps struct {
 type DashColProps struct {
 	Span  int // 3, 4, 6, 8, or 12 (defaults to 12)
 	Rows  int // optional row span 1–4 (0 = single row)
+	Attrs datastar.Attrs
+}
+
+// --- Layout primitives ---
+//
+// Seven small components that exist for one reason: composing a page should not
+// require inventing spacing. Between them they cover what page markup actually
+// does — stack things, sit things in a row, put a padded box around something,
+// break a page into sections, centre a column, set long-form text, and hang a
+// rail beside content. Each takes a [Space], so the only spacing decision a
+// caller can make is which rung, and leaving the field alone picks a good one.
+
+// StackProps is a vertical flow with one gap between children — the single most
+// common layout in any page, and the one most often built by hand out of
+// margins that then fight each other. Stack owns the gap; children own nothing.
+type StackProps struct {
+	Gap   Space // between children; zero value is the standard vertical rhythm
+	Align Align // cross-axis alignment; zero value stretches
+	Attrs datastar.Attrs
+}
+
+// InlineProps is a horizontal row that wraps — button rows, badge rows, the meta
+// line under a title.
+//
+// It wraps rather than scrolls or overflows, which is not a style preference: a
+// row of controls that will not wrap is one of the two or three things that
+// actually pushes a page sideways at 320px (WCAG 1.4.10).
+type InlineProps struct {
+	Gap     Space   // between items; zero value is the standard inline gap
+	Align   Align   // cross-axis; zero value centres, which is what a control row wants
+	Justify Justify // main-axis distribution; zero value packs to the start
+	Attrs   datastar.Attrs
+}
+
+// BoxProps is padding and an optional surface, and nothing else.
+//
+// It is the answer to "I just need this padded", which otherwise becomes a
+// hand-written class or an inline style. Reach for [Card] when the thing is a
+// panel with a header and a border; reach for Box when it is a padded div.
+type BoxProps struct {
+	Pad     Space   // inside the box; zero value is the standard box padding
+	Surface Surface // optional background; zero value is transparent
+	Border  bool    // draw a hairline edge
+	Attrs   datastar.Attrs
+}
+
+// SectionProps is one band of a page: block padding, an optional heading, and
+// the section's content as children.
+//
+// It renders a real <section>, and its Heading goes through the same [heading]
+// ladder every other kit component uses — so a page built out of these has an
+// outline a screen reader can navigate, rather than a stack of divs with big
+// text in them (WCAG 1.3.1). A Section with no Heading is an unlabelled region,
+// which is fine for a layout band and wrong for a content one.
+type SectionProps struct {
+	Heading string // optional; rendered as the section's heading
+	Level   int    // heading level for Heading, 2–6; defaults to 2
+	Lead    string // optional standfirst line under the heading
+	Pad     Space  // block padding above and below; zero value is the standard band
+	Gap     Space  // between the heading block and the content
+	Attrs   datastar.Attrs
+}
+
+// CenterProps is a horizontally centred column at a chosen [Measure] — a login
+// form, an empty state, a confirmation page, an article.
+//
+// Distinct from [Container], which is the page's own content column: a Center
+// can sit inside one, and often does.
+type CenterProps struct {
+	Width Measure // zero value is the readable text measure, not the page width
+	// Gutter keeps the column off the viewport edge on a narrow screen. Zero
+	// value is the standard gutter; SpaceNone is for a Center already inside
+	// something padded.
+	Gutter Space
+	Attrs  datastar.Attrs
+}
+
+// ProseProps sets a run of long-form HTML — markdown output, a policy page, an
+// article body.
+//
+// It is the one component in the kit that styles elements it did not render.
+// That is deliberate and it is the point: prose arrives as a blob of <p>, <ul>,
+// <h2>, <blockquote> and <pre> from a renderer that knows nothing about the kit,
+// so something has to give that blob a measure, a rhythm and link styling. The
+// alternative is every app writing the same stylesheet.
+type ProseProps struct {
+	Width Measure // zero value is the readable text measure
+	Attrs datastar.Attrs
+}
+
+// RailProps is content with a secondary column beside it — a table of contents,
+// a filter panel, a metadata sidebar.
+//
+// It stacks below the md breakpoint, rail last, because a rail is by definition
+// the less important column and a narrow screen should not lead with it. Side
+// controls which edge the rail takes on a wide screen.
+type RailProps struct {
+	Rail templ.Component // the secondary column; nil renders content full-width
+	Side string          // "end" (default) or "start"
+	Gap  Space           // between content and rail
+	// Width is how wide the rail gets. Zero value is the standard rail;
+	// MeasureNarrow is for a wider one carrying filters or a form.
+	Width Measure
 	Attrs datastar.Attrs
 }
 
@@ -715,7 +912,8 @@ type StackedListProps struct {
 // the children; Cols is the target column count.
 type GridListProps struct {
 	Cols  int
-	Gap   string
+	Gap   Space   // between cells; zero value is the standard grid gap
+	Min   Measure // narrowest a cell may get before a column drops
 	Attrs datastar.Attrs
 }
 
@@ -1139,6 +1337,18 @@ type LiveToggleProps struct {
 	Attrs datastar.Attrs
 }
 
+// SchemeToggleProps configures the light/dark control.
+//
+// The choice is tri-state, and the third state is the important one: "match
+// system" is not the absence of a choice, it is a choice to defer to the
+// operating system, and a two-way toggle cannot express it. A visitor who has
+// pinned light and later wants their OS to decide again has nowhere to go.
+type SchemeToggleProps struct {
+	// Label names the control. Empty takes the catalog's wording.
+	Label string
+	Attrs datastar.Attrs
+}
+
 // LiveStreamProps configures an extra stream holder governed by a page's
 // [LiveToggle].
 //
@@ -1167,4 +1377,66 @@ type PageProps struct {
 	Description string // optional meta description
 	BodyClass   string // optional extra class on <body>
 	Stylesheet  string // override the kit stylesheet href (default /static/css/app.css)
+}
+
+// --- Markdown editor ---
+
+// MarkdownEditorProps configures the kit's Markdown textarea + toolbar.
+//
+// The island in /static/js/md-editor.js binds to .dw-md, reads data-preview-url /
+// data-image-url / data-tus-url / data-csrf, and runs toolbar clicks off
+// data-md-cmd. The Page shell does not load that module (CSP script-src is
+// 'self', so an inline tag is forbidden). Apps that mount an editor include:
+//
+//	<script type="module" src="/static/js/md-editor.js" defer></script>
+type MarkdownEditorProps struct {
+	Name       string // textarea name, default "body"
+	Value      string
+	Label      string
+	PreviewURL string
+	ImageURL   string
+	TusURL     string
+	CSRF       string
+	Attrs      datastar.Attrs
+}
+
+// --- Consent ---
+
+// ConsentBannerProps is the first-visit cookie prompt: a non-blocking corner
+// card, not a modal. It stays in the DOM when closed (hidden) so a footer
+// ConsentLink can reopen it. Copy comes from the catalog. Driftwood does not
+// import pkg/consent — pass Open from consent.NeedsPrompt and wire the
+// allow/necessary/customize actions as Attrs.
+type ConsentBannerProps struct {
+	Open           bool
+	DetailsURL     string
+	AllowAttrs     datastar.Attrs // OnClick for allow
+	NecessaryAttrs datastar.Attrs
+	CustomizeAttrs datastar.Attrs
+	Attrs          datastar.Attrs
+}
+
+// ConsentCategory is one row in ConsentManager. Necessary rows are listed as
+// always-on; the rest render as Toggles named for a form/signal post.
+type ConsentCategory struct {
+	Name        string // form/signal name, e.g. "analytics"
+	Label       string
+	Description string
+	Necessary   bool
+	Allowed     bool
+}
+
+// ConsentManagerProps is the always-visible category list for /cookies.
+type ConsentManagerProps struct {
+	Categories []ConsentCategory
+	SaveAttrs  datastar.Attrs
+	Attrs      datastar.Attrs
+}
+
+// ConsentLinkProps is the footer control that reopens the banner or goes to
+// /cookies. Href makes it a link; otherwise it is a button. The label is
+// always the catalog's cookie-settings wording.
+type ConsentLinkProps struct {
+	Href  string
+	Attrs datastar.Attrs
 }

@@ -29,6 +29,8 @@ func TestPageRenders(t *testing.T) {
 		"spec-line",         // line chart hover id
 		"race-tide-rentals", // bar-race static frame, stable slug id
 		"Munsell",           // gamut provenance line
+		"dw-md",             // markdown editor
+		"dw-consent",        // cookie banner
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("specimen missing %q", want)
@@ -43,16 +45,20 @@ func TestPageRenders(t *testing.T) {
 }
 
 // TestContrastRowsAllPass asserts the page the framework shows off with does not
-// advertise a failure. Every pair in the specimen's table is one the palette test
-// also asserts, so this failing means the two lists have diverged.
+// advertise a failure.
+//
+// The rows and pkg/theme's assertions now walk the same list, so this cannot
+// diverge from the palette test the way a duplicated list could — what it still
+// catches is the table rendering a failing pair, which is what would actually
+// appear on screen.
 func TestContrastRowsAllPass(t *testing.T) {
 	rows := contrastRows()
-	if len(rows) != len(contrastPairs) {
-		t.Fatalf("got %d rows for %d pairs", len(rows), len(contrastPairs))
+	if want := contrastRowCount(); len(rows) != want {
+		t.Fatalf("got %d rows, want %d (every pair, in both schemes)", len(rows), want)
 	}
-	for i, r := range rows {
+	for _, r := range rows {
 		if r[len(r)-1] != "pass" {
-			t.Errorf("%s: %s (needs %s, WCAG %s)", contrastPairs[i].what, r[1], r[2], r[3])
+			t.Errorf("%s/%s: %s (needs %s, WCAG %s)", r[0], r[1], r[2], r[3], r[4])
 		}
 	}
 }

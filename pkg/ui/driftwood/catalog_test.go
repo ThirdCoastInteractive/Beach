@@ -43,10 +43,28 @@ func TestCatalogComponentsRender(t *testing.T) {
 		"figure":     {c: Figure(FigureProps{Image: ImageProps{Src: "/a.avif", Alt: "x", Ratio: RatioPhoto}, Caption: "A caption"})},
 		"erralert":   {c: ErrorAlert("err-1", true, "Save failed", "Try again")},
 		"livetoggle": {c: LiveToggle(LiveToggleProps{ID: "live", Stream: "/live", Label: "Board"})},
+		"scheme":     {c: SchemeToggle(SchemeToggleProps{Label: "Appearance"})},
+		"stack":      {c: Stack(StackProps{Gap: SpaceLg, Align: AlignStart}), children: []templ.Component{text("a"), text("b")}},
+		"inline":     {c: Inline(InlineProps{Gap: SpaceXS, Justify: JustifyBetween}), children: []templ.Component{text("a")}},
+		"box":        {c: Box(BoxProps{Pad: SpaceLg, Surface: SurfacePanel, Border: true}), children: []templ.Component{text("a")}},
+		"section":    {c: Section(SectionProps{Heading: "Tides", Lead: "Today.", Pad: Space2XL, Level: 2}), children: []templ.Component{text("a")}},
+		"center":     {c: Center(CenterProps{Width: MeasureNarrow, Gutter: SpaceLg}), children: []templ.Component{text("a")}},
+		"prose":      {c: Prose(ProseProps{}), children: []templ.Component{text("<p>body</p>")}},
+		"rail":       {c: Rail(RailProps{Rail: text("toc"), Width: MeasureNarrow, Gap: SpaceXL}), children: []templ.Component{text("a")}},
 		"livestream": {c: LiveStream(LiveStreamProps{ID: "hand", Stream: "/hand"})},
 		"video":      {c: Video(VideoProps{Src: "/v.mp4", Poster: "/v.jpg", Ratio: RatioWide, Label: "Site tour", Tracks: []Track{{Src: "/v.en.vtt", Lang: "en", Label: "English", Default: true}}})},
 		"mediaobj":   {c: MediaObject(MediaObjectProps{Media: Avatar(AvatarProps{Initials: "HS"}), Body: text("said something"), Actions: text("x")})},
 		"confirm":    {c: Confirm(ConfirmProps{ID: "del", Title: "Delete booking?", Message: "The guest is notified and this cannot be undone.", ConfirmLabel: "Delete booking", Post: "/bookings/1/delete", Hazard: true})},
+		"mdeditor": {c: MarkdownEditor(MarkdownEditorProps{
+			Name: "body", Label: "Notes", Value: "## Hello",
+			PreviewURL: "/preview", ImageURL: "/images", TusURL: "/tus", CSRF: "tok",
+		})},
+		"consentban": {c: ConsentBanner(ConsentBannerProps{Open: true, DetailsURL: "/cookies"})},
+		"consentmgr": {c: ConsentManager(ConsentManagerProps{Categories: []ConsentCategory{
+			{Label: "Necessary", Description: "Session.", Necessary: true, Allowed: true},
+			{Name: "analytics", Label: "Analytics", Description: "Counts visits.", Allowed: true},
+		}})},
+		"consentlnk": {c: ConsentLink(ConsentLinkProps{Href: "/cookies"})},
 	}
 	for name, tc := range cases {
 		out := render(t, tc.c, tc.children...)
@@ -141,6 +159,43 @@ func TestCatalogStructuralDetails(t *testing.T) {
 		if !strings.Contains(fs, want) {
 			t.Errorf("fieldset missing %q: %s", want, fs)
 		}
+	}
+
+	// Markdown editor matches the md-editor.js island contract.
+	md := render(t, MarkdownEditor(MarkdownEditorProps{
+		PreviewURL: "/preview", ImageURL: "/images", TusURL: "/tus", CSRF: "tok",
+	}))
+	for _, want := range []string{
+		`class="dw-md"`,
+		`data-preview-url="/preview"`,
+		`data-image-url="/images"`,
+		`data-tus-url="/tus"`,
+		`data-csrf="tok"`,
+		`data-md-cmd="bold"`,
+		`data-md-cmd="video"`,
+		`class="dw-textarea dw-md-source"`,
+		`name="body"`,
+		`class="dw-md-preview"`,
+		`aria-live="polite"`,
+	} {
+		if !strings.Contains(md, want) {
+			t.Errorf("markdown editor missing %q: %s", want, md)
+		}
+	}
+
+	// Consent banner is a named region, not a dialog; closed stays in the DOM.
+	open := render(t, ConsentBanner(ConsentBannerProps{Open: true, DetailsURL: "/cookies"}))
+	for _, want := range []string{`role="region"`, `aria-labelledby="dw-consent-title"`, `id="dw-consent-title"`, `href="/cookies"`} {
+		if !strings.Contains(open, want) {
+			t.Errorf("open consent banner missing %q: %s", want, open)
+		}
+	}
+	if strings.Contains(open, "<dialog") || strings.Contains(open, " hidden") {
+		t.Errorf("open consent banner should not be a dialog or hidden: %s", open)
+	}
+	closed := render(t, ConsentBanner(ConsentBannerProps{}))
+	if !strings.Contains(closed, "hidden") || !strings.Contains(closed, `role="region"`) {
+		t.Errorf("closed consent banner should stay in the DOM, hidden: %s", closed)
 	}
 }
 
