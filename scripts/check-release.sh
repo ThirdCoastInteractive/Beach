@@ -17,7 +17,7 @@ PUBLIC_NAME="ThirdCoast"
 PUBLIC_EMAIL="git@thirdcoast.tv"
 
 # Paths that must not appear on public/main. Examples ship. hush must already be gone.
-PRIVATE_PATH_GREP='^(AGENTS\.md|CLAUDE\.md|\.grok/|\.claude/|cmd/hush/|cmd/askmuskie/|cmd/saltbox/|cmd/lotophages\.com/|lotophages/|cmd/beach-demos/|internal/perf/|docs/master_|docs/HK)'
+PRIVATE_PATH_GREP='^(AGENTS\.md|CLAUDE\.md|\.grok/|\.claude/|cmd/hush/|cmd/askmuskie|cmd/saltbox/|cmd/lotophages\.com/|lotophages/|cmd/beach-demos/|internal/perf/|docs/master_|docs/HK)'
 
 fail() { echo "check-release: $*" >&2; exit 1; }
 

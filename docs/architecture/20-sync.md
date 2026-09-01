@@ -151,8 +151,8 @@ listener — is the keystone build below.
 the fragment's authorization scope.**
 
 - Public or workspace-shared fragments → a shared topic (`items`, `board`). Fine.
-- Anything viewer-dependent → a per-principal topic, rendered per principal. askmuskie's
-  `SelfTopic(sid)` is the pattern: private state never rides a shared topic.
+- Anything viewer-dependent → a per-principal topic, rendered per principal
+  (`self:<sid>` is the pattern). Private state never rides a shared topic.
 
 This is our (much smaller) version of the partial-replication problem: we choose topic
 granularity instead of maintaining per-client materialized views, but the discipline is
