@@ -42,13 +42,24 @@ RELEASE_TREE=$(git write-tree)
 rm -f "$TMPINDEX"
 unset GIT_INDEX_FILE
 
-if git show-ref --verify --quiet refs/heads/main; then
-  MAIN_TREE=$(git rev-parse main^{tree})
-  if [ "$RELEASE_TREE" = "$MAIN_TREE" ]; then
-    echo "Nothing to release — main already matches stripped master."
+# Parent from public/main only when that remote is Beach. Local main on
+# the-beach is leftover v0 (Henry identity) and must not become a parent.
+PUBLIC_REMOTE_URL="$(git remote get-url public 2>/dev/null || true)"
+PUBLIC_IS_BEACH=0
+if [[ "$PUBLIC_REMOTE_URL" == *ThirdCoastInteractive/Beach* ]]; then
+  PUBLIC_IS_BEACH=1
+elif [[ -n "$PUBLIC_REMOTE_URL" ]]; then
+  echo "release: warning: public remote is $PUBLIC_REMOTE_URL (not ThirdCoastInteractive/Beach)" >&2
+fi
+
+if [[ "$PUBLIC_IS_BEACH" -eq 1 ]] && git show-ref --verify --quiet refs/remotes/public/main; then
+  PARENT="$(git rev-parse refs/remotes/public/main)"
+  PARENT_TREE="$(git rev-parse "$PARENT^{tree}")"
+  if [ "$RELEASE_TREE" = "$PARENT_TREE" ]; then
+    echo "Nothing to release — public/main already matches stripped master."
     exit 0
   fi
-  PARENT=$(git rev-parse main)
+  echo "==> Parenting onto public/main $PARENT"
   COMMIT=$(git commit-tree "$RELEASE_TREE" -p "$PARENT" -m "$msg")
 else
   echo "==> First public commit (no parent)..."
@@ -64,13 +75,15 @@ if [[ "$dry" -eq 1 ]]; then
   exit 0
 fi
 
+if [[ "$PUBLIC_IS_BEACH" -eq 0 ]]; then
+  echo "release: refusing to update-ref/push — point public at ThirdCoastInteractive/Beach first (got ${PUBLIC_REMOTE_URL:-none})" >&2
+  echo "release: dangling public commit is $COMMIT" >&2
+  exit 1
+fi
+
+# Local main becomes the public cut. Do not force-push origin/main — that ref
+# on the-beach is leftover v0, not the Beach public lineage.
 git update-ref refs/heads/main "$COMMIT"
 echo "==> main is $(git rev-parse --short main)"
-
-if git remote get-url public >/dev/null 2>&1; then
-  git push --force origin main
-  git push --force public main
-  echo "pushed main to origin and public"
-else
-  echo "no public remote — left main local only"
-fi
+git push --force public main
+echo "pushed main to public"

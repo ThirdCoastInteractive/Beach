@@ -39,15 +39,17 @@ check_identity_dev() {
 }
 
 check_identity_public() {
-  local ref="$1" an ae cn ce
-  an="$(git log -1 --format='%an' "$ref")"
-  ae="$(git log -1 --format='%ae' "$ref")"
-  cn="$(git log -1 --format='%cn' "$ref")"
-  ce="$(git log -1 --format='%ce' "$ref")"
-  [[ "$an" == "$PUBLIC_NAME" && "$ae" == "$PUBLIC_EMAIL" ]] || \
-    fail "$ref author is '$an <$ae>'; public commits must be $PUBLIC_NAME <$PUBLIC_EMAIL>"
-  [[ "$cn" == "$PUBLIC_NAME" && "$ce" == "$PUBLIC_EMAIL" ]] || \
-    fail "$ref committer is '$cn <$ce>'; public commits must be $PUBLIC_NAME <$PUBLIC_EMAIL>"
+  local ref="$1" line
+  # Tip and every ancestor. Parenting onto leftover the-beach main would leak
+  # Henry Slawniak into public git log.
+  while IFS= read -r line; do
+    [[ "$line" == "$PUBLIC_NAME <$PUBLIC_EMAIL>" ]] || \
+      fail "$ref history author '$line'; every ancestor must be $PUBLIC_NAME <$PUBLIC_EMAIL>"
+  done < <(git log --format='%an <%ae>' "$ref")
+  while IFS= read -r line; do
+    [[ "$line" == "$PUBLIC_NAME <$PUBLIC_EMAIL>" ]] || \
+      fail "$ref history committer '$line'; every ancestor must be $PUBLIC_NAME <$PUBLIC_EMAIL>"
+  done < <(git log --format='%cn <%ce>' "$ref")
 }
 
 check_private_files() {
