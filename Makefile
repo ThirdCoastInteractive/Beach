@@ -4,7 +4,7 @@
 # Generated *_templ.go files are committed, so plain `go build` works without
 # running gen first; run `make gen` after editing any .templ or css file.
 
-.PHONY: gen css palette build vet test gen-geo demos notice
+.PHONY: gen css palette build vet test gen-geo notice
 
 gen:
 	go tool templ generate
@@ -30,12 +30,6 @@ css:
 palette:
 	go run ./cmd/beach-palette
 	$(MAKE) css
-
-# Writes the static geo-chart demo site to demos/ — self-contained HTML files
-# (stylesheet, JS modules, and globe geometry inlined) that open from disk with
-# no server. Regenerate after changing the geo charts or their assets.
-demos:
-	go run ./cmd/beach-demos
 
 build: gen
 	go build ./...

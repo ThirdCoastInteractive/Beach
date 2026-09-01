@@ -53,9 +53,11 @@ elif [[ -n "$PUBLIC_REMOTE_URL" ]]; then
 fi
 
 if [[ "$PUBLIC_IS_BEACH" -eq 1 ]] && git show-ref --verify --quiet refs/remotes/public/main; then
-  PARENT_TREE="$(git rev-parse refs/remotes/public/main^{tree})"
-  if [ "$RELEASE_TREE" = "$PARENT_TREE" ]; then
-    echo "Nothing to release — public/main already matches stripped master."
+  PARENT="$(git rev-parse refs/remotes/public/main)"
+  PARENT_TREE="$(git rev-parse "$PARENT^{tree}")"
+  # Skip only when the tree already matches AND public/main is already parentless.
+  if [ "$RELEASE_TREE" = "$PARENT_TREE" ] && [ "$(git rev-list --count "$PARENT")" = "1" ]; then
+    echo "Nothing to release — public/main is already the parentless stripped tree."
     exit 0
   fi
 fi

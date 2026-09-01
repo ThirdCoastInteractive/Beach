@@ -16,7 +16,7 @@ description: >
 
 Follow the `beach` skill first ([../beach/SKILL.md](../beach/SKILL.md), [../beach/references/packages.md](../beach/references/packages.md)). This file is the UI pass: find the kit piece, then call it.
 
-Mechanism: [06-ui.md](../../docs/architecture/06-ui.md). Inventory: [16-components.md](../../docs/architecture/16-components.md). Charts: [14-analytics.md](../../docs/architecture/14-analytics.md). Color: [19-rybitten.md](../../docs/architecture/19-rybitten.md). templ: [docs/templ.md](../../docs/templ.md).
+Mechanism: [06-ui.md](../../docs/architecture/06-ui.md). Inventory: [16-components.md](../../docs/architecture/16-components.md). Charts: [14-analytics.md](../../docs/architecture/14-analytics.md). Color: [19-rybitten.md](../../docs/architecture/19-rybitten.md). templ: [templ.guide](https://templ.guide).
 
 ## Find, then call
 

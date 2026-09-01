@@ -153,13 +153,3 @@ the socket for real, and ~13 s of stall showed 929 frames coalesced server-side 
 client snapping to fresh state on release. Non-Chromium browsers get the stream without
 the stall button. Native/Go consumers (and `DialSocket`) backpressure properly — the
 handoff into `Read` is synchronous.
-
-## Acceptance
-
-- `App.Socket` route serves a 60 Hz binary stream to a browser tab for 10+ minutes with
-  a deliberately slow consumer, memory flat (coalescing verified).
-- Guards reject before upgrade; same-origin enforced by default.
-- `DialSocket` + `Relay` pump a stream through an app process with no added
-  frame-ordering bugs (soak test).
-- All existing examples build unchanged; `beach new` apps compile with zero-value
-  `SocketConfig`.

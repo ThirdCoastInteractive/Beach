@@ -4,7 +4,7 @@
 // through goldmark, then a bluemonday policy selected by [Profile]:
 //
 //   - Strict: no tags
-//   - Post: hush-sized (em, strong, lists, p, br)
+//   - Post: short-form (em, strong, lists, p, br)
 //   - Article: headings, links, CF Images, code, quotes, tables, hr, and
 //     Cloudflare Stream iframes from `:::video <uid>` fences
 package md
@@ -24,7 +24,7 @@ type Profile int
 const (
 	// Strict strips every tag.
 	Strict Profile = iota
-	// Post is the hush-sized subset: em, strong, ul, ol, li, p, br.
+	// Post is the short-form subset: em, strong, ul, ol, li, p, br.
 	Post
 	// Article is the blog subset: Post plus headings, links, images, code,
 	// blockquote, tables, hr, and Cloudflare Stream iframes.

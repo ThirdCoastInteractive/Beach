@@ -18,7 +18,7 @@ PUBLIC_EMAIL="git@thirdcoast.tv"
 
 # Paths that must not appear on public/main. Examples ship. hush must already be gone.
 # AGENTS.md and CLAUDE.md ship (agent-native). Cutter scripts stay private.
-PRIVATE_PATH_GREP='^(\.grok/|\.claude/|cmd/hush/|cmd/askmuskie|cmd/saltbox/|cmd/lotophages\.com/|lotophages/|cmd/beach-demos/|internal/perf/|docs/master_|docs/HK|scripts/release\.sh|scripts/check-release\.sh|scripts/copy-public-skills\.py)'
+PRIVATE_PATH_GREP='^(\.grok/|\.claude/|cmd/hush/|cmd/askmuskie|cmd/saltbox/|cmd/lotophages\.com/|lotophages/|cmd/beach-demos/|internal/perf/|docs/master_|docs/HK|docs/templ\.md|scripts/release\.sh|scripts/check-release\.sh|scripts/copy-public-skills\.py)'
 
 REQUIRED_PUBLIC_FILES=(
   AGENTS.md

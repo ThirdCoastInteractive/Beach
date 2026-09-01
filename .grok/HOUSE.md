@@ -15,3 +15,5 @@ framework cards; chat is not the board.
 Grok loads skills from `.grok/skills/`. Canonical authoring is `skills/` at
 the repo root (ships). Copy with `python scripts/copy-public-skills.py` if
 the two trees drift — that script copies `skills/` → `.grok/skills/`.
+
+`cmd/beach-demos` is private: `go run ./cmd/beach-demos` writes `demos/`.

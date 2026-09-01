@@ -52,7 +52,7 @@ var inlineSpacingRe = regexp.MustCompile(`(?:^|[;\s])(padding|margin)(-(top|righ
 // beach-palette is a development tool that serves its own diagnostic page from
 // its own stylesheet — it is not an application built on the kit, so the kit's
 // ladder is not available to it.
-var spacingSanctioned = []string{"mailer", "hush/internal/mail", "cmd/beach-palette"}
+var spacingSanctioned = []string{"mailer", "cmd/beach-palette"}
 
 // ruleRawSpacing flags spacing written into markup rather than taken from the
 // kit's ladder.
