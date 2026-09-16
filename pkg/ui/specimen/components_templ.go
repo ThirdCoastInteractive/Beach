@@ -18,7 +18,7 @@ import templruntime "github.com/a-h/templ/runtime"
 
 import (
 	"github.com/ThirdCoastInteractive/Beach/pkg/datastar"
-	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/components"
 )
 
 // componentGallery renders the full catalog, one section per family.
@@ -43,7 +43,7 @@ func componentGallery() templ.Component {
 			templ_7745c5c3_Var1 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Components"}).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.SectionHeading(components.SectionHeadingProps{Label: "Components"}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -181,35 +181,35 @@ func buttonsSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Neutral"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Neutral"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Accent", Role: driftwood.RoleAccent}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Accent", Role: components.RoleAccent}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Good", Role: driftwood.RoleGood}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Good", Role: components.RoleGood}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Warn", Role: driftwood.RoleWarn}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Warn", Role: components.RoleWarn}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Danger", Role: driftwood.RoleDanger}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Danger", Role: components.RoleDanger}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Info", Role: driftwood.RoleInfo}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Info", Role: components.RoleInfo}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Ghost", Role: driftwood.RoleGhost}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Ghost", Role: components.RoleGhost}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Quiet", Role: driftwood.RoleQuiet}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Quiet", Role: components.RoleQuiet}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -217,35 +217,35 @@ func buttonsSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Small", Size: driftwood.SizeSm}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Small", Size: components.SizeSm}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Medium"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Medium"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Large", Size: driftwood.SizeLg}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Large", Size: components.SizeLg}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Search", LeadIcon: "search", Role: driftwood.RoleAccent}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Search", LeadIcon: "search", Role: components.RoleAccent}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Next", TailIcon: "chevron-down"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Next", TailIcon: "chevron-down"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Disabled", Disabled: true}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Disabled", Disabled: true}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Saving", Loading: "$busy", Role: driftwood.RoleAccent}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Saving", Loading: "$busy", Role: components.RoleAccent}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Erase reef", Hazard: true}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Erase reef", Hazard: true}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -253,15 +253,15 @@ func buttonsSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.IconButton(driftwood.IconButtonProps{Icon: "gear", Label: "Settings"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.IconButton(components.IconButtonProps{Icon: "gear", Label: "Settings"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.IconButton(driftwood.IconButtonProps{Icon: "trash", Label: "Delete", Role: driftwood.RoleDanger}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.IconButton(components.IconButtonProps{Icon: "trash", Label: "Delete", Role: components.RoleDanger}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.IconButton(driftwood.IconButtonProps{Icon: "plus", Label: "Add", Role: driftwood.RoleAccent, Size: driftwood.SizeLg}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.IconButton(components.IconButtonProps{Icon: "plus", Label: "Add", Role: components.RoleAccent, Size: components.SizeLg}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -277,7 +277,7 @@ func buttonsSection() templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Day"}).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Day"}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -285,7 +285,7 @@ func buttonsSection() templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Week"}).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Week"}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -293,19 +293,19 @@ func buttonsSection() templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Season"}).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Season"}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.ButtonGroup(driftwood.ButtonGroupProps{Label: "Range"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.ButtonGroup(components.ButtonGroupProps{Label: "Range"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var6), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Segmented(driftwood.SegmentedProps{
+			templ_7745c5c3_Err = components.Segmented(components.SegmentedProps{
 				Name: "Tide window",
-				Segments: []driftwood.Segment{
+				Segments: []components.Segment{
 					{Value: "low", Label: "Low"},
 					{Value: "mid", Label: "Mid", Active: true},
 					{Value: "high", Label: "High"},
@@ -314,11 +314,11 @@ func buttonsSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.MenuButton(driftwood.MenuButtonProps{
+			templ_7745c5c3_Err = components.MenuButton(components.MenuButtonProps{
 				ID:    "spec-menu",
 				Label: "Actions",
 				Icon:  "chevron-down",
-				Items: []driftwood.MenuItem{
+				Items: []components.MenuItem{
 					{Label: "Edit", Href: "/specimen", Icon: "pencil"},
 					{Label: "Pin", Icon: "pin", On: "@post('/specimen/pin')"},
 					{Label: "Delete", Icon: "trash", On: "@post('/specimen/delete')"},
@@ -333,7 +333,7 @@ func buttonsSection() templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Buttons"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var5), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Buttons"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var5), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -375,9 +375,9 @@ func navSection() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = driftwood.Navbar(driftwood.NavbarProps{
+			templ_7745c5c3_Err = components.Navbar(components.NavbarProps{
 				Brand: "Beach",
-				Items: []driftwood.NavItem{
+				Items: []components.NavItem{
 					{Label: "Dashboard", Href: "/", Icon: "home", Active: true},
 					{Label: "Rentals", Href: "/rentals", Icon: "box"},
 					{Label: "Reports", Href: "/reports", Icon: "chart"},
@@ -390,8 +390,8 @@ func navSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Breadcrumbs(driftwood.BreadcrumbsProps{
-				Items: []driftwood.NavItem{
+			templ_7745c5c3_Err = components.Breadcrumbs(components.BreadcrumbsProps{
+				Items: []components.NavItem{
 					{Label: "Home", Href: "/"},
 					{Label: "Rentals", Href: "/rentals"},
 					{Label: "Umbrella #42"},
@@ -404,10 +404,10 @@ func navSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Tabs(driftwood.TabsProps{
+			templ_7745c5c3_Err = components.Tabs(components.TabsProps{
 				Name:  "spec-tabs",
 				Label: "Beach detail",
-				Tabs: []driftwood.Tab{
+				Tabs: []components.Tab{
 					{ID: "spec-tab-overview", Label: "Overview", Active: true, Panel: tabPanel("Flags green, three towers staffed.")},
 					{ID: "spec-tab-history", Label: "History", Panel: tabPanel("Nine closures logged this season.")},
 					{ID: "spec-tab-deferred", Label: "Deferred", Get: "/specimen/tab/deferred"},
@@ -420,7 +420,7 @@ func navSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Pagination(driftwood.PaginationProps{Page: 3, Pages: 12, GetBase: "/specimen/list"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Pagination(components.PaginationProps{Page: 3, Pages: 12, GetBase: "/specimen/list"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -438,7 +438,7 @@ func navSection() templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Navigation"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var8), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Navigation"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var8), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -468,14 +468,14 @@ func specSidebar() templ.Component {
 			templ_7745c5c3_Var9 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = driftwood.Sidebar(driftwood.SidebarNavProps{
-			Sections: []driftwood.SidebarSection{
-				{Label: "Operations", Items: []driftwood.NavItem{
+		templ_7745c5c3_Err = components.Sidebar(components.SidebarNavProps{
+			Sections: []components.SidebarSection{
+				{Label: "Operations", Items: []components.NavItem{
 					{Label: "Dashboard", Href: "/", Icon: "home", Active: true},
 					{Label: "Inbox", Href: "/inbox", Icon: "inbox"},
 					{Label: "Rentals", Href: "/rentals", Icon: "box"},
 				}},
-				{Label: "Insight", Items: []driftwood.NavItem{
+				{Label: "Insight", Items: []components.NavItem{
 					{Label: "Charts", Href: "/charts", Icon: "chart"},
 					{Label: "Lists", Href: "/lists", Icon: "list"},
 				}},
@@ -522,7 +522,7 @@ func formsSection() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = driftwood.FormError(driftwood.FormErrorProps{
+			templ_7745c5c3_Err = components.FormError(components.FormErrorProps{
 				Title:    "The booking could not be saved",
 				Messages: []string{"Renter name is required", "Return time is before pickup time"},
 			}).Render(ctx, templ_7745c5c3_Buffer)
@@ -557,13 +557,13 @@ func formsSection() templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = driftwood.Input(driftwood.TextInputProps{ID: "spec-renter", Name: "renter", Placeholder: "Sandy Shores"}).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.Input(components.TextInputProps{ID: "spec-renter", Name: "renter", Placeholder: "Sandy Shores"}).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Field(driftwood.FieldProps{Label: "Renter", For: "spec-renter", Help: "As it appears on the waiver."}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var13), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Field(components.FieldProps{Label: "Renter", For: "spec-renter", Help: "As it appears on the waiver."}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var13), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -583,13 +583,13 @@ func formsSection() templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = driftwood.Input(driftwood.TextInputProps{ID: "spec-email", Name: "email", Type: "email", Value: "gull@example", Error: true}).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.Input(components.TextInputProps{ID: "spec-email", Name: "email", Type: "email", Value: "gull@example", Error: true}).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Field(driftwood.FieldProps{Label: "Email", For: "spec-email", Error: "That address bounced last season."}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var14), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Field(components.FieldProps{Label: "Email", For: "spec-email", Error: "That address bounced last season."}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var14), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -609,13 +609,13 @@ func formsSection() templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = driftwood.Input(driftwood.TextInputProps{ID: "spec-deposit", Name: "deposit", Prefix: "$", Suffix: ".00", Value: "25"}).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.Input(components.TextInputProps{ID: "spec-deposit", Name: "deposit", Prefix: "$", Suffix: ".00", Value: "25"}).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Field(driftwood.FieldProps{Label: "Deposit", For: "spec-deposit"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var15), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Field(components.FieldProps{Label: "Deposit", For: "spec-deposit"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var15), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -635,13 +635,13 @@ func formsSection() templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = driftwood.Input(driftwood.TextInputProps{ID: "spec-locker", Name: "locker", Value: "B-17", Disabled: true}).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.Input(components.TextInputProps{ID: "spec-locker", Name: "locker", Value: "B-17", Disabled: true}).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Field(driftwood.FieldProps{Label: "Locker", For: "spec-locker", Help: "Assigned at the stand; read-only here."}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var16), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Field(components.FieldProps{Label: "Locker", For: "spec-locker", Help: "Assigned at the stand; read-only here."}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var16), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -661,14 +661,14 @@ func formsSection() templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = driftwood.Select(driftwood.SelectProps{
+					templ_7745c5c3_Err = components.Select(components.SelectProps{
 						ID: "spec-board", Name: "board", Placeholder: "Pick a board…",
-						Groups: []driftwood.OptionGroup{
-							{Label: "Longboards", Options: []driftwood.Option{
+						Groups: []components.OptionGroup{
+							{Label: "Longboards", Options: []components.Option{
 								{Value: "log", Label: "9'2\" log"},
 								{Value: "noserider", Label: "9'6\" noserider"},
 							}},
-							{Label: "Shortboards", Options: []driftwood.Option{
+							{Label: "Shortboards", Options: []components.Option{
 								{Value: "funboard", Label: "7'6\" funboard", Selected: true},
 								{Value: "fish", Label: "5'10\" fish"},
 								{Value: "gun", Label: "7'0\" gun (out of stock)", Disabled: true},
@@ -680,7 +680,7 @@ func formsSection() templ.Component {
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Field(driftwood.FieldProps{Label: "Board", For: "spec-board"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var17), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Field(components.FieldProps{Label: "Board", For: "spec-board"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var17), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -700,7 +700,7 @@ func formsSection() templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = driftwood.Input(driftwood.TextInputProps{
+					templ_7745c5c3_Err = components.Input(components.TextInputProps{
 						ID: "spec-party", Name: "party", Type: "number", Value: "2",
 						Min: "1", Max: "12", Step: "1", InputMode: "numeric", Spellcheck: "false",
 					}).Render(ctx, templ_7745c5c3_Buffer)
@@ -709,7 +709,7 @@ func formsSection() templ.Component {
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Field(driftwood.FieldProps{Label: "Party size", For: "spec-party", Help: "Numeric input: step + inputmode + min/max."}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var18), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Field(components.FieldProps{Label: "Party size", For: "spec-party", Help: "Numeric input: step + inputmode + min/max."}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var18), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -729,13 +729,13 @@ func formsSection() templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = driftwood.Textarea(driftwood.TextareaProps{ID: "spec-notes", Name: "notes", Rows: 3, AutoGrow: true, Value: "Prefers the north break."}).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.Textarea(components.TextareaProps{ID: "spec-notes", Name: "notes", Rows: 3, AutoGrow: true, Value: "Prefers the north break."}).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Field(driftwood.FieldProps{Label: "Notes", For: "spec-notes"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var19), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Field(components.FieldProps{Label: "Notes", For: "spec-notes"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var19), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -755,9 +755,9 @@ func formsSection() templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = driftwood.RadioGroup(driftwood.RadioGroupProps{
+					templ_7745c5c3_Err = components.RadioGroup(components.RadioGroupProps{
 						Name: "tide", Inline: true,
-						Options: []driftwood.RadioOption{
+						Options: []components.RadioOption{
 							{Value: "low", Label: "Low"},
 							{Value: "mid", Label: "Mid", Checked: true},
 							{Value: "high", Label: "High"},
@@ -768,7 +768,7 @@ func formsSection() templ.Component {
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Field(driftwood.FieldProps{Label: "Tide window"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var20), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Field(components.FieldProps{Label: "Tide window"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var20), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -776,7 +776,7 @@ func formsSection() templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = driftwood.Checkbox(driftwood.CheckboxProps{ID: "spec-waiver", Name: "waiver", Value: "yes", Label: "Waiver signed", Checked: true}).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Checkbox(components.CheckboxProps{ID: "spec-waiver", Name: "waiver", Value: "yes", Label: "Waiver signed", Checked: true}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -784,7 +784,7 @@ func formsSection() templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = driftwood.Toggle(driftwood.ToggleProps{ID: "spec-sms", Name: "sms", Label: "Tide alerts", Description: "Text when the window opens.", Checked: true}).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Toggle(components.ToggleProps{ID: "spec-sms", Name: "sms", Label: "Tide alerts", Description: "Text when the window opens.", Checked: true}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -792,13 +792,13 @@ func formsSection() templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Save booking", Role: driftwood.RoleAccent, Type: "submit"}).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Save booking", Role: components.RoleAccent, Type: "submit"}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Form(driftwood.FormProps{Post: "/specimen/save", TwoCol: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var12), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Form(components.FormProps{Post: "/specimen/save", TwoCol: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var12), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -806,7 +806,7 @@ func formsSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Divider(driftwood.DividerProps{Label: "input group"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Divider(components.DividerProps{Label: "input group"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -814,9 +814,9 @@ func formsSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.InputGroup(driftwood.InputGroupProps{
-				Input:  driftwood.TextInputProps{Name: "q", Placeholder: "Search rentals…"},
-				Button: driftwood.ButtonProps{Label: "Go", Role: driftwood.RoleAccent, Type: "submit"},
+			templ_7745c5c3_Err = components.InputGroup(components.InputGroupProps{
+				Input:  components.TextInputProps{Name: "q", Placeholder: "Search rentals…"},
+				Button: components.ButtonProps{Label: "Go", Role: components.RoleAccent, Type: "submit"},
 			}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -825,7 +825,7 @@ func formsSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Divider(driftwood.DividerProps{Label: "fieldset"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Divider(components.DividerProps{Label: "fieldset"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -857,13 +857,13 @@ func formsSection() templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = driftwood.Input(driftwood.TextInputProps{ID: "spec-ec-name", Name: "ec_name", Placeholder: "Marina Reyes", Autocomplete: driftwood.AutocompleteName}).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.Input(components.TextInputProps{ID: "spec-ec-name", Name: "ec_name", Placeholder: "Marina Reyes", Autocomplete: components.AutocompleteName}).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Field(driftwood.FieldProps{Label: "Name", For: "spec-ec-name"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var22), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Field(components.FieldProps{Label: "Name", For: "spec-ec-name"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var22), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -883,19 +883,19 @@ func formsSection() templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = driftwood.Input(driftwood.TextInputProps{ID: "spec-ec-phone", Name: "ec_phone", Type: "tel", InputMode: "tel", Placeholder: "555-0142", Autocomplete: driftwood.AutocompleteTel}).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.Input(components.TextInputProps{ID: "spec-ec-phone", Name: "ec_phone", Type: "tel", InputMode: "tel", Placeholder: "555-0142", Autocomplete: components.AutocompleteTel}).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Field(driftwood.FieldProps{Label: "Phone", For: "spec-ec-phone"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var23), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Field(components.FieldProps{Label: "Phone", For: "spec-ec-phone"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var23), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Fieldset(driftwood.FieldsetProps{Legend: "Emergency contact", Help: "Who to call if the surf turns."}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var21), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Fieldset(components.FieldsetProps{Legend: "Emergency contact", Help: "Who to call if the surf turns."}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var21), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -903,7 +903,7 @@ func formsSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Divider(driftwood.DividerProps{Label: "markdown"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Divider(components.DividerProps{Label: "markdown"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -911,7 +911,7 @@ func formsSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.MarkdownEditor(driftwood.MarkdownEditorProps{
+			templ_7745c5c3_Err = components.MarkdownEditor(components.MarkdownEditorProps{
 				Name:  "spec-md",
 				Label: "Stand notes",
 				Value: "## Flags\n\nGreen on the north beach. *Rip* by the jetty.",
@@ -921,7 +921,7 @@ func formsSection() templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Forms"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var11), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Forms"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var11), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -975,7 +975,7 @@ func dataSection() templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = driftwood.Stat(driftwood.StatProps{Label: "Visitors", Value: "12,408", Delta: driftwood.Delta{Value: "+8.2%", Dir: "up"}}).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Stat(components.StatProps{Label: "Visitors", Value: "12,408", Delta: components.Delta{Value: "+8.2%", Dir: "up"}}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -983,7 +983,7 @@ func dataSection() templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = driftwood.Stat(driftwood.StatProps{Label: "Rentals out", Value: "348", Delta: driftwood.Delta{Value: "-3.1%", Dir: "down"}}).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Stat(components.StatProps{Label: "Rentals out", Value: "348", Delta: components.Delta{Value: "-3.1%", Dir: "down"}}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -991,13 +991,13 @@ func dataSection() templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = driftwood.Stat(driftwood.StatProps{Label: "Water temp", Value: "74°F"}).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Stat(components.StatProps{Label: "Water temp", Value: "74°F"}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Grid(driftwood.GridProps{Cols: 3}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var26), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Grid(components.GridProps{Cols: 3}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var26), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1005,7 +1005,7 @@ func dataSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Divider(driftwood.DividerProps{}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Divider(components.DividerProps{}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1013,13 +1013,13 @@ func dataSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Table(driftwood.TableProps{
+			templ_7745c5c3_Err = components.Table(components.TableProps{
 				// A caption names the table and, because the table sits in a scroll
 				// box, names that box too — which is what makes a wide table
 				// reachable by keyboard on a narrow screen.
 				Caption: "Vendor revenue by stand",
-				Columns: []driftwood.Column{
-					{Header: "Vendor", Get: "/specimen/sort/vendor", Sort: driftwood.SortAsc},
+				Columns: []components.Column{
+					{Header: "Vendor", Get: "/specimen/sort/vendor", Sort: components.SortAsc},
 					{Header: "Stand"},
 					{Header: "Revenue", Get: "/specimen/sort/revenue"},
 					{Header: "Status"},
@@ -1037,8 +1037,8 @@ func dataSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Table(driftwood.TableProps{
-				Columns: []driftwood.Column{{Header: "Vendor"}, {Header: "Revenue"}},
+			templ_7745c5c3_Err = components.Table(components.TableProps{
+				Columns: []components.Column{{Header: "Vendor"}, {Header: "Revenue"}},
 				Rows:    nil,
 				Dense:   true,
 				Empty:   "No vendors match this filter.",
@@ -1050,7 +1050,7 @@ func dataSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Divider(driftwood.DividerProps{}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Divider(components.DividerProps{}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1058,27 +1058,27 @@ func dataSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Badge(driftwood.BadgeProps{Label: "Neutral"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Badge(components.BadgeProps{Label: "Neutral"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Badge(driftwood.BadgeProps{Label: "Accent", Role: driftwood.RoleAccent}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Badge(components.BadgeProps{Label: "Accent", Role: components.RoleAccent}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Badge(driftwood.BadgeProps{Label: "Good", Role: driftwood.RoleGood, Dot: true}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Badge(components.BadgeProps{Label: "Good", Role: components.RoleGood, Dot: true}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Badge(driftwood.BadgeProps{Label: "Warn", Role: driftwood.RoleWarn, Dot: true}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Badge(components.BadgeProps{Label: "Warn", Role: components.RoleWarn, Dot: true}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Badge(driftwood.BadgeProps{Label: "Danger", Role: driftwood.RoleDanger}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Badge(components.BadgeProps{Label: "Danger", Role: components.RoleDanger}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Badge(driftwood.BadgeProps{Label: "Info", Role: driftwood.RoleInfo}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Badge(components.BadgeProps{Label: "Info", Role: components.RoleInfo}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1086,7 +1086,7 @@ func dataSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Divider(driftwood.DividerProps{}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Divider(components.DividerProps{}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1094,9 +1094,9 @@ func dataSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.DescList(driftwood.DescListProps{
+			templ_7745c5c3_Err = components.DescList(components.DescListProps{
 				TwoCol: true,
-				Items: []driftwood.DescItem{
+				Items: []components.DescItem{
 					{Term: "Break", Value: "North Jetty"},
 					{Term: "Swell", Value: "4.5 ft @ 11s NW"},
 					{Term: "Wind", Value: "6 kn offshore"},
@@ -1110,7 +1110,7 @@ func dataSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Divider(driftwood.DividerProps{}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Divider(components.DividerProps{}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1118,26 +1118,26 @@ func dataSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.StackedList(driftwood.StackedListProps{
-				Rows: []driftwood.ListRow{
+			templ_7745c5c3_Err = components.StackedList(components.StackedListProps{
+				Rows: []components.ListRow{
 					{
-						Avatar: driftwood.Avatar(driftwood.AvatarProps{Initials: "TR", Size: driftwood.SizeSm}),
+						Avatar: components.Avatar(components.AvatarProps{Initials: "TR", Size: components.SizeSm}),
 						Title:  "Tide Rentals",
 						Meta:   "North 3 — opened 8:00",
 						Href:   "/vendors/tide",
-						Badge:  &driftwood.BadgeProps{Label: "Open", Role: driftwood.RoleGood, Dot: true},
+						Badge:  &components.BadgeProps{Label: "Open", Role: components.RoleGood, Dot: true},
 					},
 					{
-						Avatar: driftwood.Avatar(driftwood.AvatarProps{Initials: "SS", Size: driftwood.SizeSm}),
+						Avatar: components.Avatar(components.AvatarProps{Initials: "SS", Size: components.SizeSm}),
 						Title:  "Salt & Sugar",
 						Meta:   "Boardwalk 1 — opened 9:00",
-						Action: driftwood.IconButton(driftwood.IconButtonProps{Icon: "pencil", Label: "Edit"}),
+						Action: components.IconButton(components.IconButtonProps{Icon: "pencil", Label: "Edit"}),
 					},
 					{
-						Avatar: driftwood.Avatar(driftwood.AvatarProps{Initials: "GS", Size: driftwood.SizeSm}),
+						Avatar: components.Avatar(components.AvatarProps{Initials: "GS", Size: components.SizeSm}),
 						Title:  "Gull Shack",
 						Meta:   "Pier 2 — closed for repairs",
-						Badge:  &driftwood.BadgeProps{Label: "Closed", Role: driftwood.RoleDanger},
+						Badge:  &components.BadgeProps{Label: "Closed", Role: components.RoleDanger},
 					},
 				},
 			}).Render(ctx, templ_7745c5c3_Buffer)
@@ -1148,7 +1148,7 @@ func dataSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Divider(driftwood.DividerProps{}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Divider(components.DividerProps{}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1190,7 +1190,7 @@ func dataSection() templ.Component {
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "North 3"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var28), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "North 3"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var28), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1216,7 +1216,7 @@ func dataSection() templ.Component {
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Boardwalk 1"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var29), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Boardwalk 1"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var29), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1242,7 +1242,7 @@ func dataSection() templ.Component {
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Pier 2"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var30), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Pier 2"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var30), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -1252,13 +1252,13 @@ func dataSection() templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.GridList(driftwood.GridListProps{Cols: 3}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var27), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.GridList(components.GridListProps{Cols: 3}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var27), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Data"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var25), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Data"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var25), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1318,7 +1318,7 @@ func feedbackSection() templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleGood, Title: "Booking saved"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var33), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Alert(components.AlertProps{Role: components.RoleGood, Title: "Booking saved"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var33), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1344,7 +1344,7 @@ func feedbackSection() templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleWarn, Title: "Rip current advisory", Dismissible: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var34), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Alert(components.AlertProps{Role: components.RoleWarn, Title: "Rip current advisory", Dismissible: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var34), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1370,7 +1370,7 @@ func feedbackSection() templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleDanger, Title: "Stand offline"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var35), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Alert(components.AlertProps{Role: components.RoleDanger, Title: "Stand offline"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var35), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1396,7 +1396,7 @@ func feedbackSection() templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleInfo, Title: "Heads up"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var36), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Alert(components.AlertProps{Role: components.RoleInfo, Title: "Heads up"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var36), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1404,7 +1404,7 @@ func feedbackSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.ErrorAlert("spec-error-alert", true, "Save failed", "The reservation service returned a conflict — retry in a moment.").Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.ErrorAlert("spec-error-alert", true, "Save failed", "The reservation service returned a conflict — retry in a moment.").Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1412,7 +1412,7 @@ func feedbackSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Divider(driftwood.DividerProps{}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Divider(components.DividerProps{}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1420,11 +1420,11 @@ func feedbackSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Toast(driftwood.ToastProps{Role: driftwood.RoleGood, Title: "Synced", Message: "Tide tables updated."}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Toast(components.ToastProps{Role: components.RoleGood, Title: "Synced", Message: "Tide tables updated."}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Toast(driftwood.ToastProps{Role: driftwood.RoleWarn, Title: "Slow link", Message: "Retrying the camera feed."}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Toast(components.ToastProps{Role: components.RoleWarn, Title: "Slow link", Message: "Retrying the camera feed."}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1432,7 +1432,7 @@ func feedbackSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Divider(driftwood.DividerProps{}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Divider(components.DividerProps{}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1440,7 +1440,7 @@ func feedbackSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Progress(driftwood.ProgressProps{Value: 348, Max: 400, Label: "Umbrellas deployed"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Progress(components.ProgressProps{Value: 348, Max: 400, Label: "Umbrellas deployed"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1448,7 +1448,7 @@ func feedbackSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Progress(driftwood.ProgressProps{Value: 92, Max: 400, Label: "Kayaks out", Role: driftwood.RoleWarn}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Progress(components.ProgressProps{Value: 92, Max: 400, Label: "Kayaks out", Role: components.RoleWarn}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1456,7 +1456,7 @@ func feedbackSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Progress(driftwood.ProgressProps{Label: "Syncing tide tables"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Progress(components.ProgressProps{Label: "Syncing tide tables"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1464,7 +1464,7 @@ func feedbackSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Divider(driftwood.DividerProps{}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Divider(components.DividerProps{}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1472,23 +1472,23 @@ func feedbackSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Spinner(driftwood.SpinnerProps{Size: driftwood.SizeSm}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Spinner(components.SpinnerProps{Size: components.SizeSm}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Spinner(driftwood.SpinnerProps{}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Spinner(components.SpinnerProps{}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Spinner(driftwood.SpinnerProps{Size: driftwood.SizeLg}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Spinner(components.SpinnerProps{Size: components.SizeLg}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Skeleton(driftwood.SkeletonProps{Width: "12rem", Height: "1.25rem"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Skeleton(components.SkeletonProps{Width: "12rem", Height: "1.25rem"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Skeleton(driftwood.SkeletonProps{Width: "8rem", Height: "8rem"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Skeleton(components.SkeletonProps{Width: "8rem", Height: "8rem"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1496,13 +1496,13 @@ func feedbackSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "inbox", Message: "No bookings yet — the tide chart says wait an hour."}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.EmptyState(components.EmptyStateProps{Icon: "inbox", Message: "No bookings yet — the tide chart says wait an hour."}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Feedback"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var32), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Feedback"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var32), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1548,38 +1548,38 @@ func overlaysSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{
 				Label: "Open modal",
 				Attrs: datastar.Attrs{datastar.OnClick("document.getElementById('spec-modal').showModal()")},
 			}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{
 				Label: "Open right drawer",
 				Attrs: datastar.Attrs{datastar.OnClick("document.getElementById('spec-drawer-right').showModal()")},
 			}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{
 				Label: "Open left drawer",
 				Attrs: datastar.Attrs{datastar.OnClick("document.getElementById('spec-drawer-left').showModal()")},
 			}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{
 				Label: "Delete a booking",
-				Role:  driftwood.RoleDanger,
+				Role:  components.RoleDanger,
 				Attrs: datastar.Attrs{datastar.OnClick("document.getElementById('spec-confirm').showModal()")},
 			}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{
 				Label: "Log in / register",
-				Role:  driftwood.RoleAccent,
+				Role:  components.RoleAccent,
 				Attrs: datastar.Attrs{datastar.OnClick("document.getElementById('spec-auth').showModal()")},
 			}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
@@ -1603,7 +1603,7 @@ func overlaysSection() templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Popover(driftwood.PopoverProps{ID: "spec-popover", Label: "Conditions", Icon: "chart"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var39), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Popover(components.PopoverProps{ID: "spec-popover", Label: "Conditions", Icon: "chart"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var39), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1619,13 +1619,13 @@ func overlaysSection() templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = driftwood.Badge(driftwood.BadgeProps{Label: "Live", Role: driftwood.RoleGood, Dot: true}).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Badge(components.BadgeProps{Label: "Live", Role: components.RoleGood, Dot: true}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Tooltip(driftwood.TooltipProps{Text: "Updated every 10 minutes"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var40), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Tooltip(components.TooltipProps{Text: "Updated every 10 minutes"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var40), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1633,7 +1633,7 @@ func overlaysSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.AuthModal(driftwood.AuthModalProps{
+			templ_7745c5c3_Err = components.AuthModal(components.AuthModalProps{
 				ID:           "spec-auth",
 				Title:        "Welcome to the beach",
 				LoginPost:    "/specimen/login",
@@ -1648,7 +1648,7 @@ func overlaysSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Confirm(driftwood.ConfirmProps{
+			templ_7745c5c3_Err = components.Confirm(components.ConfirmProps{
 				ID:           "spec-confirm",
 				Title:        "Delete this booking?",
 				Message:      "The guest is emailed straight away, and the slot is released. This cannot be undone.",
@@ -1679,13 +1679,13 @@ func overlaysSection() templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Release deposit", Role: driftwood.RoleAccent}).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Release deposit", Role: components.RoleAccent}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Modal(driftwood.ModalProps{ID: "spec-modal", Title: "Confirm return"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var41), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Modal(components.ModalProps{ID: "spec-modal", Title: "Confirm return"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var41), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1705,7 +1705,7 @@ func overlaysSection() templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = driftwood.DescList(driftwood.DescListProps{Items: []driftwood.DescItem{
+				templ_7745c5c3_Err = components.DescList(components.DescListProps{Items: []components.DescItem{
 					{Term: "Renter", Value: "Sandy Shores"},
 					{Term: "Board", Value: "7'6\" funboard"},
 				}}).Render(ctx, templ_7745c5c3_Buffer)
@@ -1714,7 +1714,7 @@ func overlaysSection() templ.Component {
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Drawer(driftwood.DrawerProps{ID: "spec-drawer-right", Title: "Booking details", Side: "right"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var42), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Drawer(components.DrawerProps{ID: "spec-drawer-right", Title: "Booking details", Side: "right"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var42), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1734,19 +1734,19 @@ func overlaysSection() templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = driftwood.Checkbox(driftwood.CheckboxProps{ID: "spec-filter-open", Name: "open", Label: "Open stands only", Checked: true}).Render(ctx, templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Checkbox(components.CheckboxProps{ID: "spec-filter-open", Name: "open", Label: "Open stands only", Checked: true}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Drawer(driftwood.DrawerProps{ID: "spec-drawer-left", Title: "Filters", Side: "left"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var43), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Drawer(components.DrawerProps{ID: "spec-drawer-left", Title: "Filters", Side: "left"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var43), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Overlays"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var38), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Overlays"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var38), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1795,7 +1795,7 @@ func consentSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.ConsentBanner(driftwood.ConsentBannerProps{Open: true, DetailsURL: "/specimen#dw-consent-mgr-title"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.ConsentBanner(components.ConsentBannerProps{Open: true, DetailsURL: "/specimen#dw-consent-mgr-title"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1803,8 +1803,8 @@ func consentSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.ConsentManager(driftwood.ConsentManagerProps{
-				Categories: []driftwood.ConsentCategory{
+			templ_7745c5c3_Err = components.ConsentManager(components.ConsentManagerProps{
+				Categories: []components.ConsentCategory{
 					{Label: "Necessary", Description: "Session, CSRF, and this preference.", Necessary: true, Allowed: true},
 					{Name: "analytics", Label: "Analytics", Description: "Counts visits. Off until you allow it.", Allowed: false},
 				},
@@ -1816,13 +1816,13 @@ func consentSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.ConsentLink(driftwood.ConsentLinkProps{Href: "/specimen#dw-consent-title"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.ConsentLink(components.ConsentLinkProps{Href: "/specimen#dw-consent-title"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Consent"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var45), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Consent"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var45), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1868,15 +1868,15 @@ func mediaSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Avatar(driftwood.AvatarProps{Initials: "SS", Alt: "Sandy Shores", Size: driftwood.SizeSm}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Avatar(components.AvatarProps{Initials: "SS", Alt: "Sandy Shores", Size: components.SizeSm}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Avatar(driftwood.AvatarProps{Initials: "SS", Alt: "Sandy Shores", Status: "online"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Avatar(components.AvatarProps{Initials: "SS", Alt: "Sandy Shores", Status: "online"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Avatar(driftwood.AvatarProps{Initials: "GP", Alt: "Gull Point", Size: driftwood.SizeLg, Status: "away"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Avatar(components.AvatarProps{Initials: "GP", Alt: "Gull Point", Size: components.SizeLg, Status: "away"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -1884,10 +1884,10 @@ func mediaSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.MediaObject(driftwood.MediaObjectProps{
-				Media:   driftwood.Avatar(driftwood.AvatarProps{Initials: "SS", Alt: "Sandy Shores"}),
+			templ_7745c5c3_Err = components.MediaObject(components.MediaObjectProps{
+				Media:   components.Avatar(components.AvatarProps{Initials: "SS", Alt: "Sandy Shores"}),
 				Body:    mediaObjectBody(),
-				Actions: driftwood.IconButton(driftwood.IconButtonProps{Icon: "x", Label: "Dismiss"}),
+				Actions: components.IconButton(components.IconButtonProps{Icon: "x", Label: "Dismiss"}),
 			}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
@@ -1908,11 +1908,11 @@ func mediaSection() templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = driftwood.Image(driftwood.ImageProps{
+				templ_7745c5c3_Err = components.Image(components.ImageProps{
 					Src:   sampleImageSrc,
 					Alt:   "Stylized beach scene",
-					Ratio: driftwood.RatioWide,
-					Fit:   driftwood.FitCover,
+					Ratio: components.RatioWide,
+					Fit:   components.FitCover,
 				}).Render(ctx, templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
@@ -1921,12 +1921,12 @@ func mediaSection() templ.Component {
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = driftwood.Figure(driftwood.FigureProps{
-					Image: driftwood.ImageProps{
+				templ_7745c5c3_Err = components.Figure(components.FigureProps{
+					Image: components.ImageProps{
 						Src:   sampleImageSrc,
 						Alt:   "Stylized beach scene",
-						Ratio: driftwood.RatioPhoto,
-						Fit:   driftwood.FitContain,
+						Ratio: components.RatioPhoto,
+						Fit:   components.FitContain,
 					},
 					Caption: "Figure: the same scene, 4:3, contained.",
 				}).Render(ctx, templ_7745c5c3_Buffer)
@@ -1955,19 +1955,46 @@ func mediaSection() templ.Component {
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.AspectRatio(driftwood.AspectBoxProps{Ratio: driftwood.RatioSquare}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var49), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.AspectRatio(components.AspectBoxProps{Ratio: components.RatioSquare}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var49), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Grid(driftwood.GridProps{Cols: 3}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var48), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Grid(components.GridProps{Cols: 3}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var48), templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, " <p class=\"spec-note\">Gallery is a 1–6 tile strip; each thumbnail opens a native <code>&lt;dialog&gt;</code> lightbox (showModal + method=dialog), same open/close contract as Modal. Alt on images and Label on videos are required — the button name is \"View …\" from the catalog.</p>")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = components.Gallery(components.GalleryProps{
+				ID: "spec-gallery",
+				Items: []components.GalleryItem{
+					{Image: components.ImageProps{Src: sampleImageSrc, Alt: "North beach at low tide", Ratio: components.RatioWide, Fit: components.FitCover}},
+					{Image: components.ImageProps{Src: sampleImageSrc, Alt: "Jetty in late sun", Ratio: components.RatioPhoto, Fit: components.FitCover}},
+					{Video: components.VideoProps{
+						Ratio:  components.RatioWide,
+						Poster: samplePosterSrc,
+						Label:  "Beach tour",
+						Sources: []components.Source{
+							{Src: "/static/media/tour.webm", Type: "video/webm"},
+							{Src: "/static/media/tour.mp4", Type: "video/mp4"},
+						},
+						Tracks: []components.Track{
+							{Src: sampleTrackSrc, Lang: "en", Label: "English", Default: true},
+						},
+						Describe: "A slow pan along the north beach at low tide.",
+					}},
+				},
+			}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Media"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var47), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Media"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var47), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -1997,7 +2024,7 @@ func mediaObjectBody() templ.Component {
 			templ_7745c5c3_Var50 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 86, "<p class=\"spec-note\"><strong>Sandy Shores</strong> flagged the north tower.</p>")
+		templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "<p class=\"spec-note\"><strong>Sandy Shores</strong> flagged the north tower.</p>")
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2042,19 +2069,19 @@ func videoSection() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 87, "<p class=\"spec-note\">The frame is reserved before any byte arrives, nothing is fetched until someone presses play, and the caption track rides along — this one is real and inline, so the demo shows captions rather than describing them. The video sources are deliberately fictional and never requested, which is <code>preload=\"none\"</code> demonstrating itself. Controls are not optional: motion that starts on its own needs a way to stop it (WCAG 2.2.2), and the native control bar is that mechanism.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "<p class=\"spec-note\">The frame is reserved before any byte arrives, nothing is fetched until someone presses play, and the caption track rides along — this one is real and inline, so the demo shows captions rather than describing them. The video sources are deliberately fictional and never requested, which is <code>preload=\"none\"</code> demonstrating itself. Controls are not optional: motion that starts on its own needs a way to stop it (WCAG 2.2.2), and the native control bar is that mechanism.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Video(driftwood.VideoProps{
-				Ratio:  driftwood.RatioWide,
+			templ_7745c5c3_Err = components.Video(components.VideoProps{
+				Ratio:  components.RatioWide,
 				Poster: samplePosterSrc,
 				Label:  "Beach tour",
-				Sources: []driftwood.Source{
+				Sources: []components.Source{
 					{Src: "/static/media/tour.webm", Type: "video/webm"},
 					{Src: "/static/media/tour.mp4", Type: "video/mp4"},
 				},
-				Tracks: []driftwood.Track{
+				Tracks: []components.Track{
 					{Src: sampleTrackSrc, Lang: "en", Label: "English", Default: true},
 				},
 				Describe: "A slow pan along the north beach at low tide.",
@@ -2064,7 +2091,7 @@ func videoSection() templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Video"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var52), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Video"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var52), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2106,28 +2133,28 @@ func messagingSection() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 88, "<div class=\"spec-row\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "<div class=\"spec-row\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Presence(driftwood.PresencePillProps{State: "connected", Label: "Connected"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Presence(components.PresencePillProps{State: "connected", Label: "Connected"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Presence(driftwood.PresencePillProps{State: "reconnecting", Label: "Reconnecting…"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Presence(components.PresencePillProps{State: "reconnecting", Label: "Reconnecting…"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Presence(driftwood.PresencePillProps{State: "waiting", Label: "Waiting for crew"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Presence(components.PresencePillProps{State: "waiting", Label: "Waiting for crew"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 89, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.MessageList(driftwood.MessageListProps{
-				Messages: []driftwood.Message{
+			templ_7745c5c3_Err = components.MessageList(components.MessageListProps{
+				Messages: []components.Message{
 					{System: true, Body: "Channel opened — lifeguard tower 3.", At: "07:58"},
 					{Author: "Tower 3", Body: "Yellow flag going up, rip by the jetty.", At: "08:02"},
 					{Author: "You", Body: "Copy. Moving the swim lesson south.", Own: true, At: "08:03"},
@@ -2136,17 +2163,17 @@ func messagingSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 90, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Composer(driftwood.ComposerProps{Name: "message", Placeholder: "Message tower 3…", Post: "/specimen/send"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Composer(components.ComposerProps{Name: "message", Placeholder: "Message tower 3…", Post: "/specimen/send"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Messaging"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var54), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Messaging"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var54), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2188,7 +2215,7 @@ func layoutSection() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 91, "<p class=\"spec-note\">Every gap and pad in the kit is a rung, never a number. The props take <code>driftwood.Space</code>, so a caller picks from this ladder or leaves the field alone and takes the component's own default — <code>p-7</code> and <code>2.3rem</code> are unspellable. <code>beach-vet</code>'s <code>raw-spacing</code> rule closes the other door, flagging spacing written straight into markup.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "<p class=\"spec-note\">Every gap and pad in the kit is a rung, never a number. The props take <code>components.Space</code>, so a caller picks from this ladder or leaves the field alone and takes the component's own default — <code>p-7</code> and <code>2.3rem</code> are unspellable. <code>beach-vet</code>'s <code>raw-spacing</code> rule closes the other door, flagging spacing written straight into markup.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2205,20 +2232,20 @@ func layoutSection() templ.Component {
 				}
 				ctx = templ.InitializeContext(ctx)
 				for _, s := range spaceRungs() {
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 92, "<div class=\"spec-row\"><code class=\"spec-swatch-name\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "<div class=\"spec-row\"><code class=\"spec-swatch-name\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var58 string
 					templ_7745c5c3_Var58, templ_7745c5c3_Err = templ.JoinStringErrs(s.Name)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/ui/specimen/components.templ`, Line: 563, Col: 44}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/ui/specimen/components.templ`, Line: 589, Col: 44}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var58))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 93, "</code>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "</code>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -2227,7 +2254,7 @@ func layoutSection() templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 94, "<div class=\"")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "<div class=\"")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -2240,33 +2267,33 @@ func layoutSection() templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 95, "\"></div><span class=\"spec-swatch-note\">")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "\"></div><span class=\"spec-swatch-note\">")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					var templ_7745c5c3_Var61 string
 					templ_7745c5c3_Var61, templ_7745c5c3_Err = templ.JoinStringErrs(s.Value)
 					if templ_7745c5c3_Err != nil {
-						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/ui/specimen/components.templ`, Line: 565, Col: 45}
+						return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/ui/specimen/components.templ`, Line: 591, Col: 45}
 					}
 					_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var61))
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 96, "</span></div>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "</span></div>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Stack(driftwood.StackProps{Gap: driftwood.SpaceXS}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var57), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Stack(components.StackProps{Gap: components.SpaceXS}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var57), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Spacing — a closed ladder"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var56), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Spacing — a closed ladder"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var56), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2282,15 +2309,15 @@ func layoutSection() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 97, "<p class=\"spec-note\">Seven components page markup is actually made of. Each owns the space <em>between</em> its children rather than putting margins on them — sibling margins collapse, fight, and leave the last child with trailing space nobody asked for.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, "<p class=\"spec-note\">Seven components page markup is actually made of. Each owns the space <em>between</em> its children rather than putting margins on them — sibling margins collapse, fight, and leave the last child with trailing space nobody asked for.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Stack — vertical rhythm", Level: 4}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.SectionHeading(components.SectionHeadingProps{Label: "Stack — vertical rhythm", Level: 4}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 98, " ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2330,17 +2357,17 @@ func layoutSection() templ.Component {
 							}()
 						}
 						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 99, "First")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, "First")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						return nil
 					})
-					templ_7745c5c3_Err = driftwood.Box(driftwood.BoxProps{Pad: driftwood.SpaceXS, Surface: driftwood.SurfacePanel}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var65), templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.Box(components.BoxProps{Pad: components.SpaceXS, Surface: components.SurfacePanel}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var65), templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 100, " ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, " ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -2356,17 +2383,17 @@ func layoutSection() templ.Component {
 							}()
 						}
 						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 101, "Second")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, "Second")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						return nil
 					})
-					templ_7745c5c3_Err = driftwood.Box(driftwood.BoxProps{Pad: driftwood.SpaceXS, Surface: driftwood.SurfacePanel}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var66), templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.Box(components.BoxProps{Pad: components.SpaceXS, Surface: components.SurfacePanel}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var66), templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 102, " ")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, " ")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -2382,37 +2409,37 @@ func layoutSection() templ.Component {
 							}()
 						}
 						ctx = templ.InitializeContext(ctx)
-						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 103, "Third")
+						templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 104, "Third")
 						if templ_7745c5c3_Err != nil {
 							return templ_7745c5c3_Err
 						}
 						return nil
 					})
-					templ_7745c5c3_Err = driftwood.Box(driftwood.BoxProps{Pad: driftwood.SpaceXS, Surface: driftwood.SurfacePanel}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var67), templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.Box(components.BoxProps{Pad: components.SpaceXS, Surface: components.SurfacePanel}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var67), templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Stack(driftwood.StackProps{Gap: driftwood.SpaceSm}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var64), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Stack(components.StackProps{Gap: components.SpaceSm}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var64), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Box(driftwood.BoxProps{Surface: driftwood.SurfaceWell, Border: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var63), templ_7745c5c3_Buffer)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 104, " ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Inline — a row that wraps", Level: 4}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Box(components.BoxProps{Surface: components.SurfaceWell, Border: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var63), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 105, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = components.SectionHeading(components.SectionHeadingProps{Label: "Inline — a row that wraps", Level: 4}).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2440,15 +2467,7 @@ func layoutSection() templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Save", Role: driftwood.RoleAccent}).Render(ctx, templ_7745c5c3_Buffer)
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 106, " ")
-					if templ_7745c5c3_Err != nil {
-						return templ_7745c5c3_Err
-					}
-					templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Discard", Role: driftwood.RoleQuiet}).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Save", Role: components.RoleAccent}).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -2456,7 +2475,7 @@ func layoutSection() templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = driftwood.Badge(driftwood.BadgeProps{Label: "Draft"}).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Discard", Role: components.RoleQuiet}).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
@@ -2464,31 +2483,39 @@ func layoutSection() templ.Component {
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = driftwood.Badge(driftwood.BadgeProps{Label: "Edited 2m ago", Role: driftwood.RoleInfo}).Render(ctx, templ_7745c5c3_Buffer)
+					templ_7745c5c3_Err = components.Badge(components.BadgeProps{Label: "Draft"}).Render(ctx, templ_7745c5c3_Buffer)
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, " ")
+					if templ_7745c5c3_Err != nil {
+						return templ_7745c5c3_Err
+					}
+					templ_7745c5c3_Err = components.Badge(components.BadgeProps{Label: "Edited 2m ago", Role: components.RoleInfo}).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Inline(driftwood.InlineProps{Gap: driftwood.SpaceXS}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var69), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Inline(components.InlineProps{Gap: components.SpaceXS}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var69), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Box(driftwood.BoxProps{Surface: driftwood.SurfaceWell, Border: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var68), templ_7745c5c3_Buffer)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 109, " ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Rail — content with a side column", Level: 4}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Box(components.BoxProps{Surface: components.SurfaceWell, Border: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var68), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 110, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = components.SectionHeading(components.SectionHeadingProps{Label: "Rail — content with a side column", Level: 4}).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 111, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2516,31 +2543,31 @@ func layoutSection() templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 111, "<p>The rail stacks below the md breakpoint, and stacks <em>last</em> whichever side it takes on a wide screen: a rail is the subordinate column, and a narrow screen that opens with the filters instead of the results has buried the page under its own chrome.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, "<p>The rail stacks below the md breakpoint, and stacks <em>last</em> whichever side it takes on a wide screen: a rail is the subordinate column, and a narrow screen that opens with the filters instead of the results has buried the page under its own chrome.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Box(driftwood.BoxProps{Pad: driftwood.SpaceMd, Surface: driftwood.SurfacePanel, Border: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var71), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Box(components.BoxProps{Pad: components.SpaceMd, Surface: components.SurfacePanel, Border: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var71), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Rail(driftwood.RailProps{Rail: railDemo(), Width: driftwood.MeasureNarrow}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var70), templ_7745c5c3_Buffer)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 112, " ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Prose — long-form the kit did not render", Level: 4}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Rail(components.RailProps{Rail: railDemo(), Width: components.MeasureNarrow}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var70), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 113, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = components.SectionHeading(components.SectionHeadingProps{Label: "Prose — long-form the kit did not render", Level: 4}).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 114, " ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2568,25 +2595,25 @@ func layoutSection() templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 114, "<h2>A heading from a markdown renderer</h2><p>This is the one place the kit styles elements it did not emit. Markdown output arrives as a blob of tags from a renderer that knows nothing about driftwood, so something has to give it a measure and a rhythm.</p><ul><li>Lists get their spacing here.</li><li>So do <a href=\"#dw-main\">links</a>, <code>code</code>, and quotes.</li></ul><blockquote>The alternative is every app shipping this same stylesheet.</blockquote>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 115, "<h2>A heading from a markdown renderer</h2><p>This is the one place the kit styles elements it did not emit. Markdown output arrives as a blob of tags from a renderer that knows nothing about driftwood, so something has to give it a measure and a rhythm.</p><ul><li>Lists get their spacing here.</li><li>So do <a href=\"#dw-main\">links</a>, <code>code</code>, and quotes.</li></ul><blockquote>The alternative is every app shipping this same stylesheet.</blockquote>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Prose(driftwood.ProseProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var73), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Prose(components.ProseProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var73), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Box(driftwood.BoxProps{Surface: driftwood.SurfaceWell, Border: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var72), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Box(components.BoxProps{Surface: components.SurfaceWell, Border: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var72), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Layout primitives"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var62), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Layout primitives"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var62), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2602,17 +2629,17 @@ func layoutSection() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 115, "<p class=\"spec-note\">Three states, not two: light, dark, or defer to the operating system. The choice rides in the preference cookie and the page stamps <code>data-theme</code> on <code>&lt;html&gt;</code> during server render, so a chosen theme survives the first paint — no blocking script, no flash of the wrong theme on navigation.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 116, "<p class=\"spec-note\">Three states, not two: light, dark, or defer to the operating system. The choice rides in the preference cookie and the page stamps <code>data-theme</code> on <code>&lt;html&gt;</code> during server render, so a chosen theme survives the first paint — no blocking script, no flash of the wrong theme on navigation.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.SchemeToggle(driftwood.SchemeToggleProps{}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.SchemeToggle(components.SchemeToggleProps{}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Colour scheme"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var74), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Colour scheme"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var74), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2652,17 +2679,17 @@ func layoutSection() templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 116, "<p>The default surface.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 117, "<p>The default surface.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Panel card"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var77), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Panel card"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var77), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 117, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 118, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2678,17 +2705,17 @@ func layoutSection() templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 118, "<p>The recessed surface.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 119, "<p>The recessed surface.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Well card", Surface: driftwood.SurfaceWell}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var78), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Well card", Surface: components.SurfaceWell}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var78), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 119, " ")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, " ")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
@@ -2704,35 +2731,27 @@ func layoutSection() templ.Component {
 						}()
 					}
 					ctx = templ.InitializeContext(ctx)
-					templ_7745c5c3_Err = driftwood.CardHeading(driftwood.CardHeadingProps{
+					templ_7745c5c3_Err = components.CardHeading(components.CardHeadingProps{
 						Title:  "Rich header",
 						Meta:   "CardHeading: meta + action slot",
-						Action: driftwood.IconButton(driftwood.IconButtonProps{Icon: "refresh", Label: "Refresh"}),
+						Action: components.IconButton(components.IconButtonProps{Icon: "refresh", Label: "Refresh"}),
 					}).Render(ctx, templ_7745c5c3_Buffer)
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
-					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 120, " <p>Headerless Card carrying a CardHeading.</p>")
+					templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, " <p>Headerless Card carrying a CardHeading.</p>")
 					if templ_7745c5c3_Err != nil {
 						return templ_7745c5c3_Err
 					}
 					return nil
 				})
-				templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var79), templ_7745c5c3_Buffer)
+				templ_7745c5c3_Err = components.Card(components.CardProps{}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var79), templ_7745c5c3_Buffer)
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Grid(driftwood.GridProps{Cols: 3}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var76), templ_7745c5c3_Buffer)
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 121, " ")
-			if templ_7745c5c3_Err != nil {
-				return templ_7745c5c3_Err
-			}
-			templ_7745c5c3_Err = driftwood.Divider(driftwood.DividerProps{}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Grid(components.GridProps{Cols: 3}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var76), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2740,7 +2759,7 @@ func layoutSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Divider(driftwood.DividerProps{Label: "labeled divider"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Divider(components.DividerProps{}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2748,13 +2767,21 @@ func layoutSection() templ.Component {
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Split(driftwood.SplitProps{List: splitListPane(), Detail: splitDetailPane()}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Divider(components.DividerProps{Label: "labeled divider"}).Render(ctx, templ_7745c5c3_Buffer)
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, " ")
+			if templ_7745c5c3_Err != nil {
+				return templ_7745c5c3_Err
+			}
+			templ_7745c5c3_Err = components.Split(components.SplitProps{List: splitListPane(), Detail: splitDetailPane()}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Layout"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var75), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Layout"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var75), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2770,7 +2797,7 @@ func layoutSection() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 124, "<p class=\"spec-note\">The app frame: topbar, sidebar, main. Shown with Embedded set, which suppresses the landmark, the bypass link and the live region a page may only have one of; real apps make it the page root and leave it unset.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 125, "<p class=\"spec-note\">The app frame: topbar, sidebar, main. Shown with Embedded set, which suppresses the landmark, the bypass link and the live region a page may only have one of; real apps make it the page root and leave it unset.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -2786,16 +2813,16 @@ func layoutSection() templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 125, "<p>Main content area.</p>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 126, "<p>Main content area.</p>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Shell(driftwood.AppShellProps{
-				Topbar: driftwood.Navbar(driftwood.NavbarProps{
+			templ_7745c5c3_Err = components.Shell(components.AppShellProps{
+				Topbar: components.Navbar(components.NavbarProps{
 					Brand: "Beach",
-					Items: []driftwood.NavItem{{Label: "Dashboard", Href: "/", Active: true}},
+					Items: []components.NavItem{{Label: "Dashboard", Href: "/", Active: true}},
 				}),
 				Sidebar: specSidebar(),
 				// Embedded: this Shell is a picture of the frame, not the frame. The
@@ -2807,7 +2834,7 @@ func layoutSection() templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Shell", Surface: driftwood.SurfaceWell}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var80), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Shell", Surface: components.SurfaceWell}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var80), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2862,19 +2889,19 @@ func railDemo() templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 126, "<p class=\"heading-eyebrow\">On this page</p><a class=\"dw-crumb-link\" href=\"#dw-main\">Spacing</a> <a class=\"dw-crumb-link\" href=\"#dw-main\">Primitives</a> <a class=\"dw-crumb-link\" href=\"#dw-main\">Colour scheme</a>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 127, "<p class=\"heading-eyebrow\">On this page</p><a class=\"dw-crumb-link\" href=\"#dw-main\">Spacing</a> <a class=\"dw-crumb-link\" href=\"#dw-main\">Primitives</a> <a class=\"dw-crumb-link\" href=\"#dw-main\">Colour scheme</a>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Stack(driftwood.StackProps{Gap: driftwood.Space2XS}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var84), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Stack(components.StackProps{Gap: components.Space2XS}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var84), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Box(driftwood.BoxProps{Pad: driftwood.SpaceSm, Surface: driftwood.SurfacePanel, Border: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var83), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Box(components.BoxProps{Pad: components.SpaceSm, Surface: components.SurfacePanel, Border: true}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var83), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -2904,8 +2931,8 @@ func splitListPane() templ.Component {
 			templ_7745c5c3_Var85 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = driftwood.StackedList(driftwood.StackedListProps{
-			Rows: []driftwood.ListRow{
+		templ_7745c5c3_Err = components.StackedList(components.StackedListProps{
+			Rows: []components.ListRow{
 				{Title: "North Beach", Meta: "9,420 visits"},
 				{Title: "The Cove", Meta: "7,180 visits"},
 				{Title: "Pier South", Meta: "5,660 visits"},
@@ -2940,9 +2967,9 @@ func splitDetailPane() templ.Component {
 			templ_7745c5c3_Var86 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = driftwood.DescList(driftwood.DescListProps{
+		templ_7745c5c3_Err = components.DescList(components.DescListProps{
 			TwoCol: true,
-			Items: []driftwood.DescItem{
+			Items: []components.DescItem{
 				{Term: "Beach", Value: "North Beach"},
 				{Term: "Flag", Value: "Green"},
 				{Term: "Towers", Value: "3 staffed"},
@@ -2984,7 +3011,7 @@ func accessibilitySection() templ.Component {
 			templ_7745c5c3_Var87 = templ.NopComponent
 		}
 		ctx = templ.ClearChildren(ctx)
-		templ_7745c5c3_Err = driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Accessibility"}).Render(ctx, templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.SectionHeading(components.SectionHeadingProps{Label: "Accessibility"}).Render(ctx, templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -3000,14 +3027,14 @@ func accessibilitySection() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 127, "<p class=\"spec-note\">Every pair the kit paints, checked against WCAG 2.1 AA at render time with <code>rybitten.Contrast</code>. Text owes 4.5:1 (SC 1.4.3); a control's edge and the focus ring owe 3:1 (SC 1.4.11). The same table runs as a test — <code>TestPaletteMeetsAA</code> — so a token edit that breaks a pair fails the build rather than shipping.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 128, "<p class=\"spec-note\">Every pair the kit paints, checked against WCAG 2.1 AA at render time with <code>rybitten.Contrast</code>. Text owes 4.5:1 (SC 1.4.3); a control's edge and the focus ring owe 3:1 (SC 1.4.11). The same table runs as a test — <code>TestPaletteMeetsAA</code> — so a token edit that breaks a pair fails the build rather than shipping.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Table(driftwood.TableProps{
+			templ_7745c5c3_Err = components.Table(components.TableProps{
 				Caption:       "Contrast of each token pair the kit paints, in both schemes",
 				CaptionHidden: true,
-				Columns: []driftwood.Column{
+				Columns: []components.Column{
 					{Header: "Scheme"}, {Header: "Pair"}, {Header: "Ratio"}, {Header: "Needs"},
 					{Header: "Success criterion"}, {Header: "Result", HeaderHidden: true},
 				},
@@ -3018,7 +3045,7 @@ func accessibilitySection() templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Contrast — measured, not claimed"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var88), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Contrast — measured, not claimed"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var88), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -3034,33 +3061,33 @@ func accessibilitySection() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 128, "<p class=\"spec-note\">Tab through these. Every focusable thing in the kit draws the same 2px accent ring, offset so it is never painted over its own fill — including the two controls whose real input is visually hidden (the switch and the tabs), where the ring is relayed to the visible proxy.</p><div class=\"spec-row\">")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 129, "<p class=\"spec-note\">Tab through these. Every focusable thing in the kit draws the same 2px accent ring, offset so it is never painted over its own fill — including the two controls whose real input is visually hidden (the switch and the tabs), where the ring is relayed to the visible proxy.</p><div class=\"spec-row\">")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Button(driftwood.ButtonProps{Label: "Button", Role: driftwood.RoleAccent}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Button(components.ButtonProps{Label: "Button", Role: components.RoleAccent}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 129, "<a class=\"dw-crumb-link\" href=\"#dw-main\">A link</a>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 130, "<a class=\"dw-crumb-link\" href=\"#dw-main\">A link</a>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Toggle(driftwood.ToggleProps{Name: "spec-a11y-toggle", Label: "A switch"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Toggle(components.ToggleProps{Name: "spec-a11y-toggle", Label: "A switch"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Checkbox(driftwood.CheckboxProps{Name: "spec-a11y-check", Label: "A checkbox"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Checkbox(components.CheckboxProps{Name: "spec-a11y-check", Label: "A checkbox"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 130, "</div>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 131, "</div>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Focus"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var89), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Focus"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var89), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -3076,26 +3103,26 @@ func accessibilitySection() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 131, "<p class=\"spec-note\">The kit ships no hardcoded accessible names. Every one — \"Close\", \"Dismiss\", \"Loading\", the landmark labels, the sort states — resolves through <code>i18n.T(ctx, \"ui.a11y.…\")</code> against the framework's embedded catalog, so an app that ships an <code>es-ES.json</code> gets the whole kit announced in Spanish and an app that ships nothing pays no cost. <code>beach-vet</code>'s <code>a11y-literal-name</code> rule keeps it that way.</p><p class=\"spec-note\">This page's language is <code>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 132, "<p class=\"spec-note\">The kit ships no hardcoded accessible names. Every one — \"Close\", \"Dismiss\", \"Loading\", the landmark labels, the sort states — resolves through <code>i18n.T(ctx, \"ui.a11y.…\")</code> against the framework's embedded catalog, so an app that ships an <code>es-ES.json</code> gets the whole kit announced in Spanish and an app that ships nothing pays no cost. <code>beach-vet</code>'s <code>a11y-literal-name</code> rule keeps it that way.</p><p class=\"spec-note\">This page's language is <code>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			var templ_7745c5c3_Var91 string
 			templ_7745c5c3_Var91, templ_7745c5c3_Err = templ.JoinStringErrs(specimenLang(ctx))
 			if templ_7745c5c3_Err != nil {
-				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/ui/specimen/components.templ`, Line: 768, Col: 52}
+				return templ.Error{Err: templ_7745c5c3_Err, FileName: `pkg/ui/specimen/components.templ`, Line: 794, Col: 52}
 			}
 			_, templ_7745c5c3_Err = templ_7745c5c3_Buffer.WriteString(templ.EscapeString(templ_7745c5c3_Var91))
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 132, "</code>, written onto <code>&lt;html lang&gt;</code> from the request locale (SC 3.1.1), with <code>dir</code> derived from it.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 133, "</code>, written onto <code>&lt;html lang&gt;</code> from the request locale (SC 3.1.1), with <code>dir</code> derived from it.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Names come from the catalog"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var90), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Names come from the catalog"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var90), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -3111,17 +3138,17 @@ func accessibilitySection() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 133, "<p class=\"spec-note\">Server-pushed updates are this framework's premise, and WCAG 2.2.2 names auto-updating information explicitly: there has to be a way to stop it. The control below is the mechanism, and it does not hide updates — it stops rendering the element that opens the stream, so a paused page holds no connection and the server releases the subscription. The preference is a cookie, so it survives the next page, and the framework's stream adapter honours it even for a stream this control has never heard of.</p>    ")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 134, "<p class=\"spec-note\">Server-pushed updates are this framework's premise, and WCAG 2.2.2 names auto-updating information explicitly: there has to be a way to stop it. The control below is the mechanism, and it does not hide updates — it stops rendering the element that opens the stream, so a paused page holds no connection and the server releases the subscription. The preference is a cookie, so it survives the next page, and the framework's stream adapter honours it even for a stream this control has never heard of.</p>    ")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.LiveToggle(driftwood.LiveToggleProps{Label: "Specimen"}).Render(ctx, templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.LiveToggle(components.LiveToggleProps{Label: "Specimen"}).Render(ctx, templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "Pausing what moves"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var92), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "Pausing what moves"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var92), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -3137,7 +3164,7 @@ func accessibilitySection() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 134, "<p class=\"spec-note\">Marked with <code>driftwood.Lang</code>, a screen reader switches voice for it; unmarked, it is read with the surrounding language's phonetics, often past the point of recognition (WCAG 3.1.2).</p><p class=\"spec-note\">The lifeguards call it")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 135, "<p class=\"spec-note\">Marked with <code>components.Lang</code>, a screen reader switches voice for it; unmarked, it is read with the surrounding language's phonetics, often past the point of recognition (WCAG 3.1.2).</p><p class=\"spec-note\">The lifeguards call it")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
@@ -3153,23 +3180,23 @@ func accessibilitySection() templ.Component {
 					}()
 				}
 				ctx = templ.InitializeContext(ctx)
-				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 135, "<em>la marée de printemps</em>")
+				templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 136, "<em>la marée de printemps</em>")
 				if templ_7745c5c3_Err != nil {
 					return templ_7745c5c3_Err
 				}
 				return nil
 			})
-			templ_7745c5c3_Err = driftwood.Lang("fr").Render(templ.WithChildren(ctx, templ_7745c5c3_Var94), templ_7745c5c3_Buffer)
+			templ_7745c5c3_Err = components.Lang("fr").Render(templ.WithChildren(ctx, templ_7745c5c3_Var94), templ_7745c5c3_Buffer)
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 136, "and post it on the board.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 137, "and post it on the board.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "A phrase in another language"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var93), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "A phrase in another language"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var93), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}
@@ -3185,12 +3212,12 @@ func accessibilitySection() templ.Component {
 				}()
 			}
 			ctx = templ.InitializeContext(ctx)
-			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 137, "<p class=\"spec-note\">Every page's shell renders one empty polite region, and server-pushed status messages patch into it. That ordering is the whole point: a live region that arrives together with its content is not announced (SC 4.1.3), which is why a toast no longer carries <code>aria-live</code> of its own.</p>")
+			templ_7745c5c3_Err = templruntime.WriteString(templ_7745c5c3_Buffer, 138, "<p class=\"spec-note\">Every page's shell renders one empty polite region, and server-pushed status messages patch into it. That ordering is the whole point: a live region that arrives together with its content is not announced (SC 4.1.3), which is why a toast no longer carries <code>aria-live</code> of its own.</p>")
 			if templ_7745c5c3_Err != nil {
 				return templ_7745c5c3_Err
 			}
-			templ_7745c5c3_Err = driftwood.Toast(driftwood.ToastProps{
-				Role:    driftwood.RoleGood,
+			templ_7745c5c3_Err = components.Toast(components.ToastProps{
+				Role:    components.RoleGood,
 				Title:   "Saved",
 				Message: "A toast, shown here in place rather than patched.",
 			}).Render(ctx, templ_7745c5c3_Buffer)
@@ -3199,7 +3226,7 @@ func accessibilitySection() templ.Component {
 			}
 			return nil
 		})
-		templ_7745c5c3_Err = driftwood.Card(driftwood.CardProps{Heading: "The live region"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var95), templ_7745c5c3_Buffer)
+		templ_7745c5c3_Err = components.Card(components.CardProps{Heading: "The live region"}).Render(templ.WithChildren(ctx, templ_7745c5c3_Var95), templ_7745c5c3_Buffer)
 		if templ_7745c5c3_Err != nil {
 			return templ_7745c5c3_Err
 		}

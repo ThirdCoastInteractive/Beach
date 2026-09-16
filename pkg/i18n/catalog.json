@@ -83,6 +83,22 @@
     "label": "Dismiss",
     "comment": "Accessible name for the X button that removes an alert or toast."
   },
+  "ui.a11y.gallery": {
+    "label": "Gallery",
+    "comment": "Fallback accessible name of a media gallery region."
+  },
+  "ui.a11y.gallery.lightbox": {
+    "label": "Media",
+    "comment": "Fallback accessible name of a gallery lightbox dialog when the tile has no alt or label."
+  },
+  "ui.a11y.gallery.open": {
+    "label": "View %s",
+    "comment": "Accessible name of a gallery thumbnail that opens a lightbox. %s is the image alt or video label."
+  },
+  "ui.a11y.gallery.open_n": {
+    "label": "View item %d",
+    "comment": "Accessible name of a gallery thumbnail with no alt or label. %d is the 1-based tile index."
+  },
   "ui.a11y.live.pause": {
     "label": "Pause updates",
     "comment": "Control that stops server-pushed updates (WCAG 2.2.2). Visible text and accessible name."

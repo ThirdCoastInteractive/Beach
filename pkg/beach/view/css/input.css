@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./editorial.css";
 
 /* House design law: zero border radius, everywhere. Corners are sharp. Driving
  * this through the radius token scale (rather than editing every component's
@@ -499,8 +500,10 @@
 .dw-tooltip-trigger:focus-visible,
 .dw-row-title:focus-visible,
 .dw-formerror-link:focus-visible,
+.dw-spec-summary:focus-visible,
 .dw-checkbox:focus-visible,
-.dw-radio:focus-visible {
+.dw-radio:focus-visible,
+.dw-gallery-thumb:focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
@@ -1662,7 +1665,8 @@
      scrolling — 1.4.10 exempts it — but only within its own container. Letting
      it widen the document instead means every other line of text on the page
      scrolls sideways too, which is the thing the criterion is about. */
-  .dw-table-scroll { @apply w-full overflow-x-auto; }
+  /* Keep absolutely positioned screen-reader labels inside the scroll region. */
+  .dw-table-scroll { @apply relative w-full overflow-x-auto; }
   .dw-table-scroll:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
   .dw-table { @apply w-full border-collapse text-sm; }
   .dw-thead { @apply bg-(--color-panel); }
@@ -1811,6 +1815,16 @@
   .dw-media-actions { @apply flex-none; }
   .dw-figure { @apply m-0 grid gap-2; }
   .dw-figcaption { @apply text-xs text-(--color-fg-muted); }
+  /* Gallery: thumbnail grid + native <dialog> lightbox. The thumb is a bare
+     button wrapping the (decorative) media; the dialog reuses the modal
+     stacking token and a wider max width so the media can breathe. */
+  .dw-gallery { @apply w-full min-w-0; }
+  .dw-gallery-item { @apply min-w-0; }
+  .dw-gallery-thumb { @apply block w-full cursor-pointer border-0 bg-transparent p-0 text-start; }
+  .dw-lightbox { @apply fixed inset-0 z-50 m-auto max-h-[90svh] w-[calc(100%-2rem)] max-w-4xl overflow-auto rounded-xl border border-(--color-line-soft) bg-(--color-panel) p-0 text-(--color-fg-default) shadow-2xl; }
+  .dw-lightbox::backdrop { @apply bg-black/70; }
+  .dw-lightbox-x { @apply absolute end-3 top-3 z-10; }
+  .dw-lightbox-body { @apply p-4 pt-14; }
 
   /* --- messaging -------------------------------------------------------- */
   .dw-msglist { @apply m-0 flex list-none flex-col gap-2 p-3; }
@@ -2949,3 +2963,31 @@
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
+/* Chrome-independent composition primitives. No component reads chrome in Go. */
+:root { --font-display: var(--font-sans); --display-size: clamp(2rem, 4vw, 4rem); --display-leading: 1.05; --display-tracking: -.02em; }
+.dw-display { display: grid; gap: var(--space-lg); }
+.dw-eyebrow { font-family: var(--font-mono); font-size: .75rem; letter-spacing: .12em; text-transform: uppercase; color: var(--color-accent-text); }
+.dw-display-title { font-family: var(--font-display); font-size: var(--display-size); line-height: var(--display-leading); letter-spacing: var(--display-tracking); color: var(--color-fg-strong); overflow-wrap: anywhere; }
+.dw-display-lead { font-size: 1.125rem; line-height: 1.6; max-width: var(--measure-text); color: var(--color-fg-default); }
+.dw-product { display: grid; gap: var(--space-2xl); align-items: center; }
+.dw-product-copy { display: grid; gap: var(--space-xl); min-width: 0; }
+.dw-product-media { min-width: 0; overflow: hidden; }
+.dw-product-split, .chrome-product-split .dw-product-auto { grid-template-columns: 1fr 1fr; }
+.dw-product-stage, .chrome-product-stage .dw-product-auto { grid-template-columns: 1fr; }
+.dw-spec-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: var(--space-lg); border-block: 1px solid var(--color-line-soft); padding-block: var(--space-lg); }
+.dw-spec-item { min-width: 0; }
+.dw-spec-item dt { color: var(--color-fg-muted); font-family: var(--font-mono); font-size: .75rem; }
+.dw-spec-item dd { color: var(--color-fg-strong); font-size: 1.25rem; overflow-wrap: anywhere; }
+.chrome-nav-top .dw-navigation-auto .dw-shell-cols, .dw-navigation-top .dw-shell-cols { display: flex; flex-direction: column; }
+.chrome-nav-top .dw-navigation-auto .dw-shell-side, .dw-navigation-top .dw-shell-side { width: auto; position: static; border-inline-end: 0; border-bottom: 1px solid var(--color-line-soft); }
+.chrome-nav-top .dw-navigation-auto .dw-sidebar, .dw-navigation-top .dw-sidebar { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.chrome-nav-top .dw-navigation-auto .dw-side-items, .dw-navigation-top .dw-side-items { display: flex; flex-wrap: wrap; gap: var(--space-sm); }
+.chrome-density-compact .dw-table td, .chrome-density-compact .dw-table th { padding-block: var(--space-sm); }
+@media (max-width: 640px) { .dw-product-split, .chrome-product-split .dw-product-auto { grid-template-columns: 1fr; } }
+/* Semantic typography utilities, shared by captions, controls and chromes. */
+:root { --font-body: var(--font-sans); --font-caption: var(--font-sans); --font-label: var(--font-sans); }
+.dw-body, .dw-text-body { font-family: var(--font-body); }
+.dw-text-caption, .dw-figcaption { font-family: var(--font-caption); font-size: .875rem; line-height: 1.5; color: var(--color-fg-muted); }
+.dw-text-label, .dw-label { font-family: var(--font-label); font-size: .875rem; font-weight: 700; }
+.dw-text-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.dw-text-display { font-family: var(--font-display); font-size: var(--display-size); line-height: var(--display-leading); }

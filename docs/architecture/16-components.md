@@ -2,10 +2,19 @@
 
 [← docs index](../README.md) · prev: [Example apps](15-examples.md)
 
+Publication additions are documented in [Runtime chromes — opt-in layouts](21-chromes.md#opt-in-publication-layouts):
+`ProductStage` exposes cover, plate, technical and monument compositions with
+model, edition, caption and specification slots; `EditorialSpread` arranges a
+figure with numbered copy columns; `Publication` supplies their page frame.
+`ProductStageProps.Details` adds captioned construction insets. `Worksheet` frames
+standard forms with a reference plate and specification summary.
+`NavbarProps.Publication` selects the corresponding masthead. These are explicit
+page choices and leave the ordinary app components below available unchanged.
+
 [06-ui.md](06-ui.md) defines the *mechanism* — views as templ components, the
 semantic token contract, the house laws, `ui.Defer`. This doc is the
-*inventory*: the concrete components `ui/driftwood` exports as package-level templ
-functions (`@driftwood.Card(p) { ... }`), and the **specimen** page (`ui/specimen`)
+*inventory*: the concrete components `ui/components` exports as package-level templ
+functions (`@components.Card(p) { ... }`), and the **specimen** page (`ui/specimen`)
 that renders all of them at once.
 
 ## A comprehensive hypermedia component library
@@ -59,7 +68,7 @@ to satisfy before it belongs here:
   `min-w-0`, and anything genuinely two-dimensional scrolls inside its own box.
 - **Anything that moves or expires needs a way to stop it.** A component that updates on
   its own, animates past five seconds, or disappears on a timer owes the visitor a control
-  (WCAG 2.2.2 / 2.2.1). The framework provides both — `driftwood.LiveToggle` for a stream
+  (WCAG 2.2.2 / 2.2.1). The framework provides both — `components.LiveToggle` for a stream
   and `prefs.AutoDismiss` for a timer — so the component's job is to *honour* them rather
   than to invent its own.
 - **A pointer-only interaction is not an interaction.** Anything reachable by hovering has
@@ -128,7 +137,7 @@ The page skeleton and the surfaces content sits on.
 
 ### Spacing
 
-**Spacing is a closed set.** Every gap and pad prop takes a `driftwood.Space` —
+**Spacing is a closed set.** Every gap and pad prop takes a `components.Space` —
 nine rungs on a ~1.5x ladder — and every width takes a `Measure`. There is no
 free-form variant, which is the point: spacing is the thing that goes wrong most
 often in generated markup, and every one of those failures starts with someone
@@ -140,13 +149,13 @@ caller who passes something can only pick a rung. `SpaceNone` is how you actuall
 ask for zero.
 
 ```go
-@driftwood.Stack(driftwood.StackProps{Gap: driftwood.SpaceLg}) {
-    @driftwood.Inline(driftwood.InlineProps{}) {   // takes Inline's own default
-        @driftwood.Button(driftwood.ButtonProps{Label: "Save", Role: driftwood.RoleAccent})
-        @driftwood.Button(driftwood.ButtonProps{Label: "Discard", Role: driftwood.RoleQuiet})
+@components.Stack(components.StackProps{Gap: components.SpaceLg}) {
+    @components.Inline(components.InlineProps{}) {   // takes Inline's own default
+        @components.Button(components.ButtonProps{Label: "Save", Role: components.RoleAccent})
+        @components.Button(components.ButtonProps{Label: "Discard", Role: components.RoleQuiet})
     }
-    @driftwood.Card(driftwood.CardProps{Pad: driftwood.SpaceNone}) {  // full-bleed table
-        @driftwood.Table(driftwood.TableProps{ /* … */ })
+    @components.Card(components.CardProps{Pad: components.SpaceNone}) {  // full-bleed table
+        @components.Table(components.TableProps{ /* … */ })
     }
 }
 ```
@@ -163,7 +172,7 @@ Two rules the CSS itself depends on:
   by concatenation (`"dw-gap-" + string(s)`), and Tailwind emits a utility only
   when its source scanner has seen the literal name — which it cannot, for a name
   that does not exist until runtime. `TestSpaceScaleIsClosed` walks
-  `driftwood.Spaces` and checks every rung has a rule, because a rung without one
+  `components.Spaces` and checks every rung has a rule, because a rung without one
   fails *silently*: the class lands in the markup, matches nothing, and the prop
   simply does not work.
 - **The ladder is unlayered**, so a caller's explicit choice beats a component's
@@ -289,6 +298,7 @@ use one, so it's proven in the specimen.
 | Figure           | image + caption (`<figure>`/`<figcaption>`)                                                                                                                              | P         |
 | Video            | poster frame; `controls` or muted-loop background (which still renders controls — see below); `<track>` captions; `preload="none"`; `<source>` format fallback; responsive | Catalog |
 | Media object     | avatar/thumb + body + actions row                                                                                                                                        | Catalog   |
+| Gallery / lightbox | 1–6 images/videos; thumbnail grid; native `<dialog>` lightbox per tile (showModal + method=dialog); alt/label required                                              | Catalog   |
 
 **Images and video obey the perf laws — that's the whole reason they're kit
 components and not raw `<img>`/`<video>` tags.**
@@ -318,19 +328,19 @@ components and not raw `<img>`/`<video>` tags.**
   do. Autoplay-without-controls is a shape the component cannot be made to produce.
 
 ```templ
-@driftwood.Image(driftwood.ImageProps{
-    Ratio: driftwood.RatioPhoto,              // reserved 4:3 box — no shift
+@components.Image(components.ImageProps{
+    Ratio: components.RatioPhoto,              // reserved 4:3 box — no shift
     Src:   "/media/items/oats.avif",
     Set:   "/media/items/oats-640.avif 640w, /media/items/oats-1280.avif 1280w",
     Sizes: "(max-width: 40rem) 100vw, 20rem",
-    Fit:   driftwood.FitCover,
+    Fit:   components.FitCover,
     Alt:   "Rolled oats, 1kg bag",            // required by the struct
 })
 ```
 
-*Catalog:* gallery / lightbox, zoomable image, `<audio>` player. Video, `<picture>`
-and the media object all ship and are proven in the specimen; the trio just doesn't
-happen to embed one.
+*Catalog:* zoomable image, `<audio>` player. Video, `<picture>`, the media object,
+and the gallery/lightbox all ship and are proven in the specimen; the trio just
+doesn't happen to embed one.
 
 ### Messaging
 

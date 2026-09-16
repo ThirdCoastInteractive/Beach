@@ -6,12 +6,12 @@ package specimen
 
 import (
 	"github.com/ThirdCoastInteractive/Beach/pkg/datastar"
-	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/components"
 )
 
 // componentGallery renders the full catalog, one section per family.
 templ componentGallery() {
-	@driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Components"})
+	@components.SectionHeading(components.SectionHeadingProps{Label: "Components"})
 	@buttonsSection()
 	@navSection()
 	@formsSection()
@@ -35,49 +35,49 @@ templ tabPanel(body string) {
 // --- buttons -------------------------------------------------------------------
 
 templ buttonsSection() {
-	@driftwood.Card(driftwood.CardProps{Heading: "Buttons"}) {
+	@components.Card(components.CardProps{Heading: "Buttons"}) {
 		<div class="spec-row">
-			@driftwood.Button(driftwood.ButtonProps{Label: "Neutral"})
-			@driftwood.Button(driftwood.ButtonProps{Label: "Accent", Role: driftwood.RoleAccent})
-			@driftwood.Button(driftwood.ButtonProps{Label: "Good", Role: driftwood.RoleGood})
-			@driftwood.Button(driftwood.ButtonProps{Label: "Warn", Role: driftwood.RoleWarn})
-			@driftwood.Button(driftwood.ButtonProps{Label: "Danger", Role: driftwood.RoleDanger})
-			@driftwood.Button(driftwood.ButtonProps{Label: "Info", Role: driftwood.RoleInfo})
-			@driftwood.Button(driftwood.ButtonProps{Label: "Ghost", Role: driftwood.RoleGhost})
-			@driftwood.Button(driftwood.ButtonProps{Label: "Quiet", Role: driftwood.RoleQuiet})
+			@components.Button(components.ButtonProps{Label: "Neutral"})
+			@components.Button(components.ButtonProps{Label: "Accent", Role: components.RoleAccent})
+			@components.Button(components.ButtonProps{Label: "Good", Role: components.RoleGood})
+			@components.Button(components.ButtonProps{Label: "Warn", Role: components.RoleWarn})
+			@components.Button(components.ButtonProps{Label: "Danger", Role: components.RoleDanger})
+			@components.Button(components.ButtonProps{Label: "Info", Role: components.RoleInfo})
+			@components.Button(components.ButtonProps{Label: "Ghost", Role: components.RoleGhost})
+			@components.Button(components.ButtonProps{Label: "Quiet", Role: components.RoleQuiet})
 		</div>
 		<div class="spec-row">
-			@driftwood.Button(driftwood.ButtonProps{Label: "Small", Size: driftwood.SizeSm})
-			@driftwood.Button(driftwood.ButtonProps{Label: "Medium"})
-			@driftwood.Button(driftwood.ButtonProps{Label: "Large", Size: driftwood.SizeLg})
-			@driftwood.Button(driftwood.ButtonProps{Label: "Search", LeadIcon: "search", Role: driftwood.RoleAccent})
-			@driftwood.Button(driftwood.ButtonProps{Label: "Next", TailIcon: "chevron-down"})
-			@driftwood.Button(driftwood.ButtonProps{Label: "Disabled", Disabled: true})
-			@driftwood.Button(driftwood.ButtonProps{Label: "Saving", Loading: "$busy", Role: driftwood.RoleAccent})
-			@driftwood.Button(driftwood.ButtonProps{Label: "Erase reef", Hazard: true})
+			@components.Button(components.ButtonProps{Label: "Small", Size: components.SizeSm})
+			@components.Button(components.ButtonProps{Label: "Medium"})
+			@components.Button(components.ButtonProps{Label: "Large", Size: components.SizeLg})
+			@components.Button(components.ButtonProps{Label: "Search", LeadIcon: "search", Role: components.RoleAccent})
+			@components.Button(components.ButtonProps{Label: "Next", TailIcon: "chevron-down"})
+			@components.Button(components.ButtonProps{Label: "Disabled", Disabled: true})
+			@components.Button(components.ButtonProps{Label: "Saving", Loading: "$busy", Role: components.RoleAccent})
+			@components.Button(components.ButtonProps{Label: "Erase reef", Hazard: true})
 		</div>
 		<div class="spec-row">
-			@driftwood.IconButton(driftwood.IconButtonProps{Icon: "gear", Label: "Settings"})
-			@driftwood.IconButton(driftwood.IconButtonProps{Icon: "trash", Label: "Delete", Role: driftwood.RoleDanger})
-			@driftwood.IconButton(driftwood.IconButtonProps{Icon: "plus", Label: "Add", Role: driftwood.RoleAccent, Size: driftwood.SizeLg})
-			@driftwood.ButtonGroup(driftwood.ButtonGroupProps{Label: "Range"}) {
-				@driftwood.Button(driftwood.ButtonProps{Label: "Day"})
-				@driftwood.Button(driftwood.ButtonProps{Label: "Week"})
-				@driftwood.Button(driftwood.ButtonProps{Label: "Season"})
+			@components.IconButton(components.IconButtonProps{Icon: "gear", Label: "Settings"})
+			@components.IconButton(components.IconButtonProps{Icon: "trash", Label: "Delete", Role: components.RoleDanger})
+			@components.IconButton(components.IconButtonProps{Icon: "plus", Label: "Add", Role: components.RoleAccent, Size: components.SizeLg})
+			@components.ButtonGroup(components.ButtonGroupProps{Label: "Range"}) {
+				@components.Button(components.ButtonProps{Label: "Day"})
+				@components.Button(components.ButtonProps{Label: "Week"})
+				@components.Button(components.ButtonProps{Label: "Season"})
 			}
-			@driftwood.Segmented(driftwood.SegmentedProps{
+			@components.Segmented(components.SegmentedProps{
 				Name: "Tide window",
-				Segments: []driftwood.Segment{
+				Segments: []components.Segment{
 					{Value: "low", Label: "Low"},
 					{Value: "mid", Label: "Mid", Active: true},
 					{Value: "high", Label: "High"},
 				},
 			})
-			@driftwood.MenuButton(driftwood.MenuButtonProps{
+			@components.MenuButton(components.MenuButtonProps{
 				ID:    "spec-menu",
 				Label: "Actions",
 				Icon:  "chevron-down",
-				Items: []driftwood.MenuItem{
+				Items: []components.MenuItem{
 					{Label: "Edit", Href: "/specimen", Icon: "pencil"},
 					{Label: "Pin", Icon: "pin", On: "@post('/specimen/pin')"},
 					{Label: "Delete", Icon: "trash", On: "@post('/specimen/delete')"},
@@ -90,32 +90,32 @@ templ buttonsSection() {
 // --- nav -----------------------------------------------------------------------
 
 templ navSection() {
-	@driftwood.Card(driftwood.CardProps{Heading: "Navigation"}) {
-		@driftwood.Navbar(driftwood.NavbarProps{
+	@components.Card(components.CardProps{Heading: "Navigation"}) {
+		@components.Navbar(components.NavbarProps{
 			Brand: "Beach",
-			Items: []driftwood.NavItem{
+			Items: []components.NavItem{
 				{Label: "Dashboard", Href: "/", Icon: "home", Active: true},
 				{Label: "Rentals", Href: "/rentals", Icon: "box"},
 				{Label: "Reports", Href: "/reports", Icon: "chart"},
 			},
 		})
-		@driftwood.Breadcrumbs(driftwood.BreadcrumbsProps{
-			Items: []driftwood.NavItem{
+		@components.Breadcrumbs(components.BreadcrumbsProps{
+			Items: []components.NavItem{
 				{Label: "Home", Href: "/"},
 				{Label: "Rentals", Href: "/rentals"},
 				{Label: "Umbrella #42"},
 			},
 		})
-		@driftwood.Tabs(driftwood.TabsProps{
+		@components.Tabs(components.TabsProps{
 			Name:  "spec-tabs",
 			Label: "Beach detail",
-			Tabs: []driftwood.Tab{
+			Tabs: []components.Tab{
 				{ID: "spec-tab-overview", Label: "Overview", Active: true, Panel: tabPanel("Flags green, three towers staffed.")},
 				{ID: "spec-tab-history", Label: "History", Panel: tabPanel("Nine closures logged this season.")},
 				{ID: "spec-tab-deferred", Label: "Deferred", Get: "/specimen/tab/deferred"},
 			},
 		})
-		@driftwood.Pagination(driftwood.PaginationProps{Page: 3, Pages: 12, GetBase: "/specimen/list"})
+		@components.Pagination(components.PaginationProps{Page: 3, Pages: 12, GetBase: "/specimen/list"})
 		<div class="spec-sidebar-demo">
 			@specSidebar()
 		</div>
@@ -124,14 +124,14 @@ templ navSection() {
 
 // specSidebar is the sidebar nav used standalone above and inside the Shell demo.
 templ specSidebar() {
-	@driftwood.Sidebar(driftwood.SidebarNavProps{
-		Sections: []driftwood.SidebarSection{
-			{Label: "Operations", Items: []driftwood.NavItem{
+	@components.Sidebar(components.SidebarNavProps{
+		Sections: []components.SidebarSection{
+			{Label: "Operations", Items: []components.NavItem{
 				{Label: "Dashboard", Href: "/", Icon: "home", Active: true},
 				{Label: "Inbox", Href: "/inbox", Icon: "inbox"},
 				{Label: "Rentals", Href: "/rentals", Icon: "box"},
 			}},
-			{Label: "Insight", Items: []driftwood.NavItem{
+			{Label: "Insight", Items: []components.NavItem{
 				{Label: "Charts", Href: "/charts", Icon: "chart"},
 				{Label: "Lists", Href: "/lists", Icon: "list"},
 			}},
@@ -142,33 +142,33 @@ templ specSidebar() {
 // --- forms ---------------------------------------------------------------------
 
 templ formsSection() {
-	@driftwood.Card(driftwood.CardProps{Heading: "Forms"}) {
-		@driftwood.FormError(driftwood.FormErrorProps{
+	@components.Card(components.CardProps{Heading: "Forms"}) {
+		@components.FormError(components.FormErrorProps{
 			Title:    "The booking could not be saved",
 			Messages: []string{"Renter name is required", "Return time is before pickup time"},
 		})
-		@driftwood.Form(driftwood.FormProps{Post: "/specimen/save", TwoCol: true}) {
-			@driftwood.Field(driftwood.FieldProps{Label: "Renter", For: "spec-renter", Help: "As it appears on the waiver."}) {
-				@driftwood.Input(driftwood.TextInputProps{ID: "spec-renter", Name: "renter", Placeholder: "Sandy Shores"})
+		@components.Form(components.FormProps{Post: "/specimen/save", TwoCol: true}) {
+			@components.Field(components.FieldProps{Label: "Renter", For: "spec-renter", Help: "As it appears on the waiver."}) {
+				@components.Input(components.TextInputProps{ID: "spec-renter", Name: "renter", Placeholder: "Sandy Shores"})
 			}
-			@driftwood.Field(driftwood.FieldProps{Label: "Email", For: "spec-email", Error: "That address bounced last season."}) {
-				@driftwood.Input(driftwood.TextInputProps{ID: "spec-email", Name: "email", Type: "email", Value: "gull@example", Error: true})
+			@components.Field(components.FieldProps{Label: "Email", For: "spec-email", Error: "That address bounced last season."}) {
+				@components.Input(components.TextInputProps{ID: "spec-email", Name: "email", Type: "email", Value: "gull@example", Error: true})
 			}
-			@driftwood.Field(driftwood.FieldProps{Label: "Deposit", For: "spec-deposit"}) {
-				@driftwood.Input(driftwood.TextInputProps{ID: "spec-deposit", Name: "deposit", Prefix: "$", Suffix: ".00", Value: "25"})
+			@components.Field(components.FieldProps{Label: "Deposit", For: "spec-deposit"}) {
+				@components.Input(components.TextInputProps{ID: "spec-deposit", Name: "deposit", Prefix: "$", Suffix: ".00", Value: "25"})
 			}
-			@driftwood.Field(driftwood.FieldProps{Label: "Locker", For: "spec-locker", Help: "Assigned at the stand; read-only here."}) {
-				@driftwood.Input(driftwood.TextInputProps{ID: "spec-locker", Name: "locker", Value: "B-17", Disabled: true})
+			@components.Field(components.FieldProps{Label: "Locker", For: "spec-locker", Help: "Assigned at the stand; read-only here."}) {
+				@components.Input(components.TextInputProps{ID: "spec-locker", Name: "locker", Value: "B-17", Disabled: true})
 			}
-			@driftwood.Field(driftwood.FieldProps{Label: "Board", For: "spec-board"}) {
-				@driftwood.Select(driftwood.SelectProps{
+			@components.Field(components.FieldProps{Label: "Board", For: "spec-board"}) {
+				@components.Select(components.SelectProps{
 					ID: "spec-board", Name: "board", Placeholder: "Pick a board…",
-					Groups: []driftwood.OptionGroup{
-						{Label: "Longboards", Options: []driftwood.Option{
+					Groups: []components.OptionGroup{
+						{Label: "Longboards", Options: []components.Option{
 							{Value: "log", Label: "9'2\" log"},
 							{Value: "noserider", Label: "9'6\" noserider"},
 						}},
-						{Label: "Shortboards", Options: []driftwood.Option{
+						{Label: "Shortboards", Options: []components.Option{
 							{Value: "funboard", Label: "7'6\" funboard", Selected: true},
 							{Value: "fish", Label: "5'10\" fish"},
 							{Value: "gun", Label: "7'0\" gun (out of stock)", Disabled: true},
@@ -176,44 +176,44 @@ templ formsSection() {
 					},
 				})
 			}
-			@driftwood.Field(driftwood.FieldProps{Label: "Party size", For: "spec-party", Help: "Numeric input: step + inputmode + min/max."}) {
-				@driftwood.Input(driftwood.TextInputProps{
+			@components.Field(components.FieldProps{Label: "Party size", For: "spec-party", Help: "Numeric input: step + inputmode + min/max."}) {
+				@components.Input(components.TextInputProps{
 					ID: "spec-party", Name: "party", Type: "number", Value: "2",
 					Min: "1", Max: "12", Step: "1", InputMode: "numeric", Spellcheck: "false",
 				})
 			}
-			@driftwood.Field(driftwood.FieldProps{Label: "Notes", For: "spec-notes"}) {
-				@driftwood.Textarea(driftwood.TextareaProps{ID: "spec-notes", Name: "notes", Rows: 3, AutoGrow: true, Value: "Prefers the north break."})
+			@components.Field(components.FieldProps{Label: "Notes", For: "spec-notes"}) {
+				@components.Textarea(components.TextareaProps{ID: "spec-notes", Name: "notes", Rows: 3, AutoGrow: true, Value: "Prefers the north break."})
 			}
-			@driftwood.Field(driftwood.FieldProps{Label: "Tide window"}) {
-				@driftwood.RadioGroup(driftwood.RadioGroupProps{
+			@components.Field(components.FieldProps{Label: "Tide window"}) {
+				@components.RadioGroup(components.RadioGroupProps{
 					Name: "tide", Inline: true,
-					Options: []driftwood.RadioOption{
+					Options: []components.RadioOption{
 						{Value: "low", Label: "Low"},
 						{Value: "mid", Label: "Mid", Checked: true},
 						{Value: "high", Label: "High"},
 					},
 				})
 			}
-			@driftwood.Checkbox(driftwood.CheckboxProps{ID: "spec-waiver", Name: "waiver", Value: "yes", Label: "Waiver signed", Checked: true})
-			@driftwood.Toggle(driftwood.ToggleProps{ID: "spec-sms", Name: "sms", Label: "Tide alerts", Description: "Text when the window opens.", Checked: true})
-			@driftwood.Button(driftwood.ButtonProps{Label: "Save booking", Role: driftwood.RoleAccent, Type: "submit"})
+			@components.Checkbox(components.CheckboxProps{ID: "spec-waiver", Name: "waiver", Value: "yes", Label: "Waiver signed", Checked: true})
+			@components.Toggle(components.ToggleProps{ID: "spec-sms", Name: "sms", Label: "Tide alerts", Description: "Text when the window opens.", Checked: true})
+			@components.Button(components.ButtonProps{Label: "Save booking", Role: components.RoleAccent, Type: "submit"})
 		}
-		@driftwood.Divider(driftwood.DividerProps{Label: "input group"})
-		@driftwood.InputGroup(driftwood.InputGroupProps{
-			Input:  driftwood.TextInputProps{Name: "q", Placeholder: "Search rentals…"},
-			Button: driftwood.ButtonProps{Label: "Go", Role: driftwood.RoleAccent, Type: "submit"},
+		@components.Divider(components.DividerProps{Label: "input group"})
+		@components.InputGroup(components.InputGroupProps{
+			Input:  components.TextInputProps{Name: "q", Placeholder: "Search rentals…"},
+			Button: components.ButtonProps{Label: "Go", Role: components.RoleAccent, Type: "submit"},
 		})
-		@driftwood.Divider(driftwood.DividerProps{Label: "fieldset"})
-		@driftwood.Fieldset(driftwood.FieldsetProps{Legend: "Emergency contact", Help: "Who to call if the surf turns."}) {
-			@driftwood.Field(driftwood.FieldProps{Label: "Name", For: "spec-ec-name"}) {
-				@driftwood.Input(driftwood.TextInputProps{ID: "spec-ec-name", Name: "ec_name", Placeholder: "Marina Reyes", Autocomplete: driftwood.AutocompleteName})
+		@components.Divider(components.DividerProps{Label: "fieldset"})
+		@components.Fieldset(components.FieldsetProps{Legend: "Emergency contact", Help: "Who to call if the surf turns."}) {
+			@components.Field(components.FieldProps{Label: "Name", For: "spec-ec-name"}) {
+				@components.Input(components.TextInputProps{ID: "spec-ec-name", Name: "ec_name", Placeholder: "Marina Reyes", Autocomplete: components.AutocompleteName})
 			}
-			@driftwood.Field(driftwood.FieldProps{Label: "Phone", For: "spec-ec-phone"}) {
-				@driftwood.Input(driftwood.TextInputProps{ID: "spec-ec-phone", Name: "ec_phone", Type: "tel", InputMode: "tel", Placeholder: "555-0142", Autocomplete: driftwood.AutocompleteTel})
+			@components.Field(components.FieldProps{Label: "Phone", For: "spec-ec-phone"}) {
+				@components.Input(components.TextInputProps{ID: "spec-ec-phone", Name: "ec_phone", Type: "tel", InputMode: "tel", Placeholder: "555-0142", Autocomplete: components.AutocompleteTel})
 			}
 		}
-		@driftwood.Divider(driftwood.DividerProps{Label: "markdown"})
+		@components.Divider(components.DividerProps{Label: "markdown"})
 		<p class="spec-note">
 			The toolbar and preview are the island at <code>/static/js/md-editor.js</code>.
 			The Page shell does not load it (CSP forbids inline script; this module is
@@ -221,7 +221,7 @@ templ formsSection() {
 			<code>&lt;script type="module" src="/static/js/md-editor.js" defer&gt;</code>.
 		</p>
 		<script type="module" src="/static/js/md-editor.js" defer></script>
-		@driftwood.MarkdownEditor(driftwood.MarkdownEditorProps{
+		@components.MarkdownEditor(components.MarkdownEditorProps{
 			Name:  "spec-md",
 			Label: "Stand notes",
 			Value: "## Flags\n\nGreen on the north beach. *Rip* by the jetty.",
@@ -232,20 +232,20 @@ templ formsSection() {
 // --- data ----------------------------------------------------------------------
 
 templ dataSection() {
-	@driftwood.Card(driftwood.CardProps{Heading: "Data"}) {
-		@driftwood.Grid(driftwood.GridProps{Cols: 3}) {
-			@driftwood.Stat(driftwood.StatProps{Label: "Visitors", Value: "12,408", Delta: driftwood.Delta{Value: "+8.2%", Dir: "up"}})
-			@driftwood.Stat(driftwood.StatProps{Label: "Rentals out", Value: "348", Delta: driftwood.Delta{Value: "-3.1%", Dir: "down"}})
-			@driftwood.Stat(driftwood.StatProps{Label: "Water temp", Value: "74°F"})
+	@components.Card(components.CardProps{Heading: "Data"}) {
+		@components.Grid(components.GridProps{Cols: 3}) {
+			@components.Stat(components.StatProps{Label: "Visitors", Value: "12,408", Delta: components.Delta{Value: "+8.2%", Dir: "up"}})
+			@components.Stat(components.StatProps{Label: "Rentals out", Value: "348", Delta: components.Delta{Value: "-3.1%", Dir: "down"}})
+			@components.Stat(components.StatProps{Label: "Water temp", Value: "74°F"})
 		}
-		@driftwood.Divider(driftwood.DividerProps{})
-		@driftwood.Table(driftwood.TableProps{
+		@components.Divider(components.DividerProps{})
+		@components.Table(components.TableProps{
 			// A caption names the table and, because the table sits in a scroll
 			// box, names that box too — which is what makes a wide table
 			// reachable by keyboard on a narrow screen.
 			Caption: "Vendor revenue by stand",
-			Columns: []driftwood.Column{
-				{Header: "Vendor", Get: "/specimen/sort/vendor", Sort: driftwood.SortAsc},
+			Columns: []components.Column{
+				{Header: "Vendor", Get: "/specimen/sort/vendor", Sort: components.SortAsc},
 				{Header: "Stand"},
 				{Header: "Revenue", Get: "/specimen/sort/revenue"},
 				{Header: "Status"},
@@ -256,69 +256,69 @@ templ dataSection() {
 				{"Gull Shack", "Pier 2", "$5,230", "closed"},
 			},
 		})
-		@driftwood.Table(driftwood.TableProps{
-			Columns: []driftwood.Column{{Header: "Vendor"}, {Header: "Revenue"}},
+		@components.Table(components.TableProps{
+			Columns: []components.Column{{Header: "Vendor"}, {Header: "Revenue"}},
 			Rows:    nil,
 			Dense:   true,
 			Empty:   "No vendors match this filter.",
 		})
-		@driftwood.Divider(driftwood.DividerProps{})
+		@components.Divider(components.DividerProps{})
 		<div class="spec-row">
-			@driftwood.Badge(driftwood.BadgeProps{Label: "Neutral"})
-			@driftwood.Badge(driftwood.BadgeProps{Label: "Accent", Role: driftwood.RoleAccent})
-			@driftwood.Badge(driftwood.BadgeProps{Label: "Good", Role: driftwood.RoleGood, Dot: true})
-			@driftwood.Badge(driftwood.BadgeProps{Label: "Warn", Role: driftwood.RoleWarn, Dot: true})
-			@driftwood.Badge(driftwood.BadgeProps{Label: "Danger", Role: driftwood.RoleDanger})
-			@driftwood.Badge(driftwood.BadgeProps{Label: "Info", Role: driftwood.RoleInfo})
+			@components.Badge(components.BadgeProps{Label: "Neutral"})
+			@components.Badge(components.BadgeProps{Label: "Accent", Role: components.RoleAccent})
+			@components.Badge(components.BadgeProps{Label: "Good", Role: components.RoleGood, Dot: true})
+			@components.Badge(components.BadgeProps{Label: "Warn", Role: components.RoleWarn, Dot: true})
+			@components.Badge(components.BadgeProps{Label: "Danger", Role: components.RoleDanger})
+			@components.Badge(components.BadgeProps{Label: "Info", Role: components.RoleInfo})
 		</div>
-		@driftwood.Divider(driftwood.DividerProps{})
-		@driftwood.DescList(driftwood.DescListProps{
+		@components.Divider(components.DividerProps{})
+		@components.DescList(components.DescListProps{
 			TwoCol: true,
-			Items: []driftwood.DescItem{
+			Items: []components.DescItem{
 				{Term: "Break", Value: "North Jetty"},
 				{Term: "Swell", Value: "4.5 ft @ 11s NW"},
 				{Term: "Wind", Value: "6 kn offshore"},
 				{Term: "Crowd", Value: "moderate"},
 			},
 		})
-		@driftwood.Divider(driftwood.DividerProps{})
-		@driftwood.StackedList(driftwood.StackedListProps{
-			Rows: []driftwood.ListRow{
+		@components.Divider(components.DividerProps{})
+		@components.StackedList(components.StackedListProps{
+			Rows: []components.ListRow{
 				{
-					Avatar: driftwood.Avatar(driftwood.AvatarProps{Initials: "TR", Size: driftwood.SizeSm}),
+					Avatar: components.Avatar(components.AvatarProps{Initials: "TR", Size: components.SizeSm}),
 					Title:  "Tide Rentals",
 					Meta:   "North 3 — opened 8:00",
 					Href:   "/vendors/tide",
-					Badge:  &driftwood.BadgeProps{Label: "Open", Role: driftwood.RoleGood, Dot: true},
+					Badge:  &components.BadgeProps{Label: "Open", Role: components.RoleGood, Dot: true},
 				},
 				{
-					Avatar: driftwood.Avatar(driftwood.AvatarProps{Initials: "SS", Size: driftwood.SizeSm}),
+					Avatar: components.Avatar(components.AvatarProps{Initials: "SS", Size: components.SizeSm}),
 					Title:  "Salt & Sugar",
 					Meta:   "Boardwalk 1 — opened 9:00",
-					Action: driftwood.IconButton(driftwood.IconButtonProps{Icon: "pencil", Label: "Edit"}),
+					Action: components.IconButton(components.IconButtonProps{Icon: "pencil", Label: "Edit"}),
 				},
 				{
-					Avatar: driftwood.Avatar(driftwood.AvatarProps{Initials: "GS", Size: driftwood.SizeSm}),
+					Avatar: components.Avatar(components.AvatarProps{Initials: "GS", Size: components.SizeSm}),
 					Title:  "Gull Shack",
 					Meta:   "Pier 2 — closed for repairs",
-					Badge:  &driftwood.BadgeProps{Label: "Closed", Role: driftwood.RoleDanger},
+					Badge:  &components.BadgeProps{Label: "Closed", Role: components.RoleDanger},
 				},
 			},
 		})
-		@driftwood.Divider(driftwood.DividerProps{})
-		@driftwood.GridList(driftwood.GridListProps{Cols: 3}) {
+		@components.Divider(components.DividerProps{})
+		@components.GridList(components.GridListProps{Cols: 3}) {
 			<li>
-				@driftwood.Card(driftwood.CardProps{Heading: "North 3"}) {
+				@components.Card(components.CardProps{Heading: "North 3"}) {
 					<p>Umbrellas + boards.</p>
 				}
 			</li>
 			<li>
-				@driftwood.Card(driftwood.CardProps{Heading: "Boardwalk 1"}) {
+				@components.Card(components.CardProps{Heading: "Boardwalk 1"}) {
 					<p>Food + drinks.</p>
 				}
 			</li>
 			<li>
-				@driftwood.Card(driftwood.CardProps{Heading: "Pier 2"}) {
+				@components.Card(components.CardProps{Heading: "Pier 2"}) {
 					<p>Bait + tackle.</p>
 				}
 			</li>
@@ -329,76 +329,76 @@ templ dataSection() {
 // --- feedback ------------------------------------------------------------------
 
 templ feedbackSection() {
-	@driftwood.Card(driftwood.CardProps{Heading: "Feedback"}) {
-		@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleGood, Title: "Booking saved"}) {
+	@components.Card(components.CardProps{Heading: "Feedback"}) {
+		@components.Alert(components.AlertProps{Role: components.RoleGood, Title: "Booking saved"}) {
 			Locker B-17 is reserved until 6pm.
 		}
-		@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleWarn, Title: "Rip current advisory", Dismissible: true}) {
+		@components.Alert(components.AlertProps{Role: components.RoleWarn, Title: "Rip current advisory", Dismissible: true}) {
 			Yellow flag until the afternoon tide turns.
 		}
-		@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleDanger, Title: "Stand offline"}) {
+		@components.Alert(components.AlertProps{Role: components.RoleDanger, Title: "Stand offline"}) {
 			Pier 2 point-of-sale has not reported for 20 minutes.
 		}
-		@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleInfo, Title: "Heads up"}) {
+		@components.Alert(components.AlertProps{Role: components.RoleInfo, Title: "Heads up"}) {
 			Night market setup begins at 4pm on the south boardwalk.
 		}
-		@driftwood.ErrorAlert("spec-error-alert", true, "Save failed", "The reservation service returned a conflict — retry in a moment.")
-		@driftwood.Divider(driftwood.DividerProps{})
+		@components.ErrorAlert("spec-error-alert", true, "Save failed", "The reservation service returned a conflict — retry in a moment.")
+		@components.Divider(components.DividerProps{})
 		<div class="spec-row">
-			@driftwood.Toast(driftwood.ToastProps{Role: driftwood.RoleGood, Title: "Synced", Message: "Tide tables updated."})
-			@driftwood.Toast(driftwood.ToastProps{Role: driftwood.RoleWarn, Title: "Slow link", Message: "Retrying the camera feed."})
+			@components.Toast(components.ToastProps{Role: components.RoleGood, Title: "Synced", Message: "Tide tables updated."})
+			@components.Toast(components.ToastProps{Role: components.RoleWarn, Title: "Slow link", Message: "Retrying the camera feed."})
 		</div>
-		@driftwood.Divider(driftwood.DividerProps{})
-		@driftwood.Progress(driftwood.ProgressProps{Value: 348, Max: 400, Label: "Umbrellas deployed"})
-		@driftwood.Progress(driftwood.ProgressProps{Value: 92, Max: 400, Label: "Kayaks out", Role: driftwood.RoleWarn})
-		@driftwood.Progress(driftwood.ProgressProps{Label: "Syncing tide tables"})
-		@driftwood.Divider(driftwood.DividerProps{})
+		@components.Divider(components.DividerProps{})
+		@components.Progress(components.ProgressProps{Value: 348, Max: 400, Label: "Umbrellas deployed"})
+		@components.Progress(components.ProgressProps{Value: 92, Max: 400, Label: "Kayaks out", Role: components.RoleWarn})
+		@components.Progress(components.ProgressProps{Label: "Syncing tide tables"})
+		@components.Divider(components.DividerProps{})
 		<div class="spec-row">
-			@driftwood.Spinner(driftwood.SpinnerProps{Size: driftwood.SizeSm})
-			@driftwood.Spinner(driftwood.SpinnerProps{})
-			@driftwood.Spinner(driftwood.SpinnerProps{Size: driftwood.SizeLg})
-			@driftwood.Skeleton(driftwood.SkeletonProps{Width: "12rem", Height: "1.25rem"})
-			@driftwood.Skeleton(driftwood.SkeletonProps{Width: "8rem", Height: "8rem"})
+			@components.Spinner(components.SpinnerProps{Size: components.SizeSm})
+			@components.Spinner(components.SpinnerProps{})
+			@components.Spinner(components.SpinnerProps{Size: components.SizeLg})
+			@components.Skeleton(components.SkeletonProps{Width: "12rem", Height: "1.25rem"})
+			@components.Skeleton(components.SkeletonProps{Width: "8rem", Height: "8rem"})
 		</div>
-		@driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "inbox", Message: "No bookings yet — the tide chart says wait an hour."})
+		@components.EmptyState(components.EmptyStateProps{Icon: "inbox", Message: "No bookings yet — the tide chart says wait an hour."})
 	}
 }
 
 // --- overlays --------------------------------------------------------------------
 
 templ overlaysSection() {
-	@driftwood.Card(driftwood.CardProps{Heading: "Overlays"}) {
+	@components.Card(components.CardProps{Heading: "Overlays"}) {
 		<div class="spec-row">
-			@driftwood.Button(driftwood.ButtonProps{
+			@components.Button(components.ButtonProps{
 				Label: "Open modal",
 				Attrs: datastar.Attrs{datastar.OnClick("document.getElementById('spec-modal').showModal()")},
 			})
-			@driftwood.Button(driftwood.ButtonProps{
+			@components.Button(components.ButtonProps{
 				Label: "Open right drawer",
 				Attrs: datastar.Attrs{datastar.OnClick("document.getElementById('spec-drawer-right').showModal()")},
 			})
-			@driftwood.Button(driftwood.ButtonProps{
+			@components.Button(components.ButtonProps{
 				Label: "Open left drawer",
 				Attrs: datastar.Attrs{datastar.OnClick("document.getElementById('spec-drawer-left').showModal()")},
 			})
-			@driftwood.Button(driftwood.ButtonProps{
+			@components.Button(components.ButtonProps{
 				Label: "Delete a booking",
-				Role:  driftwood.RoleDanger,
+				Role:  components.RoleDanger,
 				Attrs: datastar.Attrs{datastar.OnClick("document.getElementById('spec-confirm').showModal()")},
 			})
-			@driftwood.Button(driftwood.ButtonProps{
+			@components.Button(components.ButtonProps{
 				Label: "Log in / register",
-				Role:  driftwood.RoleAccent,
+				Role:  components.RoleAccent,
 				Attrs: datastar.Attrs{datastar.OnClick("document.getElementById('spec-auth').showModal()")},
 			})
-			@driftwood.Popover(driftwood.PopoverProps{ID: "spec-popover", Label: "Conditions", Icon: "chart"}) {
+			@components.Popover(components.PopoverProps{ID: "spec-popover", Label: "Conditions", Icon: "chart"}) {
 				<p>4.5 ft @ 11s NW — offshore till noon.</p>
 			}
-			@driftwood.Tooltip(driftwood.TooltipProps{Text: "Updated every 10 minutes"}) {
-				@driftwood.Badge(driftwood.BadgeProps{Label: "Live", Role: driftwood.RoleGood, Dot: true})
+			@components.Tooltip(components.TooltipProps{Text: "Updated every 10 minutes"}) {
+				@components.Badge(components.BadgeProps{Label: "Live", Role: components.RoleGood, Dot: true})
 			}
 		</div>
-		@driftwood.AuthModal(driftwood.AuthModalProps{
+		@components.AuthModal(components.AuthModalProps{
 			ID:           "spec-auth",
 			Title:        "Welcome to the beach",
 			LoginPost:    "/specimen/login",
@@ -406,7 +406,7 @@ templ overlaysSection() {
 			ShowEmail:    true,
 			TOSHref:      "/specimen",
 		})
-		@driftwood.Confirm(driftwood.ConfirmProps{
+		@components.Confirm(components.ConfirmProps{
 			ID:           "spec-confirm",
 			Title:        "Delete this booking?",
 			Message:      "The guest is emailed straight away, and the slot is released. This cannot be undone.",
@@ -414,18 +414,18 @@ templ overlaysSection() {
 			Post:         "/specimen/delete",
 			Hazard:       true,
 		})
-		@driftwood.Modal(driftwood.ModalProps{ID: "spec-modal", Title: "Confirm return"}) {
+		@components.Modal(components.ModalProps{ID: "spec-modal", Title: "Confirm return"}) {
 			<p>Close out locker B-17 and release the deposit?</p>
-			@driftwood.Button(driftwood.ButtonProps{Label: "Release deposit", Role: driftwood.RoleAccent})
+			@components.Button(components.ButtonProps{Label: "Release deposit", Role: components.RoleAccent})
 		}
-		@driftwood.Drawer(driftwood.DrawerProps{ID: "spec-drawer-right", Title: "Booking details", Side: "right"}) {
-			@driftwood.DescList(driftwood.DescListProps{Items: []driftwood.DescItem{
+		@components.Drawer(components.DrawerProps{ID: "spec-drawer-right", Title: "Booking details", Side: "right"}) {
+			@components.DescList(components.DescListProps{Items: []components.DescItem{
 				{Term: "Renter", Value: "Sandy Shores"},
 				{Term: "Board", Value: "7'6\" funboard"},
 			}})
 		}
-		@driftwood.Drawer(driftwood.DrawerProps{ID: "spec-drawer-left", Title: "Filters", Side: "left"}) {
-			@driftwood.Checkbox(driftwood.CheckboxProps{ID: "spec-filter-open", Name: "open", Label: "Open stands only", Checked: true})
+		@components.Drawer(components.DrawerProps{ID: "spec-drawer-left", Title: "Filters", Side: "left"}) {
+			@components.Checkbox(components.CheckboxProps{ID: "spec-filter-open", Name: "open", Label: "Open stands only", Checked: true})
 		}
 	}
 }
@@ -435,58 +435,84 @@ templ overlaysSection() {
 // reopens the prompt. The banner is shown open here so it is visible on the
 // specimen; a real page sets Open from consent.NeedsPrompt.
 templ consentSection() {
-	@driftwood.Card(driftwood.CardProps{Heading: "Consent"}) {
+	@components.Card(components.CardProps{Heading: "Consent"}) {
 		<p class="spec-note">
 			The banner is a named <code>role=region</code>, not a dialog: no backdrop,
 			no focus trap. Closed it stays in the DOM (<code>hidden</code>) so the
 			footer control can reopen it. Copy is catalog-only; the record itself is
 			<code>pkg/consent</code>, which this kit does not import.
 		</p>
-		@driftwood.ConsentBanner(driftwood.ConsentBannerProps{Open: true, DetailsURL: "/specimen#dw-consent-mgr-title"})
-		@driftwood.ConsentManager(driftwood.ConsentManagerProps{
-			Categories: []driftwood.ConsentCategory{
+		@components.ConsentBanner(components.ConsentBannerProps{Open: true, DetailsURL: "/specimen#dw-consent-mgr-title"})
+		@components.ConsentManager(components.ConsentManagerProps{
+			Categories: []components.ConsentCategory{
 				{Label: "Necessary", Description: "Session, CSRF, and this preference.", Necessary: true, Allowed: true},
 				{Name: "analytics", Label: "Analytics", Description: "Counts visits. Off until you allow it.", Allowed: false},
 			},
 		})
-		@driftwood.ConsentLink(driftwood.ConsentLinkProps{Href: "/specimen#dw-consent-title"})
+		@components.ConsentLink(components.ConsentLinkProps{Href: "/specimen#dw-consent-title"})
 	}
 }
 
 // --- media ----------------------------------------------------------------------
 
 templ mediaSection() {
-	@driftwood.Card(driftwood.CardProps{Heading: "Media"}) {
+	@components.Card(components.CardProps{Heading: "Media"}) {
 		<div class="spec-row">
-			@driftwood.Avatar(driftwood.AvatarProps{Initials: "SS", Alt: "Sandy Shores", Size: driftwood.SizeSm})
-			@driftwood.Avatar(driftwood.AvatarProps{Initials: "SS", Alt: "Sandy Shores", Status: "online"})
-			@driftwood.Avatar(driftwood.AvatarProps{Initials: "GP", Alt: "Gull Point", Size: driftwood.SizeLg, Status: "away"})
+			@components.Avatar(components.AvatarProps{Initials: "SS", Alt: "Sandy Shores", Size: components.SizeSm})
+			@components.Avatar(components.AvatarProps{Initials: "SS", Alt: "Sandy Shores", Status: "online"})
+			@components.Avatar(components.AvatarProps{Initials: "GP", Alt: "Gull Point", Size: components.SizeLg, Status: "away"})
 		</div>
-		@driftwood.MediaObject(driftwood.MediaObjectProps{
-			Media:   driftwood.Avatar(driftwood.AvatarProps{Initials: "SS", Alt: "Sandy Shores"}),
+		@components.MediaObject(components.MediaObjectProps{
+			Media:   components.Avatar(components.AvatarProps{Initials: "SS", Alt: "Sandy Shores"}),
 			Body:    mediaObjectBody(),
-			Actions: driftwood.IconButton(driftwood.IconButtonProps{Icon: "x", Label: "Dismiss"}),
+			Actions: components.IconButton(components.IconButtonProps{Icon: "x", Label: "Dismiss"}),
 		})
-		@driftwood.Grid(driftwood.GridProps{Cols: 3}) {
-			@driftwood.Image(driftwood.ImageProps{
+		@components.Grid(components.GridProps{Cols: 3}) {
+			@components.Image(components.ImageProps{
 				Src:   sampleImageSrc,
 				Alt:   "Stylized beach scene",
-				Ratio: driftwood.RatioWide,
-				Fit:   driftwood.FitCover,
+				Ratio: components.RatioWide,
+				Fit:   components.FitCover,
 			})
-			@driftwood.Figure(driftwood.FigureProps{
-				Image: driftwood.ImageProps{
+			@components.Figure(components.FigureProps{
+				Image: components.ImageProps{
 					Src:   sampleImageSrc,
 					Alt:   "Stylized beach scene",
-					Ratio: driftwood.RatioPhoto,
-					Fit:   driftwood.FitContain,
+					Ratio: components.RatioPhoto,
+					Fit:   components.FitContain,
 				},
 				Caption: "Figure: the same scene, 4:3, contained.",
 			})
-			@driftwood.AspectRatio(driftwood.AspectBoxProps{Ratio: driftwood.RatioSquare}) {
+			@components.AspectRatio(components.AspectBoxProps{Ratio: components.RatioSquare}) {
 				<div class="spec-aspect-fill">1:1 reserved box</div>
 			}
 		}
+		<p class="spec-note">
+			Gallery is a 1–6 tile strip; each thumbnail opens a native
+			<code>&lt;dialog&gt;</code> lightbox (showModal + method=dialog), same
+			open/close contract as Modal. Alt on images and Label on videos are
+			required — the button name is "View …" from the catalog.
+		</p>
+		@components.Gallery(components.GalleryProps{
+			ID: "spec-gallery",
+			Items: []components.GalleryItem{
+				{Image: components.ImageProps{Src: sampleImageSrc, Alt: "North beach at low tide", Ratio: components.RatioWide, Fit: components.FitCover}},
+				{Image: components.ImageProps{Src: sampleImageSrc, Alt: "Jetty in late sun", Ratio: components.RatioPhoto, Fit: components.FitCover}},
+				{Video: components.VideoProps{
+					Ratio:  components.RatioWide,
+					Poster: samplePosterSrc,
+					Label:  "Beach tour",
+					Sources: []components.Source{
+						{Src: "/static/media/tour.webm", Type: "video/webm"},
+						{Src: "/static/media/tour.mp4", Type: "video/mp4"},
+					},
+					Tracks: []components.Track{
+						{Src: sampleTrackSrc, Lang: "en", Label: "English", Default: true},
+					},
+					Describe: "A slow pan along the north beach at low tide.",
+				}},
+			},
+		})
 	}
 }
 
@@ -500,7 +526,7 @@ templ mediaObjectBody() {
 // fictional — preload="none" means the browser never goes looking for them, which
 // is itself the thing being demonstrated.
 templ videoSection() {
-	@driftwood.Card(driftwood.CardProps{Heading: "Video"}) {
+	@components.Card(components.CardProps{Heading: "Video"}) {
 		<p class="spec-note">
 			The frame is reserved before any byte arrives, nothing is fetched until
 			someone presses play, and the caption track rides along — this one is real
@@ -510,15 +536,15 @@ templ videoSection() {
 			optional: motion that starts on its own needs a way to stop it
 			(WCAG 2.2.2), and the native control bar is that mechanism.
 		</p>
-		@driftwood.Video(driftwood.VideoProps{
-			Ratio:  driftwood.RatioWide,
+		@components.Video(components.VideoProps{
+			Ratio:  components.RatioWide,
 			Poster: samplePosterSrc,
 			Label:  "Beach tour",
-			Sources: []driftwood.Source{
+			Sources: []components.Source{
 				{Src: "/static/media/tour.webm", Type: "video/webm"},
 				{Src: "/static/media/tour.mp4", Type: "video/mp4"},
 			},
-			Tracks: []driftwood.Track{
+			Tracks: []components.Track{
 				{Src: sampleTrackSrc, Lang: "en", Label: "English", Default: true},
 			},
 			Describe: "A slow pan along the north beach at low tide.",
@@ -529,35 +555,35 @@ templ videoSection() {
 // --- messaging -------------------------------------------------------------------
 
 templ messagingSection() {
-	@driftwood.Card(driftwood.CardProps{Heading: "Messaging"}) {
+	@components.Card(components.CardProps{Heading: "Messaging"}) {
 		<div class="spec-row">
-			@driftwood.Presence(driftwood.PresencePillProps{State: "connected", Label: "Connected"})
-			@driftwood.Presence(driftwood.PresencePillProps{State: "reconnecting", Label: "Reconnecting…"})
-			@driftwood.Presence(driftwood.PresencePillProps{State: "waiting", Label: "Waiting for crew"})
+			@components.Presence(components.PresencePillProps{State: "connected", Label: "Connected"})
+			@components.Presence(components.PresencePillProps{State: "reconnecting", Label: "Reconnecting…"})
+			@components.Presence(components.PresencePillProps{State: "waiting", Label: "Waiting for crew"})
 		</div>
-		@driftwood.MessageList(driftwood.MessageListProps{
-			Messages: []driftwood.Message{
+		@components.MessageList(components.MessageListProps{
+			Messages: []components.Message{
 				{System: true, Body: "Channel opened — lifeguard tower 3.", At: "07:58"},
 				{Author: "Tower 3", Body: "Yellow flag going up, rip by the jetty.", At: "08:02"},
 				{Author: "You", Body: "Copy. Moving the swim lesson south.", Own: true, At: "08:03"},
 			},
 		})
-		@driftwood.Composer(driftwood.ComposerProps{Name: "message", Placeholder: "Message tower 3…", Post: "/specimen/send"})
+		@components.Composer(components.ComposerProps{Name: "message", Placeholder: "Message tower 3…", Post: "/specimen/send"})
 	}
 }
 
 // --- layout ---------------------------------------------------------------------
 
 templ layoutSection() {
-	@driftwood.Card(driftwood.CardProps{Heading: "Spacing — a closed ladder"}) {
+	@components.Card(components.CardProps{Heading: "Spacing — a closed ladder"}) {
 		<p class="spec-note">
 			Every gap and pad in the kit is a rung, never a number. The props take
-			<code>driftwood.Space</code>, so a caller picks from this ladder or leaves the
+			<code>components.Space</code>, so a caller picks from this ladder or leaves the
 			field alone and takes the component's own default — <code>p-7</code> and
 			<code>2.3rem</code> are unspellable. <code>beach-vet</code>'s <code>raw-spacing</code>
 			rule closes the other door, flagging spacing written straight into markup.
 		</p>
-		@driftwood.Stack(driftwood.StackProps{Gap: driftwood.SpaceXS}) {
+		@components.Stack(components.StackProps{Gap: components.SpaceXS}) {
 			for _, s := range spaceRungs() {
 				<div class="spec-row">
 					<code class="spec-swatch-name">{ s.Name }</code>
@@ -567,39 +593,39 @@ templ layoutSection() {
 			}
 		}
 	}
-	@driftwood.Card(driftwood.CardProps{Heading: "Layout primitives"}) {
+	@components.Card(components.CardProps{Heading: "Layout primitives"}) {
 		<p class="spec-note">
 			Seven components page markup is actually made of. Each owns the space
 			<em>between</em> its children rather than putting margins on them — sibling
 			margins collapse, fight, and leave the last child with trailing space nobody
 			asked for.
 		</p>
-		@driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Stack — vertical rhythm", Level: 4})
-		@driftwood.Box(driftwood.BoxProps{Surface: driftwood.SurfaceWell, Border: true}) {
-			@driftwood.Stack(driftwood.StackProps{Gap: driftwood.SpaceSm}) {
-				@driftwood.Box(driftwood.BoxProps{Pad: driftwood.SpaceXS, Surface: driftwood.SurfacePanel}) {
+		@components.SectionHeading(components.SectionHeadingProps{Label: "Stack — vertical rhythm", Level: 4})
+		@components.Box(components.BoxProps{Surface: components.SurfaceWell, Border: true}) {
+			@components.Stack(components.StackProps{Gap: components.SpaceSm}) {
+				@components.Box(components.BoxProps{Pad: components.SpaceXS, Surface: components.SurfacePanel}) {
 					First
 				}
-				@driftwood.Box(driftwood.BoxProps{Pad: driftwood.SpaceXS, Surface: driftwood.SurfacePanel}) {
+				@components.Box(components.BoxProps{Pad: components.SpaceXS, Surface: components.SurfacePanel}) {
 					Second
 				}
-				@driftwood.Box(driftwood.BoxProps{Pad: driftwood.SpaceXS, Surface: driftwood.SurfacePanel}) {
+				@components.Box(components.BoxProps{Pad: components.SpaceXS, Surface: components.SurfacePanel}) {
 					Third
 				}
 			}
 		}
-		@driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Inline — a row that wraps", Level: 4})
-		@driftwood.Box(driftwood.BoxProps{Surface: driftwood.SurfaceWell, Border: true}) {
-			@driftwood.Inline(driftwood.InlineProps{Gap: driftwood.SpaceXS}) {
-				@driftwood.Button(driftwood.ButtonProps{Label: "Save", Role: driftwood.RoleAccent})
-				@driftwood.Button(driftwood.ButtonProps{Label: "Discard", Role: driftwood.RoleQuiet})
-				@driftwood.Badge(driftwood.BadgeProps{Label: "Draft"})
-				@driftwood.Badge(driftwood.BadgeProps{Label: "Edited 2m ago", Role: driftwood.RoleInfo})
+		@components.SectionHeading(components.SectionHeadingProps{Label: "Inline — a row that wraps", Level: 4})
+		@components.Box(components.BoxProps{Surface: components.SurfaceWell, Border: true}) {
+			@components.Inline(components.InlineProps{Gap: components.SpaceXS}) {
+				@components.Button(components.ButtonProps{Label: "Save", Role: components.RoleAccent})
+				@components.Button(components.ButtonProps{Label: "Discard", Role: components.RoleQuiet})
+				@components.Badge(components.BadgeProps{Label: "Draft"})
+				@components.Badge(components.BadgeProps{Label: "Edited 2m ago", Role: components.RoleInfo})
 			}
 		}
-		@driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Rail — content with a side column", Level: 4})
-		@driftwood.Rail(driftwood.RailProps{Rail: railDemo(), Width: driftwood.MeasureNarrow}) {
-			@driftwood.Box(driftwood.BoxProps{Pad: driftwood.SpaceMd, Surface: driftwood.SurfacePanel, Border: true}) {
+		@components.SectionHeading(components.SectionHeadingProps{Label: "Rail — content with a side column", Level: 4})
+		@components.Rail(components.RailProps{Rail: railDemo(), Width: components.MeasureNarrow}) {
+			@components.Box(components.BoxProps{Pad: components.SpaceMd, Surface: components.SurfacePanel, Border: true}) {
 				<p>
 					The rail stacks below the md breakpoint, and stacks <em>last</em> whichever
 					side it takes on a wide screen: a rail is the subordinate column, and a
@@ -608,9 +634,9 @@ templ layoutSection() {
 				</p>
 			}
 		}
-		@driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Prose — long-form the kit did not render", Level: 4})
-		@driftwood.Box(driftwood.BoxProps{Surface: driftwood.SurfaceWell, Border: true}) {
-			@driftwood.Prose(driftwood.ProseProps{}) {
+		@components.SectionHeading(components.SectionHeadingProps{Label: "Prose — long-form the kit did not render", Level: 4})
+		@components.Box(components.BoxProps{Surface: components.SurfaceWell, Border: true}) {
+			@components.Prose(components.ProseProps{}) {
 				<h2>A heading from a markdown renderer</h2>
 				<p>
 					This is the one place the kit styles elements it did not emit. Markdown
@@ -625,7 +651,7 @@ templ layoutSection() {
 			}
 		}
 	}
-	@driftwood.Card(driftwood.CardProps{Heading: "Colour scheme"}) {
+	@components.Card(components.CardProps{Heading: "Colour scheme"}) {
 		<p class="spec-note">
 			Three states, not two: light, dark, or defer to the operating system. The
 			choice rides in the preference cookie and the page stamps
@@ -633,39 +659,39 @@ templ layoutSection() {
 			chosen theme survives the first paint — no blocking script, no flash of the
 			wrong theme on navigation.
 		</p>
-		@driftwood.SchemeToggle(driftwood.SchemeToggleProps{})
+		@components.SchemeToggle(components.SchemeToggleProps{})
 	}
-	@driftwood.Card(driftwood.CardProps{Heading: "Layout"}) {
-		@driftwood.Grid(driftwood.GridProps{Cols: 3}) {
-			@driftwood.Card(driftwood.CardProps{Heading: "Panel card"}) {
+	@components.Card(components.CardProps{Heading: "Layout"}) {
+		@components.Grid(components.GridProps{Cols: 3}) {
+			@components.Card(components.CardProps{Heading: "Panel card"}) {
 				<p>The default surface.</p>
 			}
-			@driftwood.Card(driftwood.CardProps{Heading: "Well card", Surface: driftwood.SurfaceWell}) {
+			@components.Card(components.CardProps{Heading: "Well card", Surface: components.SurfaceWell}) {
 				<p>The recessed surface.</p>
 			}
-			@driftwood.Card(driftwood.CardProps{}) {
-				@driftwood.CardHeading(driftwood.CardHeadingProps{
+			@components.Card(components.CardProps{}) {
+				@components.CardHeading(components.CardHeadingProps{
 					Title:  "Rich header",
 					Meta:   "CardHeading: meta + action slot",
-					Action: driftwood.IconButton(driftwood.IconButtonProps{Icon: "refresh", Label: "Refresh"}),
+					Action: components.IconButton(components.IconButtonProps{Icon: "refresh", Label: "Refresh"}),
 				})
 				<p>Headerless Card carrying a CardHeading.</p>
 			}
 		}
-		@driftwood.Divider(driftwood.DividerProps{})
-		@driftwood.Divider(driftwood.DividerProps{Label: "labeled divider"})
-		@driftwood.Split(driftwood.SplitProps{List: splitListPane(), Detail: splitDetailPane()})
+		@components.Divider(components.DividerProps{})
+		@components.Divider(components.DividerProps{Label: "labeled divider"})
+		@components.Split(components.SplitProps{List: splitListPane(), Detail: splitDetailPane()})
 	}
-	@driftwood.Card(driftwood.CardProps{Heading: "Shell", Surface: driftwood.SurfaceWell}) {
+	@components.Card(components.CardProps{Heading: "Shell", Surface: components.SurfaceWell}) {
 		<p class="spec-note">
 			The app frame: topbar, sidebar, main. Shown with Embedded set, which
 			suppresses the landmark, the bypass link and the live region a page may
 			only have one of; real apps make it the page root and leave it unset.
 		</p>
-		@driftwood.Shell(driftwood.AppShellProps{
-			Topbar: driftwood.Navbar(driftwood.NavbarProps{
+		@components.Shell(components.AppShellProps{
+			Topbar: components.Navbar(components.NavbarProps{
 				Brand: "Beach",
-				Items: []driftwood.NavItem{{Label: "Dashboard", Href: "/", Active: true}},
+				Items: []components.NavItem{{Label: "Dashboard", Href: "/", Active: true}},
 			}),
 			Sidebar: specSidebar(),
 			// Embedded: this Shell is a picture of the frame, not the frame. The
@@ -680,8 +706,8 @@ templ layoutSection() {
 // railDemo is the side column of the Rail demo — a table of contents, which is
 // the most common thing a rail actually holds.
 templ railDemo() {
-	@driftwood.Box(driftwood.BoxProps{Pad: driftwood.SpaceSm, Surface: driftwood.SurfacePanel, Border: true}) {
-		@driftwood.Stack(driftwood.StackProps{Gap: driftwood.Space2XS}) {
+	@components.Box(components.BoxProps{Pad: components.SpaceSm, Surface: components.SurfacePanel, Border: true}) {
+		@components.Stack(components.StackProps{Gap: components.Space2XS}) {
 			<p class="heading-eyebrow">On this page</p>
 			<a class="dw-crumb-link" href="#dw-main">Spacing</a>
 			<a class="dw-crumb-link" href="#dw-main">Primitives</a>
@@ -692,8 +718,8 @@ templ railDemo() {
 
 // splitListPane is the master pane of the Split demo.
 templ splitListPane() {
-	@driftwood.StackedList(driftwood.StackedListProps{
-		Rows: []driftwood.ListRow{
+	@components.StackedList(components.StackedListProps{
+		Rows: []components.ListRow{
 			{Title: "North Beach", Meta: "9,420 visits"},
 			{Title: "The Cove", Meta: "7,180 visits"},
 			{Title: "Pier South", Meta: "5,660 visits"},
@@ -703,9 +729,9 @@ templ splitListPane() {
 
 // splitDetailPane is the detail pane of the Split demo.
 templ splitDetailPane() {
-	@driftwood.DescList(driftwood.DescListProps{
+	@components.DescList(components.DescListProps{
 		TwoCol: true,
-		Items: []driftwood.DescItem{
+		Items: []components.DescItem{
 			{Term: "Beach", Value: "North Beach"},
 			{Term: "Flag", Value: "Green"},
 			{Term: "Towers", Value: "3 staffed"},
@@ -722,8 +748,8 @@ templ splitDetailPane() {
 // asserted in prose, the focus ring is put where a Tab key will land on it, and
 // the live region is here so a screen reader has something to announce.
 templ accessibilitySection() {
-	@driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Accessibility"})
-	@driftwood.Card(driftwood.CardProps{Heading: "Contrast — measured, not claimed"}) {
+	@components.SectionHeading(components.SectionHeadingProps{Label: "Accessibility"})
+	@components.Card(components.CardProps{Heading: "Contrast — measured, not claimed"}) {
 		<p class="spec-note">
 			Every pair the kit paints, checked against WCAG 2.1 AA at render time with
 			<code>rybitten.Contrast</code>. Text owes 4.5:1 (SC 1.4.3); a control's edge
@@ -731,17 +757,17 @@ templ accessibilitySection() {
 			<code>TestPaletteMeetsAA</code> — so a token edit that breaks a pair fails
 			the build rather than shipping.
 		</p>
-		@driftwood.Table(driftwood.TableProps{
+		@components.Table(components.TableProps{
 			Caption:       "Contrast of each token pair the kit paints, in both schemes",
 			CaptionHidden: true,
-			Columns: []driftwood.Column{
+			Columns: []components.Column{
 				{Header: "Scheme"}, {Header: "Pair"}, {Header: "Ratio"}, {Header: "Needs"},
 				{Header: "Success criterion"}, {Header: "Result", HeaderHidden: true},
 			},
 			Rows: contrastRows(),
 		})
 	}
-	@driftwood.Card(driftwood.CardProps{Heading: "Focus"}) {
+	@components.Card(components.CardProps{Heading: "Focus"}) {
 		<p class="spec-note">
 			Tab through these. Every focusable thing in the kit draws the same 2px accent
 			ring, offset so it is never painted over its own fill — including the two
@@ -749,13 +775,13 @@ templ accessibilitySection() {
 			the ring is relayed to the visible proxy.
 		</p>
 		<div class="spec-row">
-			@driftwood.Button(driftwood.ButtonProps{Label: "Button", Role: driftwood.RoleAccent})
+			@components.Button(components.ButtonProps{Label: "Button", Role: components.RoleAccent})
 			<a class="dw-crumb-link" href="#dw-main">A link</a>
-			@driftwood.Toggle(driftwood.ToggleProps{Name: "spec-a11y-toggle", Label: "A switch"})
-			@driftwood.Checkbox(driftwood.CheckboxProps{Name: "spec-a11y-check", Label: "A checkbox"})
+			@components.Toggle(components.ToggleProps{Name: "spec-a11y-toggle", Label: "A switch"})
+			@components.Checkbox(components.CheckboxProps{Name: "spec-a11y-check", Label: "A checkbox"})
 		</div>
 	}
-	@driftwood.Card(driftwood.CardProps{Heading: "Names come from the catalog"}) {
+	@components.Card(components.CardProps{Heading: "Names come from the catalog"}) {
 		<p class="spec-note">
 			The kit ships no hardcoded accessible names. Every one — "Close", "Dismiss",
 			"Loading", the landmark labels, the sort states — resolves through
@@ -770,7 +796,7 @@ templ accessibilitySection() {
 			<code>dir</code> derived from it.
 		</p>
 	}
-	@driftwood.Card(driftwood.CardProps{Heading: "Pausing what moves"}) {
+	@components.Card(components.CardProps{Heading: "Pausing what moves"}) {
 		<p class="spec-note">
 			Server-pushed updates are this framework's premise, and WCAG 2.2.2 names
 			auto-updating information explicitly: there has to be a way to stop it.
@@ -784,31 +810,31 @@ templ accessibilitySection() {
 		// connection to a route no app mounts would 404 on every page showing it.
 		// Press it anyway — the preference is real and site-wide, so the button
 		// changes state and every live page in the app follows.
-		@driftwood.LiveToggle(driftwood.LiveToggleProps{Label: "Specimen"})
+		@components.LiveToggle(components.LiveToggleProps{Label: "Specimen"})
 	}
-	@driftwood.Card(driftwood.CardProps{Heading: "A phrase in another language"}) {
+	@components.Card(components.CardProps{Heading: "A phrase in another language"}) {
 		<p class="spec-note">
-			Marked with <code>driftwood.Lang</code>, a screen reader switches voice for
+			Marked with <code>components.Lang</code>, a screen reader switches voice for
 			it; unmarked, it is read with the surrounding language's phonetics, often
 			past the point of recognition (WCAG 3.1.2).
 		</p>
 		<p class="spec-note">
 			The lifeguards call it
-			@driftwood.Lang("fr") {
+			@components.Lang("fr") {
 				<em>la marée de printemps</em>
 			}
 			and post it on the board.
 		</p>
 	}
-	@driftwood.Card(driftwood.CardProps{Heading: "The live region"}) {
+	@components.Card(components.CardProps{Heading: "The live region"}) {
 		<p class="spec-note">
 			Every page's shell renders one empty polite region, and server-pushed status
 			messages patch into it. That ordering is the whole point: a live region that
 			arrives together with its content is not announced (SC 4.1.3), which is why a
 			toast no longer carries <code>aria-live</code> of its own.
 		</p>
-		@driftwood.Toast(driftwood.ToastProps{
-			Role:    driftwood.RoleGood,
+		@components.Toast(components.ToastProps{
+			Role:    components.RoleGood,
 			Title:   "Saved",
 			Message: "A toast, shown here in place rather than patched.",
 		})
