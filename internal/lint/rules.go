@@ -272,7 +272,7 @@ func ruleImgAlt(fc *fileCtx, out *[]Finding) {
 				File:    fc.path,
 				Line:    line,
 				Rule:    "a11y-img-alt",
-				Message: "<img> with no alt attribute; give it a text alternative, or an explicit alt=\"\" for a decorative image (driftwood.ImageProps has Alt and Decorative)",
+				Message: "<img> with no alt attribute; give it a text alternative, or an explicit alt=\"\" for a decorative image (components.ImageProps has Alt and Decorative)",
 			})
 		}
 	})
@@ -326,6 +326,38 @@ var ariaLabelLiteralRe = regexp.MustCompile(`(?i)\baria-label="[^"]+"`)
 // and the kit is shipped to apps in every language, so its names have to come
 // from the catalog (i18n.T with a "ui.a11y.*" key) rather than from the source.
 // An app's own names are its own business.
+var formOpenRe = regexp.MustCompile(`(?is)<form\b[^>]*>`)
+
+// ruleNativeFormSubmit flags a <form> that would submit as a browser navigation.
+// HTML's default method is GET, so a missing method plus no Datastar submit
+// handler is how Enter reloads the page. method=dialog is a close button, not a
+// navigation. The ui kit is exempt (prefs POST, lightbox dialog).
+func ruleNativeFormSubmit(fc *fileCtx, out *[]Finding) {
+	if fc.onPath("ui", "lint", "datastar") {
+		return
+	}
+	src := string(fc.src)
+	for _, loc := range formOpenRe.FindAllStringIndex(src, -1) {
+		tag := strings.ToLower(src[loc[0]:loc[1]])
+		if strings.Contains(tag, `method="dialog"`) || strings.Contains(tag, `method='dialog'`) {
+			continue
+		}
+		if strings.Contains(tag, "data-on:submit") || strings.Contains(tag, "data-on-submit") {
+			continue
+		}
+		if strings.Contains(tag, "data-e2ee-composer") {
+			continue
+		}
+		line := 1 + strings.Count(src[:loc[0]], "\n")
+		*out = append(*out, Finding{
+			File:    fc.path,
+			Line:    line,
+			Rule:    "native-form-submit",
+			Message: "form submits natively (HTML default GET). Use datastar.OnSubmit(@post/@get) so Enter cannot navigate away",
+		})
+	}
+}
+
 func ruleLiteralAccessibleName(fc *fileCtx, out *[]Finding) {
 	if !fc.onPath("ui", "chart") {
 		return

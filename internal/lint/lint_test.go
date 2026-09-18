@@ -50,6 +50,7 @@ func TestBadSnippet(t *testing.T) {
 		// source. TestLiteralNameIsKitOnly covers it directly instead.
 		"a11y-img-alt":          1,
 		"a11y-unnamed-role-img": 1,
+		"native-form-submit":    2,
 	}
 	for rule, n := range want {
 		if counts[rule] != n {
@@ -125,7 +126,7 @@ func snippetFindings(t *testing.T, pkg, src string, r rule) []Finding {
 func TestLiteralNameIsKitOnly(t *testing.T) {
 	src := snippet(`<button aria-label="Close">x</button>`)
 	cases := map[string]bool{
-		"pkg/ui/driftwood":    true,
+		"pkg/ui/components":   true,
 		"pkg/chart":           true,
 		"ui":                  true, // an app tree that vendors the kit at the root
 		"internal/web":        false,
@@ -146,7 +147,7 @@ func TestLiteralNameIsKitOnly(t *testing.T) {
 // everywhere.
 func TestLiteralNameAllowsInterpolation(t *testing.T) {
 	interpolated := snippet("<button aria-label=\"")
-	if n := len(snippetFindings(t, "pkg/ui/driftwood", interpolated, ruleLiteralAccessibleName)); n != 0 {
+	if n := len(snippetFindings(t, "pkg/ui/components", interpolated, ruleLiteralAccessibleName)); n != 0 {
 		t.Errorf("interpolated aria-label flagged %d times, want 0", n)
 	}
 }

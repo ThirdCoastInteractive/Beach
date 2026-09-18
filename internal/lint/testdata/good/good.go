@@ -14,6 +14,11 @@ var attr = datastar.OnClick("@post('/x')")
 const swatch = `<span style="color:var(--accent)">hi</span>`
 const swatchFallback = `<rect fill="var(--chart-grid, #000000)"/>`
 
+// A Datastar form is spelled with data-on:submit in the emitted markup
+// (<form data-on:submit="@post('/x')">); this file must not put that in a
+// string literal or raw-datastar fires. method=dialog is a close control.
+const dialogForm = `<form method="dialog"></form>`
+
 // The only sanctioned script is the framework's datastar bundle.
 const bundle = `<script type="module" src="/static/js/datastar.js" defer></script>`
 

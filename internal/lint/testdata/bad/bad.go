@@ -29,6 +29,11 @@ const swatchOklch = `<span style="color:oklch(0.7 0.1 200)">hi</span>` // hardco
 // a custom inline script — not the datastar bundle.
 const reload = `<script>window.location.reload()</script>` // custom-script
 
+// a form with no Datastar submit and no method is a native GET.
+const nativeGet = `<form class="x"><button type="submit">go</button></form>` // native-form-submit
+
+const nativeGetMethod = `<form method="get" action="/search"></form>` // native-form-submit
+
 // an image with no text alternative at all.
 const avatar = `<img src="/me.jpg" class="avatar">` // a11y-img-alt
 

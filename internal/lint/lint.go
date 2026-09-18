@@ -36,7 +36,7 @@ type Finding struct {
 
 // fileCtx is the per-file context handed to each rule: the parsed AST, the
 // fileset for position lookup, and the slash-separated import path fragment of
-// the directory (e.g. "examples/pantry", "datastar", "ui/driftwood") used by
+// the directory (e.g. "examples/pantry", "datastar", "ui/components") used by
 // rules to decide whether the file sits on a sanctioned path.
 type fileCtx struct {
 	path string // reported file path
@@ -62,6 +62,7 @@ var rules = []rule{
 	ruleUnnamedRoleImg,
 	ruleLiteralAccessibleName,
 	ruleRawSpacing,
+	ruleNativeFormSubmit,
 }
 
 // Check walks root, analyzes every eligible Go file, and returns all findings
