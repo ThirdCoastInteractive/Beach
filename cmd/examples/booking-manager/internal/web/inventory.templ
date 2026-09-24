@@ -1,0 +1,90 @@
+// The supply desk: kitchen stock, cleaning supplies, and linens per
+// property, counted against par levels.
+package web
+
+import (
+	"strconv"
+
+	"github.com/ThirdCoastInteractive/Beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
+
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/store"
+)
+
+// inventoryView is the supply list with its property filter and add form.
+templ (a *app) inventoryView(authed, canWrite bool, propID int64, supplies []store.Supply, props []store.Property) {
+	@a.shellView("Inventory", "inv", authed) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: "Inventory", Subtitle: "Counts against par: at or under par shows low."})
+			@supplyFilter(propID, props)
+			@a.supplyList(propID, supplies, canWrite)
+			if canWrite {
+				@a.addSupplyForm(props)
+			}
+		}
+	}
+}
+
+// supplyFilter is the all-or-one property switch, plain links like the
+// bookings filter.
+templ supplyFilter(propID int64, props []store.Property) {
+	<nav class="dw-btngroup" aria-label="Property filter">
+		<a class={ "dw-btn", "dw-btn-sm", templ.KV("dw-btn-accent", propID == 0) } href="/inventory">All properties</a>
+		for _, p := range props {
+			<a class={ "dw-btn", "dw-btn-sm", templ.KV("dw-btn-accent", propID == p.ID) } href={ templ.SafeURL("/inventory?property=" + strconv.FormatInt(p.ID, 10)) }>{ p.Name }</a>
+		}
+	</nav>
+}
+
+// supplyList renders the counts under a stable id so the adjust buttons can
+// patch it in place.
+templ (a *app) supplyList(propID int64, supplies []store.Supply, canWrite bool) {
+	<div id="supply-list">
+		if len(supplies) == 0 {
+			@driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "box", Message: "Nothing tracked here yet."})
+		} else {
+			@driftwood.StackedList(driftwood.StackedListProps{Rows: supplyRows(propID, supplies, canWrite)})
+		}
+	</div>
+}
+
+// supplyAdjust is the per-item −/+ counter strip.
+templ supplyAdjust(filter int64, sp store.Supply) {
+	@driftwood.ButtonGroup(driftwood.ButtonGroupProps{Label: "Adjust count"}) {
+		@driftwood.Button(driftwood.ButtonProps{
+			Label: "−1", Size: driftwood.SizeSm,
+			Attrs: datastar.Attrs{datastar.OnClick(supplyPost(filter, sp.ID, -1))},
+		})
+		@driftwood.Button(driftwood.ButtonProps{
+			Label: "+1", Size: driftwood.SizeSm,
+			Attrs: datastar.Attrs{datastar.OnClick(supplyPost(filter, sp.ID, 1))},
+		})
+	}
+}
+
+// addSupplyForm tracks a new item.
+templ (a *app) addSupplyForm(props []store.Property) {
+	@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfaceWell, Heading: "Track an item"}) {
+		@driftwood.Form(driftwood.FormProps{Post: "/supplies", TwoCol: true}) {
+			@driftwood.Field(driftwood.FieldProps{Label: "Property", For: "sup_property_id"}) {
+				@driftwood.Select(driftwood.SelectProps{ID: "sup_property_id", Name: "sup_property_id", Options: propertyOptions(props, false)})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Item", For: "sup_name"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "sup_name", Name: "sup_name", Placeholder: "Paper towels"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Category", For: "category"}) {
+				@driftwood.Select(driftwood.SelectProps{ID: "category", Name: "category", Options: categoryOptions()})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "On hand", For: "qty"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "qty", Name: "qty", Type: "number", Value: "0", Min: "0", Step: "1"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Par level", For: "par", Help: "Restock when the count falls to this."}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "par", Name: "par", Type: "number", Value: "1", Min: "0", Step: "1"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Unit", For: "unit"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "unit", Name: "unit", Value: "ea"})
+			}
+			@driftwood.Button(driftwood.ButtonProps{Label: "Track item", Role: driftwood.RoleAccent, Type: "submit", LeadIcon: "plus"})
+		}
+	}
+}

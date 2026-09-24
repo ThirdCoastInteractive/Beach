@@ -1,0 +1,37 @@
+# docker-compose for {{.App}} local development.
+#
+# Postgres is the boot spine (config + pg). ClickHouse is optional everywhere —
+# no DSN, no ClickHouse, the app still boots — so it ships commented out. Bring
+# it up only when you wire the chart/ch analytics pair.
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: {{.App}}
+      POSTGRES_PASSWORD: {{.App}}
+      POSTGRES_DB: {{.App}}
+    ports:
+      - "5432:5432"
+    volumes:
+      - {{.App}}_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U {{.App}}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # clickhouse:
+  #   image: clickhouse/clickhouse-server:24-alpine
+  #   environment:
+  #     CLICKHOUSE_USER: {{.App}}
+  #     CLICKHOUSE_PASSWORD: {{.App}}
+  #     CLICKHOUSE_DB: {{.App}}
+  #   ports:
+  #     - "8123:8123"
+  #     - "9000:9000"
+  #   volumes:
+  #     - {{.App}}_chdata:/var/lib/clickhouse
+
+volumes:
+  {{.App}}_pgdata:
+  # {{.App}}_chdata:

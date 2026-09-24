@@ -1,0 +1,196 @@
+// The guest pipeline: the inquiries desk and the bookings calendar.
+package web
+
+import (
+	"strconv"
+
+	"github.com/ThirdCoastInteractive/Beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
+
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/store"
+)
+
+// --- inquiries ---
+
+// inquiriesView is the intake pipeline: every inquiry with its status and,
+// for writers, the pipeline actions.
+templ (a *app) inquiriesView(authed, canWrite bool, inqs []store.Inquiry) {
+	@a.shellView("Inquiries", "inq", authed) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: "Inquiries", Subtitle: "What guests sent through the public form, worked new → quoted → won."})
+			<div id="inq-note"></div>
+			if len(inqs) == 0 {
+				@driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "inbox", Message: "No inquiries yet. Send one from the public site."})
+			} else {
+				@driftwood.StackedList(driftwood.StackedListProps{Rows: inquiryRows(inqs, canWrite)})
+			}
+		}
+	}
+}
+
+// inquiryActions is the per-inquiry pipeline control strip.
+templ inquiryActions(q store.Inquiry) {
+	@driftwood.ButtonGroup(driftwood.ButtonGroupProps{Label: "Pipeline actions"}) {
+		if q.Status == "new" {
+			@driftwood.Button(driftwood.ButtonProps{
+				Label: "Quote", Size: driftwood.SizeSm,
+				Attrs: datastar.Attrs{datastar.OnClick(inquiryPost(q.ID, "status?to=quoted"))},
+			})
+		}
+		if (q.Status == "new" || q.Status == "quoted") && q.PropertyID != 0 && q.CheckIn != nil && q.CheckOut != nil {
+			@driftwood.Button(driftwood.ButtonProps{
+				Label: "Book it", Role: driftwood.RoleAccent, Size: driftwood.SizeSm,
+				Attrs: datastar.Attrs{datastar.OnClick(inquiryPost(q.ID, "book"))},
+			})
+		}
+		if q.Status == "new" || q.Status == "quoted" {
+			@driftwood.Button(driftwood.ButtonProps{
+				Label: "Lost", Role: driftwood.RoleGhost, Size: driftwood.SizeSm,
+				Attrs: datastar.Attrs{datastar.OnClick(inquiryPost(q.ID, "status?to=lost"))},
+			})
+		}
+	}
+}
+
+// --- bookings ---
+
+// bookingsView is the month calendar with its property filter, the month's
+// stays, and the manual booking form.
+templ (a *app) bookingsView(authed, canWrite bool, cal calendarData, bookings []store.Booking, props []store.Property) {
+	@a.shellView("Bookings", "book", authed) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: "Bookings", Subtitle: "Every stay, one property or all of them."})
+			<div id="book-note"></div>
+			@propertyFilter(cal, props)
+			@calendarCard(cal)
+			@driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Stays in " + cal.Title})
+			if len(bookings) == 0 {
+				@driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "calendar", Message: "Nothing on the books this month."})
+			} else {
+				@driftwood.StackedList(driftwood.StackedListProps{Rows: bookingRows(bookings, canWrite)})
+			}
+			if canWrite {
+				@a.addBookingForm(props)
+			}
+		}
+	}
+}
+
+// propertyFilter is the all-or-one property switch; each choice is a real
+// link, so the filter lives in the URL and the back button works.
+templ propertyFilter(cal calendarData, props []store.Property) {
+	<nav class="dw-btngroup" aria-label="Property filter">
+		<a class={ "dw-btn", "dw-btn-sm", templ.KV("dw-btn-accent", cal.PropertyID == 0) } href={ templ.SafeURL(monthHref(cal.Month, 0)) }>All properties</a>
+		for _, p := range props {
+			<a class={ "dw-btn", "dw-btn-sm", templ.KV("dw-btn-accent", cal.PropertyID == p.ID) } href={ templ.SafeURL(monthHref(cal.Month, p.ID)) }>{ p.Name }</a>
+		}
+	</nav>
+}
+
+// calendarCard is the month grid. Every stay chips the nights it occupies,
+// colored by status; navigation is plain links.
+templ calendarCard(cal calendarData) {
+	@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel}) {
+		@driftwood.CardHeading(driftwood.CardHeadingProps{Title: cal.Title, Action: calendarNav(cal)})
+		<table class="dw-table is-dense">
+			<thead class="dw-thead">
+				<tr>
+					for _, d := range []string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"} {
+						<th class="dw-th" scope="col">{ d }</th>
+					}
+				</tr>
+			</thead>
+			<tbody>
+				for _, week := range cal.Weeks {
+					<tr class="dw-tr">
+						for _, day := range week {
+							<td class="dw-td" style="vertical-align:top;height:5.5rem;width:14.28%">
+								if day.Today {
+									@driftwood.Badge(driftwood.BadgeProps{Label: strconv.Itoa(day.Day), Role: driftwood.RoleAccent})
+								} else if day.InMonth {
+									<span>{ strconv.Itoa(day.Day) }</span>
+								} else {
+									<span class="dw-card-meta">{ strconv.Itoa(day.Day) }</span>
+								}
+								for _, chip := range day.Chips {
+									<div>
+										@driftwood.Badge(driftwood.BadgeProps{Label: chip.Label, Role: chip.Role, Dot: true})
+									</div>
+								}
+							</td>
+						}
+					</tr>
+				}
+			</tbody>
+		</table>
+	}
+}
+
+// calendarNav is the prev/next month link pair.
+templ calendarNav(cal calendarData) {
+	<nav class="dw-btngroup" aria-label="Month">
+		<a class="dw-btn dw-btn-sm dw-btn-ghost" href={ templ.SafeURL(cal.PrevHref) }>←</a>
+		<a class="dw-btn dw-btn-sm dw-btn-ghost" href={ templ.SafeURL(cal.NextHref) }>→</a>
+	</nav>
+}
+
+// bookingActions renders the lifecycle buttons a stay currently allows.
+templ bookingActions(b store.Booking) {
+	@driftwood.ButtonGroup(driftwood.ButtonGroupProps{Label: "Booking actions"}) {
+		switch b.Status {
+			case "pending":
+				@driftwood.Button(driftwood.ButtonProps{
+					Label: "Confirm", Role: driftwood.RoleAccent, Size: driftwood.SizeSm,
+					Attrs: datastar.Attrs{datastar.OnClick(bookingPost(b.ID, "confirmed"))},
+				})
+				@driftwood.Button(driftwood.ButtonProps{
+					Label: "Cancel", Role: driftwood.RoleGhost, Size: driftwood.SizeSm, Hazard: true,
+					Attrs: datastar.Attrs{datastar.OnClick(bookingPost(b.ID, "cancelled"))},
+				})
+			case "confirmed":
+				@driftwood.Button(driftwood.ButtonProps{
+					Label: "Check in", Size: driftwood.SizeSm,
+					Attrs: datastar.Attrs{datastar.OnClick(bookingPost(b.ID, "checked_in"))},
+				})
+				@driftwood.Button(driftwood.ButtonProps{
+					Label: "Cancel", Role: driftwood.RoleGhost, Size: driftwood.SizeSm, Hazard: true,
+					Attrs: datastar.Attrs{datastar.OnClick(bookingPost(b.ID, "cancelled"))},
+				})
+			case "checked_in":
+				@driftwood.Button(driftwood.ButtonProps{
+					Label: "Check out", Size: driftwood.SizeSm,
+					Attrs: datastar.Attrs{datastar.OnClick(bookingPost(b.ID, "checked_out"))},
+				})
+		}
+	}
+}
+
+// addBookingForm takes stays that arrive by phone or a repeat guest.
+templ (a *app) addBookingForm(props []store.Property) {
+	@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfaceWell, Heading: "Add a booking"}) {
+		@driftwood.Form(driftwood.FormProps{Post: "/bookings", TwoCol: true}) {
+			@driftwood.Field(driftwood.FieldProps{Label: "Property", For: "property_id"}) {
+				@driftwood.Select(driftwood.SelectProps{ID: "property_id", Name: "property_id", Options: propertyOptions(props, false)})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Guest name", For: "guest_name"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "guest_name", Name: "guest_name"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Guest email", For: "guest_email"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "guest_email", Name: "guest_email", Type: "email"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Guest phone", For: "guest_phone"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "guest_phone", Name: "guest_phone", Type: "tel", InputMode: "tel"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Check-in", For: "b_check_in"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "b_check_in", Name: "check_in", Type: "date"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Check-out", For: "b_check_out"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "b_check_out", Name: "check_out", Type: "date"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: "Nightly rate", For: "rate", Help: "Leave 0 to use the property's rate."}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "rate", Name: "rate", Type: "number", Prefix: "$", Min: "0", Step: "1", Value: "0"})
+			}
+			@driftwood.Button(driftwood.ButtonProps{Label: "Add booking", Role: driftwood.RoleAccent, Type: "submit", LeadIcon: "plus"})
+		}
+	}
+}

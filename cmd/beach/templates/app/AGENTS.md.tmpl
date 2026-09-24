@@ -1,0 +1,17 @@
+# Agents
+
+This is a Beach app. The framework is `github.com/ThirdCoastInteractive/Beach`.
+
+**Do not invent a parallel of anything already in the framework.** Map the task to a package, then call it. Framework skills live in the Beach module under `skills/` (`beach`, `beach-ui`, `beach-a11y`, `beach-test`).
+
+## Laws
+
+- Handlers are `PageFunc`, `ActionFunc`, `StreamFunc`, `SocketFunc`. `app.Raw` is the escape hatch.
+- UI is `pkg/ui/driftwood`. `ui.Icon`, not raw `<i>`. No HTML primitives the kit already owns.
+- SQL lives in sqlc queries. Transactions are `pg.InTx`.
+- Datastar attributes come from `pkg/datastar`. Raw `data-*` fails `beach-vet`.
+- Names a person hears come from the i18n catalog. Follow `beach-a11y` when touching UI.
+
+## Verify
+
+`make gen` after `.templ` / CSS / sqlc / ECS schema. Then `make vet` and `make test`. Browser-check UI: no console errors, the change is visible, no 404s.

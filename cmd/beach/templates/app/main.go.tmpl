@@ -1,0 +1,144 @@
+// Command {{.App}} is a Beach skeleton app: one page of driftwood
+// components (views.templ), one Datastar action that mutates server state and
+// patches a fragment, and one SSE stream driven by a hub.Ticker. It boots with
+// no database — `make up` proves the whole render+action+SSE pipe end to end.
+//
+// Run it:
+//
+//	go build -o bin/{{.App}} .
+//	PORT=8080 ./bin/{{.App}}        # or just ./bin/{{.App}} to bind :8080
+//
+// Then open http://localhost:8080/. The "Tick" card shows a server clock that
+// advances every second over SSE; the button increments a server-held counter
+// and patches the same fragment.
+//
+// This file is wiring only. All markup lives in views.templ, compiled to
+// views_templ.go by `make gen` (go tool templ generate).
+package main
+
+import (
+	"bytes"
+	"context"
+	"embed"
+	"log"
+	"log/slog"
+	"os"
+	"sync/atomic"
+	"time"
+
+	beach "github.com/ThirdCoastInteractive/Beach/pkg/beach"
+	"github.com/ThirdCoastInteractive/Beach/pkg/hub"
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
+	"github.com/a-h/templ"
+)
+
+// localesFS carries the app's translations into the binary. catalog.json is the
+// reference set — `beach i18n` reconciles it against the i18n.T calls in this
+// source, so a key that is added, renamed or dropped fails the check rather than
+// drifting.
+//
+//go:embed locales
+var localesFS embed.FS
+
+// appName brands the page chrome; views.templ reads it for the title and
+// heading so the name is templated in exactly one place.
+const appName = "{{.App}}"
+
+// liveTopic is the single hub topic the clock ticker publishes to and the
+// page's stream subscribes to.
+const liveTopic = "tick"
+
+// liveTarget is the DOM id of the fragment region the action and the ticker
+// both patch (by outer morph on the element's own id).
+const liveTarget = "live"
+
+// counter is the shared server state the action increments. The ticker reads it
+// so the live clock fragment always reflects the latest count.
+var counter atomic.Int64
+
+func main() {
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+
+	addr := ":8080"
+	if p := os.Getenv("PORT"); p != "" {
+		addr = ":" + p
+	}
+
+	// The hub backs the SSE stream; a Ticker fans a freshly rendered clock
+	// fragment to every subscriber once a second. The framework serves the
+	// stylesheet (app.css), the Datastar client, and the chart runtime from its
+	// own static tree — the app vendors nothing.
+	h := hub.New()
+
+	// Locales resolves each request's language (cookie, then Accept-Language,
+	// then the default) before anything else runs. Two things follow with no
+	// further wiring: i18n.T returns this app's strings, and the page shell
+	// declares the matching <html lang> and dir — which is what a screen reader
+	// reads to choose its voice (WCAG 3.1.1). Drop the field and the app is
+	// monolingual English at no cost.
+	cat, err := i18n.Load(localesFS, "en-US")
+	if err != nil {
+		log.Fatalf("%s: loading locales: %v", appName, err)
+	}
+
+	app := beach.New(beach.Config{
+		Service: appName,
+		Hub:     h,
+		Logger:  logger,
+		Locales: cat,
+	})
+
+	app.Page("/", indexPage)
+	app.Action("/inc", incAction)
+	app.Stream("/live", liveStream)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go h.Ticker(ctx, liveTopic, time.Second, func() (hub.Event, bool) {
+		return hub.Event{Bytes: renderToBytes(live(counter.Load()))}, true
+	})
+
+	logger.Info(appName+": starting", "addr", addr,
+		"routes", "GET / , POST /inc , GET /live , GET /static/...")
+	if err := app.Start(addr); err != nil {
+		log.Fatalf("%s: %v", appName, err)
+	}
+}
+
+// indexPage renders the page on navigation and patches just the live fragment
+// on a Datastar request (the framework owns that branch).
+func indexPage(c *beach.Ctx) (beach.View, error) {
+	return beach.View{
+		Page:     index(counter.Load()),
+		Fragment: live(counter.Load()),
+		Target:   liveTarget,
+	}, nil
+}
+
+// incAction increments the shared counter and patches the live fragment.
+func incAction(c *beach.Ctx) (beach.Patches, error) {
+	n := counter.Add(1)
+	return beach.Patches{
+		{Fragment: live(n), Target: liveTarget},
+	}, nil
+}
+
+// liveStream subscribes the live region to the clock topic and replays one
+// immediate frame so the fragment is correct the instant the stream opens.
+func liveStream(c *beach.Ctx) (beach.Sub, error) {
+	return beach.Sub{
+		Topics: []string{liveTopic},
+		CatchUp: func(_ string, p beach.Patcher) error {
+			return p.Patch(beach.Patch{Fragment: live(counter.Load()), Target: liveTarget})
+		},
+	}, nil
+}
+
+// renderToBytes renders a templ component to bytes for a hub.Event.
+func renderToBytes(c templ.Component) []byte {
+	var buf bytes.Buffer
+	if err := c.Render(context.Background(), &buf); err != nil {
+		return nil
+	}
+	return buf.Bytes()
+}

@@ -1,0 +1,51 @@
+// Views for the WebSocket demo page. Markup only — the live behavior is all in
+// static/js/sockets-demo.js, because a socket carries payloads that are not
+// hypermedia: nothing here is a Datastar surface.
+package sockets
+
+import "github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
+
+templ socketsDocument() {
+	@driftwood.Page(driftwood.PageProps{
+		Title:       "driftbottle — sockets",
+		Description: "WebSocket demo: text echo and a 60 Hz binary tick stream with latest-state-wins coalescing.",
+	}) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{
+				Title:    "sockets",
+				Subtitle: "The non-hypermedia channel: binary state over WebSocket, UI sync stays on SSE.",
+			})
+			@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "60 Hz tick — latest-state-wins"}) {
+				<p class="db-lead">
+					The server pushes a 64&nbsp;KiB binary counter 60 times a second via
+					<code>WriteLatest</code>. Stall the consumer (reads pause, TCP backs up)
+					and on release the counter <em>jumps</em> instead of replaying a backlog —
+					frames coalesce server-side, memory stays flat. Hold the stall past the
+					keepalive window and the server declares you dead; the reconnect lands on
+					fresh state.
+				</p>
+				<div id="tick-stats" class="ws-stats">
+					<span>rate <strong id="tick-fps">–</strong> fps</span>
+					<span>counter <strong id="tick-counter">–</strong></span>
+					<span>received <strong id="tick-received">0</strong></span>
+					<span>skipped <strong id="tick-skipped">0</strong></span>
+					<span>status <strong id="tick-status">connecting</strong></span>
+				</div>
+				<canvas id="tick-graph" width="640" height="120" style="width:100%;max-width:640px"></canvas>
+				<div class="ws-controls">
+					<button id="tick-stall" type="button">Stall consumer</button>
+				</div>
+			}
+			@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Echo"}) {
+				<p class="db-lead">Text frames, ordered delivery, round trip.</p>
+				<form id="echo-form">
+					<input id="echo-input" type="text" placeholder="say something" autocomplete="off"/>
+					<button type="submit">Send</button>
+				</form>
+				<pre id="echo-log" class="ws-log"></pre>
+			}
+			<p class="db-lead"><a href="/">← back to the wall</a></p>
+		}
+		<script type="module" src="/static/js/sockets-demo.js"></script>
+	}
+}

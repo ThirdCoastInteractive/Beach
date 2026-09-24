@@ -1,0 +1,244 @@
+// Chart fragment templates. Each wraps a server-rendered SVG chart in
+// a figure element that Datastar can merge by id.
+package chart
+
+// ChartBarFragment wraps a server-rendered horizontal bar chart.
+templ ChartBarFragment(id string, c BarChart, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag", append(opts, withKind("tip"))) {
+		@BarChartSVG(c)
+	}
+}
+
+// ChartStackedBarFragment wraps a server-rendered stacked bar chart.
+templ ChartStackedBarFragment(id string, c StackedBar, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag", append(opts, withKind("tip"))) {
+		@StackedBarSVG(c)
+	}
+}
+
+// ChartStackedGaugeFragment wraps a server-rendered stacked gauge.
+templ ChartStackedGaugeFragment(id string, g StackedGauge, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag", append(opts, withKind("tip"))) {
+		@StackedGaugeSVG(g)
+	}
+}
+
+// ChartGaugeFragment wraps a server-rendered gauge arc.
+templ ChartGaugeFragment(id string, g Gauge, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag", append(opts, withKind("tip"))) {
+		@GaugeSVG(g)
+	}
+}
+
+// ChartBillboardFragment wraps a server-rendered billboard KPI.
+templ ChartBillboardFragment(id string, b Billboard, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag", append(opts, withKind("tip"))) {
+		@BillboardSVG(b)
+	}
+}
+
+// ChartBoxPlotFragment wraps a server-rendered box plot.
+templ ChartBoxPlotFragment(id string, b BoxPlot, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag", append(opts, withKind("tip"))) {
+		@BoxPlotSVG(b)
+	}
+}
+
+// ChartCalendarFragment wraps a server-rendered calendar heatmap.
+templ ChartCalendarFragment(id string, c Calendar, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag", append(opts, withKind("tip"))) {
+		@CalendarSVG(c)
+	}
+}
+
+// ChartBollingerFragment wraps a server-rendered Bollinger bands chart.
+templ ChartBollingerFragment(id string, b Bollinger, opts ...FigureOpt) {
+	{{ b.HoverID = id }}
+	@chartFigure(id, "chart-frag", append(opts, withKind("vb"))) {
+		@BollingerSVG(b)
+	}
+}
+
+// ChartHorizonFragment wraps a server-rendered horizon chart.
+templ ChartHorizonFragment(id string, h Horizon, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag", opts) {
+		@HorizonSVG(h)
+	}
+}
+
+// ChartRidgelineFragment wraps a server-rendered ridgeline plot.
+templ ChartRidgelineFragment(id string, r Ridgeline, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag", opts) {
+		@RidgelineSVG(r)
+	}
+}
+
+// ChartDifferenceFragment wraps a server-rendered difference chart.
+templ ChartDifferenceFragment(id string, d Difference, opts ...FigureOpt) {
+	{{ d.HoverID = id }}
+	@chartFigure(id, "chart-frag", append(opts, withKind("vb"))) {
+		@DifferenceSVG(d)
+	}
+}
+
+// ChartTimelineFragment wraps a server-rendered timeline.
+templ ChartTimelineFragment(id string, t Timeline, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag", append(opts, withKind("tip"))) {
+		@TimelineSVG(t)
+	}
+}
+
+// ChartBundleFragment wraps a server-rendered edge bundling diagram.
+templ ChartBundleFragment(id string, b Bundle, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag", append(opts, withKind("bundle"))) {
+		@BundleSVG(b)
+	}
+}
+
+// ChartGroupedBarFragment wraps a server-rendered grouped bar chart.
+templ ChartGroupedBarFragment(id string, c GroupedBar, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag", append(opts, withKind("tip"))) {
+		@GroupedBarSVG(c)
+	}
+}
+
+// ChartStreamFragment wraps a server-rendered streamgraph.
+templ ChartStreamFragment(id string, s Stream, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag chart-frag-col", append(opts, withKind("tip"))) {
+		@StreamSVG(s)
+	}
+}
+
+// ChartScatterFragment wraps a server-rendered scatterplot.
+templ ChartScatterFragment(id string, s Scatter, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag chart-frag-col", append(opts, withKind("tip"))) {
+		@ScatterSVG(s)
+	}
+}
+
+// ChartSankeyFragment wraps a server-rendered Sankey diagram.
+templ ChartSankeyFragment(id string, s Sankey, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag", append(opts, withKind("sankey"))) {
+		@SankeySVG(s)
+	}
+}
+
+// ChartSingleLineFragment wraps a server-rendered electrical single-line diagram.
+templ ChartSingleLineFragment(id string, s SingleLine, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag chart-frag-col", append(opts, withKind("sankey"))) {
+		@SingleLineSVG(s)
+	}
+}
+
+// ChartChordFragment wraps a server-rendered chord diagram.
+templ ChartChordFragment(id string, c Chord, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag", append(opts, withKind("chord"))) {
+		@ChordSVG(c)
+	}
+}
+
+// ChartSparklineFragment wraps a server-rendered sparkline.
+templ ChartSparklineFragment(id string, s Sparkline, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag", append(opts, withKind("tip"))) {
+		@SparklineSVG(s)
+	}
+}
+
+// ChartHeatmapFragment wraps a server-rendered heatmap.
+templ ChartHeatmapFragment(id string, h Heatmap, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag", append(opts, withKind("tip"))) {
+		@HeatmapSVG(h)
+	}
+}
+
+// ChartPhaseFragment wraps a server-rendered phase diagram (banded field + points).
+templ ChartPhaseFragment(id string, p Phase, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag chart-frag-col", append(opts, withKind("tip"))) {
+		@PhaseChartSVG(p)
+	}
+}
+
+// ChartBulletBarFragment wraps a server-rendered bullet (overlapping) bar chart.
+templ ChartBulletBarFragment(id string, c BulletBar, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag", append(opts, withKind("tip"))) {
+		@BulletBarSVG(c)
+	}
+}
+
+// ChartLineFragment wraps a server-rendered line/area chart.
+// ChartLineFragment wraps a server-rendered line/area chart.
+//
+// Unlike the other fragments this one is a focusable widget, not a picture: the
+// chart's client layer steps through samples on the arrow keys and announces
+// each one into the live region below. So it keeps role="group", its own tab
+// stop, and an instructive name — a keyboard user has to be told the keys exist.
+templ ChartLineFragment(c LineChart, opts ...FigureOpt) {
+	@chartFigure(c.HoverID, "chart-frag chart-frag-col", append(opts, withKind("line"))) {
+		@LineChartSVG(c)
+	}
+}
+
+// ChartGeoMapFragment wraps a server-rendered Equal Earth choropleth map.
+templ ChartGeoMapFragment(id string, g GeoMap, opts ...FigureOpt) {
+	@chartFigure(id, "chart-frag chart-frag-col", append(opts, withKind("tip"))) {
+		@GeoMapSVG(g)
+	}
+}
+
+// chartFigure is the accessible wrapper every chart fragment shares. With a
+// Label it is a named role="img", so the whole chart announces as one thing
+// with one name; without one it stays a plain <figure> holding a hidden
+// graphic, which is the honest description of a decorative chart sitting in an
+// already-titled card. Describe adds the screen-reader-only caption carrying
+// what the chart actually shows.
+templ chartFigure(id, class string, opts []FigureOpt) {
+	{{ f := figureOf(opts) }}
+	if f.interactive {
+		@interactiveFigure(id, class, f) {
+			{ children... }
+		}
+	} else {
+		<figure
+			id={ id }
+			class={ class }
+			if f.named() {
+				role="img"
+				aria-label={ f.label }
+			}
+		>
+			{ children... }
+			if f.desc != "" {
+				<figcaption class="sr-only">{ f.desc }</figcaption>
+			}
+		</figure>
+	}
+}
+
+// interactiveFigure is a chart you can operate: a focusable group, a name that
+// says which keys do what, and the region its client layer announces into.
+//
+// role="group" rather than role="img" is the honest description — it is a thing
+// with parts you move between, not a picture. The name always carries the
+// keyboard hint, because a widget with a tab stop has to tell you the keys
+// exist; nothing else on the page will.
+//
+// The announcement region ships empty and last. A live region that arrives
+// holding its content is not announced (WCAG 4.1.3), and putting it after the
+// caption keeps the two apart: the caption is the chart's text alternative, the
+// region is the running commentary.
+templ interactiveFigure(id, class string, f figureConfig) {
+	<figure
+		id={ id }
+		class={ class + " focus-ring" }
+		tabindex="0"
+		role="group"
+		aria-label={ interactiveChartName(ctx, f) }
+		data-chart-keys={ f.kind }
+	>
+		{ children... }
+		if f.desc != "" {
+			<figcaption class="sr-only">{ f.desc }</figcaption>
+		}
+		<div class="sr-only" role="status" aria-live="polite"></div>
+	</figure>
+}

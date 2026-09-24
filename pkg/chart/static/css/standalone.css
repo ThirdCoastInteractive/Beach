@@ -1,0 +1,26 @@
+/* ==========================================================================
+ * Chart styles for an app that does not use pkg/beach's stylesheet.
+ *
+ * pkg/beach imports these partials into its own sheet at fixed points; this
+ * entry loads the same files for everyone else. Serve chart.Static() and link
+ * this file, then load js/chart.js as a module.
+ *
+ * The rules paint with Beach theme tokens. Define them on :root (or on any
+ * ancestor of the charts) before this sheet applies:
+ *
+ *   --font-mono, --font-sans
+ *   --color-fg-default, --color-fg-muted
+ *   --color-line-soft, --color-line-strong
+ *   --color-paper, --color-panel, --color-panel-hover
+ *   --color-accent, --color-accent-3
+ *   --color-good, --color-bad, --color-warn
+ *   --color-series-a through --color-series-o  (chart.ColorVar)
+ *
+ * themes.css only redefines the series tokens under [data-chart-theme]; the
+ * page default is whatever the host puts on :root.
+ * ========================================================================== */
+
+@import "themes.css";
+@import "focus.css";
+@import "chart.css";
+@import "geo.css";

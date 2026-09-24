@@ -1,0 +1,170 @@
+/* Chart series palettes. pkg/beach imports this into its stylesheet after the
+   token blocks; standalone.css loads it for other apps. */
+
+/* Chart color themes (from Atlas). Each palette redefines --color-series-a
+   through --color-series-o under a [data-chart-theme] selector; charts inherit
+   the nearest ancestor's theme, so chart-toolbar.js theme-switches a single
+   widget by setting the attribute on it. The page default (no attribute) is
+   the munsell series on :root above; "munsell" mirrors it so the picker can
+   return to it explicitly. */
+[data-chart-theme="munsell"] {
+  --color-series-a: #b5413c;
+  --color-series-b: #c35a3c;
+  --color-series-c: #d8823d;
+  --color-series-d: #dd8f3f;
+  --color-series-e: #e2ad4a;
+  --color-series-f: #e5c151;
+  --color-series-g: #99b95d;
+  --color-series-h: #23ac6f;
+  --color-series-i: #12a778;
+  --color-series-j: #2b9997;
+  --color-series-k: #3b8fab;
+  --color-series-l: #517f9e;
+  --color-series-m: #73668a;
+  --color-series-n: #7f5e7e;
+  --color-series-o: #a04c56;
+}
+
+[data-chart-theme="default"] {
+  --color-series-a: oklch(0.65 0.19 250);
+  --color-series-b: oklch(0.72 0.18 150);
+  --color-series-c: oklch(0.70 0.17 55);
+  --color-series-d: oklch(0.62 0.20 25);
+  --color-series-e: oklch(0.60 0.17 310);
+  --color-series-f: oklch(0.68 0.16 195);
+  --color-series-g: oklch(0.66 0.17 85);
+  --color-series-h: oklch(0.58 0.18 275);
+  --color-series-i: oklch(0.64 0.16 120);
+  --color-series-j: oklch(0.66 0.16 175);
+  --color-series-k: oklch(0.62 0.18 230);
+  --color-series-l: oklch(0.70 0.17 40);
+  --color-series-m: oklch(0.64 0.17 350);
+  --color-series-n: oklch(0.66 0.15 135);
+  --color-series-o: oklch(0.62 0.16 210);
+}
+
+[data-chart-theme="warm"] {
+  --color-series-a: oklch(0.65 0.22 35);
+  --color-series-b: oklch(0.70 0.19 55);
+  --color-series-c: oklch(0.60 0.20 15);
+  --color-series-d: oklch(0.72 0.16 75);
+  --color-series-e: oklch(0.55 0.18 5);
+  --color-series-f: oklch(0.68 0.17 45);
+  --color-series-g: oklch(0.62 0.19 25);
+  --color-series-h: oklch(0.58 0.15 65);
+  --color-series-i: oklch(0.66 0.20 40);
+  --color-series-j: oklch(0.70 0.14 85);
+  --color-series-k: oklch(0.56 0.17 10);
+  --color-series-l: oklch(0.64 0.18 50);
+  --color-series-m: oklch(0.60 0.16 70);
+  --color-series-n: oklch(0.68 0.15 30);
+  --color-series-o: oklch(0.62 0.19 60);
+}
+
+[data-chart-theme="cool"] {
+  --color-series-a: oklch(0.58 0.20 240);
+  --color-series-b: oklch(0.64 0.18 200);
+  --color-series-c: oklch(0.60 0.19 270);
+  --color-series-d: oklch(0.68 0.16 180);
+  --color-series-e: oklch(0.55 0.21 300);
+  --color-series-f: oklch(0.62 0.17 220);
+  --color-series-g: oklch(0.66 0.18 190);
+  --color-series-h: oklch(0.56 0.19 260);
+  --color-series-i: oklch(0.70 0.15 210);
+  --color-series-j: oklch(0.58 0.20 280);
+  --color-series-k: oklch(0.64 0.16 170);
+  --color-series-l: oklch(0.60 0.18 250);
+  --color-series-m: oklch(0.66 0.17 230);
+  --color-series-n: oklch(0.62 0.19 290);
+  --color-series-o: oklch(0.68 0.15 200);
+}
+
+[data-chart-theme="neon"] {
+  --color-series-a: oklch(0.70 0.30 330);
+  --color-series-b: oklch(0.75 0.28 85);
+  --color-series-c: oklch(0.65 0.28 145);
+  --color-series-d: oklch(0.70 0.26 205);
+  --color-series-e: oklch(0.60 0.32 265);
+  --color-series-f: oklch(0.68 0.30 325);
+  --color-series-g: oklch(0.72 0.28 55);
+  --color-series-h: oklch(0.74 0.26 115);
+  --color-series-i: oklch(0.68 0.27 175);
+  --color-series-j: oklch(0.66 0.29 235);
+  --color-series-k: oklch(0.62 0.31 295);
+  --color-series-l: oklch(0.70 0.29 355);
+  --color-series-m: oklch(0.71 0.28 40);
+  --color-series-n: oklch(0.73 0.26 100);
+  --color-series-o: oklch(0.67 0.27 160);
+}
+
+[data-chart-theme="terminal"] {
+  --color-series-a: oklch(0.50 0.22 135);
+  --color-series-b: oklch(0.60 0.20 140);
+  --color-series-c: oklch(0.45 0.18 150);
+  --color-series-d: oklch(0.55 0.16 125);
+  --color-series-e: oklch(0.40 0.20 145);
+  --color-series-f: oklch(0.58 0.17 130);
+  --color-series-g: oklch(0.48 0.19 155);
+  --color-series-h: oklch(0.52 0.15 120);
+  --color-series-i: oklch(0.62 0.18 140);
+  --color-series-j: oklch(0.44 0.16 160);
+  --color-series-k: oklch(0.56 0.20 135);
+  --color-series-l: oklch(0.42 0.14 150);
+  --color-series-m: oklch(0.54 0.19 145);
+  --color-series-n: oklch(0.46 0.17 130);
+  --color-series-o: oklch(0.60 0.15 155);
+}
+
+[data-chart-theme="amber"] {
+  --color-series-a: oklch(0.65 0.18 75);
+  --color-series-b: oklch(0.60 0.16 65);
+  --color-series-c: oklch(0.55 0.14 55);
+  --color-series-d: oklch(0.70 0.15 80);
+  --color-series-e: oklch(0.50 0.12 50);
+  --color-series-f: oklch(0.62 0.17 70);
+  --color-series-g: oklch(0.58 0.13 60);
+  --color-series-h: oklch(0.68 0.16 85);
+  --color-series-i: oklch(0.52 0.15 45);
+  --color-series-j: oklch(0.64 0.14 75);
+  --color-series-k: oklch(0.56 0.16 55);
+  --color-series-l: oklch(0.66 0.13 65);
+  --color-series-m: oklch(0.60 0.15 80);
+  --color-series-n: oklch(0.54 0.11 50);
+  --color-series-o: oklch(0.62 0.14 70);
+}
+
+[data-chart-theme="mono"] {
+  --color-series-a: oklch(0.90 0.01 60);
+  --color-series-b: oklch(0.80 0.01 60);
+  --color-series-c: oklch(0.70 0.01 60);
+  --color-series-d: oklch(0.60 0.01 60);
+  --color-series-e: oklch(0.50 0.01 60);
+  --color-series-f: oklch(0.85 0.01 60);
+  --color-series-g: oklch(0.75 0.01 60);
+  --color-series-h: oklch(0.65 0.01 60);
+  --color-series-i: oklch(0.55 0.01 60);
+  --color-series-j: oklch(0.45 0.01 60);
+  --color-series-k: oklch(0.88 0.01 60);
+  --color-series-l: oklch(0.78 0.01 60);
+  --color-series-m: oklch(0.68 0.01 60);
+  --color-series-n: oklch(0.58 0.01 60);
+  --color-series-o: oklch(0.48 0.01 60);
+}
+
+[data-chart-theme="earth"] {
+  --color-series-a: oklch(0.55 0.14 80);
+  --color-series-b: oklch(0.60 0.16 120);
+  --color-series-c: oklch(0.50 0.12 40);
+  --color-series-d: oklch(0.65 0.14 150);
+  --color-series-e: oklch(0.48 0.10 30);
+  --color-series-f: oklch(0.58 0.15 100);
+  --color-series-g: oklch(0.52 0.13 60);
+  --color-series-h: oklch(0.62 0.12 140);
+  --color-series-i: oklch(0.46 0.11 50);
+  --color-series-j: oklch(0.56 0.14 110);
+  --color-series-k: oklch(0.54 0.12 70);
+  --color-series-l: oklch(0.64 0.13 130);
+  --color-series-m: oklch(0.50 0.10 45);
+  --color-series-n: oklch(0.60 0.15 90);
+  --color-series-o: oklch(0.58 0.11 160);
+}

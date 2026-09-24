@@ -1,0 +1,201 @@
+package driftwood
+
+import "github.com/ThirdCoastInteractive/Beach/pkg/i18n"
+
+// --- Media -------------------------------------------------------------------
+
+// Avatar is a user thumbnail: an image, or an initials fallback, with an
+// optional status dot.
+templ Avatar(p AvatarProps) {
+	<span class={ "dw-avatar", sizeClass("dw-avatar", p.Size) } { p.Attrs.Templ()... }>
+		if p.Src != "" {
+			<img class="dw-avatar-img" src={ p.Src } alt={ p.Alt } loading="lazy" decoding="async"/>
+		} else {
+			<span class="dw-avatar-initials" aria-hidden="true">{ p.Initials }</span>
+		}
+		if p.Status != "" {
+			<span class={ "dw-avatar-status", "dw-status-" + p.Status } role="img" aria-label={ avatarStatusLabel(p) }></span>
+		}
+	</span>
+}
+
+// Image is the kit image. Every image sits in an aspect box so late bytes fill
+// reserved pixels (the no-pop-in law applied to media); below-fold images
+// lazy-load and decode async, above-fold heroes opt into eager + fetchpriority.
+templ Image(p ImageProps) {
+	@AspectRatio(AspectBoxProps{Ratio: p.Ratio, Attrs: p.Attrs}) {
+		if len(p.Sources) > 0 {
+			<picture>
+				for _, src := range p.Sources {
+					<source
+						srcset={ src.Src }
+						if src.Type != "" {
+							type={ src.Type }
+						}
+						if src.Media != "" {
+							media={ src.Media }
+						}
+					/>
+				}
+				@imageTag(p)
+			</picture>
+		} else {
+			@imageTag(p)
+		}
+	}
+}
+
+// imageTag is the <img> itself, shared by the bare and <picture> paths so the
+// perf and alt rules cannot diverge between them.
+templ imageTag(p ImageProps) {
+	<img
+		class={ "dw-img", fitClass(p.Fit) }
+		src={ p.Src }
+		alt={ imgAlt(p) }
+		if p.Decorative {
+			aria-hidden="true"
+		}
+		if p.Set != "" {
+			srcset={ p.Set }
+		}
+		if p.Sizes != "" {
+			sizes={ p.Sizes }
+		}
+		if p.Eager {
+			fetchpriority="high"
+		}
+		loading={ imgLoading(p.Eager) }
+		decoding="async"
+	/>
+}
+
+// Figure is an image with a caption (<figure>/<figcaption>). The embedded image
+// keeps the media perf laws (aspect box, lazy/eager, async decode).
+templ Figure(p FigureProps) {
+	<figure class="dw-figure" { p.Attrs.Templ()... }>
+		@Image(p.Image)
+		if p.Caption != "" {
+			<figcaption class="dw-figcaption">{ p.Caption }</figcaption>
+		}
+	</figure>
+}
+
+// AspectRatio reserves a fixed media box from the aspect tokens; the children
+// fill it.
+templ AspectRatio(p AspectBoxProps) {
+	<div class={ "dw-aspect", aspectClass(p.Ratio) } { p.Attrs.Templ()... }>
+		{ children... }
+	</div>
+}
+
+// --- Language -------------------------------------------------------------------
+
+// Lang marks a run of text as being in a different language from the page
+// around it.
+//
+// Without it a screen reader keeps its current voice and pronunciation rules, so
+// a French phrase inside an English page is read with English phonetics — often
+// to the point of being unrecognisable. WCAG 3.1.2 asks that the language of
+// each passage be programmatically determinable; this is the whole mechanism.
+//
+// The exceptions the criterion itself names — proper nouns, technical terms,
+// words that have entered the surrounding language — do not need marking, and
+// marking them is worse than leaving them alone.
+//
+//	Their motto is @driftwood.Lang("fr") { <em>liberté</em> } and it shows.
+templ Lang(tag string) {
+	<span lang={ tag } dir={ string(i18n.Dir(tag)) }>{ children... }</span>
+}
+
+// LangBlock is Lang for a whole passage rather than a phrase — a quoted
+// paragraph, a block of source text — where a <span> would be the wrong box.
+templ LangBlock(tag string) {
+	<div lang={ tag } dir={ string(i18n.Dir(tag)) }>
+		{ children... }
+	</div>
+}
+
+// Video is the kit's video: an aspect box that reserves the frame, a poster that
+// paints before any media bytes are fetched, caption tracks, and controls that
+// are always there.
+//
+// The rules it enforces rather than documents are on VideoProps. The one worth
+// repeating here is the reason controls are not optional: a video that starts on
+// its own and runs longer than five seconds beside other content needs a way to
+// stop it (WCAG 2.2.2), and the native control bar is that mechanism. Providing
+// a pause without controls would mean script, and local interactivity in this
+// kit is never script — so the kit ships the controls instead of shipping a
+// prettier video nobody can pause.
+templ Video(p VideoProps) {
+	@AspectRatio(AspectBoxProps{Ratio: p.Ratio, Attrs: p.Attrs}) {
+		<video
+			class={ "dw-video", fitClass(p.Fit) }
+			if p.Src != "" {
+				src={ p.Src }
+			}
+			if p.Poster != "" {
+				poster={ p.Poster }
+			}
+			preload={ videoPreload(p) }
+			controls
+			playsinline
+			if p.Background {
+				autoplay
+				muted
+				loop
+			}
+			if p.Label != "" {
+				aria-label={ p.Label }
+			}
+		>
+			for _, src := range p.Sources {
+				<source
+					src={ src.Src }
+					if src.Type != "" {
+						type={ src.Type }
+					}
+				/>
+			}
+			for _, t := range p.Tracks {
+				<track
+					src={ t.Src }
+					kind={ trackKind(t) }
+					if t.Lang != "" {
+						srclang={ t.Lang }
+					}
+					if t.Label != "" {
+						label={ t.Label }
+					}
+					default?={ t.Default }
+				/>
+			}
+		</video>
+		if p.Describe != "" {
+			<p class="sr-only">{ p.Describe }</p>
+		}
+	}
+}
+
+// MediaObject is the thumbnail / body / actions row — a comment, a search hit, a
+// notification with an avatar. It is a layout, not a semantic: the caller's
+// children carry whatever headings and links the row actually needs.
+templ MediaObject(p MediaObjectProps) {
+	<div class="dw-media" { p.Attrs.Templ()... }>
+		if p.Media != nil {
+			<div class="dw-media-figure">
+				@p.Media
+			</div>
+		}
+		<div class="dw-media-body">
+			if p.Body != nil {
+				@p.Body
+			}
+			{ children... }
+		</div>
+		if p.Actions != nil {
+			<div class="dw-media-actions">
+				@p.Actions
+			</div>
+		}
+	</div>
+}

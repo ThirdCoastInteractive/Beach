@@ -1,0 +1,137 @@
+// The living specimen page. Page() is the full document: driftwood's Page
+// shell wrapping the token sheet, the icon set, the component gallery, the
+// rybitten gamut strips, and the chart gallery. Mount it from an app:
+//
+//	app.Page("/specimen", func(c *beach.Ctx) (beach.View, error) {
+//		return beach.View{Page: specimen.Page()}, nil
+//	})
+package specimen
+
+import (
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
+)
+
+// Page renders the complete specimen document.
+templ Page() {
+	@driftwood.Page(driftwood.PageProps{
+		Title:       "driftwood specimen",
+		Description: "Every token, icon, driftwood component, rybitten gamut, and chart type on one page.",
+	}) {
+		@driftwood.Main() {
+			@driftwood.Container(driftwood.ContainerProps{}) {
+				@driftwood.PageHeading(driftwood.PageHeadingProps{
+					Title:    "Living specimen",
+					Subtitle: "Every token, icon, driftwood component state, rybitten gamut, and chart type — one page, server-rendered.",
+				})
+				@tokenSheet()
+				@iconSet()
+				@componentGallery()
+				@gamutPreview()
+				@chartGallery()
+			}
+		}
+	}
+}
+
+// --- token sheet ---------------------------------------------------------------
+
+// tokenSheet renders the input.css :root vocabulary as live swatches: each cell
+// fills with its var(), so the sheet is the theme, not a picture of it.
+templ tokenSheet() {
+	@driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Tokens"})
+	@driftwood.Card(driftwood.CardProps{Heading: "Surfaces, ink, lines"}) {
+		<div class="spec-swatch-grid">
+			for _, t := range surfaceTokens {
+				@swatch(t)
+			}
+		</div>
+	}
+	@driftwood.Card(driftwood.CardProps{Heading: "Semantics"}) {
+		<div class="spec-swatch-grid">
+			for _, t := range semanticTokens {
+				@swatch(t)
+			}
+		</div>
+	}
+	@driftwood.Card(driftwood.CardProps{Heading: "Series — --color-series-a…o"}) {
+		<div class="spec-strip">
+			for _, v := range seriesTokens() {
+				<div class="spec-strip-cell" style={ varBG(v) } title={ v }></div>
+			}
+		</div>
+	}
+	@driftwood.Card(driftwood.CardProps{Heading: "Fonts"}) {
+		for _, t := range fontTokens {
+			<p class="spec-type-sample" style={ fontStyle(t.Var) }>
+				<code>{ t.Var }</code>
+				&nbsp;Sphinx of black quartz, judge my vow — 0123456789 ({ t.Note })
+			</p>
+		}
+	}
+}
+
+// swatch is one token cell: the fill proves the value, the caption names it.
+templ swatch(t tokenSwatch) {
+	<div class="spec-swatch">
+		<div class="spec-swatch-fill" style={ varBG(t.Var) }></div>
+		<code class="spec-swatch-name">{ t.Var }</code>
+		<span class="spec-swatch-note">{ t.Note }</span>
+	</div>
+}
+
+// --- icon set ------------------------------------------------------------------
+
+// iconSet renders every glyph the framework references. Rendering doubles as
+// registration: ui.Icon records each name for the font subsetter.
+templ iconSet() {
+	@driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Icons"})
+	@driftwood.Card(driftwood.CardProps{Heading: "ui.Icon"}) {
+		<div class="spec-icon-grid">
+			for _, name := range iconNames {
+				<div class="spec-icon-cell">
+					@ui.Icon(name, ui.IconSize(ui.SizeLg))
+					<code>{ name }</code>
+				</div>
+			}
+		</div>
+		<div class="spec-row">
+			@ui.Icon("spinner", ui.Spin, ui.IconLabel("Loading"))
+			<span class="spec-note">ui.Spin + ui.IconLabel — animated, accessible</span>
+		</div>
+	}
+}
+
+// --- gamut preview ---------------------------------------------------------------
+
+// gamutPreview strips a handful of rybitten gamuts: 15 equal-spaced RYB hues
+// through each cube, computed server-side — no JS, no canvas. The first strip
+// (munsell) is the palette behind the live --color-series-* tokens above.
+templ gamutPreview() {
+	@driftwood.SectionHeading(driftwood.SectionHeadingProps{Label: "Gamuts"})
+	@driftwood.Card(driftwood.CardProps{Heading: "rybitten qualitative palettes"}) {
+		<p class="spec-note">
+			Each strip samples 15 equal-spaced RYB hues through the named gamut cube —
+			the same colors <code>rybitten.SeriesVars</code> emits as
+			<code>--color-series-a…o</code>. The live theme is <strong>munsell</strong>.
+		</p>
+		for _, key := range previewGamuts {
+			{{ g, hexes := gamutMeta(key) }}
+			<div class="spec-gamut">
+				<div class="spec-gamut-meta">
+					<code>{ key }</code>
+					<span>{ gamutProvenance(g) }</span>
+				</div>
+				<div class="spec-strip">
+					for _, hx := range hexes {
+						<div class="spec-strip-cell" style={ hexBG(hx) } title={ hx }></div>
+					}
+				</div>
+			</div>
+		}
+		<details class="spec-css">
+			<summary>SeriesVars(munsell) — the generated :root block</summary>
+			<pre><code>{ seriesVarsCSS() }</code></pre>
+		</details>
+	}
+}

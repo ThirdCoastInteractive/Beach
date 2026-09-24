@@ -1,0 +1,52 @@
+name: booking-manager
+
+# Standalone runner for the booking-manager example (small-operator rental
+# manager: intake, bookings, mail + SMS, smart-lock boundary, staffing,
+# inventory).
+#
+#   cp .env.example .env           # then edit it (the passwords)
+#   docker compose up --build      →  http://localhost:8080   (admin / password)
+#
+# Postgres is the only requirement — the point of the app is that a seasonal
+# operator can run the whole thing themselves. It is internal-only (no host
+# port mapping); only the app is published. Mail (MAILGUN_*/SMTP_*) and SMS
+# (TWILIO_*) credentials are optional .env entries — unset, both "deliver" to
+# the app's log. The image is built from the repo root via the shared
+# Dockerfile.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-beach}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-beach}
+      POSTGRES_DB: ${POSTGRES_DB:-booking}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-beach} -d ${POSTGRES_DB:-booking}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  booking-manager:
+    build:
+      context: ../../..
+      args: { APP: cmd/examples/booking-manager }
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      PORT: "8080"
+      # Reached by service name on the internal network; never published to host.
+      DATABASE_URL: postgres://${POSTGRES_USER:-beach}:${POSTGRES_PASSWORD:-beach}@postgres:5432/${POSTGRES_DB:-booking}?sslmode=disable
+    networks: [internal]
+    ports: ["${PORT:-8080}:8080"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+
+networks:
+  internal: { driver: bridge }
+
+volumes:
+  pgdata:

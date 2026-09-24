@@ -1,0 +1,682 @@
+package driftwood
+
+import (
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/Beach/pkg/prefs"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui"
+)
+
+// ToastTarget is the DOM id of the page's live region — the one place
+// server-pushed status messages and error toasts land. Shell renders it empty
+// on every page, which is the whole point: a live region has to be in the
+// document *before* content arrives, or the arrival is not announced
+// (WCAG 4.1.3). beach.ToastTarget is this constant.
+const ToastTarget = "beach-toast"
+
+// MainID is the id of Shell's <main> landmark, and the skip link's target.
+const MainID = "dw-main"
+
+// --- Layout ------------------------------------------------------------------
+
+// Shell is the top-level page frame: an optional topbar, an optional fixed
+// left sidebar, and the main content region (the children). With no sidebar it
+// is the default stacked shell; with one it is the sidebar shell — both
+// server-rendered, no JS.
+templ Shell(p AppShellProps) {
+	<div class={ "dw-shell", templ.KV("has-sidebar", p.Sidebar != nil) } { p.Attrs.Templ()... }>
+		if !p.Embedded {
+			<a class="dw-skip-link sr-only-focusable" href={ templ.SafeURL("#" + MainID) }>
+				{ i18n.T(ctx, "ui.a11y.skip_to_content") }
+			</a>
+		}
+		if p.Topbar != nil {
+			<header class="dw-shell-top">
+				@p.Topbar
+			</header>
+		}
+		if p.Sidebar != nil {
+			<div class="dw-shell-cols">
+			<aside class="dw-shell-side" aria-label={ a11yName(p.SidebarLabel, i18n.T(ctx, "ui.a11y.nav.sidebar")) }>
+					@p.Sidebar
+				</aside>
+				@shellMain(p) {
+					{ children... }
+				}
+			</div>
+		} else {
+			@shellMain(p) {
+				{ children... }
+			}
+		}
+		if !p.Embedded {
+			@LiveRegion()
+		}
+	</div>
+}
+
+// shellMain is the content region, shared by both shell shapes so the two cannot
+// drift apart. At the page root it is the main landmark; embedded, it is a plain
+// box, because a page may only have one main and only one thing may answer to
+// the bypass link's target id.
+templ shellMain(p AppShellProps) {
+	if p.Embedded {
+		<div class="dw-shell-main">
+			{ children... }
+		</div>
+	} else {
+		@Main() {
+			{ children... }
+		}
+	}
+}
+
+// Main is the page's main landmark and the target of the bypass link.
+//
+// Shell renders one; a page that builds its own frame renders this directly, so
+// that its content is reachable as a landmark and the skip link has somewhere to
+// land. tabindex=-1 makes it programmatically focusable, which is what turns
+// following the skip link into a real focus move rather than only a scroll.
+templ Main() {
+	<main id={ MainID } class="dw-shell-main" tabindex="-1">
+		{ children... }
+	</main>
+}
+
+// LiveRegion is the page's persistent polite announcement region: an empty,
+// named container that ships in the first response so later patches into it are
+// announced (WCAG 4.1.3). Shell renders one automatically; render it directly
+// only on a page that builds its own shell.
+//
+// aria-live is polite and aria-atomic is false, so an arriving toast is read on
+// its own without re-reading the ones already stacked. Anything urgent enough to
+// interrupt belongs in an Alert with role=alert, not here.
+templ LiveRegion() {
+	<div
+		id={ ToastTarget }
+		class="dw-toasts"
+		role="status"
+		aria-live="polite"
+		aria-atomic="false"
+		aria-label={ i18n.T(ctx, "ui.a11y.notifications") }
+	></div>
+}
+
+// Container is the page's content column: a max width plus the page gutter.
+templ Container(p ContainerProps) {
+	<div
+		class={ "dw-container", measureClass("dw-w", p.Width), spaceClass("dw-pad", p.Pad) }
+		{ p.Attrs.Templ()... }
+	>
+		{ children... }
+	</div>
+}
+
+// Card is the basic content panel; Heading renders the simple one-line header
+// (drop a CardHeading into the body for the richer form).
+templ Card(p CardProps) {
+	<section class={ "dw-card", surfaceClass(p.Surface) } { p.Attrs.Templ()... }>
+		if p.Heading != "" {
+			<header class="dw-card-head">
+				@heading(headingLevel(p.Level, 3), "dw-card-title") {
+					{ p.Heading }
+				}
+			</header>
+		}
+		<div class={ "dw-card-body", spaceClass("dw-pad", p.Pad) }>
+			{ children... }
+		</div>
+	</section>
+}
+
+// PageHeading is the page's h1 with an optional subtitle line.
+templ PageHeading(p PageHeadingProps) {
+	<header class="dw-page-heading" { p.Attrs.Templ()... }>
+		<h1 class="dw-page-title">{ p.Title }</h1>
+		if p.Subtitle != "" {
+			<p class="dw-page-subtitle">{ p.Subtitle }</p>
+		}
+	</header>
+}
+
+// SectionHeading labels a content section.
+templ SectionHeading(p SectionHeadingProps) {
+	@heading(headingLevel(p.Level, 2), "dw-section-heading") {
+		{ p.Label }
+	}
+}
+
+// heading renders a heading at a chosen level. templ has no dynamic tag name, so
+// the levels are spelled out — which is no loss: it keeps the set to the five a
+// component may legitimately use, with h1 reserved for the page's own title.
+//
+// Heading level is the outline a screen reader navigates by, and skipping one is
+// invisible on screen and disorienting off it (WCAG 1.3.1). Making it a prop is
+// how a component that does not know where it sits can still be placed correctly.
+templ heading(level int, class string) {
+	switch level {
+		case 2:
+			<h2 class={ class }>{ children... }</h2>
+		case 4:
+			<h4 class={ class }>{ children... }</h4>
+		case 5:
+			<h5 class={ class }>{ children... }</h5>
+		case 6:
+			<h6 class={ class }>{ children... }</h6>
+		default:
+			<h3 class={ class }>{ children... }</h3>
+	}
+}
+
+// Divider is a horizontal rule, optionally labeled.
+templ Divider(p DividerProps) {
+	if p.Label != "" {
+		<div class="dw-divider dw-divider-labeled" role="separator" { p.Attrs.Templ()... }>
+			<span class="dw-divider-label">{ p.Label }</span>
+		</div>
+	} else {
+		<hr class="dw-divider" { p.Attrs.Templ()... }/>
+	}
+}
+
+// CardHeading is the richer card header: a title and optional meta line on the
+// left, an optional action slot on the right (Card's Heading string is the
+// simple case; drop one of these into a Card's body for the full header).
+templ CardHeading(p CardHeadingProps) {
+	<header class="dw-card-head" { p.Attrs.Templ()... }>
+		<div class="dw-card-head-text">
+			@heading(headingLevel(p.Level, 3), "dw-card-title") {
+				{ p.Title }
+			}
+			if p.Meta != "" {
+				<p class="dw-card-meta">{ p.Meta }</p>
+			}
+		</div>
+		if p.Action != nil {
+			<div class="dw-card-head-action">
+				@p.Action
+			</div>
+		}
+	</header>
+}
+
+// Grid is a responsive dashboard widget grid. The column count rides on a CSS
+// custom property the kit sheet clamps responsively (no media queries in Go).
+templ Grid(p GridProps) {
+	<div
+		class={ "dw-grid", spaceClass("dw-gap", p.Gap), measureClass("dw-cell", p.Min) }
+		style={ gridStyle(p.Cols) }
+		{ p.Attrs.Templ()... }
+	>
+		{ children... }
+	</div>
+}
+
+// DashGrid is the responsive dashboard grid — see DashGridProps. Fill it with
+// DashCol cells; they stack into rows on mobile and lay out as columns on wider
+// screens.
+templ DashGrid(p DashGridProps) {
+	<div class="dash-grid" { p.Attrs.Templ()... }>
+		{ children... }
+	</div>
+}
+
+// DashCol is one spanning cell of a DashGrid — see DashColProps.
+templ DashCol(p DashColProps) {
+	<div class={ dashColClass(p.Span, p.Rows) } { p.Attrs.Templ()... }>
+		{ children... }
+	</div>
+}
+
+// Split is a two-pane master-detail layout: a list pane and a detail pane.
+templ Split(p SplitProps) {
+	<div class={ "dw-split", spaceClass("dw-gap", p.Gap) } { p.Attrs.Templ()... }>
+		<div class="dw-split-list">
+			if p.List != nil {
+				@p.List
+			}
+		</div>
+		<div class="dw-split-detail">
+			if p.Detail != nil {
+				@p.Detail
+			}
+		</div>
+	</div>
+}
+
+// --- Layout primitives --------------------------------------------------------
+//
+// The seven components below are what page markup is actually made of. They
+// exist so that composing a page never requires inventing a spacing value: each
+// takes a rung off the [Space] ladder, and each has a default that is right
+// often enough that most callers pass nothing at all.
+//
+// None of them adds a landmark, a role or an id. They are boxes. Anything that
+// owes an accessible name — a nav, a region, a dialog — is a different component
+// in this kit, and layering a role onto a box here would mean every Stack on a
+// page announcing itself.
+
+// Stack lays children out vertically with one gap between them.
+//
+// The gap belongs to the container, not to the children, which is the whole
+// point: margins on siblings collapse, fight, and leave the last child with
+// trailing space nobody wanted. One flex gap has none of those failure modes.
+templ Stack(p StackProps) {
+	<div class={ "dw-stack", spaceClass("dw-gap", p.Gap), alignClass("dw-align", p.Align) } { p.Attrs.Templ()... }>
+		{ children... }
+	</div>
+}
+
+// Inline is a horizontal row that wraps: button rows, badge rows, meta lines.
+//
+// Wrapping is not optional and not configurable. A row of controls that refuses
+// to wrap is one of the few things that genuinely pushes a page sideways at
+// 320px, and reflow (WCAG 1.4.10) is not a property a caller should be able to
+// switch off by passing the wrong prop.
+templ Inline(p InlineProps) {
+	<div
+		class={ "dw-inline", spaceClass("dw-gap", p.Gap),
+			alignClass("dw-align", p.Align), justifyClass("dw-justify", p.Justify) }
+		{ p.Attrs.Templ()... }
+	>
+		{ children... }
+	</div>
+}
+
+// Box is padding, and optionally a surface and a hairline edge.
+//
+// It is the honest version of the padded <div> that otherwise gets written by
+// hand with an inline style. Card is the component for a panel with a header;
+// Box is for when the answer really is just "pad this".
+templ Box(p BoxProps) {
+	<div
+		class={ "dw-box", spaceClass("dw-pad", p.Pad), surfaceClass(p.Surface),
+			templ.KV("dw-box-bordered", p.Border) }
+		{ p.Attrs.Templ()... }
+	>
+		{ children... }
+	</div>
+}
+
+// Section is one band of a page: block padding, an optional heading and lead,
+// and the content as children.
+//
+// The heading goes through the same level ladder as every other kit heading, so
+// a page assembled from Sections has a real outline rather than a stack of divs
+// with large text in them (WCAG 1.3.1). Level defaults to 2, which is right
+// directly under a PageHeading's h1 and wrong nested inside another Section —
+// the kit cannot know which, so the caller owns it.
+templ Section(p SectionProps) {
+	<section class={ "dw-section", spaceClass("dw-pady", p.Pad) } { p.Attrs.Templ()... }>
+		if p.Heading != "" || p.Lead != "" {
+			<header class="dw-section-head">
+				if p.Heading != "" {
+					@heading(headingLevel(p.Level, 2), "dw-section-heading") {
+						{ p.Heading }
+					}
+				}
+				if p.Lead != "" {
+					<p class="dw-section-lead">{ p.Lead }</p>
+				}
+			</header>
+		}
+		<div class={ "dw-section-body", spaceClass("dw-gap", p.Gap) }>
+			{ children... }
+		</div>
+	</section>
+}
+
+// Center is a horizontally centred column at a chosen measure — a sign-in form,
+// an empty state, a confirmation page, an article.
+//
+// Its default width is the readable text measure rather than the page width,
+// because the reason to centre a column is almost always that the content is
+// meant to be read.
+templ Center(p CenterProps) {
+	<div
+		class={ "dw-center", measureClass("dw-w", centerWidth(p.Width)), spaceClass("dw-padx", p.Gutter) }
+		{ p.Attrs.Templ()... }
+	>
+		{ children... }
+	</div>
+}
+
+// Prose sets a run of long-form HTML: markdown output, an article, a policy page.
+//
+// This is the one kit component that styles elements it did not render — the
+// <p>, <h2>, <ul>, <blockquote> and <pre> inside it come from a renderer that
+// knows nothing about driftwood. Something has to give that blob a measure and a
+// rhythm, and the alternative is every app shipping the same stylesheet.
+templ Prose(p ProseProps) {
+	<div class={ "dw-prose", measureClass("dw-w", proseWidth(p.Width)) } { p.Attrs.Templ()... }>
+		{ children... }
+	</div>
+}
+
+// Rail is content with a secondary column beside it: a table of contents, a
+// filter panel, a metadata sidebar.
+//
+// Below the md breakpoint it stacks with the rail *last*, regardless of Side. A
+// rail is by definition the subordinate column, and a narrow screen that opens
+// with the filters instead of the results has buried the page's actual content
+// under its chrome.
+templ Rail(p RailProps) {
+	<div
+		class={ "dw-rail", railSideClass(p.Side), spaceClass("dw-gap", p.Gap),
+			measureClass("dw-railw", p.Width) }
+		{ p.Attrs.Templ()... }
+	>
+		<div class="dw-rail-content">
+			{ children... }
+		</div>
+		if p.Rail != nil {
+			<div class="dw-rail-side">
+				@p.Rail
+			</div>
+		}
+	</div>
+}
+
+// --- Nav ---------------------------------------------------------------------
+
+// Navbar is the horizontal primary navigation: a brand link plus items.
+templ Navbar(p NavbarProps) {
+	<nav class="dw-navbar" aria-label={ i18n.T(ctx, "ui.a11y.nav.primary") } { p.Attrs.Templ()... }>
+		if p.Brand != "" {
+			<a class="dw-brand" href="/">{ p.Brand }</a>
+		}
+		<div class="dw-navlinks">
+			for _, it := range p.Items {
+				@navLink(it)
+			}
+		</div>
+	</nav>
+}
+
+templ navLink(it NavItem) {
+	<a
+		class={ "dw-navitem", templ.KV("is-active", it.Active) }
+		href={ it.Href }
+		if it.Active {
+			aria-current="page"
+		}
+	>
+		if it.Icon != "" {
+			@ui.Icon(it.Icon)
+		}
+		{ it.Label }
+	</a>
+}
+
+// Sidebar is the fixed left-rail navigation: labeled sections of items with
+// icons and active state. Active state is a class, never script.
+templ Sidebar(p SidebarNavProps) {
+	<nav class="dw-sidebar" aria-label={ i18n.T(ctx, "ui.a11y.nav.sidebar") } { p.Attrs.Templ()... }>
+		for _, s := range p.Sections {
+			<div class="dw-side-section">
+				if s.Label != "" {
+					<p class="dw-side-label">{ s.Label }</p>
+				}
+				<ul class="dw-side-items">
+					for _, it := range s.Items {
+						<li class="dw-side-item">
+							@sideLink(it)
+						</li>
+					}
+				</ul>
+			</div>
+		}
+	</nav>
+}
+
+templ sideLink(it NavItem) {
+	<a
+		class={ "dw-side-link", templ.KV("is-active", it.Active) }
+		href={ it.Href }
+		if it.Active {
+			aria-current="page"
+		}
+	>
+		if it.Icon != "" {
+			@ui.Icon(it.Icon)
+		}
+		<span class="dw-side-text">{ it.Label }</span>
+	</a>
+}
+
+// Breadcrumbs is the ancestry trail; the last item is the current page.
+templ Breadcrumbs(p BreadcrumbsProps) {
+	<nav class="dw-breadcrumbs" aria-label={ i18n.T(ctx, "ui.a11y.nav.breadcrumb") } { p.Attrs.Templ()... }>
+		<ol class="dw-crumbs">
+			for i, it := range p.Items {
+				if i == len(p.Items)-1 {
+					<li class="dw-crumb is-current" aria-current="page">{ it.Label }</li>
+				} else {
+					<li class="dw-crumb">
+						<a class="dw-crumb-link" href={ it.Href }>{ it.Label }</a>
+					</li>
+				}
+			}
+		</ol>
+	</nav>
+}
+
+// Tabs is pure CSS: a radio per tab drives :checked panel visibility. Datastar
+// enters only when a tab's panel is deferred (Tab.Get set), wiring an @get.
+//
+// It is a radio group, and it says so. The ARIA tabs pattern needs roving
+// tabindex and arrow-key handling — script, which the HTML-and-CSS-first law
+// rules out — so the kit does not claim role=tablist it cannot honour: a
+// tablist whose children are not tabs is worse for a screen reader than no role
+// at all. A native radio group is the honest description of this widget and
+// brings correct arrow-key navigation and announcement for free.
+//
+// The radios are clipped rather than hidden, so they stay focusable, and the
+// kit sheet relays their focus and checked state to the matching label. At most
+// MaxTabs tabs switch; see the tab ladder in input.css.
+//
+// role=radiogroup appears only when Label does. Native radios already group by
+// name, so the role adds nothing but a name — and an unnamed role announces an
+// anonymous set of choices, which is worse than the plain grouping.
+templ Tabs(p TabsProps) {
+	{{ group := defaultID(p.Name, "dw-tabs") }}
+	{{ tabs := tabsInLadder(p.Tabs) }}
+	<div
+		class="dw-tabs"
+		if p.Label != "" {
+			role="radiogroup"
+			aria-label={ p.Label }
+		}
+		{ p.Attrs.Templ()... }
+	>
+		for _, t := range tabs {
+			<input
+				type="radio"
+				class="dw-tab-radio"
+				name={ group }
+				id={ tabRadioID(group, t) }
+				value={ t.ID }
+				checked?={ t.Active }
+				if t.Get != "" {
+					data-on:change={ "@get('" + t.Get + "')" }
+				}
+			/>
+		}
+		<div class="dw-tablist">
+			for _, t := range tabs {
+				<label class="dw-tab" for={ tabRadioID(group, t) }>{ t.Label }</label>
+			}
+		</div>
+		<div class="dw-tabpanels">
+			for _, t := range tabs {
+				<div class="dw-tabpanel" id={ tabRadioID(group, t) + "-panel" }>
+					if t.Panel != nil {
+						@t.Panel
+					}
+				</div>
+			}
+		</div>
+	</div>
+}
+
+// Pagination renders prev/page/next links; each link is both a real href and a
+// hypermedia @get so it works before any bundle loads.
+templ Pagination(p PaginationProps) {
+	<nav class="dw-pagination" aria-label={ i18n.T(ctx, "ui.a11y.nav.pagination") } { p.Attrs.Templ()... }>
+		if p.Pages > 1 {
+			@pageLink(i18n.T(ctx, "ui.a11y.nav.prev"), "", p.GetBase, p.Page-1, p.Page <= 1, false)
+			for n := 1; n <= p.Pages; n++ {
+				@pageLink(itoa(n), i18n.T(ctx, "ui.a11y.nav.page", n), p.GetBase, n, false, n == p.Page)
+			}
+			@pageLink(i18n.T(ctx, "ui.a11y.nav.next"), "", p.GetBase, p.Page+1, p.Page >= p.Pages, false)
+		}
+	</nav>
+}
+
+// pageLink renders one pagination entry. label is the visible text; name is an
+// optional accessible name, used only where it *contains* that text.
+//
+// That constraint is WCAG 2.5.3 (Label in Name): someone driving the page by
+// voice says what they can see, so an accessible name that replaces the visible
+// text rather than extending it makes the control unreachable. A numbered link
+// reads "3" and is named "Page 3" — the digit survives, and the name gives it
+// the context it lacks out of a list (WCAG 2.4.4). Previous and Next already say
+// what they are, so they take no name at all rather than a longer synonym.
+templ pageLink(label, name string, base string, n int, disabled bool, current bool) {
+	if disabled {
+		<span class={ "dw-page-link", "is-disabled", templ.KV("is-current", current) } aria-disabled="true">{ label }</span>
+	} else {
+		<a
+			class={ "dw-page-link", templ.KV("is-current", current) }
+			href={ base + "?page=" + itoa(n) }
+			if name != "" {
+				aria-label={ name }
+			}
+			data-on:click={ "@get('" + base + "?page=" + itoa(n) + "')" }
+			if current {
+				aria-current="page"
+			}
+		>{ label }</a>
+	}
+}
+
+// --- Live updates -------------------------------------------------------------
+
+// LiveToggle is the pause control for a page's server-pushed updates, together
+// with the element that opens the stream.
+//
+// WCAG 2.2.2 asks for a mechanism to pause, stop or hide auto-updating
+// information — and a page that streams is the normal case here, not the
+// exception, so the mechanism has to be a kit component rather than something
+// each app invents. This is it.
+//
+// It works by *not rendering* the element that opens the stream. Paused, there
+// is nothing on the page holding an SSE connection; the form post that flips the
+// preference is a navigation, so the connection the previous page held is closed
+// by the browser and the new page never opens another. Stopping means stopped —
+// the server's subscription is released too, not merely ignored.
+//
+// The preference is honoured by the framework's stream adapter as well
+// (beach.LiveUpdates), so a paused visitor gets the catch-up render and no live
+// events even from a stream this component knows nothing about.
+templ LiveToggle(p LiveToggleProps) {
+	{{ live := isLive(ctx) }}
+	<div class="dw-live" { p.Attrs.Templ()... }>
+		<form class="dw-live-form" method="post" action={ templ.SafeURL(prefs.Path) }>
+			<input type="hidden" name="live" value={ liveTargetState(live) }/>
+			<button
+				type="submit"
+				class="dw-btn dw-btn-quiet dw-live-btn"
+				aria-pressed={ ariaBool(!live) }
+			>
+				@ui.Icon(liveIcon(live))
+				<span class="dw-btn-label">{ liveButtonLabel(ctx, p, live) }</span>
+			</button>
+		</form>
+		if p.Stream != "" {
+			if live {
+				<div
+					if p.ID != "" {
+						id={ p.ID }
+					}
+					data-init={ "@get('" + p.Stream + "')" }
+				></div>
+			} else {
+				// Paused: the id survives so a fragment still has its target,
+				// but nothing here opens a connection.
+				<div
+					if p.ID != "" {
+						id={ p.ID }
+					}
+				></div>
+				<p class="dw-live-status">{ i18n.T(ctx, "ui.a11y.live.paused") }</p>
+			}
+		}
+	</div>
+}
+
+// SchemeToggle is the light/dark control: three radios in a form that posts to
+// the framework's preference route.
+//
+// It is a form post and a navigation, exactly like [LiveToggle], and for the
+// same reason — the preference is read during server render to stamp data-theme
+// on <html>, so the page that comes back is already in the chosen scheme. A
+// client-side toggle would have to repaint after paint, which is the flash this
+// design exists to avoid.
+//
+// Three radios rather than a switch, because the choice has three states. The
+// current one is checked, so the control reports the setting as well as changing
+// it, and submitting is what applies it — there is no script here at all.
+templ SchemeToggle(p SchemeToggleProps) {
+	{{ current := pageScheme(ctx) }}
+	<form class="dw-scheme" method="post" action={ templ.SafeURL(prefs.Path) } { p.Attrs.Templ()... }>
+		<fieldset class="dw-scheme-set">
+			<legend class="dw-scheme-legend">
+				{ a11yName(p.Label, i18n.T(ctx, "ui.a11y.scheme.legend")) }
+			</legend>
+			for _, opt := range schemeOptions(ctx) {
+				<label class="dw-scheme-opt">
+					<input
+						type="radio"
+						class="dw-radio"
+						name="scheme"
+						value={ opt.Value }
+						checked?={ opt.Value == schemeFormValue(current) }
+					/>
+					<span>{ opt.Label }</span>
+				</label>
+			}
+			<button type="submit" class="dw-btn dw-btn-sm dw-scheme-apply">
+				{ i18n.T(ctx, "ui.a11y.apply") }
+			</button>
+		</fieldset>
+	</form>
+}
+
+// LiveStream is an extra stream holder for a page whose [LiveToggle] governs
+// more than one connection.
+//
+// It is the second half of LiveToggle with the button left off: live, it opens
+// the stream; paused, it renders the same element with the same id and nothing
+// that connects. A page renders one LiveToggle and as many of these as it has
+// remaining streams, and one press stops them all — the server drops the topics
+// for every one of them either way (SC 2.2.2).
+templ LiveStream(p LiveStreamProps) {
+	if p.Stream != "" {
+		if isLive(ctx) {
+			<div
+				if p.ID != "" {
+					id={ p.ID }
+				}
+				data-init={ "@get('" + p.Stream + "')" }
+				{ p.Attrs.Templ()... }
+			></div>
+		} else {
+			<div
+				if p.ID != "" {
+					id={ p.ID }
+				}
+				{ p.Attrs.Templ()... }
+			></div>
+		}
+	}
+}

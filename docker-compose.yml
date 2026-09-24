@@ -1,0 +1,116 @@
+name: beach
+
+# Postgres + ClickHouse and the four example apps. Every example requires the
+# Beach stack and fails to boot without it (15-examples.md) — boardwalk keeps
+# its game in memory but snapshots to Postgres and firehoses to ClickHouse;
+# driftbottle archives transcripts and firehoses off the hot path;
+# booking-manager is the Postgres-only app. The databases are reachable only on
+# the internal compose network (no `ports:` → no host publishing), so nothing
+# maps a DB port to the host. Only the apps publish ports.
+#
+# One Postgres serves every app: the image's POSTGRES_DB creates "pantry" and
+# scripts/pg-init creates the sibling databases on first init of the pgdata
+# volume. ClickHouse is shared as one "beach" database — every app's tables are
+# name-prefixed.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: beach
+      POSTGRES_PASSWORD: beach
+      POSTGRES_DB: pantry
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./scripts/pg-init:/docker-entrypoint-initdb.d:ro
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U beach -d pantry"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # No ports: in-network only.
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    environment:
+      CLICKHOUSE_USER: beach
+      CLICKHOUSE_PASSWORD: beach
+      CLICKHOUSE_DB: beach
+    volumes:
+      - chdata:/var/lib/clickhouse
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    # No ports: in-network only.
+
+  boardwalk:
+    build:
+      context: .
+      args: { APP: cmd/examples/boardwalk }
+    environment:
+      # Reached by service name on the internal network; never published to host.
+      DATABASE_URL: postgres://beach:beach@postgres:5432/boardwalk?sslmode=disable
+      CLICKHOUSE_DSN: clickhouse://beach:beach@clickhouse:9000/beach
+    networks: [internal]
+    ports: ["8081:8080"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      clickhouse: { condition: service_healthy }
+    restart: unless-stopped
+
+  driftbottle:
+    build:
+      context: .
+      args: { APP: cmd/examples/driftbottle }
+    environment:
+      DATABASE_URL: postgres://beach:beach@postgres:5432/driftbottle?sslmode=disable
+      CLICKHOUSE_DSN: clickhouse://beach:beach@clickhouse:9000/beach
+    networks: [internal]
+    ports: ["8082:8080"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      clickhouse: { condition: service_healthy }
+    restart: unless-stopped
+
+  pantry:
+    build:
+      context: .
+      args: { APP: cmd/examples/pantry }
+    environment:
+      DATABASE_URL: postgres://beach:beach@postgres:5432/pantry?sslmode=disable
+      CLICKHOUSE_DSN: clickhouse://beach:beach@clickhouse:9000/beach
+    networks: [internal]
+    ports: ["8083:8080"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      clickhouse: { condition: service_healthy }
+    restart: unless-stopped
+
+  booking-manager:
+    build:
+      context: .
+      args: { APP: cmd/examples/booking-manager }
+    environment:
+      # Postgres only — no ClickHouse. Mail/SMS/lock fall back to log transports.
+      DATABASE_URL: postgres://beach:beach@postgres:5432/booking?sslmode=disable
+    networks: [internal]
+    ports: ["8084:8080"]
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+
+networks:
+  internal:
+    driver: bridge
+
+volumes:
+  pgdata:
+  chdata:

@@ -1,0 +1,160 @@
+// Views for driftbottle's live chat: each room state (lobby, waiting, chatting,
+// ended) is a templ component the server renders once and publishes over SSE;
+// the framework morphs the target element by its id. Handlers, matchmaking, and
+// fan-out live in chat.go — this file is markup only, built from driftwood
+// components called directly. The public /stats markup lives in the analytics
+// package.
+package chat
+
+import (
+	"github.com/ThirdCoastInteractive/Beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
+)
+
+// room wraps its children in the single live region every state transition
+// morphs in place: <div id="room">. The framework's SSE loop morphs this
+// element by its own id (outer morph), so swapping lobby/waiting/chat is one
+// fragment publish.
+templ room() {
+	<div id={ roomTarget } class="db-room">
+		{ children... }
+	</div>
+}
+
+// lobbyFragment is the idle state: a call to action that posts /start to enter
+// matchmaking. This is the initial #room on a fresh page.
+templ lobbyFragment() {
+	@room() {
+		@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Ready when you are"}) {
+			@driftwood.Presence(driftwood.PresencePillProps{State: "idle", Label: "Not connected"})
+			<p class="db-lead">Tap below and we'll drop you into a chat with the next available stranger. No names, no history — when you leave, it's gone.</p>
+			@driftwood.Button(driftwood.ButtonProps{
+				Label:    "Talk to a stranger",
+				Role:     driftwood.RoleAccent,
+				LeadIcon: "play",
+				Attrs:    datastar.Attrs{datastar.OnClick("@post('/start')")},
+			})
+			<p class="db-lead"><a href="/stats">See the wall's stats →</a></p>
+		}
+	}
+}
+
+// waitingFragment is the lobby-queue state: parked, waiting for a partner.
+templ waitingFragment() {
+	@room() {
+		@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Looking for a stranger…"}) {
+			@driftwood.Presence(driftwood.PresencePillProps{State: "waiting", Label: "Waiting for a match"})
+			@driftwood.Spinner(driftwood.SpinnerProps{Block: true})
+			<p class="db-lead">Hang tight — pairing you with the next person who shows up.</p>
+			@driftwood.Button(driftwood.ButtonProps{
+				Label:    "Cancel",
+				Role:     driftwood.RoleGhost,
+				LeadIcon: "x",
+				Attrs:    datastar.Attrs{datastar.OnClick("@post('/next')")},
+			})
+		}
+	}
+}
+
+// chatFragment is an active, empty chat (just paired). chatFragmentWith adds an
+// existing feed (used by the SSE catch-up replay on reconnect).
+templ chatFragment() {
+	@chatFragmentWith(nil)
+}
+
+templ chatFragmentWith(feed []chatMessage) {
+	@room() {
+		@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Connected to a stranger"}) {
+			@driftwood.Presence(driftwood.PresencePillProps{State: "paired", Label: "You're chatting with a stranger"})
+			// #notice is an inline slot for transient moderation/system lines.
+			<div id="notice" class="db-notice"></div>
+			@feedFragment(feed)
+			@driftwood.Composer(driftwood.ComposerProps{
+				Name:        "msg",
+				Placeholder: "Say something…",
+				Post:        "/say",
+			})
+			@driftwood.Button(driftwood.ButtonProps{
+				Label:    "Next stranger",
+				Role:     driftwood.RoleNeutral,
+				LeadIcon: "skip-forward",
+				Attrs:    datastar.Attrs{datastar.OnClick("@post('/next')")},
+			})
+		}
+	}
+}
+
+// feedFragment renders the message list inside #feed. It is published on its
+// own (morphing #feed by id) on every new message, and embedded inside a chat
+// fragment on first render / catch-up.
+templ feedFragment(feed []chatMessage) {
+	<div id={ feedTarget } class="db-feed">
+		@driftwood.MessageList(driftwood.MessageListProps{Messages: feedMessages(feed)})
+	</div>
+}
+
+// feedMessages adapts the app's rolling chatMessage buffer to driftwood
+// messages. From is pre-rewritten to "me"/"them" per viewer (forViewer), so
+// own/other framing is just an equality check here.
+func feedMessages(feed []chatMessage) []driftwood.Message {
+	msgs := make([]driftwood.Message, 0, len(feed))
+	for _, m := range feed {
+		msgs = append(msgs, driftwood.Message{Body: m.Body, Own: m.From == "me"})
+	}
+	return msgs
+}
+
+// endedFragment is the post-chat state shown to the partner left behind when
+// the other side hits Next or disconnects: a notice plus a button to find
+// someone new.
+templ endedFragment() {
+	@room() {
+		@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "The stranger left"}) {
+			@driftwood.Presence(driftwood.PresencePillProps{State: "idle", Label: "Disconnected"})
+			<p class="db-lead">They moved on. Want to meet someone else?</p>
+			@driftwood.Button(driftwood.ButtonProps{
+				Label:    "Find another stranger",
+				Role:     driftwood.RoleAccent,
+				LeadIcon: "play",
+				Attrs:    datastar.Attrs{datastar.OnClick("@post('/start')")},
+			})
+		}
+	}
+}
+
+// noticeFragment renders a transient inline line into #notice (rate-limit
+// nudges, system messages) as a dismissible warning alert.
+templ noticeFragment(msg string) {
+	<div id="notice" class="db-notice">
+		@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleWarn, Dismissible: true}) {
+			{ msg }
+		}
+	</div>
+}
+
+// shell wraps a room fragment in the page heading + container shared by the
+// navigation render. data-init opens the per-session SSE stream the instant
+// the page is interactive, so server-driven transitions land without any user
+// action.
+templ shell(room templ.Component) {
+	@driftwood.Container(driftwood.ContainerProps{
+		Attrs: datastar.Attrs{datastar.Init("@get('/events')")},
+	}) {
+		@driftwood.PageHeading(driftwood.PageHeadingProps{
+			Title:    "driftbottle",
+			Subtitle: "You're about to talk to a complete stranger. Be kind.",
+		})
+		@room
+	}
+}
+
+// indexDocument is the full document for a navigation render: the lobby room
+// inside the driftwood page shell.
+templ indexDocument() {
+	@driftwood.Page(driftwood.PageProps{
+		Title:       "driftbottle — talk to a stranger",
+		Description: "Anonymous, ephemeral stranger chat. No accounts, no history.",
+	}) {
+		@shell(lobbyFragment())
+	}
+}

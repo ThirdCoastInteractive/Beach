@@ -1,0 +1,167 @@
+package driftwood
+
+import "github.com/ThirdCoastInteractive/Beach/pkg/ui"
+
+// --- Data --------------------------------------------------------------------
+
+// Table renders columns and string rows; a column with Get becomes a sortable
+// header wired to a hypermedia @get (button-inside-th for a11y). With no rows
+// and an Empty message, the empty state replaces the table entirely.
+//
+// A sortable column announces its state through aria-sort and shows it with a
+// directional glyph, so which way the data runs is never carried by the row
+// order alone. Caption names the table for anyone navigating by table.
+//
+// The table sits in a horizontally scrollable box so a wide one cannot drag the
+// whole page sideways at 320px (WCAG 1.4.10, which exempts data tables from
+// reflowing but not from staying inside their own container). With a Caption
+// that box also becomes a named, focusable region, so the scrolling is reachable
+// from the keyboard — which is the other half of the reason to give a wide table
+// a caption.
+templ Table(p TableProps) {
+	if len(p.Rows) == 0 && p.Empty != "" {
+		<div class="dw-table-empty" { p.Attrs.Templ()... }>
+			<p class="dw-empty-msg">{ p.Empty }</p>
+		</div>
+	} else {
+		<div
+			class="dw-table-scroll"
+			if p.Caption != "" {
+				tabindex="0"
+				role="region"
+				aria-label={ p.Caption }
+			}
+		>
+			<table class={ "dw-table", templ.KV("is-dense", p.Dense) } { p.Attrs.Templ()... }>
+			if p.Caption != "" {
+					<caption class={ "dw-caption", templ.KV("sr-only", p.CaptionHidden) }>{ p.Caption }</caption>
+				}
+			<thead class="dw-thead">
+					<tr class="dw-tr">
+						for _, c := range p.Columns {
+							if c.Get != "" {
+								<th class="dw-th is-sortable" scope="col" aria-sort={ sortAria(c.Sort) }>
+									<button
+										type="button"
+										class="dw-th-sort"
+										aria-label={ sortLabel(ctx, c) }
+										data-on:click={ "@get('" + c.Get + "')" }
+									>
+										{ c.Header }
+										@ui.Icon(sortIcon(c.Sort))
+									</button>
+								</th>
+							} else {
+								<th class="dw-th" scope="col">
+									if c.HeaderHidden {
+										<span class="sr-only">{ c.Header }</span>
+									} else {
+										{ c.Header }
+									}
+								</th>
+							}
+						}
+					</tr>
+				</thead>
+				<tbody class="dw-tbody">
+					for _, r := range p.Rows {
+						<tr class="dw-tr">
+							for _, cell := range r {
+								<td class="dw-td">{ cell }</td>
+							}
+						</tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	}
+}
+
+// Stat is a labeled key metric. The delta direction is paired with an arrow
+// glyph and a screen-reader label — color is never the only encoding.
+templ Stat(p StatProps) {
+	<dl class="dw-stat" { p.Attrs.Templ()... }>
+		<dt class="dw-stat-label">{ p.Label }</dt>
+		<dd class="dw-stat-value">{ p.Value }</dd>
+		if p.Delta.Value != "" {
+			<dd class={ "dw-stat-delta", deltaClass(p.Delta.Dir) }>
+				@ui.Icon(deltaIcon(p.Delta.Dir), ui.IconLabel(deltaLabel(ctx, p.Delta.Dir)))
+				<span class="dw-delta-value">{ p.Delta.Value }</span>
+			</dd>
+		}
+	</dl>
+}
+
+// Badge is a small status pill; Dot adds a leading status dot.
+templ Badge(p BadgeProps) {
+	<span class={ "dw-badge", roleClass("dw-badge", p.Role) } { p.Attrs.Templ()... }>
+		if p.Dot {
+			<span class="dw-badge-dot" aria-hidden="true"></span>
+		}
+		{ p.Label }
+	</span>
+}
+
+// DescList is a key/value grid. TwoCol pairs term and value on one row;
+// otherwise term-over-value stacks.
+templ DescList(p DescListProps) {
+	<dl class={ "dw-desclist", templ.KV("is-twocol", p.TwoCol) } { p.Attrs.Templ()... }>
+		for _, it := range p.Items {
+			<dt class="dw-dt">{ it.Term }</dt>
+			<dd class="dw-dd">{ it.Value }</dd>
+		}
+	</dl>
+}
+
+// StackedList is a vertical list of rows (feeds, item lists): an optional
+// leading avatar, a title and meta line, and an optional trailing action or badge.
+templ StackedList(p StackedListProps) {
+	<ul class="dw-stacked" { p.Attrs.Templ()... }>
+		for _, r := range p.Rows {
+			@stackedRow(r)
+		}
+	</ul>
+}
+
+templ stackedRow(r ListRow) {
+	<li class="dw-row">
+		if r.Avatar != nil {
+			<div class="dw-row-media">
+				@r.Avatar
+			</div>
+		}
+		<div class="dw-row-text">
+			if r.Href != "" {
+				<a class="dw-row-title" href={ r.Href }>{ r.Title }</a>
+			} else {
+				<p class="dw-row-title">{ r.Title }</p>
+			}
+			if r.Meta != "" {
+				<p class="dw-row-meta">{ r.Meta }</p>
+			}
+		</div>
+		if r.Badge != nil || r.Action != nil {
+			<div class="dw-row-action">
+				if r.Badge != nil {
+					@Badge(*r.Badge)
+				}
+				if r.Action != nil {
+					@r.Action
+				}
+			</div>
+		}
+	</li>
+}
+
+// GridList is a responsive card grid (property tiles, item cards); the children
+// are the cells. Column count rides on a CSS custom property the kit sheet
+// clamps responsively.
+templ GridList(p GridListProps) {
+	<ul
+		class={ "dw-gridlist", spaceClass("dw-gap", p.Gap), measureClass("dw-cell", p.Min) }
+		style={ gridStyle(p.Cols) }
+		{ p.Attrs.Templ()... }
+	>
+		{ children... }
+	</ul>
+}

@@ -1,0 +1,49 @@
+// Markup for driftbottle's public /stats page: a small grid of deferred chart
+// widgets fed by the ClickHouse firehose. The chart fragments themselves are
+// built in analytics.go (Sessions/Pairings/Messages); this file is just the
+// page shell and the per-widget placeholders.
+package analytics
+
+import (
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
+)
+
+// statsDocument is the public /stats page: a small grid of deferred chart
+// widgets, each a ui.Defer placeholder that @gets its fragment route. The
+// charts are aggregates from the ClickHouse firehose only — anonymous, no
+// per-session data — so the page needs no auth.
+templ statsDocument() {
+	@driftwood.Page(driftwood.PageProps{
+		Title:       "driftbottle — stats",
+		Description: "Anonymous, aggregate-only wall stats: sessions, pairings, and messages per day.",
+	}) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{
+				Title:    "driftbottle stats",
+				Subtitle: "Aggregates from the event firehose — no names, no transcripts.",
+			})
+			@driftwood.Grid(driftwood.GridProps{Cols: 2}) {
+				@statWidget("Sessions / day", "anl-sessions", "/stats/sessions", "240px")
+				@statWidget("Pairings / day", "anl-pairings", "/stats/pairings", "240px")
+				@statWidget("Messages / day", "anl-messages", "/stats/messages", "240px")
+			}
+			<p class="db-lead"><a href="/">← Back to the wall</a></p>
+		}
+	}
+}
+
+// statWidget is one chart card: a titled body that reserves its height and
+// @gets its deferred chart fragment on intersection (the pantry dashboard
+// pattern). The dash-widget classes are the chart-core contract chart-toolbar.js
+// attaches to.
+templ statWidget(title, id, src, height string) {
+	<article class="dash-widget">
+		<header class="dash-widget-header">
+			<h2 class="dash-widget-title">{ title }</h2>
+		</header>
+		<div class="dash-widget-body" style={ "height:" + height }>
+			@ui.Defer(ui.DeferProps{ID: id, Get: src, Height: "100%"})
+		</div>
+	</article>
+}

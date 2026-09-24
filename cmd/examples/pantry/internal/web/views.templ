@@ -1,0 +1,254 @@
+// Pantry page markup. Every view is a templ component; the handlers in
+// pages.go and handlers.go shape data and pick a component. Driftwood is
+// called directly (no kit indirection), charts arrive as templ components
+// from the chart package (see dashboard.go), and inline style carries only
+// per-instance reserved dimensions (the no-layout-shift law).
+package web
+
+import (
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
+
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/pantry/internal/store"
+)
+
+// shellView wraps a page body in the document plus the app topbar/sidebar.
+// active is the nav slug to highlight; authed flips the topbar session link.
+templ (a *app) shellView(title, active string, authed bool) {
+	@driftwood.Page(driftwood.PageProps{
+		Title:       title + " — " + a.t(ctx, "app.title"),
+		Description: a.t(ctx, "app.tagline"),
+	}) {
+		@driftwood.Shell(driftwood.AppShellProps{Topbar: a.topbar(authed), Sidebar: a.sidebar(active)}) {
+			{ children... }
+		}
+	}
+}
+
+// topbar is the session corner of the shell: brand plus log in/out.
+templ (a *app) topbar(authed bool) {
+	if authed {
+		@driftwood.Navbar(driftwood.NavbarProps{Brand: a.t(ctx, "app.title"), Items: []driftwood.NavItem{{Label: "Log out", Href: "/logout"}}})
+	} else {
+		@driftwood.Navbar(driftwood.NavbarProps{Brand: a.t(ctx, "app.title"), Items: []driftwood.NavItem{{Label: a.t(ctx, "nav.login"), Href: "/login"}}})
+	}
+}
+
+// sidebar is the app navigation rail.
+templ (a *app) sidebar(active string) {
+	@driftwood.Sidebar(driftwood.SidebarNavProps{Sections: []driftwood.SidebarSection{{
+		Items: []driftwood.NavItem{
+			{Label: a.t(ctx, "nav.dashboard"), Href: "/", Icon: "chart", Active: active == "dash"},
+			{Label: a.t(ctx, "nav.items"), Href: "/items", Icon: "box", Active: active == "items"},
+			{Label: a.t(ctx, "nav.locations"), Href: "/locations", Icon: "pin", Active: active == "loc"},
+			{Label: a.t(ctx, "nav.lists"), Href: "/lists", Icon: "list", Active: active == "lists"},
+		},
+	}}})
+}
+
+// --- Dashboard ---
+
+// dashboardView is the home page: four deferred chart widgets in a grid, each
+// fed by a live query (the ClickHouse activity firehose + Postgres inventory).
+// Each placeholder reserves its height and @gets its fragment on intersection.
+templ (a *app) dashboardView(authed bool) {
+	@a.shellView(a.t(ctx, "dash.heading"), "dash", authed) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: a.t(ctx, "dash.heading"), Subtitle: a.t(ctx, "dash.subtitle")})
+			@driftwood.Grid(driftwood.GridProps{Cols: 2}) {
+				@dashWidget(a.t(ctx, "dash.spend"), "w-spend", "/widgets/spend", "240px")
+				@dashWidget(a.t(ctx, "dash.category"), "w-category", "/widgets/category", "240px")
+				@dashWidget(a.t(ctx, "dash.expiry"), "w-expiry", "/widgets/expiry", "180px")
+				@dashWidget(a.t(ctx, "dash.waste"), "w-waste", "/widgets/waste", "220px")
+			}
+		}
+	}
+}
+
+// dashWidget is one chart card. The dash-widget classes are the chart-core
+// contract: chart-toolbar.js attaches its theme/export controls to
+// .dash-widget-header and acts on the SVG inside .dash-widget-body. The body
+// reserves its height inline (a per-instance dimension) so the deferred chart
+// patches in with zero layout shift.
+templ dashWidget(title, id, src, height string) {
+	<article class="dash-widget">
+		<header class="dash-widget-header">
+			<h2 class="dash-widget-title">{ title }</h2>
+		</header>
+		<div class="dash-widget-body" style={ "height:" + height }>
+			@ui.Defer(ui.DeferProps{ID: id, Get: src, Height: "100%"})
+		</div>
+	</article>
+}
+
+// --- Inventory ---
+
+// itemsView lists inventory as a responsive card grid with photos. canWrite
+// shows the create form (gated on pantry:write).
+templ (a *app) itemsView(authed, canWrite bool, items []store.Item, locs []store.Location) {
+	@a.shellView(a.t(ctx, "items.heading"), "items", authed) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: a.t(ctx, "items.heading"), Subtitle: a.t(ctx, "items.subtitle", len(items))})
+			if canWrite {
+				@a.addItemForm(locs)
+			}
+			if len(items) == 0 {
+				@driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "box", Message: a.t(ctx, "items.empty")})
+			} else {
+				@a.itemGrid(items)
+			}
+		}
+	}
+}
+
+// itemGrid renders the item cards under a stable id so the create action can
+// re-render the whole grid with a single patch.
+templ (a *app) itemGrid(items []store.Item) {
+	<div id="item-grid">
+		@driftwood.Grid(driftwood.GridProps{Cols: 3}) {
+			for _, it := range items {
+				@a.itemCard(it)
+			}
+		}
+	</div>
+}
+
+// itemCard is one inventory tile: photo (fixed aspect box, no shift), name, a
+// quantity/location meta line, and an expiring-soon badge when relevant.
+templ (a *app) itemCard(it store.Item) {
+	@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel}) {
+		@driftwood.Image(driftwood.ImageProps{
+			Src:   firstNonEmpty(it.PhotoURL, "/static/img/placeholder.svg"),
+			Alt:   it.Name,
+			Ratio: driftwood.RatioPhoto,
+			Fit:   driftwood.FitCover,
+		})
+		<div class="dw-card-row">
+			<div>
+				<h3 class="dw-card-title">{ it.Name }</h3>
+				<p class="dw-card-meta">{ itemMeta(it) }</p>
+			</div>
+			if expiringSoon(it) {
+				@driftwood.Badge(driftwood.BadgeProps{Label: a.t(ctx, "items.expires.soon"), Role: driftwood.RoleWarn, Dot: true})
+			}
+		</div>
+	}
+}
+
+// addItemForm is the create-item form (hypermedia @post). Only rendered for
+// principals that may write.
+templ (a *app) addItemForm(locs []store.Location) {
+	@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfaceWell, Heading: a.t(ctx, "items.add")}) {
+		@driftwood.Form(driftwood.FormProps{Post: "/items", TwoCol: true}) {
+			@driftwood.Field(driftwood.FieldProps{Label: a.t(ctx, "items.field.name"), For: "name"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "name", Name: "name", Placeholder: "Bananas"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: a.t(ctx, "items.field.qty"), For: "quantity"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "quantity", Name: "quantity", Type: "number", Value: "1"})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: a.t(ctx, "items.field.location"), For: "location_id"}) {
+				@driftwood.Select(driftwood.SelectProps{ID: "location_id", Name: "location_id", Options: locOptions(locs)})
+			}
+			@driftwood.Field(driftwood.FieldProps{Label: a.t(ctx, "items.field.expiry"), For: "expires_at"}) {
+				@driftwood.Input(driftwood.TextInputProps{ID: "expires_at", Name: "expires_at", Type: "date"})
+			}
+			@driftwood.Button(driftwood.ButtonProps{Label: a.t(ctx, "items.add"), Role: driftwood.RoleAccent, Type: "submit", LeadIcon: "plus"})
+		}
+	}
+}
+
+// --- Locations ---
+
+// locationsView lists storage locations with an optional create form.
+templ (a *app) locationsView(authed, canWrite bool, locs []store.Location) {
+	@a.shellView(a.t(ctx, "loc.heading"), "loc", authed) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: a.t(ctx, "loc.heading")})
+			if canWrite {
+				@a.addLocationForm()
+			}
+			@a.locList(locs)
+		}
+	}
+}
+
+// addLocationForm is the create-location form (hypermedia @post).
+templ (a *app) addLocationForm() {
+	@driftwood.Form(driftwood.FormProps{Post: "/locations"}) {
+		@driftwood.Field(driftwood.FieldProps{Label: a.t(ctx, "loc.heading"), For: "name"}) {
+			@driftwood.Input(driftwood.TextInputProps{ID: "name", Name: "name", Placeholder: "Garage shelf"})
+		}
+		@driftwood.Button(driftwood.ButtonProps{Label: a.t(ctx, "items.add"), Role: driftwood.RoleAccent, Type: "submit"})
+	}
+}
+
+// locList renders the locations under a stable id for the create-action patch.
+templ (a *app) locList(locs []store.Location) {
+	<div id="loc-list">
+		if len(locs) == 0 {
+			@driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "pin", Message: a.t(ctx, "loc.empty")})
+		} else {
+			@driftwood.StackedList(driftwood.StackedListProps{Rows: locRows(locs)})
+		}
+	</div>
+}
+
+// --- Shopping lists ---
+
+// listsView renders the shopping lists and their lines.
+templ (a *app) listsView(authed bool, lists []store.ShoppingList) {
+	@a.shellView(a.t(ctx, "lists.heading"), "lists", authed) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: a.t(ctx, "lists.heading")})
+			if len(lists) == 0 {
+				@driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "list", Message: a.t(ctx, "lists.empty")})
+			} else {
+				@driftwood.Grid(driftwood.GridProps{Cols: 2}) {
+					for _, l := range lists {
+						@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: l.Name}) {
+							@driftwood.StackedList(driftwood.StackedListProps{Rows: listRows(l)})
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+// --- Login ---
+
+// loginView renders the sign-in page. errCode surfaces the post-redirect
+// failure banner.
+templ (a *app) loginView(authed bool, errCode string) {
+	@a.shellView(a.t(ctx, "login.heading"), "", authed) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: a.t(ctx, "login.heading")})
+			@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel}) {
+				switch errCode {
+					case "1":
+						@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleDanger, Title: "Invalid username or password."})
+					case "locked":
+						@driftwood.Alert(driftwood.AlertProps{Role: driftwood.RoleDanger, Title: "Account locked. Try again later."})
+				}
+				@a.loginForm()
+			}
+		}
+	}
+}
+
+// loginForm is a plain browser POST on purpose: no Datastar, no JS. The server
+// answers with a 303 the browser follows — what login wants under a strict CSP.
+// The dw-* classes keep it visually a driftwood form.
+templ (a *app) loginForm() {
+	<form method="post" action="/login" class="dw-form">
+		<div class="dw-field">
+			<label class="dw-label" for="username">{ a.t(ctx, "login.username") }</label>
+			<input class="dw-input" type="text" id="username" name="username" autocomplete="username" required/>
+		</div>
+		<div class="dw-field">
+			<label class="dw-label" for="password">{ a.t(ctx, "login.password") }</label>
+			<input class="dw-input" type="password" id="password" name="password" autocomplete="current-password" required/>
+		</div>
+		<button class="dw-btn dw-btn-accent" type="submit">{ a.t(ctx, "login.submit") }</button>
+	</form>
+}

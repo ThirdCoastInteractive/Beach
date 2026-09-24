@@ -1,0 +1,11 @@
+/* Keyboard focus inside a chart. pkg/beach imports this into its focus rules;
+   standalone.css loads it for other apps. */
+
+/* The shape a keyboard cursor is currently on inside a chart. The hover modules
+   already brighten it; this adds an outline, because a highlight that reads as
+   "hovered" does not read as "focused", and someone arrowing through a chart
+   needs to see where they are without a pointer to look for. */
+.chart-kb-active {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}

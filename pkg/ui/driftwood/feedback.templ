@@ -1,0 +1,146 @@
+package driftwood
+
+import (
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui"
+)
+
+// --- Feedback ----------------------------------------------------------------
+
+// Alert is an inline callout; the children are the body content. Dismiss is a
+// self-remove click handler on the close button — no page script of its own.
+//
+// The role follows the severity: warn and danger get role=alert, which
+// interrupts whatever a screen reader is saying, while good and info get
+// role=status and wait their turn. An informational banner that barges in on
+// every page load is the reason people switch assistive tech off.
+templ Alert(p AlertProps) {
+	<div class={ "dw-alert", roleClass("dw-alert", p.Role) } role={ alertRole(p.Role) } { p.Attrs.Templ()... }>
+		<span class="dw-alert-icon" aria-hidden="true">
+			@ui.Icon(alertIcon(p.Role))
+		</span>
+		<div class="dw-alert-body">
+			if p.Title != "" {
+				<strong class="dw-alert-title">{ p.Title }</strong>
+			}
+			{ children... }
+		</div>
+		if p.Dismissible {
+			<button class="dw-alert-close" type="button" aria-label={ i18n.T(ctx, "ui.a11y.dismiss") } data-on:click="el.closest('.dw-alert').remove()">
+				@ui.Icon("x")
+			</button>
+		}
+	</div>
+}
+
+// Toast is a single notification card. It is SSE-pushable: a handler patches one
+// into the kit's live region (driftwood.LiveRegion, rendered by Shell); manual
+// close removes it with the same self-remove handler the Alert uses.
+//
+// Auto-dismiss is CSS — an animation, not a timer in script — which is what
+// lets it pause on hover and focus for free. See ToastProps.Dismiss for the
+// three rules that keep a default-on timer inside WCAG 2.2.1.
+//
+// A toast carries no aria-live of its own, and that is the fix, not an
+// oversight: a live region that arrives together with its content is not
+// announced by most screen readers. The region has to already be in the
+// document, which is why Shell ships an empty one on every page and toasts
+// patch into it (WCAG 4.1.3).
+templ Toast(p ToastProps) {
+	{{ life := toastLife(ctx, p) }}
+	<div
+		class={ "dw-toast", roleClass("dw-toast", p.Role) }
+		if life > 0 {
+			data-dismiss
+			style={ toastLifeStyle(life) }
+		}
+		{ p.Attrs.Templ()... }
+	>
+		<span class="dw-toast-icon" aria-hidden="true">
+			@ui.Icon(alertIcon(p.Role))
+		</span>
+		<div class="dw-toast-body">
+			if p.Title != "" {
+				<strong class="dw-toast-title">{ p.Title }</strong>
+			}
+			if p.Message != "" {
+				<p class="dw-toast-msg">{ p.Message }</p>
+			}
+		</div>
+		<button class="dw-toast-close" type="button" aria-label={ i18n.T(ctx, "ui.a11y.dismiss") } data-on:click="el.closest('.dw-toast').remove()">
+			@ui.Icon("x")
+		</button>
+	</div>
+}
+
+// Progress is a progress bar. Max == 0 makes it indeterminate (unknown-duration
+// loads); otherwise it reflects Value/Max with the proper ARIA range.
+//
+// Unlike the kit's groups, this role earns its place without a caller-supplied
+// name — it carries the value — so an unset Label falls back to the catalog's
+// generic wording rather than leaving the role unnamed.
+templ Progress(p ProgressProps) {
+	<div
+		class={ "dw-progress", roleClass("dw-progress", p.Role), templ.KV("is-indeterminate", p.Max <= 0) }
+		role="progressbar"
+		aria-label={ a11yName(p.Label, i18n.T(ctx, "ui.a11y.progress")) }
+		if p.Max > 0 {
+			aria-valuenow={ ftoa(p.Value) }
+			aria-valuemin="0"
+			aria-valuemax={ ftoa(p.Max) }
+		}
+		{ p.Attrs.Templ()... }
+	>
+		if p.Max > 0 {
+			<div class="dw-progress-bar" style={ templ.SafeCSS("width:" + progressPct(p.Value, p.Max) + "%") }></div>
+		} else {
+			<div class="dw-progress-bar"></div>
+		}
+	</div>
+}
+
+// EmptyState is the friendly nothing-here block: an optional icon and a message.
+templ EmptyState(p EmptyStateProps) {
+	<div class="dw-empty" { p.Attrs.Templ()... }>
+		if p.Icon != "" {
+			<span class="dw-empty-icon" aria-hidden="true">
+				@ui.Icon(p.Icon)
+			</span>
+		}
+		<p class="dw-empty-msg">{ p.Message }</p>
+	</div>
+}
+
+// Spinner is the loading indicator; Block centers it as a block element.
+templ Spinner(p SpinnerProps) {
+	<span
+		class={ "dw-spinner", sizeClass("dw-spinner", p.Size), templ.KV("is-block", p.Block) }
+		role="status"
+		aria-label={ i18n.T(ctx, "ui.a11y.loading") }
+		{ p.Attrs.Templ()... }
+	>
+		@ui.Icon("spinner", ui.Spin)
+	</span>
+}
+
+// Skeleton is a reserved-space placeholder: it holds the exact box of the late
+// content so nothing shifts when it lands (the no-pop-in law).
+templ Skeleton(p SkeletonProps) {
+	{{ s := skeletonStyle(p) }}
+	<div
+		class="dw-skeleton"
+		aria-hidden="true"
+		if s != "" {
+			style={ s }
+		}
+		{ p.Attrs.Templ()... }
+	></div>
+}
+
+// Announcement is one screen-reader message appended into the page's live
+// region by beach.Patch{Announce: ...}. It is visually nothing — the region is
+// how a server-driven change reaches someone who cannot see it happen, not a
+// second place to put visible text (WCAG 4.1.3).
+templ Announcement(message string) {
+	<p class="sr-only">{ message }</p>
+}

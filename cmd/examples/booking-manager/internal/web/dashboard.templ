@@ -1,0 +1,57 @@
+// The desk's home page: what today demands.
+package web
+
+import (
+	"strconv"
+
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
+
+	"github.com/ThirdCoastInteractive/Beach/cmd/examples/booking-manager/internal/store"
+)
+
+// dashboardView is the day sheet: a stat row, then today's arrivals,
+// departures, and shifts, and the restock list.
+templ (a *app) dashboardView(authed bool, d dashboardData) {
+	@a.shellView("Dashboard", "dash", authed) {
+		@driftwood.Container(driftwood.ContainerProps{}) {
+			@driftwood.PageHeading(driftwood.PageHeadingProps{Title: "Today", Subtitle: "Arrivals, departures, who's working, and what's running out."})
+			@driftwood.Grid(driftwood.GridProps{Cols: 4}) {
+				@driftwood.Stat(driftwood.StatProps{Label: "New inquiries", Value: strconv.Itoa(d.NewInquiries)})
+				@driftwood.Stat(driftwood.StatProps{Label: "Arriving today", Value: strconv.Itoa(len(d.Arriving))})
+				@driftwood.Stat(driftwood.StatProps{Label: "Departing today", Value: strconv.Itoa(len(d.Departing))})
+				@driftwood.Stat(driftwood.StatProps{Label: "Low stock items", Value: strconv.Itoa(len(d.Low))})
+			}
+			@driftwood.Grid(driftwood.GridProps{Cols: 2}) {
+				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Arriving today"}) {
+					@bookingSheet(d.Arriving, "Nobody arrives today.")
+				}
+				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Departing today"}) {
+					@bookingSheet(d.Departing, "Nobody departs today.")
+				}
+				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "On the schedule"}) {
+					if len(d.Shifts) == 0 {
+						@driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "user", Message: "No shifts today."})
+					} else {
+						@driftwood.StackedList(driftwood.StackedListProps{Rows: shiftSheetRows(d.Shifts)})
+					}
+				}
+				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: "Restock"}) {
+					if len(d.Low) == 0 {
+						@driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "box", Message: "Everything is stocked above par."})
+					} else {
+						@driftwood.StackedList(driftwood.StackedListProps{Rows: lowSupplyRows(d.Low)})
+					}
+				}
+			}
+		}
+	}
+}
+
+// bookingSheet is one day-sheet list (arrivals or departures).
+templ bookingSheet(bookings []store.Booking, empty string) {
+	if len(bookings) == 0 {
+		@driftwood.EmptyState(driftwood.EmptyStateProps{Icon: "calendar", Message: empty})
+	} else {
+		@driftwood.StackedList(driftwood.StackedListProps{Rows: daySheetRows(bookings)})
+	}
+}

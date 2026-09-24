@@ -1,0 +1,685 @@
+/* Dashboard grid and chart rules. pkg/beach imports this into its stylesheet;
+   standalone.css loads it for other apps. */
+
+/* ==========================================================================
+ * Dashboard + chart CSS, ported from Atlas (atlas-dashboard.css). These are
+ * plain unlayered rules, not @utility: the toolbar/tooltip elements are
+ * injected by chart JS at runtime, so Tailwind's source scanner never sees
+ * the class names and on-demand emission would drop them.
+ * ========================================================================== */
+
+/* Dashboard grid. 12 columns at lg+, 6 at md, full-width stack below. A fixed
+   row track height is what gives chart widgets their height — .chart-svg fills
+   100% of the widget body, so a widget outside .dash-grid needs its own
+   reserved height. */
+.dash-grid {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  grid-auto-rows: minmax(11.5rem, auto);
+  gap: 0.75rem;
+}
+
+/* Column spans (widened at the breakpoints below). */
+.dash-col-3, .dash-col-4, .dash-col-6, .dash-col-8, .dash-col-12 { grid-column: span 1; }
+
+/* Row spans — number of grid track rows the widget occupies. */
+.dash-row-1 { grid-row: span 1; }
+.dash-row-2 { grid-row: span 2; }
+.dash-row-3 { grid-row: span 3; }
+.dash-row-4 { grid-row: span 4; }
+
+/* Widget shell */
+.dash-widget {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-panel);
+  box-shadow: 3px 3px 0 var(--color-line-strong);
+  overflow: hidden;
+}
+
+/* Widget body fills remaining height after header */
+.dash-widget-body {
+  flex: 1 1 0%;
+  min-height: 0;
+  padding: 0.5rem;
+  overflow: hidden;
+}
+
+.dash-widget-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--color-line-strong);
+  flex-shrink: 0;
+}
+
+/* Widget title — sits in .dash-widget-header alongside (or instead of) a
+   .heading-eyebrow; mono so the header matches the chart text inside. */
+.dash-widget-title {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: var(--color-fg-default);
+}
+
+/* Server-rendered SVG charts. The chart fills its widget body via
+   width/height 100% and percentage geometry. Text is sized in rem so it
+   stays a fixed screen size as the chart stretches. */
+.chart-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Chart fragment plumbing. Each fragment is a <figure> Datastar morphs by id;
+   the -col variant stacks a legend/ticks row around a stretching .chart-fill
+   so the SVG absorbs whatever height the widget body grants. */
+.chart-frag {
+  height: 100%;
+  width: 100%;
+}
+
+.chart-frag-col {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.chart-fill {
+  flex: 1 1 0%;
+  min-height: 0;
+  width: 100%;
+}
+
+.chart-ticks {
+  display: flex;
+  justify-content: space-between;
+  padding-inline: 0.25rem;
+  flex-shrink: 0;
+  margin-top: -0.25rem;
+}
+
+.chart-tick {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-fg-muted);
+}
+
+/* Horizontal bar chart. Font sizes in rem stay fixed regardless of the
+   widget's pixel dimensions. */
+.cbar-label {
+  fill: var(--color-fg-muted);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+.cbar-value {
+  fill: var(--color-fg-default);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.cbar-track {
+  fill: var(--color-line-soft);
+}
+
+.cbar-fill {
+  transition: opacity 0.12s ease;
+}
+
+.cbar:hover .cbar-fill {
+  opacity: 0.78;
+}
+
+.cbar:hover .cbar-label {
+  fill: var(--color-fg-default);
+}
+
+/* Hover effects for stacked/bullet/sankey/chord/stream/scatter.
+   chart-hover-fade: dim siblings when one element is hovered.
+   chart-hover-dot: enlarge dots on hover.
+   chart-hover-node: brighten nodes on hover. */
+.chart-hover-fade {
+  transition: opacity 0.15s ease;
+}
+
+.chart-svg:has(.chart-hover-fade:hover) .chart-hover-fade {
+  opacity: 0.12 !important;
+}
+
+.chart-svg:has(.chart-hover-fade:hover) .chart-hover-fade:hover {
+  opacity: 0.9 !important;
+}
+
+.chart-hover-dot {
+  transition: r 0.12s ease, opacity 0.12s ease;
+}
+
+.chart-hover-dot:hover {
+  opacity: 1 !important;
+  r: attr(r type(<number>), 8);
+  filter: drop-shadow(0 0 4px currentColor);
+}
+
+.chart-hover-node {
+  transition: filter 0.12s ease;
+}
+
+.chart-hover-node:hover {
+  filter: brightness(1.3);
+}
+
+/* Stacked bar segment hover */
+.cbar rect[fill]:not(.cbar-track):not([fill="transparent"]) {
+  transition: opacity 0.12s ease;
+}
+
+.cbar:hover rect[fill]:not(.cbar-track):not([fill="transparent"]) {
+  opacity: 0.85;
+}
+
+/* Click-to-pin: same dim-siblings effect as hover, but persistent. */
+.chart-svg.chart-pinned .chart-hover-fade {
+  opacity: 0.12 !important;
+}
+
+.chart-svg.chart-pinned .chart-pin-active {
+  opacity: 0.9 !important;
+  filter: brightness(1.2);
+}
+
+.chart-svg.chart-pinned .chart-hover-node {
+  opacity: 0.5;
+}
+
+.chart-svg.chart-pinned .chart-hover-node.chart-pin-active {
+  opacity: 1 !important;
+  filter: brightness(1.3);
+}
+
+/* Geo map (Equal Earth choropleth). Landmass fills come from the layout
+   (OKLCH ramp or the no-data neutral). The projection outline and meridian
+   graticule sit under the shapes, so opaque geography occludes the lines;
+   country borders are a translucent foreground stroke so they read over any
+   ramp fill without introducing a hard grid color. */
+.geomap-outline {
+  fill: var(--color-panel-hover);
+  fill-opacity: 0.3;
+  stroke: var(--color-line-strong);
+  stroke-opacity: 0.55;
+  stroke-width: 1;
+}
+
+.geomap-graticule {
+  fill: none;
+  stroke: var(--color-line-strong);
+  stroke-opacity: 0.22;
+  stroke-width: 0.5;
+}
+
+.geomap-graticule-major {
+  fill: none;
+  stroke: var(--color-line-strong);
+  stroke-opacity: 0.45;
+  stroke-width: 0.8;
+}
+
+/* Named parallels, in their traditional atlas styles: the equator solid and
+   emphasized, the tropics dashed, the polar circles dash-dotted. */
+.geomap-equator {
+  fill: none;
+  stroke: var(--color-line-strong);
+  stroke-opacity: 0.6;
+  stroke-width: 1;
+}
+
+.geomap-tropic {
+  fill: none;
+  stroke: var(--color-line-strong);
+  stroke-opacity: 0.5;
+  stroke-width: 0.7;
+  stroke-dasharray: 7 5;
+}
+
+.geomap-polar {
+  fill: none;
+  stroke: var(--color-line-strong);
+  stroke-opacity: 0.5;
+  stroke-width: 0.7;
+  stroke-dasharray: 7 4 1.5 4;
+}
+
+/* Alaska / Hawaii inset windows on the US composite: an opaque panel that
+   occludes the graticule behind it, framed with a hairline. */
+.geomap-inset {
+  fill: var(--color-panel);
+  stroke: var(--color-line-strong);
+  stroke-opacity: 0.5;
+  stroke-width: 1;
+}
+
+.geomap-shape {
+  stroke: var(--color-fg-default);
+  stroke-opacity: 0.16;
+  stroke-width: 0.75;
+  stroke-linejoin: round;
+  transition: filter 0.12s ease;
+}
+
+.geomap-shape:hover {
+  filter: brightness(1.25);
+}
+
+.geomap-city {
+  fill: var(--color-fg-muted);
+  stroke: var(--color-panel);
+  stroke-width: 1;
+}
+
+.geomap-city-label {
+  fill: var(--color-fg-muted);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  paint-order: stroke;
+  stroke: var(--color-panel);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
+
+.geomap-point {
+  opacity: 0.75;
+  transition: opacity 0.12s ease;
+}
+
+.geomap-point:hover {
+  opacity: 1;
+}
+
+.geomap-legend {
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.geomap-legend .cline-legend-item {
+  cursor: default;
+}
+
+/* Sankey / chord / bundle marks. Atlas carried these transitions as inline
+   style attributes in the SVG markup; here they live in CSS so the hover JS
+   modules (chart-sankey/chord/bundle-hover.js) only flip inline
+   opacity/filter/stroke-width values and the transition animates them. */
+.sankey-link {
+  transition: opacity 0.15s ease;
+  cursor: pointer;
+}
+
+.sankey-label {
+  cursor: pointer;
+}
+
+.chord-ribbon,
+.chord-arc {
+  transition: opacity 0.15s ease, filter 0.15s ease;
+  cursor: pointer;
+}
+
+.bundle-link {
+  transition: opacity 0.15s ease, stroke-width 0.15s ease;
+}
+
+.bundle-node {
+  transition: opacity 0.15s ease, filter 0.15s ease, r 0.12s ease;
+  cursor: pointer;
+}
+
+/* SSE bar race. The server publishes a whole new frame each tick; element ids
+   are stable per label, so Datastar morphs attributes in place and these
+   transitions tween the geometry — the animation is pure CSS, no client code.
+   Labels/values carry the same x/y transition so rows glide with their bars. */
+.race-fill {
+  transition: x 0.6s ease, y 0.6s ease, width 0.6s ease, height 0.6s ease, fill 0.6s ease;
+}
+
+.race-label,
+.race-value {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  transition: x 0.6s ease, y 0.6s ease;
+}
+
+.race-label {
+  fill: var(--color-fg-muted);
+}
+
+.race-value {
+  fill: var(--color-fg-default);
+  font-weight: 700;
+}
+
+/* Line / area chart. Outer-layer text is rem (fixed size); the line
+   stroke is held constant through the stretchy inner SVG via
+   vector-effect. The legend caps at ~3 rows and scrolls beyond that, so
+   many-series charts keep their plot height instead of shrinking. */
+.cline-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+  padding: 0.1rem 0.25rem 0.4rem;
+  flex-shrink: 0;
+  max-height: 4.5rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.cline-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-fg-muted);
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 0.1rem 0.2rem;
+  cursor: pointer;
+}
+
+.cline-legend-item:hover {
+  color: var(--color-fg-default);
+}
+
+.cline-legend-item.cline-off {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.cline-legend-swatch {
+  flex: none;
+}
+
+.cline-grid {
+  stroke: var(--color-line-soft);
+  stroke-opacity: 0.5;
+}
+
+.cline-ylabel {
+  fill: var(--color-fg-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-anchor: end;
+  dominant-baseline: central;
+}
+
+.cline-xlabel {
+  fill: var(--color-fg-muted);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-anchor: middle;
+  dominant-baseline: hanging;
+}
+
+.cline-line {
+  fill: none;
+  stroke-width: 2.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.cline-area {
+  stroke: none;
+  fill-opacity: 0.07;
+}
+
+.cline-ma {
+  fill: none;
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+  stroke-opacity: 0.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.cline-dot {
+  stroke: var(--color-paper);
+  stroke-width: 1;
+  opacity: 0.7;
+}
+
+.cline-ref {
+  stroke: var(--color-bad);
+  stroke-width: 1.5;
+  stroke-dasharray: 6 4;
+}
+
+.cline-ref-label {
+  fill: var(--color-bad);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-anchor: end;
+}
+
+.cline-footnote {
+  fill: var(--color-warn);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-anchor: middle;
+}
+
+.cline-overlay {
+  fill: transparent;
+  cursor: crosshair;
+}
+
+.cline-crosshair {
+  stroke: var(--color-fg-muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  pointer-events: none;
+}
+
+.cline-handle {
+  stroke: var(--color-paper);
+  stroke-width: 1.5;
+  pointer-events: none;
+}
+
+.cline-band {
+  fill: var(--color-accent);
+  fill-opacity: 0.1;
+  pointer-events: none;
+}
+
+.cline-startline {
+  stroke: var(--color-fg-muted);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+  stroke-opacity: 0.6;
+  pointer-events: none;
+}
+
+.cline-up {
+  color: var(--color-good);
+}
+
+.cline-down {
+  color: var(--color-bad);
+}
+
+.chart-tooltip-sub {
+  margin-top: -0.1rem;
+}
+
+.chart-tooltip-stat {
+  color: var(--color-fg-muted);
+  font-size: 0.7rem;
+}
+
+/* Chart tooltip — a single shared floating element the hover JS reuses.
+   Positioned fixed (viewport coords) and clamped in JS. */
+.chart-tooltip {
+  position: fixed;
+  z-index: 50;
+  pointer-events: none;
+  max-width: 18rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-panel);
+  box-shadow: 0 6px 20px -4px rgb(0 0 0 / 0.35);
+  font-family: var(--font-mono);
+  color: var(--color-fg-default);
+}
+
+.chart-tooltip-head {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+/* Separator line under the header when rows follow. */
+.chart-tooltip-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.45rem;
+  padding-top: 0.45rem;
+  border-top: 1px solid var(--color-line-soft);
+}
+
+.chart-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+}
+
+.chart-tooltip-label {
+  color: var(--color-fg-muted);
+  white-space: nowrap;
+}
+
+.chart-tooltip-value {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.chart-tooltip-dot {
+  display: inline-block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 0;
+  flex-shrink: 0;
+}
+
+/* Dashboard grid responsive breakpoints */
+
+@media (width >= 768px) {
+  .dash-grid   { grid-template-columns: repeat(6, 1fr); }
+  .dash-col-3  { grid-column: span 3; }
+  .dash-col-4  { grid-column: span 3; }
+  .dash-col-6  { grid-column: span 6; }
+  .dash-col-8  { grid-column: span 6; }
+  .dash-col-12 { grid-column: span 6; }
+}
+
+@media (width >= 1024px) {
+  .dash-grid   { grid-template-columns: repeat(12, 1fr); }
+  .dash-col-3  { grid-column: span 3; }
+  .dash-col-4  { grid-column: span 4; }
+  .dash-col-6  { grid-column: span 6; }
+  .dash-col-8  { grid-column: span 8; }
+  .dash-col-12 { grid-column: span 12; }
+}
+
+@media (width >= 1920px) {
+  .dash-col-6  { grid-column: span 3; }
+  .dash-col-8  { grid-column: span 4; }
+  .dash-col-12 { grid-column: span 6; }
+}
+
+/* Chart toolbar — controls chart-toolbar.js injects into the widget header. */
+.chart-toolbar-inline {
+  display: flex;
+  /* Wraps rather than staying on one line: at 320px a non-wrapping toolbar is
+     what pushes a whole dashboard sideways (WCAG 1.4.10). */
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.chart-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--color-line-soft);
+  background: transparent;
+  color: var(--color-fg-muted);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.1s, color 0.1s;
+  white-space: nowrap;
+}
+
+.chart-toolbar-btn:hover {
+  background: var(--color-panel-hover);
+  color: var(--color-fg-default);
+}
+
+/* Theme dropdown */
+.chart-toolbar-dropdown {
+  position: relative;
+}
+
+.chart-toolbar-menu {
+  display: none;
+  position: absolute;
+  top: calc(100% + 0.3rem);
+  right: 0;
+  z-index: 50;
+  min-width: 7rem;
+  padding: 0.25rem 0;
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-panel);
+  box-shadow: 0 6px 20px -4px rgb(0 0 0 / 0.4);
+}
+
+.chart-toolbar-menu-open {
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-toolbar-menu-item {
+  display: block;
+  width: 100%;
+  padding: 0.3rem 0.6rem;
+  border: none;
+  background: transparent;
+  color: var(--color-fg-muted);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.08s;
+}
+
+.chart-toolbar-menu-item:hover {
+  background: var(--color-panel-hover);
+  color: var(--color-fg-default);
+}

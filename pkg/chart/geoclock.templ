@@ -1,0 +1,89 @@
+// Sun clock rendering. Geometry comes from LayoutGeoClock (geoclock.go);
+// this template layers the day/night overlays over the shared Equal Earth
+// basemap: outline/wash → graticule → landmass → twilight band → night
+// polygon → terminator stroke → sun glyph → city markers. The header row
+// above the svg carries the UTC clock and subsolar readout. Auto-refresh is
+// server-driven: when RefreshAction is set the fragment re-fetches itself on
+// a 60s Datastar interval and morphs in place — no client script.
+package chart
+
+// GeoClockSVG renders the sun-clock map from precomputed geometry.
+templ GeoClockSVG(c GeoClock) {
+	<div class="geoclock-head">
+		<span class="geoclock-time">{ c.UTCLabel }</span>
+		<span class="geoclock-subsolar">{ c.SubsolarLabel }</span>
+	</div>
+	<svg
+		width="100%"
+		height="100%"
+		class="chart-svg geomap-svg geoclock-svg"
+		aria-hidden="true"
+		viewBox={ c.ViewBox }
+		preserveAspectRatio="xMidYMid meet"
+	>
+		if c.Map.Outline != "" {
+			<path class="geomap-outline" d={ c.Map.Outline }></path>
+		}
+		for _, m := range c.Map.Parallels {
+			<path class="geomap-graticule" d={ m }></path>
+		}
+		for _, m := range c.Map.Meridians {
+			<path class="geomap-graticule" d={ m }></path>
+		}
+		for _, m := range c.Map.MajorMeridians {
+			<path class="geomap-graticule-major" d={ m }></path>
+		}
+		if c.Map.Equator != "" {
+			<path class="geomap-equator" d={ c.Map.Equator }></path>
+		}
+		for _, m := range c.Map.Tropics {
+			<path class="geomap-tropic" d={ m }></path>
+		}
+		for _, m := range c.Map.PolarCircles {
+			<path class="geomap-polar" d={ m }></path>
+		}
+		for _, s := range c.Map.Shapes {
+			<path class="geomap-shape" d={ s.Path } fill={ s.Fill } fill-rule="evenodd" data-tip={ s.Tip }></path>
+		}
+		if c.TwilightPath != "" {
+			<path class="geoclock-twilight" d={ c.TwilightPath } fill-rule="evenodd"></path>
+		}
+		<path class="geoclock-night" d={ c.NightPath } fill-rule="evenodd"></path>
+		<path class="geoclock-terminator" d={ c.TerminatorPath }></path>
+		<g class="geoclock-sun" transform={ "translate(" + c.SunCX + " " + c.SunCY + ")" }>
+			<line class="geoclock-sun-ray" x1="0" y1="-11" x2="0" y2="-16"></line>
+			<line class="geoclock-sun-ray" x1="7.8" y1="-7.8" x2="11.3" y2="-11.3"></line>
+			<line class="geoclock-sun-ray" x1="11" y1="0" x2="16" y2="0"></line>
+			<line class="geoclock-sun-ray" x1="7.8" y1="7.8" x2="11.3" y2="11.3"></line>
+			<line class="geoclock-sun-ray" x1="0" y1="11" x2="0" y2="16"></line>
+			<line class="geoclock-sun-ray" x1="-7.8" y1="7.8" x2="-11.3" y2="11.3"></line>
+			<line class="geoclock-sun-ray" x1="-11" y1="0" x2="-16" y2="0"></line>
+			<line class="geoclock-sun-ray" x1="-7.8" y1="-7.8" x2="-11.3" y2="-11.3"></line>
+			<circle class="geoclock-sun-disc" cx="0" cy="0" r="7"></circle>
+		</g>
+		for _, city := range c.Cities {
+			<circle
+				class={ "geoclock-city", templ.KV("is-day", city.Day), templ.KV("is-night", !city.Day) }
+				cx={ city.CX }
+				cy={ city.CY }
+				r="4"
+				style="cursor:pointer"
+				data-tip={ city.Tip }
+			></circle>
+			<text class="geoclock-city-label" x={ city.CX } y={ city.CY } dy="-9" text-anchor="middle" pointer-events="none">{ city.Label }</text>
+			if city.TimeLabel != "" {
+				<text class="geoclock-city-time" x={ city.CX } y={ city.CY } dy="17" text-anchor="middle" pointer-events="none">{ city.TimeLabel }</text>
+			}
+		}
+	</svg>
+}
+
+// ChartGeoClockFragment wraps a server-rendered sun-clock map. When the
+// layout carries a RefreshAction the figure re-runs it every 60s via the
+// pkg/datastar interval helper (geoClockRefreshAttrs), so the clock keeps
+// itself current.
+templ ChartGeoClockFragment(id string, c GeoClock) {
+	<figure id={ id } class="chart-frag chart-frag-col" { geoClockRefreshAttrs(c).Templ()... }>
+		@GeoClockSVG(c)
+	</figure>
+}

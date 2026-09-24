@@ -1,0 +1,36 @@
+// SSE bar race rendering. Geometry comes from LayoutBarRace (barrace.go);
+// this template emits one frame. Animation is server-driven: the server
+// patches successive frames over SSE and Datastar morphs them into place,
+// keyed on the stable per-label group ids. The race-fill class carries the
+// CSS transition that tweens rect geometry between frames — no client script.
+package chart
+
+// BarRaceSVG renders one frame of the bar race described by lay. Element ids
+// and classes are stable across frames so Datastar patches morph instead of
+// replacing.
+templ BarRaceSVG(lay BarRaceLayout) {
+	<svg
+		xmlns="http://www.w3.org/2000/svg"
+		viewBox={ "0 0 " + F(lay.W) + " " + F(lay.H) }
+		preserveAspectRatio="xMidYMid meet"
+		class="chart-svg race"
+		if lay.Title != "" {
+			role="img"
+			aria-label={ lay.Title }
+		} else {
+			aria-hidden="true"
+		}
+	>
+		if lay.Title != "" {
+			<title>{ lay.Title }</title>
+		}
+		for _, b := range lay.Bars {
+			<g id={ b.ID } class="race-bar">
+				<title>{ b.Label + ": " + b.Value }</title>
+				<text class="race-label" x={ F(b.X - 8) } y={ F(b.LblY + 4) } text-anchor="end">{ b.Label }</text>
+				<rect class="race-fill" x={ F(b.X) } y={ F(b.Y) } width={ F(b.W) } height={ F(b.H) } rx="2" fill={ b.Color }></rect>
+				<text class="race-value" x={ F(b.ValX) } y={ F(b.LblY + 4) } text-anchor="start">{ b.Value }</text>
+			</g>
+		}
+	</svg>
+}

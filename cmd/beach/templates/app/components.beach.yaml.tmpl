@@ -1,0 +1,24 @@
+# {{.App}} ECS component schema.
+#
+# `make gen` (or `beach ecs gen`) reads this and emits typed Go component
+# structs + an ecs.Register call per component into components_gen.go. Delete
+# this file if the app has no live ECS slice — `make gen` skips it when absent.
+#
+# Each component is a flat struct of named fields. Field types are Go types
+# (int, int64, float64, bool, string) — keep them snapshot-friendly.
+package: components
+components:
+  - name: Position
+    doc: A board/grid position for an entity.
+    fields:
+      - { name: X, type: int }
+      - { name: Y, type: int }
+  - name: Health
+    doc: Hit points with a ceiling.
+    fields:
+      - { name: Current, type: int }
+      - { name: Max, type: int }
+  - name: Label
+    doc: A human-readable name shown in projections.
+    fields:
+      - { name: Text, type: string }

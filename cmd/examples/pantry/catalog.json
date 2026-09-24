@@ -1,0 +1,38 @@
+{
+  "app.title":            { "ref": "Pantry",                 "note": "App name / brand" },
+  "app.tagline":          { "ref": "At-home grocery ERP",     "note": "Brand subtitle" },
+  "nav.dashboard":        { "ref": "Dashboard",               "note": "Sidebar nav" },
+  "nav.items":            { "ref": "Inventory",               "note": "Sidebar nav" },
+  "nav.locations":        { "ref": "Locations",               "note": "Sidebar nav" },
+  "nav.lists":            { "ref": "Shopping lists",          "note": "Sidebar nav" },
+  "nav.login":            { "ref": "Sign in",                 "note": "Topbar link" },
+
+  "dash.heading":         { "ref": "Household dashboard",      "note": "Dashboard page title" },
+  "dash.subtitle":        { "ref": "Activity, stock and waste at a glance", "note": "Dashboard subtitle" },
+  "dash.spend":           { "ref": "Activity",                 "note": "Chart card heading (items added per day)" },
+  "dash.category":        { "ref": "Inventory by category",    "note": "Chart card heading" },
+  "dash.expiry":          { "ref": "Expiry calendar",          "note": "Chart card heading" },
+  "dash.waste":           { "ref": "Spoilage",                 "note": "Chart card heading (expired of total)" },
+
+  "items.heading":        { "ref": "Inventory",                "note": "Items page title" },
+  "items.subtitle":       { "ref": "%d items on hand",         "note": "Items page subtitle, n items" },
+  "items.empty":          { "ref": "No items yet — add your first.", "note": "Empty state" },
+  "items.add":            { "ref": "Add item",                 "note": "Button" },
+  "items.field.name":     { "ref": "Name",                     "note": "Form field" },
+  "items.field.qty":      { "ref": "Quantity",                 "note": "Form field" },
+  "items.field.location": { "ref": "Location",                 "note": "Form field" },
+  "items.field.expiry":   { "ref": "Expires",                  "note": "Form field" },
+  "items.expires.soon":   { "ref": "Expiring soon",            "note": "Badge" },
+  "items.expires.none":   { "ref": "No expiry",                "note": "Meta line" },
+
+  "loc.heading":          { "ref": "Storage locations",        "note": "Locations page title" },
+  "loc.empty":            { "ref": "No locations yet.",        "note": "Empty state" },
+
+  "lists.heading":        { "ref": "Shopping lists",           "note": "Lists page title" },
+  "lists.empty":          { "ref": "No shopping lists yet.",   "note": "Empty state" },
+
+  "login.heading":        { "ref": "Sign in",                  "note": "Login page title" },
+  "login.username":       { "ref": "Username",                 "note": "Login field" },
+  "login.password":       { "ref": "Password",                 "note": "Login field" },
+  "login.submit":         { "ref": "Sign in",                  "note": "Login button" }
+}

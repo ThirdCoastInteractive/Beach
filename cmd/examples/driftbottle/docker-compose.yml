@@ -1,0 +1,69 @@
+name: driftbottle
+
+# Standalone runner for the driftbottle example (anonymous stranger chat — the
+# hub/SSE fan-out benchmark).
+#
+#   cp .env.example .env           # then edit it (the passwords)
+#   docker compose up --build      →  http://localhost:8080
+#
+# The live matchmaking and feed are in-process (the hot path); Postgres and
+# ClickHouse are required for off-the-hot-path persistence and analytics — the
+# transcript archive and the event firehose. Both are internal-only (no host
+# port mapping); only the app is published. Connection strings are built here
+# from the credentials in .env and the service names, so they live in one place
+# and never localhost. The image is built from the repo root via the shared
+# Dockerfile (APP build arg); driftbottle has no private dependencies, so the
+# build needs no SSH.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-beach}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-beach}
+      POSTGRES_DB: ${POSTGRES_DB:-driftbottle}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    networks: [internal]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-beach} -d ${POSTGRES_DB:-driftbottle}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-beach}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-beach}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-driftbottle}
+    ulimits:
+      nofile: { soft: 262144, hard: 262144 }
+    volumes: [chdata:/var/lib/clickhouse]
+    networks: [internal]
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8123/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  driftbottle:
+    build:
+      context: ../../..
+      args: { APP: cmd/examples/driftbottle }
+    environment:
+      PORT: "8080"
+      # Reached by service name on the internal network; never published to host.
+      DATABASE_URL: postgres://${POSTGRES_USER:-beach}:${POSTGRES_PASSWORD:-beach}@postgres:5432/${POSTGRES_DB:-driftbottle}?sslmode=disable
+      CLICKHOUSE_DSN: clickhouse://${CLICKHOUSE_USER:-beach}:${CLICKHOUSE_PASSWORD:-beach}@clickhouse:9000/${CLICKHOUSE_DB:-driftbottle}
+    networks: [internal]
+    ports: ["${PORT:-8080}:8080"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      clickhouse: { condition: service_healthy }
+    restart: unless-stopped
+
+networks:
+  internal: { driver: bridge }
+
+volumes:
+  pgdata:
+  chdata:

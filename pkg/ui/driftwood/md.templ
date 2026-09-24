@@ -1,0 +1,61 @@
+package driftwood
+
+import (
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui"
+)
+
+// MarkdownEditor is a named textarea with a formatting toolbar and a live
+// preview pane. Toolbar clicks and preview/upload POSTs are the island in
+// /static/js/md-editor.js (data-md-cmd, data-preview-url, data-image-url,
+// data-tus-url, data-csrf). The Page shell does not load that module; editor
+// pages include `<script type="module" src="/static/js/md-editor.js" defer>`.
+templ MarkdownEditor(p MarkdownEditorProps) {
+	{{ name := mdEditorName(p) }}
+	{{ id := mdEditorID(p) }}
+	<div
+		class="dw-md"
+		if p.PreviewURL != "" {
+			data-preview-url={ p.PreviewURL }
+		}
+		if p.ImageURL != "" {
+			data-image-url={ p.ImageURL }
+		}
+		if p.TusURL != "" {
+			data-tus-url={ p.TusURL }
+		}
+		if p.CSRF != "" {
+			data-csrf={ p.CSRF }
+		}
+		{ p.Attrs.Templ()... }
+	>
+		if p.Label != "" {
+			<label class="dw-label" for={ id }>{ p.Label }</label>
+		}
+		<div class="dw-md-toolbar" role="group" aria-label={ i18n.T(ctx, "ui.a11y.md.toolbar") }>
+			for _, cmd := range mdCommands() {
+				<button type="button" class="dw-iconbtn dw-md-cmd" data-md-cmd={ cmd.Name } aria-label={ mdCmdLabel(ctx, cmd.Name) }>
+					@ui.Icon(cmd.Icon)
+				</button>
+			}
+		</div>
+		<div class="dw-md-panes">
+			<textarea
+				class="dw-textarea dw-md-source"
+				id={ id }
+				name={ name }
+				{ bind(name)... }
+				if p.Label == "" {
+					aria-label={ mdSourceLabel(ctx, p) }
+				}
+				if controlInvalid(ctx, false) {
+					aria-invalid="true"
+				}
+				if fieldDescFrom(ctx).describedBy != "" {
+					aria-describedby={ fieldDescFrom(ctx).describedBy }
+				}
+			>{ p.Value }</textarea>
+			<div class="dw-md-preview" aria-live="polite" aria-label={ i18n.T(ctx, "ui.a11y.md.preview") }></div>
+		</div>
+	</div>
+}

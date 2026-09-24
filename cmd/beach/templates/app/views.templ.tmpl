@@ -1,0 +1,80 @@
+// views.templ is the app's entire markup: the full document for GET / and the
+// live fragment every SSE patch morphs. Driftwood components are called
+// directly (@driftwood.Card{...} with children); wiring stays in main.go.
+// Compile with `make gen` (go tool templ generate) after editing.
+package main
+
+import (
+	"time"
+
+	"github.com/ThirdCoastInteractive/Beach/pkg/datastar"
+	"github.com/ThirdCoastInteractive/Beach/pkg/i18n"
+	"github.com/ThirdCoastInteractive/Beach/pkg/ui/driftwood"
+)
+
+// index is the complete document for GET /: driftwood page chrome around the
+// Tick card. The container fires @get('/live') on load so the fragment starts
+// streaming the moment the page lands.
+//
+// driftwood.Shell is the page frame, and it is worth using even here where
+// there is no navigation yet: it renders the <main> landmark, the skip link,
+// and the announcement region the framework patches error toasts into. Without
+// it those toasts have nowhere to land — see
+// docs/architecture/06-ui.md#accessible-by-construction.
+//
+// driftwood.LiveToggle opens the stream, and is the reason the @get is not on
+// the container. A clock that advances every second beside other content is the
+// textbook case WCAG 2.2.2 names: auto-updating information needs a way to stop
+// it. The control renders the element that opens the connection, so pausing does
+// not hide updates — it stops them, and the server drops the subscription too.
+//
+// Every string comes from the catalog (locales/*.json), so the page follows the
+// request's language and <html lang> stays honest. Delete the i18n calls if the
+// app is monolingual — nothing else depends on them.
+templ index(count int64) {
+	@driftwood.Page(driftwood.PageProps{Title: appName, Description: i18n.T(ctx, "home.tagline")}) {
+		@driftwood.Shell(driftwood.AppShellProps{}) {
+			@driftwood.Container(driftwood.ContainerProps{}) {
+				@driftwood.PageHeading(driftwood.PageHeadingProps{
+					Title:    appName,
+					Subtitle: i18n.T(ctx, "home.tagline"),
+				})
+				@driftwood.Card(driftwood.CardProps{Surface: driftwood.SurfacePanel, Heading: i18n.T(ctx, "home.tick.heading"), Level: 2}) {
+					@live(count)
+					@driftwood.Button(driftwood.ButtonProps{
+						Label:    i18n.T(ctx, "home.increment"),
+						Role:     driftwood.RoleAccent,
+						LeadIcon: "plus",
+						Attrs:    datastar.Attrs{datastar.OnClick("@post('/inc')")},
+					})
+					@driftwood.LiveToggle(driftwood.LiveToggleProps{
+						ID:     "tick-stream",
+						Stream: "/live",
+						Label:  i18n.T(ctx, "home.tick.heading"),
+					})
+				}
+			}
+		}
+	}
+}
+
+// live is the patch target: a fixed id="live" wrapper showing the server clock
+// and the current counter. The ticker, the action, and the stream catch-up all
+// re-render this one component and morph it in place by its own id.
+//
+// Three things share the word "live" here and are worth keeping apart:
+//
+//   - this fragment, which is visible content that changes;
+//   - the page's *live region* (driftwood.LiveRegion, rendered by Shell), which
+//     is where a change is announced;
+//   - LiveToggle, which is whether changes arrive at all.
+//
+// A screen reader is not told when this fragment updates, and that is the right
+// default for a clock: announced every second it would be unusable. A change
+// someone needs to hear about goes through beach.Patch{Announce} instead.
+templ live(count int64) {
+	<div id={ liveTarget }>
+		<p>{ i18n.T(ctx, "home.clock") } <strong>{ time.Now().Format("15:04:05") }</strong></p>
+		<p>{ i18n.T(ctx, "home.increments") } <strong>{ count }</strong></p>
+	</div>
+}
