@@ -1,0 +1,183 @@
+package components
+
+// DisplayHeading separates editorial scale from semantic heading level.
+templ DisplayHeading(p DisplayHeadingProps) {
+	<header class="dw-display" { p.Attrs.Templ()... }>
+		if p.Eyebrow != "" {
+			<p class="dw-eyebrow">{ p.Eyebrow }</p>
+		}
+		if p.Title != "" {
+			@heading(headingLevel(p.Level, 1), "dw-display-title") {
+				{ p.Title }
+			}
+		}
+		if p.Lead != "" {
+			<p class="dw-display-lead">{ p.Lead }</p>
+		}
+	</header>
+}
+
+// ProductStage keeps content order independent of the selected chrome. Layout
+// defaults are CSS-driven so background-rendered fragments remain portable.
+templ ProductStage(p ProductStageProps) {
+	if editorialProduct(p.Layout) {
+		<article class={ "dw-product-editorial", productLayoutClass(p.Layout), templ.KV("dw-product-inspection", len(p.Details) > 0) } { p.Attrs.Templ()... }>
+			<div class="dw-product-headline">
+				@DisplayHeading(DisplayHeadingProps{Eyebrow: p.Heading.Eyebrow, Title: p.Heading.Title, Level: p.Heading.Level, Attrs: p.Heading.Attrs})
+			</div>
+			if p.Model != "" || p.Edition != "" {
+				<div class="dw-product-folio">
+					if p.Model != "" {
+						<p class="dw-product-model">{ p.Model }</p>
+					}
+					if p.Edition != "" {
+						<p class="dw-product-edition">{ p.Edition }</p>
+					}
+				</div>
+			}
+			if p.Image.Src != "" {
+				<figure class="dw-product-art">
+					@Image(p.Image)
+					if p.Caption != "" {
+						<figcaption class="dw-product-caption">{ p.Caption }</figcaption>
+					}
+				</figure>
+			}
+			if len(p.Details) > 0 {
+				<div class="dw-product-details">
+					for _, detail := range p.Details {
+						<figure class="dw-product-detail">
+							if detail.Image.Src != "" {
+								@Image(detail.Image)
+							}
+							<figcaption>
+								if detail.Number != "" {
+									<p class="dw-detail-number">{ detail.Number }</p>
+								}
+								if detail.Heading != "" {
+									@heading(min(6, headingLevel(p.Heading.Level, 1)+1), "dw-detail-heading") {
+										{ detail.Heading }
+									}
+								}
+								<p>{ detail.Body }</p>
+							</figcaption>
+						</figure>
+					}
+				</div>
+			}
+			if p.Layout == ProductShowcase && len(p.Specs) > 0 {
+				<div class="dw-product-specs">
+					@SpecList(SpecListProps{Items: p.Specs})
+				</div>
+			}
+			<div class="dw-product-summary">
+				if p.Heading.Lead != "" {
+					<p>{ p.Heading.Lead }</p>
+				}
+				<div class="dw-product-actions">
+					{ children... }
+				</div>
+			</div>
+			if p.Layout != ProductShowcase && len(p.Specs) > 0 {
+				<div class="dw-product-specs">
+					@SpecList(SpecListProps{Items: p.Specs})
+				</div>
+			}
+		</article>
+	} else {
+		<div class={ "dw-product", productLayoutClass(p.Layout) } { p.Attrs.Templ()... }>
+			<div class="dw-product-copy">
+				@DisplayHeading(p.Heading)
+				{ children... }
+			</div>
+			if p.Image.Src != "" {
+				<div class="dw-product-media">
+					@Image(p.Image)
+				</div>
+			}
+		</div>
+	}
+}
+
+templ Worksheet(p WorksheetProps) {
+	<div class={ "dw-worksheet", templ.KV("dw-worksheet-no-reference", p.Reference == nil), templ.KV("dw-worksheet-no-summary", p.Summary == nil) } { p.Attrs.Templ()... }>
+		<header class="dw-worksheet-header">
+			@DisplayHeading(p.Heading)
+			if p.Number != "" {
+				<p class="dw-worksheet-number">{ p.Number }</p>
+			}
+		</header>
+		if p.Reference != nil {
+			<div class="dw-worksheet-reference">
+				@p.Reference
+			</div>
+		}
+		<div class="dw-worksheet-fields">
+			{ children... }
+		</div>
+		if p.Summary != nil {
+			<div class="dw-worksheet-summary">
+				@p.Summary
+			</div>
+		}
+	</div>
+}
+
+templ Publication(p PublicationProps) {
+	<div class={ "dw-publication", templ.KV("dw-publication-lit", p.Lighting) } { p.Attrs.Templ()... }>
+		{ children... }
+	</div>
+}
+
+templ EditorialSpread(p EditorialSpreadProps) {
+	<article class={ "dw-editorial-spread", templ.KV("dw-editorial-reverse",p.Reverse) } { p.Attrs.Templ()... }>
+		<div class="dw-editorial-heading">
+			@DisplayHeading(DisplayHeadingProps{Eyebrow: p.Heading.Eyebrow, Title: p.Heading.Title, Lead: p.Heading.Lead, Level: headingLevel(p.Heading.Level, 2), Attrs: p.Heading.Attrs})
+		</div>
+		if p.Image.Src != "" {
+			<figure class="dw-editorial-image">
+				@Image(p.Image)
+				if p.Caption != "" {
+					<figcaption class="dw-product-caption">{ p.Caption }</figcaption>
+				}
+			</figure>
+		}
+		<div class="dw-editorial-columns">
+			for _, column := range p.Columns {
+				<section class="dw-editorial-column">
+					if column.Number != "" {
+						<p class="dw-editorial-number">{ column.Number }</p>
+					}
+					if column.Heading != "" {
+						@heading(min(6, headingLevel(p.Heading.Level, 2)+1), "dw-editorial-subhead") {
+							{ column.Heading }
+						}
+					}
+					<p>{ column.Body }</p>
+				</section>
+			}
+		</div>
+		<div class="dw-editorial-actions">
+			{ children... }
+		</div>
+	</article>
+}
+
+templ SpecList(p SpecListProps) {
+	if p.Summary != "" {
+		<details class="dw-spec-disclosure" { p.Attrs.Templ()... }>
+			<summary class="dw-spec-summary">{ p.Summary }</summary>
+			@specList(SpecListProps{Items: p.Items})
+		</details>
+	} else {
+		@specList(p)
+	}
+}
+
+templ specList(p SpecListProps) {
+	<dl class="dw-spec-list" { p.Attrs.Templ()... }>
+		for _, item := range p.Items {
+			<div class="dw-spec-item"><dt>{ item.Label }</dt><dd>{ item.Value }</dd></div>
+		}
+	</dl>
+}

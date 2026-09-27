@@ -44,7 +44,7 @@ templ Composer(p ComposerProps) {
 		if p.Post != "" {
 			data-on:submit={ "@post('" + p.Post + "')" }
 		} else {
-			data-on:submit__prevent=""
+			data-on:submit__prevent="void 0"
 		}
 		{ p.Attrs.Templ()... }
 	>

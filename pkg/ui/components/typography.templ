@@ -1,0 +1,9 @@
+package components
+
+// Text provides semantic type roles without application CSS utility strings.
+templ Text(p TextProps) {
+	<p class={ textRoleClass(p.Role) } {p.Attrs.Templ()...}>
+		{p.Value}
+		{children...}
+	</p>
+}
